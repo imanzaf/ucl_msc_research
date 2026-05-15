@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-05-15T22:06:40",
+  "decision_type": "research",
+  "author": "user",
+  "content": "Use cross-attention.\"}'",
+  "source": "transcript",
+  "content_hash": "0289fd4cde029d9cd6ceea2ff84a634ebfeb5af6296c3f3bd0b839a0ab3acecf"
+}

@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-05-15T22:06:40",
+  "decision_type": "methodology",
+  "author": "claude",
+  "content": "\": DecisionType.METHODOLOGY,",
+  "source": "transcript",
+  "content_hash": "30cc09da951086a9a86c7218aec9b9f09e3ba58be9c40107b9ba0574c5174a73"
+}

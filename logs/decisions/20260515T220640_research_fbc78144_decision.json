@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-05-15T22:06:40",
+  "decision_type": "research",
+  "author": "claude",
+  "content": "Prefer sparse attention over dense for long sequences.\"}' \\",
+  "source": "transcript",
+  "content_hash": "fbc78144b58ad1772e45f6da475fe16b00cdca95a9567ede6ef5630435e51ea5"
+}

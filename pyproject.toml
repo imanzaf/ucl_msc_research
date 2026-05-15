@@ -1,0 +1,14 @@
+[project]
+name = "ucl-msc-research"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "bibtexparser>=1.4.4",
+    "httpx>=0.28.1",
+    "openai>=2.2.0",
+    "playwright>=1.48.0",
+    "pydantic>=2.10.6",
+    "pydantic-settings>=2.8.1",
+]
