@@ -70,19 +70,21 @@ def _extract_decisions(text: str, source: str, author: AuthorType) -> list[dict]
     for line in text.splitlines():
         for prefix, dtype in _PATTERNS.items():
             if prefix in line:
-                content = line[line.index(prefix) + len(prefix):].strip()
+                content = line[line.index(prefix) + len(prefix) :].strip()
                 if not content:
                     continue
                 content_hash = hashlib.sha256(content.encode()).hexdigest()
-                entries.append({
-                    "schema_version": "1.0",
-                    "timestamp": datetime.now().isoformat(timespec="seconds"),
-                    "decision_type": dtype.value,
-                    "author": author.value,
-                    "content": content,
-                    "source": source,
-                    "content_hash": content_hash,
-                })
+                entries.append(
+                    {
+                        "schema_version": "1.0",
+                        "timestamp": datetime.now().isoformat(timespec="seconds"),
+                        "decision_type": dtype.value,
+                        "author": author.value,
+                        "content": content,
+                        "source": source,
+                        "content_hash": content_hash,
+                    }
+                )
     return entries
 
 

@@ -2,7 +2,8 @@
 """validate_citations.py — Citation validator for LaTeX/BibTeX projects.
 
 Usage:
-    uv run python .claude/skills/citation-validator/scripts/validate_citations.py [tex-dir] [--bib all|key [key ...]] [--no-semantic]
+    uv run python .claude/skills/citation-validator/scripts/validate_citations.py
+        [tex-dir] [--bib all|key [key ...]] [--no-semantic]
 
 Arguments:
     tex-dir          Directory containing .bib and .tex files (default: .)
@@ -22,10 +23,9 @@ import re
 import subprocess
 import sys
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Optional
-
-from enum import Enum
 
 import bibtexparser
 import httpx
@@ -37,6 +37,7 @@ from configs import get_api_settings
 settings = get_api_settings()
 
 # ── Enums ──────────────────────────────────────────────────────────────────────
+
 
 class ValidationStatus(str, Enum):
     OK = "ok"
@@ -51,6 +52,7 @@ class SemanticVerdict(str, Enum):
 
 
 # ── Data models ────────────────────────────────────────────────────────────────
+
 
 class MetadataMismatch(BaseModel):
     field: str
@@ -90,6 +92,7 @@ class Report(BaseModel):
 
 
 # ── BibTeX helpers ─────────────────────────────────────────────────────────────
+
 
 def _strip_braces(val: str) -> str:
     return val.strip("{}").strip()
@@ -134,6 +137,7 @@ def parse_bib_files(tex_dir: Path) -> dict[str, dict]:
 
 # ── CrossRef metadata ──────────────────────────────────────────────────────────
 
+
 async def fetch_crossref(doi: str) -> dict:
     url = f"https://api.crossref.org/works/{doi}"
     headers = {"User-Agent": "citation-validator/1.0 (mailto:research@ucl.ac.uk)"}
@@ -156,7 +160,9 @@ def compare_metadata(bib_entry: dict, crossref: dict) -> list[MetadataMismatch]:
         cr_title = cr_titles[0].strip()
         bib_title = _strip_braces(fields.get("title", ""))
         if bib_title and cr_title.lower() != bib_title.lower():
-            mismatches.append(MetadataMismatch(field="title", bib_value=bib_title, crossref_value=cr_title))
+            mismatches.append(
+                MetadataMismatch(field="title", bib_value=bib_title, crossref_value=cr_title)
+            )
 
     published = (
         crossref.get("published", {}).get("date-parts")
@@ -167,15 +173,18 @@ def compare_metadata(bib_entry: dict, crossref: dict) -> list[MetadataMismatch]:
         cr_year = str(published[0][0])
         bib_year = _strip_braces(fields.get("year", ""))
         if bib_year and cr_year != bib_year:
-            mismatches.append(MetadataMismatch(field="year", bib_value=bib_year, crossref_value=cr_year))
+            mismatches.append(
+                MetadataMismatch(field="year", bib_value=bib_year, crossref_value=cr_year)
+            )
 
     cr_journal = (crossref.get("container-title") or [""])[0].strip()
     bib_journal = _strip_braces(fields.get("journal") or fields.get("booktitle") or "")
     if cr_journal and bib_journal and cr_journal.lower() != bib_journal.lower():
-        mismatches.append(MetadataMismatch(field="journal", bib_value=bib_journal, crossref_value=cr_journal))
+        mismatches.append(
+            MetadataMismatch(field="journal", bib_value=bib_journal, crossref_value=cr_journal)
+        )
 
     return mismatches
-
 
 
 # ── .tex citation context extraction ──────────────────────────────────────────
@@ -198,20 +207,28 @@ def extract_citation_contexts(bib_key: str, tex_dir: Path) -> list[CitationConte
                 context_text = " ".join(
                     ln.strip() for ln in lines[window_start:window_end] if ln.strip()
                 )
-                contexts.append(CitationContext(
-                    tex_file=str(tex_file),
-                    line_number=i + 1,
-                    context=context_text,
-                ))
+                contexts.append(
+                    CitationContext(
+                        tex_file=str(tex_file),
+                        line_number=i + 1,
+                        context=context_text,
+                    )
+                )
     return contexts
 
 
 # ── OpenAI semantic check ──────────────────────────────────────────────────────
 
 _DEVELOPER_PROMPT = """\
-Given a provided .bib reference and a paragraph that cites or uses that reference, use external web search tools to retrieve relevant, up-to-date information about the reference. Carefully analyze the details gathered about the source and evaluate whether the reference in the paragraph is accurate, appropriate, and semantically correct with respect to its content, argument, or context.
+Given a provided .bib reference and a paragraph that cites or uses that reference,
+use external web search tools to retrieve relevant, up-to-date information about the reference.
+Carefully analyze the details gathered about the source and evaluate whether the reference in the paragraph is accurate,
+appropriate, and semantically correct with respect to its content, argument, or context.
 
-Persist through all necessary web searches until you are confident you have a comprehensive understanding of the referenced work. Think step-by-step: first, interpret the .bib reference and its metadata, then search for sources to understand the reference's content, followed by a contextual analysis of the paragraph's usage. Only after reasoning through these steps, provide your final evaluation as to whether the citation has been used correctly.
+Persist through all necessary web searches until you are confident you have a comprehensive understanding of the referenced work.
+Think step-by-step: first, interpret the .bib reference and its metadata, then search for sources to understand the reference's content,
+followed by a contextual analysis of the paragraph's usage.
+Only after reasoning through these steps, provide your final evaluation as to whether the citation has been used correctly.
 
 ## Step-by-Step Instructions
 
@@ -253,8 +270,7 @@ def check_semantics(
     bib_key = entry["key"]
     bib_text = _format_bib_entry(entry)
     context_text = "\n".join(
-        f"  [{Path(c.tex_file).name}:{c.line_number}] {c.context}"
-        for c in contexts
+        f"  [{Path(c.tex_file).name}:{c.line_number}] {c.context}" for c in contexts
     )
 
     user_content = (
@@ -294,6 +310,7 @@ def check_semantics(
 
 # ── Per-entry validation ───────────────────────────────────────────────────────
 
+
 async def validate_entry(
     bib_key: str,
     entry: dict,
@@ -327,13 +344,17 @@ async def validate_entry(
         if assessment:
             if assessment.verdict == SemanticVerdict.INCORRECT:
                 result.status = ValidationStatus.ERROR
-            elif assessment.verdict == SemanticVerdict.UNCERTAIN and result.status == ValidationStatus.OK:
+            elif (
+                assessment.verdict == SemanticVerdict.UNCERTAIN
+                and result.status == ValidationStatus.OK
+            ):
                 result.status = ValidationStatus.WARNING
 
     return result
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
+
 
 async def run(args: argparse.Namespace) -> int:
     tex_dir = Path(args.tex_dir).resolve()
