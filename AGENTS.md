@@ -68,6 +68,12 @@ Methodology decision: <decision and brief rationale>
 
 The `Stop` hook automatically scans your response for these lines and persists them to `logs/decisions/`. Do not paraphrase or vary the prefix — the hook matches the exact strings `Research decision:` and `Methodology decision:`. Keep each decision on a single line.
 
+## Documentation
+
+- Keep `README.md` current whenever the project structure, key features, or research direction changes — it is the first entry point for anyone reading the repo
+- Document every experiment runner or evaluation procedure in its own file under `docs/` (e.g. `docs/experiments/deception_eval.md`); include the exact `uv run ...` command to run it, all relevant config and output paths, and direct file references (e.g. `src/models/detector.py`, `configs/experiment_settings.py`)
+- Reference source files and scripts by path within docs so they stay navigable as the codebase grows
+
 ## Dissertation writing rules
 
 - All `.tex` citations must resolve to `references.bib`
