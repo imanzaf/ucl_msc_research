@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """write_section.py — Writes or updates LaTeX academic sections to publication quality.
 
-Calls Claude Opus 4.7 via the Anthropic API with extended thinking and structured
+Calls Claude Opus 4.6 via the Anthropic API with extended thinking and structured
 output. Accepts code directories, context files, existing sections, and freeform
 instructions. Automatically invokes the citation validator after literature review
 sections.
@@ -27,7 +27,7 @@ from configs import get_api_settings
 settings = get_api_settings()
 
 _LOG_DIR = Path("logs/academic_author")
-_MODEL = "claude-opus-4-7"
+_MODEL = "claude-opus-4-6"
 _THINKING_BUDGET = 12_000
 _MAX_FILE_BYTES = 80_000  # per file
 _MAX_TOTAL_BYTES = 400_000  # total context ceiling

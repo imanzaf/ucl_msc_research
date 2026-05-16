@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """review_tex.py — Reviews and rewrites LaTeX academic text to publication quality.
 
-Calls Claude Opus 4.7 via the Anthropic API with extended thinking and structured
+Calls Claude Opus 4.6 via the Anthropic API with extended thinking and structured
 output (tool use) to enforce typed Pydantic responses for both modes.
 
 Usage:
@@ -25,7 +25,7 @@ from configs import get_api_settings
 settings = get_api_settings()
 
 _LOG_DIR = Path("logs/tex_reviews")
-_MODEL = "claude-opus-4-7"
+_MODEL = "claude-opus-4-6"
 _THINKING_BUDGET = 10_000
 
 
