@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-05-15T22:06:40",
-  "decision_type": "research",
-  "author": "claude",
-  "content": "...` or `Methodology decision: ...` will now be automatically captured and persisted.",
-  "source": "transcript",
-  "content_hash": "b471cb1e68507e7350aac6499d1d7c5ee22f40896f05c2d2d3750a71d5e9a239"
-}

@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-05-15T22:06:40",
-  "decision_type": "research",
-  "author": "claude",
-  "content": "\": DecisionType.RESEARCH,",
-  "source": "transcript",
-  "content_hash": "e55b6de78266dce83c7d5e58fee986947bfdb126ed9e292fc2d51e1b2793c8e6"
-}

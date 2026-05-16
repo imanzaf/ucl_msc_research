@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-05-15T22:06:40",
-  "decision_type": "methodology",
-  "author": "claude",
-  "content": "Evaluate on held-out splits only, never touch test set during ablations.\"}' \\",
-  "source": "transcript",
-  "content_hash": "f191b2184aaa481e832e3d6d3c30662a6f59299cb1e48968cb9aa988383db668"
-}

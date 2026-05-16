@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/usr/bin/python3 scripts/log_decisions.py --author codex"
+            "command": "/usr/bin/python3 scripts/log_decisions.py --author user"
           }
         ]
       }

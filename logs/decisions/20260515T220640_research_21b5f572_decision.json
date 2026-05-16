@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-05-15T22:06:40",
-  "decision_type": "research",
-  "author": "claude",
-  "content": "Use cross-attention over a learned query bank.\\nMethodology decision: Evaluate on held-out splits only.\"}' \\",
-  "source": "transcript",
-  "content_hash": "21b5f572d2e3958931bc50217f7ea01d7a6121b9f60e70326a28760f509e5d5f"
-}

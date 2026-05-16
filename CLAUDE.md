@@ -1,57 +1,74 @@
-# Claude Code Instructions
+# UCL MSc Research Project
 
-This repository contains code, experiments, notes, and dissertation material for the UCL IFT MSc research project. Treat `docs/DISTINCTION_GUIDE.md` as the project rubric and writing standard when working on dissertation-facing content.
+Dissertation + experiments on AI deception detection in financial agents.
 
-## Python And Environment Rules
+## Commands
 
-- Use `uv` for Python environment management, dependency management, tests, scripts, and experiment runs.
-- Add dependencies with `uv add` or `uv add --dev`; do not use `pip install`, `conda`, `poetry`, or `pipenv` for this repo.
-- Run project commands through `uv run`, for example `uv run pytest`, `uv run python path/to/script.py`, or `uv run ruff check`.
-- Do not commit virtual environments, generated caches, or local runtime state.
+```bash
+uv run python <script>          # always use uv run, never python directly
+uv add <package>                # add deps — never pip install
+uv run pytest                   # run tests
+uv run pre-commit run --all-files  # run black + isort + flake8
+```
 
-## Configuration And Settings
+## Project structure
 
-- Use `pydantic-settings` `BaseSettings` subclasses for all environment variables and file-based config — never read `os.environ` directly in application code.
-- Separate settings classes by concern rather than putting everything in one class: e.g. `APISettings` for external API credentials, `ExperimentSettings` for run parameters, `DataSettings` for paths, etc. Each class should have a single, clear purpose.
-- Store settings classes under `configs/`, one file per class, re-exported from `configs/__init__.py`.
-- Each `BaseSettings` subclass should load from `env.static` first then `.env` (`.env` takes precedence), using `env_file=["env.static", ".env"]` in `SettingsConfigDict`.
-- Instantiate each settings class once via an `@lru_cache`-wrapped getter (e.g. `get_api_settings()`), never construct settings objects inline or in loops.
+```
+.claude/skills/          # project skills (citation-validator, tex-reviewer, academic-author)
+configs/                 # pydantic-settings classes, one file per concern
+scripts/                 # runnable scripts (log_decisions.py)
+src/                     # source code for research and experiments
+.env.static              # base config (committed, contains placeholders)
+```
 
-## Data Models And Interfaces
+## Environment and config
 
-- Use Pydantic for structured data models that cross boundaries: configs, datasets, experiment records, metrics, model outputs, API payloads, persisted JSON/JSONL, and LLM structured outputs.
-- Prefer Pydantic v2 style: `BaseModel`, `Field`, `ConfigDict`, `field_validator`, and `model_validator`.
-- For any field with a fixed set of valid string values, define a `str, Enum` and use it as the field type — do not use bare `str` with a comment listing allowed values. This applies to model outputs, status fields, verdict fields, and any categorical label.
-- Define explicit schema versions for persisted records that may evolve.
-- Keep models close to the boundary they validate unless the same schema is shared across modules.
-- Avoid untyped dictionaries for research data. If a dict survives beyond a tiny local block, make it a Pydantic model.
+- Settings load from `.env.static` first, then `.env` — `.env` wins on conflicts
+- Never read `os.environ` directly; use `get_<desc>_settings()` from `configs/`
+- Python version is pinned to 3.11 via `.python-version`
 
-## Structured Outputs
+## Code conventions
 
-- Persist experiment outputs as structured files: JSONL for records, JSON for configs/summaries, CSV/Parquet for tabular data.
-- LLM calls must request structured output when the result is consumed by code or used as evidence.
-- Raw model outputs may be saved only as provenance alongside parsed structured records; do not use raw text as the only experiment artifact.
-- Include enough metadata to reproduce each result: timestamp, code version or commit, command, config path, random seed, model/provider, dataset/source identifiers, and schema version.
+- Pydantic v2 (`BaseModel`, `Field`, `model_validator`) for all structured data crossing boundaries
+- `str, Enum` for any field with a fixed set of string values — never bare `str` with a comment
+- `BaseSettings` subclasses go in `configs/`, one class per concern, each with an `@lru_cache` getter
+- Structured outputs saved as JSONL (records) or JSON (configs/summaries); include `schema_version`
+- Line length: 150 (black + isort + flake8 all configured to match)
 
-## Data Verification
+## Code style
 
-- Validate external data at ingestion with Pydantic models or explicit schema checks.
-- Verify required columns, types, ID uniqueness, missing-value policy, label definitions, split membership, and row counts before analysis.
-- Guard against train/test leakage and duplicate records across splits.
-- For datasets and paper corpora, preserve source URLs/DOIs, retrieval dates, and any filtering criteria.
-- Treat all quantitative claims as requiring reproducible evidence from checked-in code, saved outputs, or cited sources.
+**Functions** — single responsibility (one job per function; if you need "and" in the description, split it); exit early with guard clauses rather than deeply nested conditionals
 
-## Experiment Standards
+**Comments** — every function must have a docstring: one sentence on what it does, followed by its arguments if non-obvious; inline comments explain *why* only when non-obvious
 
-- Experiments must be runnable from a documented `uv run ...` command.
-- Prefer small smoke-test fixtures before full experiment runs.
-- Store configs separately from code when parameters affect reported results.
-- Use deterministic seeds where possible and report nondeterminism where not possible.
-- Never overwrite important experiment outputs without preserving provenance or making the replacement explicit.
+**Error handling** — never silently swallow errors (`except: pass` is always wrong); handle errors where there is a real recovery path or a useful message to surface, let everything else propagate
 
-## Research Integrity
+**Naming** — avoid abbreviations beyond common conventions (`idx`, `n`, `df`, `cls`)
 
-- Never fabricate citations, datasets, metrics, or results.
-- Dissertation TeX files should cite sources with citation commands that resolve to `references.bib`.
-- Harvard formatting for TeX output should be handled by the LaTeX bibliography/citation style, while `references.bib` stores verified source metadata.
-- Record important research choices by writing prompts or notes with an explicit line such as `Research decision: ...` or `Methodology decision: ...`; the repo hook logs those lines locally.
+**Types** — always type-hint function signatures; use `List[str]`, `Dict[str, int]` etc. from `typing`
+
+## Academic skills (`.claude/skills/`)
+
+| Skill | When to use | Script |
+|-------|-------------|--------|
+| `academic-author` | Write new sections or update existing with new context | `write_section.py` |
+| `tex-reviewer` | Critique and improve existing `.tex` content | `review_tex.py` |
+| `citation-validator` | Validate `.bib` entries against CrossRef + semantic check | `validate_citations.py` |
+
+All three use the Anthropic or OpenAI API — keys must be set in `.env`.
+
+## Decision logging
+
+Whenever you identify or make a research or methodology decision — a choice of approach, model, dataset, evaluation strategy, framing, or any other consequential research choice — write it on its own line in your response using exactly this format:
+
+```
+Research decision: <decision and brief rationale>
+Methodology decision: <decision and brief rationale>
+```
+
+The `Stop` hook automatically scans your response for these lines and persists them to `logs/decisions/`. Do not paraphrase or vary the prefix — the hook matches the exact strings `Research decision:` and `Methodology decision:`. Keep each decision on a single line.
+
+## Dissertation writing rules
+
+- All `.tex` citations must resolve to `references.bib`
+- Never fabricate citations, results, or metrics

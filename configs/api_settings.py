@@ -9,13 +9,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class APISettings(BaseSettings):
     """Project-wide API settings.
 
-    Loaded from env.static first, then .env (values in .env take precedence).
+    Loaded from .env.static first, then .env (.env takes precedence).
     Both files are optional; any field can also be set via a real env var,
     which takes precedence over all files.
     """
 
     model_config = SettingsConfigDict(
-        env_file=["env.static", ".env"],
+        env_file=[".env.static", ".env"],
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -26,11 +26,37 @@ class APISettings(BaseSettings):
         description="OpenAI API key used by the citation validator.",
     )
 
+    anthropic_api_key_tex_reviewer: str = Field(
+        default="",
+        validation_alias="ANTHROPIC_API_KEY_TEX_REVIEWER",
+        description="Anthropic API key used by the tex reviewer.",
+    )
+
+    anthropic_api_key_academic_author: str = Field(
+        default="",
+        validation_alias="ANTHROPIC_API_KEY_ACADEMIC_AUTHOR",
+        description="Anthropic API key used by the academic author.",
+    )
+
     @field_validator("openai_api_key_citation_validator")
     @classmethod
-    def key_must_be_set(cls, v: str) -> str:
+    def openai_key_must_be_set(cls, v: str) -> str:
         if not v:
-            raise ValueError("OPENAI_API_KEY_CITATION_VALIDATOR must be set in .env or env.static")
+            raise ValueError("OPENAI_API_KEY_CITATION_VALIDATOR must be set in .env.static or .env")
+        return v
+
+    @field_validator("anthropic_api_key_tex_reviewer")
+    @classmethod
+    def anthropic_tex_key_must_be_set(cls, v: str) -> str:
+        if not v:
+            raise ValueError("ANTHROPIC_API_KEY_TEX_REVIEWER must be set in .env.static or .env")
+        return v
+
+    @field_validator("anthropic_api_key_academic_author")
+    @classmethod
+    def anthropic_author_key_must_be_set(cls, v: str) -> str:
+        if not v:
+            raise ValueError("ANTHROPIC_API_KEY_ACADEMIC_AUTHOR must be set in .env.static or .env")
         return v
 
 

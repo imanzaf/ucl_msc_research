@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """log_decisions.py — Extracts and persists research/methodology decisions.
 
-Called by Claude Code hooks on UserPromptSubmit and Stop events.
+Called by Claude Code or Codex hooks on UserPromptSubmit and Stop events.
 Reads the hook event JSON from stdin, extracts lines matching
 "Research decision: ..." or "Methodology decision: ...", deduplicates
 by content hash, and saves new entries to logs/decisions/.
 
-Can also be called directly (e.g. by Codex) with --author to override
-the inferred author.
+Should be called with --author to specify the author.
 """
 
 from __future__ import annotations
@@ -124,22 +123,39 @@ def main() -> None:
         transcript_path = event.get("transcript_path", "")
         if transcript_path and Path(transcript_path).exists():
             try:
-                for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
-                    try:
-                        msg = json.loads(line)
-                    except Exception:
-                        continue
-                    # Infer author from message role unless explicitly overridden
-                    role = msg.get("type", "")
-                    if args.author:
-                        author = AuthorType(args.author)
-                    elif role == "assistant":
-                        author = AuthorType.CLAUDE
-                    else:
-                        author = AuthorType.USER
-                    candidates.extend(
-                        _extract_decisions(_extract_text(msg), source="transcript", author=author)
-                    )
+                lines = Path(transcript_path).read_text(encoding="utf-8").splitlines()
+                author = AuthorType(args.author) if args.author else AuthorType.CLAUDE
+
+                if author == AuthorType.CLAUDE:
+                    # Only scan the most recent assistant message to avoid
+                    # re-processing the full conversation history on every turn
+                    for line in reversed(lines):
+                        try:
+                            msg = json.loads(line)
+                            if msg.get("type") == "assistant":
+                                candidates = _extract_decisions(
+                                    _extract_text(msg), source="transcript", author=author
+                                )
+                                break
+                        except Exception:
+                            continue
+                else:
+                    for line in lines:
+                        try:
+                            msg = json.loads(line)
+                        except Exception:
+                            continue
+                        role = msg.get("type", "")
+                        msg_author = (
+                            author
+                            if args.author
+                            else (AuthorType.CLAUDE if role == "assistant" else AuthorType.USER)
+                        )
+                        candidates.extend(
+                            _extract_decisions(
+                                _extract_text(msg), source="transcript", author=msg_author
+                            )
+                        )
             except Exception:
                 pass
 

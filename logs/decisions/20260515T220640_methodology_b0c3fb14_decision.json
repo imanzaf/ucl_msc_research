@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-05-15T22:06:40",
-  "decision_type": "methodology",
-  "author": "claude",
-  "content": "Normalise all inputs to zero mean unit variance before training.\"}}' > /tmp/test_transcript.jsonl",
-  "source": "transcript",
-  "content_hash": "b0c3fb14085edb685e8616dda2ce1cb675f99f9407beff1c71510584792cbac3"
-}

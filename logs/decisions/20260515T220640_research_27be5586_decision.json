@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-05-15T22:06:40",
-  "decision_type": "research",
-  "author": "claude",
-  "content": "Use LoRA rank 16 for adapter fine-tuning.\"}' \\",
-  "source": "transcript",
-  "content_hash": "27be558670dc1705ee82059ece406787a981fe070b3159ba9cfad9092ade976d"
-}

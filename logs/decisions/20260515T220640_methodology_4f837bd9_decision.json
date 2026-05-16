@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-05-15T22:06:40",
-  "decision_type": "methodology",
-  "author": "claude",
-  "content": "Evaluate on held-out splits only.\"}' \\",
-  "source": "transcript",
-  "content_hash": "4f837bd9ac93b7626731ee73e28f3b726d9449b27c7f2cf1b10f658a58193ce8"
-}
