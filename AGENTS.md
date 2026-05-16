@@ -54,6 +54,7 @@ src/                     # source code for research and experiments
 | `academic-author` | Write new sections or update existing with new context | `write_section.py` |
 | `tex-reviewer` | Critique and improve existing `.tex` content | `review_tex.py` |
 | `citation-validator` | Validate `.bib` entries against CrossRef + semantic check | `validate_citations.py` |
+| `research-auditor` | Verify paper claims against repo code and results (**explicit request + confirmation required**) | `audit_research.py` |
 
 All three use the Anthropic or OpenAI API — keys must be set in `.env`.
 
@@ -67,6 +68,35 @@ Methodology decision: <decision and brief rationale>
 ```
 
 The `Stop` hook automatically scans your response for these lines and persists them to `logs/decisions/`. Do not paraphrase or vary the prefix — the hook matches the exact strings `Research decision:` and `Methodology decision:`. Keep each decision on a single line.
+
+## Experiment logging
+
+**Naming** — all experiments follow `<descriptive_name>_v<N>` (lowercase snake_case, explicit version suffix). Increment `N` rather than overwriting. Examples: `deception_probe_v1`, `baseline_eval_v3`, `cross_agent_detection_v2`.
+
+**Directory layout** — every experiment lives entirely under its own subdirectory:
+
+```
+experiments/
+  <name>_v<N>/
+    config.json          # full config used for this run (committed)
+    results/             # raw outputs: JSONL records, CSVs
+    cache/               # output caches (if relevant)
+    logs/                # run logs, stderr captures
+    assets/              # paper-ready outputs (see below)
+    checkpoints/         # model weights 
+```
+
+**Paper asset generator** — every eval script must have an accompanying `generate_assets.py` (or `generate_paper_assets()` function) that:
+- Reads from `experiments/<name>_v<N>/results/`
+- Writes to `experiments/<name>_v<N>/assets/`
+- Produces at minimum a LaTeX table (`<name>_table.tex`, ready to `\input{}`) or a PDF figure (`<name>_figure.pdf`), whichever is more appropriate
+- Asset filenames are stable (no timestamps) so the dissertation can reference them by fixed path
+
+**Saving conventions**
+- Raw results: `experiments/<name>_v<N>/results/<YYYYMMDDTHHMMSS>_results.jsonl`
+- Run log: `experiments/<name>_v<N>/logs/<YYYYMMDDTHHMMSS>_run.log`
+- Config snapshot: `experiments/<name>_v<N>/config.json` (written before the run starts)
+- Paper assets: `experiments/<name>_v<N>/assets/<name>_table.tex`, `<name>_figure.pdf`
 
 ## Documentation
 

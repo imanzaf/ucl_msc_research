@@ -38,6 +38,12 @@ class APISettings(BaseSettings):
         description="Anthropic API key used by the academic author.",
     )
 
+    openai_api_key_research_auditor: str = Field(
+        default="",
+        validation_alias="OPENAI_API_KEY_RESEARCH_AUDITOR",
+        description="OpenAI API key used by the research auditor agent.",
+    )
+
     @field_validator("openai_api_key_citation_validator")
     @classmethod
     def openai_key_must_be_set(cls, v: str) -> str:
@@ -57,6 +63,13 @@ class APISettings(BaseSettings):
     def anthropic_author_key_must_be_set(cls, v: str) -> str:
         if not v:
             raise ValueError("ANTHROPIC_API_KEY_ACADEMIC_AUTHOR must be set in .env.static or .env")
+        return v
+
+    @field_validator("openai_api_key_research_auditor")
+    @classmethod
+    def openai_auditor_key_must_be_set(cls, v: str) -> str:
+        if not v:
+            raise ValueError("OPENAI_API_KEY_RESEARCH_AUDITOR must be set in .env.static or .env")
         return v
 
 
