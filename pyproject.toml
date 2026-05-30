@@ -9,6 +9,7 @@ dependencies = [
     "bibtexparser>=1.4.4",
     "httpx>=0.28.1",
     "openai>=2.2.0",
+    "openpyxl>=3.1.5",
     "playwright>=1.48.0",
     "pydantic>=2.10.6",
     "pydantic-settings>=2.8.1",

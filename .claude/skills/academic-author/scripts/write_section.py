@@ -83,13 +83,16 @@ class AuthorOutput(BaseModel):
         description="The complete LaTeX section — valid LaTeX only, no markdown or commentary outside the tex block"
     )
     bib_entries_needed: list[str] = Field(
-        description="Descriptions of papers that need to be found and added to references.bib (for any \\cite{TODO} inserted)"
+        default_factory=list,
+        description="Descriptions of papers that need to be found and added to references.bib (for any \\cite{TODO} inserted)",
     )
     figures_needed: list[str] = Field(
-        description="Figures or tables that need to be created and referenced in the section"
+        default_factory=list,
+        description="Figures or tables that need to be created and referenced in the section",
     )
     assumptions_made: list[str] = Field(
-        description="Assumptions or editorial choices made when information was ambiguous or missing"
+        default_factory=list,
+        description="Assumptions or editorial choices made when information was ambiguous or missing",
     )
 
 
@@ -271,7 +274,7 @@ def _call_api(user_message: str, section_type: SectionType, mode: WriteMode) -> 
     response = client.messages.create(
         model=_MODEL,
         max_tokens=16_000,
-        thinking={"type": "enabled", "budget_tokens": _THINKING_BUDGET},
+        thinking={"type": "adaptive"},
         system=_SYSTEM_PROMPT,
         tools=[
             {
@@ -280,7 +283,7 @@ def _call_api(user_message: str, section_type: SectionType, mode: WriteMode) -> 
                 "input_schema": tool_schema,
             }
         ],
-        tool_choice={"type": "tool", "name": "submit_output"},
+        tool_choice={"type": "auto"},
         messages=[{"role": "user", "content": user_message}],
     )
 
