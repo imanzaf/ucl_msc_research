@@ -60,9 +60,9 @@
     },
     {
       "name": "DeepSeek",
-      "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+      "model_id": "deepseek-ai/DeepSeek-V3-2",
       "provider": "DeepSeek (HuggingFace)",
-      "provider_url": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+      "provider_url": "https://huggingface.co/deepseek-ai/DeepSeek-V3-2",
       "access": "huggingface",
       "weight_type": "open"
     },
