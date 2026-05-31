@@ -69,7 +69,7 @@ Goals 1–3 are evaluated across **10 models**: 5 open-weight (full internal acc
 | Tool trace      | No tools / visible tool trace / incomplete trace                         |
 | Time pressure   | None / mild / urgent                                                     |
 - Define controls to distinguish between deception, non-strategic falsehoods, competence error, etc.
-- Shortlist existing benchmarks and define any requirement for additional rows or existing variation transformation.
+- Shortlist existing benchmarks and define any requirement for additional rows or existing variation transformation. Apply the Agentic Benchmark Checklist (ABC) from Zhu et al. (2025, NeurIPS) when designing and validating the benchmark — specifically to avoid overestimation errors and ensure rigour in task design, contamination checks, and human validation.
 - Define black-box/white-box detector methods, i.e., what type of questions to ask, how to handle multi-agent or tool-using scenarios, etc.
 
 
@@ -95,3 +95,4 @@ Goals 1–3 are evaluated across **10 models**: 5 open-weight (full internal acc
 | **#33** | Standard Benchmarks Fail: Auditing LLM Agents in Finance Must Prioritize Risk | Justification for risk-first financial evaluation over task-completion metrics. |
 | **#36** | FinSafetyBench: Evaluating LLM Safety in Real-World Financial Scenarios | Finance safety categories and scenario inspiration for Goals 2–3. |
 | **#37** | Learning to Conceal Risk: Controllable Multi-turn Red Teaming for LLMs in the Financial Domain | Direct anchor for risk concealment as the primary finance-native deception measure. |
+| **57** | Establishing Best Practices in Building Rigorous Agentic Benchmarks (Zhu et al., NeurIPS 2025) | Benchmark methodology reference. Introduces the Agentic Benchmark Checklist (ABC); apply when designing the evaluation to avoid overestimation, contamination, and underspecified task design. Not yet in reading-list xlsx — add and assign ID. |
