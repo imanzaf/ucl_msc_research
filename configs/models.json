@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.0",
-  "description": "10-model evaluation set for deception detection study: 5 closed-weight (API access) and 5 open-weight (local/HuggingFace). All closed models are also accessible via OpenRouter (single API key, model_id in openrouter_model_id field).",
+  "schema_version": "2.0",
+  "description": "3-model evaluation set for deception detection study (V2): 2 closed-weight (API access) and 1 open-weight (local/HuggingFace, full internal access for activation probes). The open model is TBC. Closed models are also accessible via OpenRouter (single API key).",
   "models": [
     {
       "name": "GPT",
@@ -19,66 +19,10 @@
       "weight_type": "closed"
     },
     {
-      "name": "Gemini",
-      "model_id": "gemini-3.1-pro",
-      "provider": "Google DeepMind",
-      "provider_url": "https://aistudio.google.com",
-      "access": "api",
-      "weight_type": "closed"
-    },
-    {
-      "name": "Grok",
-      "model_id": "grok-4.3",
-      "provider": "xAI",
-      "provider_url": "https://console.x.ai",
-      "access": "api",
-      "weight_type": "closed"
-    },
-    {
-      "name": "Amazon",
-      "model_id": "us.amazon.nova-pro-v2:0",
-      "provider": "Amazon Web Services (Bedrock)",
-      "provider_url": "https://aws.amazon.com/bedrock",
-      "access": "api",
-      "weight_type": "closed"
-    },
-    {
-      "name": "Llama",
-      "model_id": "meta-llama/Llama-3.3-70B-Instruct",
-      "provider": "Meta (HuggingFace)",
-      "provider_url": "https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct",
-      "access": "huggingface",
-      "weight_type": "open"
-    },
-    {
-      "name": "Qwen",
-      "model_id": "Qwen/Qwen3.5-35B-A3B-Instruct",
-      "provider": "Alibaba Cloud (HuggingFace)",
-      "provider_url": "https://huggingface.co/Qwen/Qwen3.5-35B-A3B-Instruct",
-      "access": "huggingface",
-      "weight_type": "open"
-    },
-    {
-      "name": "DeepSeek",
-      "model_id": "deepseek-ai/DeepSeek-V3-2",
-      "provider": "DeepSeek (HuggingFace)",
-      "provider_url": "https://huggingface.co/deepseek-ai/DeepSeek-V3-2",
-      "access": "huggingface",
-      "weight_type": "open"
-    },
-    {
-      "name": "Mistral",
-      "model_id": "mistralai/Mistral-Medium-3.5",
-      "provider": "Mistral AI (HuggingFace)",
-      "provider_url": "https://huggingface.co/mistralai/Mistral-Medium-3.5",
-      "access": "huggingface",
-      "weight_type": "open"
-    },
-    {
-      "name": "Gemma",
-      "model_id": "google/gemma-3-27b-it",
-      "provider": "Google DeepMind (HuggingFace)",
-      "provider_url": "https://huggingface.co/google/gemma-3-27b-it",
+      "name": "OpenModel",
+      "model_id": "TBC",
+      "provider": "TBC",
+      "provider_url": "TBC",
       "access": "huggingface",
       "weight_type": "open"
     }

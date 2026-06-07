@@ -6,6 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+# tex
+.aux
+.bbl
+.blg
+.brf
+
 # Distribution / packaging
 .DS_Store
 .Python
