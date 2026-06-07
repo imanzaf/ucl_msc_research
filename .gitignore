@@ -6,11 +6,13 @@ __pycache__/
 # C extensions
 *.so
 
-# tex
-.aux
-.bbl
-.blg
-.brf
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
 
 # Distribution / packaging
 .DS_Store

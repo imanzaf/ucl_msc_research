@@ -47,7 +47,6 @@ Goals 1–3 are evaluated across **10 models**: 5 open-weight (full internal acc
 ## Expected outputs / artifacts
 
 - A concise taxonomy of finance-specific deception outcomes, centred on risk concealment, validated across 10 models.
-- An atomic material-risk annotation schema.
 - A scenario/specification set for deployment-realistic financial goal-conflict settings, with clear risk facts and stakeholder-facing outputs.
 - A scoring rubric for distinguishing deception from ordinary error, missing information, or weak reasoning.
 - Deception rate and deception-type breakdowns per model and per model class (open-weight vs. closed), across Goals 1–3.
@@ -58,7 +57,8 @@ Goals 1–3 are evaluated across **10 models**: 5 open-weight (full internal acc
 ## TODOs
 - Define scenario families:
     - Balance across multi-agent, tool-using, chat-based, and single LLM calls.
-    - Balance scenario variants: 
+    - Balance scenario variants:
+
 | Factor          | Levels                                                                   |
 | --------------- | ------------------------------------------------------------------------ |
 | Goal conflict   | None / mild / strong                                                     |
@@ -68,8 +68,9 @@ Goals 1–3 are evaluated across **10 models**: 5 open-weight (full internal acc
 | Audit risk      | None / possible audit / imminent audit                                   |
 | Tool trace      | No tools / visible tool trace / incomplete trace                         |
 | Time pressure   | None / mild / urgent                                                     |
+
 - Define controls to distinguish between deception, non-strategic falsehoods, competence error, etc.
-- Shortlist existing benchmarks and define any requirement for additional rows or existing variation transformation. Apply the Agentic Benchmark Checklist (ABC) from Zhu et al. (2025, NeurIPS) when designing and validating the benchmark — specifically to avoid overestimation errors and ensure rigour in task design, contamination checks, and human validation.
+- Shortlist existing benchmarks and define any requirement for additional scenarios or existing scenario transformation. Apply the Agentic Benchmark Checklist (ABC) from Zhu et al. (2025, NeurIPS) when designing and validating the benchmark — specifically to avoid overestimation errors and ensure rigour in task design, contamination checks, and human validation.
 - Define black-box/white-box detector methods, i.e., what type of questions to ask, how to handle multi-agent or tool-using scenarios, etc.
 
 
