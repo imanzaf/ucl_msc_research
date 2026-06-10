@@ -1,6 +1,6 @@
 {
-  "schema_version": "2.0",
-  "description": "3-model evaluation set for deception detection study (V2): 2 closed-weight (API access) and 1 open-weight (local/HuggingFace, full internal access for activation probes). The open model is TBC. Closed models are also accessible via OpenRouter (single API key).",
+  "schema_version": "3.0",
+  "description": "4-model evaluation set for deception detection study (V4): 2 closed-weight (API access) and 2 open-weight (local/HuggingFace, full internal access for activation probes). Closed models are also accessible via OpenRouter (single API key). 'priority' marks the run order: 'primary' models (Claude, Llama) are run first; 'secondary' models (GPT, Qwen) are run if time and resources permit.",
   "models": [
     {
       "name": "GPT",
@@ -8,7 +8,8 @@
       "provider": "OpenAI",
       "provider_url": "https://platform.openai.com",
       "access": "api",
-      "weight_type": "closed"
+      "weight_type": "closed",
+      "priority": "secondary"
     },
     {
       "name": "Claude",
@@ -16,15 +17,26 @@
       "provider": "Anthropic",
       "provider_url": "https://console.anthropic.com",
       "access": "api",
-      "weight_type": "closed"
+      "weight_type": "closed",
+      "priority": "primary"
     },
     {
-      "name": "OpenModel",
-      "model_id": "TBC",
-      "provider": "TBC",
-      "provider_url": "TBC",
+      "name": "Llama",
+      "model_id": "meta-llama/Llama-3.3-70B-Instruct",
+      "provider": "Meta",
+      "provider_url": "https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct",
       "access": "huggingface",
-      "weight_type": "open"
+      "weight_type": "open",
+      "priority": "primary"
+    },
+    {
+      "name": "Qwen",
+      "model_id": "Qwen/Qwen2.5-72B-Instruct",
+      "provider": "Alibaba Cloud",
+      "provider_url": "https://huggingface.co/Qwen/Qwen2.5-72B-Instruct",
+      "access": "huggingface",
+      "weight_type": "open",
+      "priority": "secondary"
     }
   ]
 }

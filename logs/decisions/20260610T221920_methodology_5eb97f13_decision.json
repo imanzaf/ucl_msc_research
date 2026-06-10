@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-06-10T22:19:20",
+  "decision_type": "methodology",
+  "author": "claude",
+  "content": "Run evaluation in two tiers — Claude and Llama 3.3 70B first as the primary tier, with GPT and Qwen 2.5 72B Instruct as a secondary tier run only if time and compute permit, encoded via the priority field in configs/models.json.",
+  "source": "transcript",
+  "content_hash": "5eb97f13c4cbc20964fb75f66a4fa2a89217b5432f1e0c8a2c11d34393a7175b"
+}
