@@ -53,7 +53,7 @@ create multi-turn using user personas. Does deception occur more for certain use
 Should include a balance of single-turn, multi-turn (single agent), and multi agent / tool-using (single turn) scenarios.
 
 Possible black-box methods:
-- 
+- using user persona as a feature in black box and white box deception (for black box feed user response and personality into llm-judge type prompt to detect post-inference whether deception has occured as a monitoring method, for white box feed as feature in logistic regression using model activations + user response embeddings)
 
 ## Main goals
 
