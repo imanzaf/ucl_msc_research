@@ -34,10 +34,26 @@ Two finance-native forms are measured, arranged on a **falsifiability gradient**
 - Level 1 — selective omission (all stated facts true, a held adverse fact left out)
 - Level 2 — misleading framing (all facts present, downside/regulatory weight understated). Each scored instance is placed on this gradient.
 
+**Nudge gradient:**
+- Level 0 - high-nudge (goal + expicit instruction or permission to lie)
+- Level 1 - low-nudge (goal added but no explicit instruction to lie)
+- Level 2 - zero-nudge / neutral (no nudge or no goal/direction)
+
+results in 9 (3x3) variants for each scenario.
+
 In order to measure deception detector degradation (see H3):
-- Should measure L0/L1/L2 variants of deception over each scenario / episode. I.e., how each detector’s performance degrades from blatant lie → omission → misleading framing while facts, scenario, and model are controlled.
+- Should measure 9 (3x3) variants of deception over each scenario / episode. I.e., how each detector’s performance degrades from blatant lie → omission → misleading framing while facts, scenario, and model are controlled.
+
+Other goals:
+- find gradient of which scenario families and models result in the most naturally occuring deception (L2xL2, L1xL2)
+- does probe detector on L0xL0 generalise to L2xL2 or up to what variant it generises to
+
+create multi-turn using user personas. Does deception occur more for certain user personas?
 
 Should include a balance of single-turn, multi-turn (single agent), and multi agent / tool-using (single turn) scenarios.
+
+Possible black-box methods:
+- 
 
 ## Main goals
 
