@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-06-08T20:30:53",
-  "decision_type": "research",
-  "author": "user",
-  "content": "Make the organising variable a falsifiability gradient / deception subtelty (Level 0 blatant false claim → Level 1 selective omission → Level 2 misleading framing), not the degree of prompt nudging. Why. Low-nudge deception is already established.",
-  "source": "user_prompt",
-  "content_hash": "cd371a88ff4f1e685848fb818d573552cc9aeda8bd3e0456340447b316be44bc"
-}

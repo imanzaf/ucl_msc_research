@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-06-07T19:09:08",
-  "decision_type": "methodology",
-  "author": "claude",
-  "content": "V2 narrows the deception taxonomy from seven forms to two (risk concealment incl. selective omission, and misleading framing) to keep the operationalisation and scoring rubric tractable for an MSc-scale study.",
-  "source": "transcript",
-  "content_hash": "88e22b2a21b187bdbb24b786a3159328a41edd262e2eef89cd02ab3907c79c07"
-}
