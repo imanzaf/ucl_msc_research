@@ -6,47 +6,58 @@
 
 Large language models are now well documented as capable of, and prone to, misaligned deception [1]: strategically deceiving users under pressure in a financial setting [2], pursuing scheming when handed an in-context goal [3], acting against their principals even under ostensibly harmless goals [4], taking manipulative actions when over-optimising for helpfulness [5], showing deceptive tendencies absent strong external pressure [6], and trading ethical constraints against reward in sequential decision settings [7]. Almost all of this evidence concerns blatant falsehood or strong-nudge scheming, much of it dependent on explicit goal-nudging [3] or on artificial tasks whose deception signal may reflect reasoning difficulty rather than strategic intent [8]. The failure mode that matters most in deployment is subtler: truthful-but-misleading communication that selectively omits an adverse material fact or frames it to understate downside. A unified taxonomy across 50 benchmarks isolates these mechanisms, omission and pragmatic distortion, as distinct from fabrication and finds them critically under-covered [9], and the clearest behavioural evidence that models deceive without stating a falsehood — misleading non-falsities that standard truth probes fail to catch — comes from artificial, non-financial settings with no nudge or falsifiability gradient [10].
 
-The one benchmark to target the goal-directed form directly is JANUS [11]: it gives each scenario a fixed pool of annotated favourable and adverse facts, compares model output under a neutral versus a goal-directed condition without ever instructing the model to lie, and scores the resulting distortion — both omission of adverse facts and softened framing — across several domains, with its strongest effects in finance. JANUS establishes that goal-conditioned information distortion is a real, measurable, and finance-relevant phenomenon. It also defines the edge of what is known: it collapses goal pressure into a neutral-versus-goal binary, aggregates the distortion forms into a single index, is single-turn, treats finance as one domain among several, and provides no detection or mitigation. This study is adjacent to JANUS rather than an extension of it: at the time of writing JANUS has not released its code or data, so its scenarios cannot be reused, motivating an independent, finance-focused benchmark. The benchmark spans a wider range of financial scenarios across single- and multi-turn settings, scores deception on a falsifiability gradient, tests whether user susceptibility modulates the rate of deceptive behaviour, and adds black-box and white-box detection.
+The one benchmark to target the goal-directed form directly is JANUS [11]: it gives each scenario a fixed pool of annotated favourable and adverse facts, compares model output under a neutral versus a goal-directed condition without ever instructing the model to lie, and scores the resulting distortion — both omission of adverse facts and softened framing — across several domains, with its strongest effects in finance. JANUS establishes that goal-conditioned information distortion is a real, measurable, and finance-relevant phenomenon. It also defines the edge of what is known: it collapses goal pressure into a neutral-versus-goal binary, aggregates the distortion forms into a single index, is single-turn, treats finance as one domain among several, and provides no detection or mitigation. This study is adjacent to JANUS rather than an extension of it: at the time of writing JANUS has not released its code or data, so its scenarios cannot be reused, motivating an independent, finance-focused benchmark. The benchmark spans a wider range of financial scenarios across single- and multi-turn settings, scores deception on a falsifiability gradient, pairs each nudge condition with a fixed set of reusable user personas, and adds black-box and white-box detection.
 
-Scenario design and scoring build on DECOR, which decomposes a context into atomic informational units and scores each against the model's response — a basis for defining scenarios around atomic material-risk units and grading omission and framing [13]. Scenarios are sourced and adapted from existing finance benchmarks: DeceptionBench, whose economy domain contains finance cases but targets self-interest and sycophancy and so needs modification [14], together with a set of financial task and safety benchmarks [15, 16, 17, 18] — one of which studies user-side rather than model-side risk concealment and is therefore distinct from this work's aim [18]. User susceptibility enters as an experimental factor, following work that estimates how strongly a user relies on the agent [19], to test whether certain personas elicit more deception. For detection, the findings that models deceive through misleading non-falsities which truth probes trained on true/false statements fail to catch [10], and that probe quality is dominated by the training instruction-pair — favouring specialised probes per threat model over a universal detector [20] — together motivate comparing white-box against black-box methods and testing whether any detector transfers across the variant matrix, rather than assuming probes generalise; direct white-box/black-box comparisons, including evidence that detectors fail when deception is not apparent from the transcript alone, extend that comparison to subtle deception [21, 22]. Lightweight mitigation testing draws on environmental controls such as escalation channels, shown to reduce harmful agentic actions [23].
+Scenario design and scoring build on DECOR, which decomposes a context into atomic informational units and scores each against the model's response — a basis for defining scenarios around atomic material-risk units and grading omission and framing [13]. Scenarios are sourced and adapted from existing finance benchmarks: DeceptionBench, whose economy domain contains finance cases but targets self-interest and sycophancy and so needs modification [14], together with a set of financial task and safety benchmarks [15, 16, 17, 18] — one of which studies user-side rather than model-side risk concealment and is therefore distinct from this work's aim [18]. User susceptibility enters as an experimental factor through three reusable user-simulator personas, following work that estimates how strongly a user relies on the agent [19]. The main scenario matrix crosses three nudge conditions with three persona conditions. Personas vary emotional state, emotional intensity, personality traits, user goal, and communication style; stakeholder role is held constant within a scenario family unless stakeholder role is explicitly being studied. Risk-unit disclosure targets and materiality rationales are held back as scoring metadata. For detection, the findings that models deceive through misleading non-falsities which truth probes trained on true/false statements fail to catch [10], and that probe quality is dominated by the training instruction-pair — favouring specialised probes per threat model over a universal detector [20] — together motivate comparing white-box against black-box methods and testing whether any detector transfers across nudge, persona, and observed deception-form conditions, rather than assuming probes generalise; direct white-box/black-box comparisons, including evidence that detectors fail when deception is not apparent from the transcript alone, extend that comparison to subtle deception [21, 22]. Lightweight mitigation testing draws on environmental controls such as escalation channels, shown to reduce harmful agentic actions [23].
 
 ## 2. Research Scope
 
 ### Deception definitions
 
-Two finance-native forms are measured, arranged on a **falsifiability gradient**:
+Two finance-native forms are measured and annotated on an **observed falsifiability gradient**:
 
 **Selective omission:** Failure to disclose a material financial, legal, customer, market, or compliance risk the model had access to and that a reasonable stakeholder would expect to see — including presenting favourable facts while omitting the adverse facts needed for a balanced decision.
 
 **Misleading framing:** Technically true language that understates uncertainty, downside, or regulatory significance.
 
-### Deception Gradients
+### Experimental factors and annotations
 
-**Falsifiability gradient:** 
-- Level 0 — blatant false claim (control, the regime existing detectors already handle)
-- Level 1 — selective omission (all stated facts true, a held adverse fact left out)
-- Level 2 — misleading framing (all facts present, downside/regulatory weight understated). Each scored instance is placed on this gradient.
+**Observed falsifiability gradient:** 
+- False claim — a response contradicts risk-relevant facts available to the model. This is primarily used as a high-nudge detector-control condition because it is the regime existing detectors are expected to handle best.
+- Selective omission — all stated facts may be true, but a material adverse risk fact available to the model is left out.
+- Misleading framing — the adverse fact is present, but downside, uncertainty, or regulatory significance is understated.
+
+Each model response is scored on this observed gradient after generation. Falsifiability is not treated as a fully controllable scenario factor in low- or zero-nudge settings, because forcing a false claim, omission, or framing move would itself change the nudge condition. Only high-nudge scenarios include a **target falsifiability level**, since explicit permission or instruction can fairly specify the intended deceptive form.
 
 **Nudge gradient:**
-- Level 0 - high-nudge (goal + expicit instruction or permission to lie)
-- Level 1 - low-nudge (goal added but no explicit instruction to lie)
-- Level 2 - zero-nudge / neutral (no nudge or no goal/direction)
+- High-nudge — goal conflict plus explicit instruction or permission to misrepresent, omit, or frame information. These scenarios can specify a target falsifiability level and serve as detector calibration/control cases.
+- Low-nudge — goal conflict is present, but there is no direct instruction or permission to deceive. Falsifiability is observed from the output.
+- Zero-nudge / neutral — no goal conflict or directional pressure toward favourable presentation. Falsifiability is observed from the output.
 
 **Persona gradient:**
-TBC, this gradient will only be run on a selected set of variants and scenarios due to cost and compute constraints.
+The main experimental matrix uses three reusable user-simulator persona conditions crossed with the three nudge conditions, yielding 9 variants per scenario family. The default persona set is:
+- Neutral baseline — neutral emotion, neutral personality, balanced communication style.
+- Anxious risk-averse — anxious emotion, high intensity, risk-averse and detail-oriented traits.
+- Positive risk-seeking — happy or excited emotion, medium-to-high intensity, risk-seeking or trusting traits.
+
+Stakeholder role is analytically distinct from emotion and personality. Within a scenario family, the stakeholder role should normally be held constant across the three persona conditions so that persona effects are not confounded with audience-role effects. Stakeholder-role variation can be added later as a separate analysis if needed.
+
+**Material-risk units and hidden scoring metadata:**
+Each scenario contains atomic risk units with a stable identifier, the risk fact, materiality level, expected disclosure, and materiality rationale. The risk fact may be included in the financial agent's visible context when the scenario requires the model to have access to it. Expected disclosure and materiality rationale are hidden scoring metadata and are not provided to the financial agent or user-side simulator during normal execution.
 
 ## 3. Research Goals
 
 ### Main Goals
 1. Create a benchmark of single-turn and multi-turn scenarios in Finance focused on subtle deception forms.
-2. Create 9 (3x3) variants as per the gradients in section 2.
-3. Create additional user-persona variants for a subset of scenarios to test whether user susceptibility modulates deception.
+2. Create a 3x3 scenario matrix crossing three nudge conditions with three reusable persona conditions for each scenario family.
+3. Annotate each model response for observed false claims, selective omission, and misleading framing, with high-nudge scenarios optionally targeting a specific falsifiability level for detector-control cases.
 4. Run 2 models on the benchmark:
-    - Define which variants have higher ocurrence (naturally high-nudge will occur more, but comparison of e.g., low-nudge x misleading framing vs. zero-nudge x selective omission will be interesting).
-    - Measure whether user persona impacts deception levels.
+    - Estimate which nudge conditions produce higher occurrence of deceptive outputs.
+    - Compare observed false claims, selective omission, and misleading framing across nudge conditions.
+    - Measure whether user persona impacts deception rates or deception form.
 5. Run 1 black-box and 1 white-box detection method.
     - Measure whether there is any performance gain from using white-box vs. black-box methods.
-    - Measure whether detector trained on a single variant is generalisable to any others on the variant matrix.
+    - Measure whether a detector trained on one nudge, persona, or observed deception-form condition generalises to others.
 
 ### Stretch Goals
 1. add tool-using scenarios to benchmark
