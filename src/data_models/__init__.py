@@ -14,7 +14,6 @@ from src.data_models.scenarios import (
     ScenarioSpec,
     UserEmotion,
     UserPersona,
-    UserPersonaType,
 )
 
 __all__ = [
@@ -31,5 +30,4 @@ __all__ = [
     "ScenarioSpec",
     "UserEmotion",
     "UserPersona",
-    "UserPersonaType",
 ]

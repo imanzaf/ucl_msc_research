@@ -29,26 +29,20 @@ class FalsifiabilityLevel(str, Enum):
     """Classify the controlled scenario variant on the deception falsifiability gradient."""
 
     NOT_APPLICABLE = "not_applicable"
-    LEVEL_0_FALSE_CLAIM = "level_0_false_claim"
-    LEVEL_1_SELECTIVE_OMISSION = "level_1_selective_omission"
-    LEVEL_2_MISLEADING_FRAMING = "level_2_misleading_framing"
-
-
-class UserPersonaType(str, Enum):
-    """Classify the user persona family used in the scenario."""
-
-    UNSPECIFIED = "unspecified"
+    FALSE_CLAIM = "false_claim"
+    SELECTIVE_OMISSION = "selective_omission"
+    MISLEADING_FRAMING = "misleading_framing"
 
 
 class UserEmotion(str, Enum):
     """Classify the emotional state used to condition the user simulator."""
 
     NEUTRAL = "neutral"
-    ANXIOUS = "anxious"
+    HAPPY = "happy"
     EXCITED = "excited"
+    ANXIOUS = "anxious"
     FRUSTRATED = "frustrated"
-    TRUSTING = "trusting"
-    SKEPTICAL = "skeptical"
+    ANGRY = "angry"
 
 
 class EmotionIntensity(str, Enum):
@@ -84,13 +78,6 @@ class BenchmarkSource(str, Enum):
 
     # TODO: verify and confirm benchmark sources
     ORIGINAL = "original"
-    DECEPTIONBENCH = "deceptionbench"
-    FINANCE_AGENT_BENCHMARK = "finance_agent_benchmark"
-    FINMCP_BENCH = "finmcp_bench"
-    FINSAFETYBENCH = "finsafetybench"
-    RISK_CONCEALMENT = "risk_concealment"
-    JANUS_INSPIRED = "janus_inspired"
-    OTHER = "other"
 
 
 class UserPersona(BaseModel):
@@ -101,10 +88,6 @@ class UserPersona(BaseModel):
     persona_id: str = Field(
         min_length=1,
         description="Stable identifier for reusing the persona across scenarios.",
-    )
-    persona_type: UserPersonaType = Field(
-        default=UserPersonaType.UNSPECIFIED,
-        description="Placeholder persona type until the persona taxonomy is defined.",
     )
     stakeholder_role: str = Field(
         min_length=1,
@@ -130,10 +113,6 @@ class UserPersona(BaseModel):
     communication_style: str = Field(
         min_length=1,
         description="How the user-side simulator should phrase messages.",
-    )
-    simulator_instructions: str = Field(
-        min_length=1,
-        description="Prompt instructions supplied to the user-side simulator.",
     )
 
 
@@ -171,18 +150,6 @@ class PromptExecutionSpec(BaseModel):
     agent_role: str = Field(
         min_length=1,
         description="Role assigned to the financial-agent model.",
-    )
-    agent_visible_context: str = Field(
-        min_length=1,
-        description="Scenario context visible to the financial-agent model.",
-    )
-    user_visible_context: str = Field(
-        min_length=1,
-        description="Scenario context visible to the user-side simulator.",
-    )
-    initial_user_message: str = Field(
-        min_length=1,
-        description="First message sent by the user-side simulator or fixed user prompt.",
     )
     max_turns: int = Field(
         ge=1,
@@ -233,10 +200,6 @@ class ScenarioSpec(BaseModel):
     interaction_mode: InteractionMode = Field(
         description="Whether the scenario is single-turn or multi-turn.",
     )
-    user_persona_type: UserPersonaType = Field(
-        default=UserPersonaType.UNSPECIFIED,
-        description="Persona type used as a controlled factor for persona-gradient variants.",
-    )
     user_persona: UserPersona = Field(
         description="Persona details for the user interacting with the agent.",
     )
@@ -258,21 +221,6 @@ class ScenarioSpec(BaseModel):
         default_factory=BenchmarkProvenance,
         description="Source benchmark provenance, if any.",
     )
-    favourable_facts: List[str] = Field(
-        default_factory=list,
-        description="Non-risk or favourable facts held constant across paired variants where possible.",
-    )
-    notes: Optional[str] = Field(
-        default=None,
-        description="Optional authoring notes that are not shown to the model.",
-    )
-
-    @model_validator(mode="after")
-    def persona_type_matches_persona(self) -> "ScenarioSpec":
-        """Ensure the top-level persona type matches the nested persona model."""
-        if self.user_persona.persona_type != self.user_persona_type:
-            raise ValueError("user_persona_type must match user_persona.persona_type")
-        return self
 
     @model_validator(mode="after")
     def target_falsifiability_matches_nudge(self) -> "ScenarioSpec":
