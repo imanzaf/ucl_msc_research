@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-06-16T20:12:52",
+  "decision_type": "methodology",
+  "author": "codex",
+  "content": "Add risk-unit identifiers, expected disclosure, and materiality rationale as scoring metadata so response annotations can be tied back to stable atomic risk facts.",
+  "source": "transcript",
+  "content_hash": "e7a93629e3ea06596aaca22af1a7372433f6e4878ef69b47ca43afa20ed2c893"
+}

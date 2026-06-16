@@ -13,9 +13,10 @@ Repo containing code and paper for UCL IFT final MSc dissertation.
 ## Scenario design
 
 Scenario specifications live in `src/data_models/scenarios.py`. Each `ScenarioSpec` records the
-controlled nudge level, target falsifiability level for high-nudge variants, persona placeholder,
-atomic risk units, interaction mode, output format, task objective, and benchmark provenance.
-Stakeholder information lives inside the user persona model.
+controlled nudge level, target falsifiability level for high-nudge variants, reusable user persona,
+prompt execution context, atomic risk units, interaction mode, and benchmark provenance. Hidden
+scoring metadata such as expected disclosure lives on risk units and should not be shown to either
+model unless deliberately copied into visible prompt context.
 
 Run the current tests with:
 

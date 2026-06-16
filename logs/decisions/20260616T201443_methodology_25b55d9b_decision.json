@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-06-16T20:14:43",
+  "decision_type": "methodology",
+  "author": "codex",
+  "content": "Keep expected disclosure hidden from both the financial agent and user simulator because it defines the scoring target and would otherwise contaminate the disclosure behavior being measured.",
+  "source": "transcript",
+  "content_hash": "25b55d9bd35f5ace6d3a7cff64e4a24ac83f32a3f9e6f88bddb6d23e5dc54a4c"
+}

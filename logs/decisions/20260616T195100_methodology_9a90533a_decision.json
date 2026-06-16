@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-06-16T19:51:00",
-  "decision_type": "methodology",
-  "author": "codex",
-  "content": "Control scenario family, interaction mode, task objective, output format, risk facts, and benchmark provenance so paired variants can hold content and genre stable while varying nudge, and persona.",
-  "source": "transcript",
-  "content_hash": "9a90533a1c3fa7ee38a05dff8e76da030dcbeb2fabaf4254f9f5cf836ad76143"
-}

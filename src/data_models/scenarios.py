@@ -40,6 +40,38 @@ class UserPersonaType(str, Enum):
     UNSPECIFIED = "unspecified"
 
 
+class UserEmotion(str, Enum):
+    """Classify the emotional state used to condition the user simulator."""
+
+    NEUTRAL = "neutral"
+    ANXIOUS = "anxious"
+    EXCITED = "excited"
+    FRUSTRATED = "frustrated"
+    TRUSTING = "trusting"
+    SKEPTICAL = "skeptical"
+
+
+class EmotionIntensity(str, Enum):
+    """Classify the intensity of the user simulator's emotional state."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class PersonalityTrait(str, Enum):
+    """Classify personality traits used to condition the user simulator."""
+
+    NEUTRAL = "neutral"
+    TRUSTING = "trusting"
+    SKEPTICAL = "skeptical"
+    RISK_AVERSE = "risk_averse"
+    RISK_SEEKING = "risk_seeking"
+    DETAIL_ORIENTED = "detail_oriented"
+    TIME_PRESSURED = "time_pressured"
+    OVERCONFIDENT = "overconfident"
+
+
 class InteractionMode(str, Enum):
     """Classify whether the scenario is single-turn or multi-turn."""
 
@@ -62,21 +94,46 @@ class BenchmarkSource(str, Enum):
 
 
 class UserPersona(BaseModel):
-    """Describe the user persona interacting with the financial agent."""
+    """Describe a reusable user-simulator persona interacting with the financial agent."""
 
     model_config = ConfigDict(extra="forbid")
 
+    persona_id: str = Field(
+        min_length=1,
+        description="Stable identifier for reusing the persona across scenarios.",
+    )
     persona_type: UserPersonaType = Field(
         default=UserPersonaType.UNSPECIFIED,
         description="Placeholder persona type until the persona taxonomy is defined.",
     )
-    stakeholder: str = Field(
+    stakeholder_role: str = Field(
         min_length=1,
         description="Audience whose beliefs or decisions may be affected by the output.",
     )
-    description: str = Field(
-        default="",
-        description="Free-text persona description, intentionally blank until persona design is fixed.",
+    emotion: UserEmotion = Field(
+        description="Emotional state used to condition the user-side simulator.",
+    )
+    emotion_intensity: EmotionIntensity = Field(
+        description="Intensity of the user-side simulator's emotional state.",
+    )
+    primary_personality_trait: PersonalityTrait = Field(
+        description="Primary personality trait used to condition the user-side simulator.",
+    )
+    secondary_personality_traits: List[PersonalityTrait] = Field(
+        default_factory=list,
+        description="Additional personality traits used to condition the user-side simulator.",
+    )
+    user_goal: str = Field(
+        min_length=1,
+        description="Goal the user-side simulator pursues during the scenario.",
+    )
+    communication_style: str = Field(
+        min_length=1,
+        description="How the user-side simulator should phrase messages.",
+    )
+    simulator_instructions: str = Field(
+        min_length=1,
+        description="Prompt instructions supplied to the user-side simulator.",
     )
 
 
@@ -85,12 +142,51 @@ class RiskUnit(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    risk_unit_id: str = Field(
+        min_length=1,
+        description="Stable identifier for tracking the risk fact during scoring.",
+    )
     fact: str = Field(
         min_length=1,
         description="Atomic risk fact available to the model in the scenario context.",
     )
     materiality: MaterialityLevel = Field(
         description="Expected decision relevance of the risk fact.",
+    )
+    expected_disclosure: str = Field(
+        min_length=1,
+        description="Hidden scoring guidance describing adequate disclosure of the risk fact.",
+    )
+    materiality_rationale: str = Field(
+        min_length=1,
+        description="Hidden scoring rationale for the assigned materiality level.",
+    )
+
+
+class PromptExecutionSpec(BaseModel):
+    """Describe the prompt context used to execute a scenario."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent_role: str = Field(
+        min_length=1,
+        description="Role assigned to the financial-agent model.",
+    )
+    agent_visible_context: str = Field(
+        min_length=1,
+        description="Scenario context visible to the financial-agent model.",
+    )
+    user_visible_context: str = Field(
+        min_length=1,
+        description="Scenario context visible to the user-side simulator.",
+    )
+    initial_user_message: str = Field(
+        min_length=1,
+        description="First message sent by the user-side simulator or fixed user prompt.",
+    )
+    max_turns: int = Field(
+        ge=1,
+        description="Maximum number of conversation turns for executing the scenario.",
     )
 
 
@@ -144,6 +240,9 @@ class ScenarioSpec(BaseModel):
     user_persona: UserPersona = Field(
         description="Persona details for the user interacting with the agent.",
     )
+    prompt_execution: PromptExecutionSpec = Field(
+        description="Prompt and run context for executing this scenario.",
+    )
     risk_units: List[RiskUnit] = Field(
         min_length=1,
         description="Atomic material-risk units available to the model.",
@@ -158,14 +257,6 @@ class ScenarioSpec(BaseModel):
     benchmark_provenance: BenchmarkProvenance = Field(
         default_factory=BenchmarkProvenance,
         description="Source benchmark provenance, if any.",
-    )
-    task_objective: str = Field(
-        min_length=1,
-        description="Instructional objective given to the agent, including any goal conflict.",
-    )
-    output_format: str = Field(
-        min_length=1,
-        description="Expected output genre, such as client email, memo, recommendation, or escalation note.",
     )
     favourable_facts: List[str] = Field(
         default_factory=list,
