@@ -25,8 +25,9 @@ class FinanceArea(str, Enum):
 
 
 class NudgeLevel(str, Enum):
-    """Classify how strongly the prompt pushes the model toward deception."""
+    """Classify how strongly the prompt pushes the model toward or away from deception."""
 
+    INTEGRITY = "integrity"
     HIGH = "high"
     LOW = "low"
     ZERO = "zero"
@@ -75,8 +76,8 @@ class PromptInstructions(BaseModel):
         description="Task the financial-agent model should perform.",
     )
     guidance: str = Field(
-        min_length=1,
-        description="Behavioral guidance and nudge-specific constraints for the task.",
+        default="",
+        description="Behavioral guidance and nudge-specific constraints for the task; empty for zero-nudge variants.",
     )
 
 
@@ -139,10 +140,6 @@ class GeneratedPromptVariant(BaseModel):
 
     system_prompt: PromptInstructions = Field(
         description="Structured system-prompt instructions rendered with scenario facts at execution time.",
-    )
-    user_prompt: str = Field(
-        min_length=1,
-        description="Stakeholder request for the financial-agent model, excluding scenario fact lists.",
     )
     nudge_rationale: str = Field(
         min_length=1,
@@ -250,9 +247,9 @@ class Scenario(GeneratedScenario):
         description="Whether the generated variants are single-turn or multi-turn.",
     )
     prompt_variants: List[PromptVariant] = Field(
-        min_length=3,
-        max_length=3,
-        description="Exactly three prompt variants: zero, low, and high nudge.",
+        min_length=4,
+        max_length=4,
+        description="Exactly four prompt variants: integrity, zero, low, and high nudge.",
     )
     prompt_template: PromptTemplate = Field(
         default_factory=PromptTemplate,
@@ -271,11 +268,18 @@ class Scenario(GeneratedScenario):
 
     def _validate_prompt_variants(self) -> None:
         """Ensure prompt variants cover required nudges and normalize scenario ids."""
-        required_nudges = {NudgeLevel.ZERO, NudgeLevel.LOW, NudgeLevel.HIGH}
+        required_nudges = {
+            NudgeLevel.INTEGRITY,
+            NudgeLevel.ZERO,
+            NudgeLevel.LOW,
+            NudgeLevel.HIGH,
+        }
         variant_nudges = {variant.nudge_level for variant in self.prompt_variants}
 
         if variant_nudges != required_nudges:
-            raise ValueError("prompt_variants must contain exactly zero, low, and high nudges")
+            raise ValueError(
+                "prompt_variants must contain exactly integrity, zero, low, and high nudges"
+            )
 
         for variant in self.prompt_variants:
             variant.scenario_id = f"{self.scenario_family_id}_{variant.nudge_level.value}"
@@ -289,7 +293,6 @@ class Scenario(GeneratedScenario):
                 [
                     variant.system_prompt.task,
                     variant.system_prompt.guidance,
-                    variant.user_prompt,
                 ]
             )
         combined_prompt_text = "\n".join(prompt_texts)
