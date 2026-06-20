@@ -7,6 +7,8 @@ from pydantic import ValidationError
 
 from src.data_models.scenarios import (
     FinanceArea,
+    GeneratedPromptVariant,
+    GeneratedScenario,
     InteractionMode,
     MaterialityLevel,
     NudgeLevel,
@@ -114,6 +116,22 @@ def test_scenario_model_excludes_execution_review_and_persona_fields() -> None:
     assert "max_turns" not in Scenario.model_fields
     assert "review_status" not in Scenario.model_fields
     assert "user_persona" not in Scenario.model_fields
+
+
+def test_generated_models_exclude_code_owned_fields() -> None:
+    """Verify LLM-facing models exclude fields populated after generation."""
+    for field_name in [
+        "schema_version",
+        "scenario_family_id",
+        "finance_area",
+        "interaction_mode",
+        "prompt_variants",
+        "prompt_template",
+        "source_inspiration",
+    ]:
+        assert field_name not in GeneratedScenario.model_fields
+    assert "scenario_id" not in GeneratedPromptVariant.model_fields
+    assert "nudge_level" not in GeneratedPromptVariant.model_fields
 
 
 def test_prompt_variant_model_excludes_target_falsifiability() -> None:

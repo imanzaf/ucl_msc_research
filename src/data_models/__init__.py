@@ -2,6 +2,8 @@
 
 from src.data_models.scenarios import (
     FinanceArea,
+    GeneratedPromptVariant,
+    GeneratedScenario,
     InteractionMode,
     MaterialityLevel,
     NudgeLevel,
@@ -36,6 +38,8 @@ __all__ = [
     "FalsifiabilityLevel",
     "FinanceArea",
     "FramingDirection",
+    "GeneratedPromptVariant",
+    "GeneratedScenario",
     "InteractionMode",
     "MaterialityLevel",
     "NudgeLevel",

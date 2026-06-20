@@ -41,17 +41,19 @@ The default seed file currently contains:
 - `supply_chain_finance_credit_review_v1`
 
 Each seed contains only an original use-case summary, hardcoded finance area, interaction mode, and
-researcher-side `source_inspiration`. Interaction mode and scenario IDs are code-owned fields:
-they are not included in the LLM prompt, and scenario IDs are derived as
-`<scenario_family_id>_<nudge-level>` after parsing. Downloaded benchmark references are stored
-for auditability, but they are not sent to the LLM.
+researcher-side `source_inspiration`. Interaction mode, scenario IDs, prompt templates, and source
+inspiration are code-owned fields: they are not included in the LLM-facing output models, and
+scenario IDs are derived as `<scenario_family_id>_<nudge-level>` after parsing. Downloaded
+benchmark references are stored for auditability, but they are not sent to the LLM.
 
 ## Output Shape
 
-The OpenAI Responses API is called with Pydantic structured output using
-`src/data_models/scenarios.py::Scenario`. The code validates hardcoded seed fields, overwrites
-interaction mode and `source_inspiration` from the seed file, normalizes scenario IDs from
-`nudge_level`, and then saves the same `Scenario` model with `model_dump_json`.
+The OpenAI Responses API is called with Pydantic structured output using the LLM-facing models in
+`src/data_models/scenarios.py`: one `GeneratedScenario` call creates shared scenario content and
+risk units, then one `GeneratedPromptVariant` call creates each `zero`, `low`, and `high` prompt
+variant. The persisted `Scenario` model inherits from `GeneratedScenario` and adds seed-controlled
+metadata, prompt variants, prompt template, and source inspiration before saving with
+`model_dump_json`.
 
 Each generated scenario must contain:
 

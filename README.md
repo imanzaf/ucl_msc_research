@@ -27,8 +27,9 @@ Intermediate scenario-family drafts can be generated with:
 uv run python scripts/generate_scenario_drafts.py --scenario-set v1
 ```
 
-The generator uses Pydantic structured output and writes draft JSON plus Markdown review artifacts
-under `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/`. See
+The generator uses Pydantic structured output for shared scenario content and each prompt variant,
+then writes draft JSON plus Markdown review artifacts under
+`data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/`. See
 `docs/experiments/scenario_generation.md` for details.
 
 ## Response scoring

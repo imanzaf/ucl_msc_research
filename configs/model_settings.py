@@ -16,7 +16,7 @@ class ModelSettings(BaseSettings):
     )
 
     scenario_generator_model: str = Field(
-        default="gpt-5.5-pro",
+        default="gpt-5.4-2026-03-05",
         validation_alias="SCENARIO_GENERATOR_MODEL",
         description="OpenAI model used to generate scenario drafts.",
     )
