@@ -60,14 +60,18 @@ All three use the Anthropic or OpenAI API — keys must be set in `.env`.
 
 ## Decision logging
 
-Whenever you identify or make a research or methodology decision — a choice of approach, model, dataset, evaluation strategy, framing, or any other consequential research choice — write it on its own line in your response using exactly this format:
+Decision logging is only for durable, dissertation-level choices. Log a decision only when it changes the research direction, paper framing, research questions, core dataset/benchmark/model-family choice, evaluation strategy, annotation rubric, scoring metric, or experimental protocol.
+
+Do not log routine implementation choices, individual scenario edits, file additions, refactors, bug fixes, hook/config tweaks, docs cleanup, temporary analysis steps, or other local engineering decisions.
+
+When a decision qualifies, write it on its own line in your response using exactly this format:
 
 ```
 Research decision: <decision and brief rationale>
 Methodology decision: <decision and brief rationale>
 ```
 
-The `Stop` hook automatically scans your response for these lines and persists them to `logs/decisions/`. Do not paraphrase or vary the prefix — the hook matches the exact strings `Research decision:` and `Methodology decision:`. Keep each decision on a single line.
+The `Stop` hook automatically scans your response for these lines and persists qualifying high-level entries to `logs/decisions/`. Do not paraphrase or vary the prefix — the hook matches the exact strings `Research decision:` and `Methodology decision:`. Keep each decision on a single line.
 
 ## Experiment logging
 

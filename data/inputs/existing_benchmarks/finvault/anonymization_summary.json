@@ -1,0 +1,91 @@
+{
+  "source_json_files": 310,
+  "exported_json_files": 310,
+  "datasets": [
+    "attack_datasets",
+    "normal_datasets",
+    "attack_datasets_synthesis"
+  ],
+  "anonymization_replacement_counts": {
+    "person_id": 8,
+    "phone": 11,
+    "email": 8,
+    "customer_id": 7,
+    "document_id": 3,
+    "application_id": 0,
+    "policy_id": 8,
+    "employee_id": 3,
+    "user_id": 5,
+    "case_ref": 29,
+    "person_name": 75,
+    "organization": 91
+  },
+  "excluded_material": [
+    ".env files",
+    "API configuration files and LLM runner scripts",
+    "logs and result outputs",
+    "cache directories",
+    "paper drafts, PDFs, archives, and reference folders",
+    "private working notes"
+  ],
+  "second_pass_strict_anonymization": {
+    "changed_json_files": 273,
+    "replacement_counts": {
+      "person": 47,
+      "organization": 20,
+      "location": 23,
+      "customer": 35,
+      "account": 9,
+      "application": 192,
+      "document": 39,
+      "case_ref": 0,
+      "license": 0,
+      "email": 2,
+      "phone": 5,
+      "person_id": 2
+    },
+    "base64_payloads": "decoded when printable, sanitized, and re-encoded"
+  },
+  "third_pass_residual_scrub": {
+    "changed_json_files": 310,
+    "replacement_counts": {
+      "person": 1,
+      "organization": 39,
+      "location": 8,
+      "account": 9,
+      "license": 6,
+      "url": 4,
+      "swift": 13,
+      "case_ref": 330
+    },
+    "scope": "residual personal names, locations, organization suffixes, URLs, account-like identifiers, license-like identifiers"
+  },
+  "fourth_pass_named_entity_scrub": {
+    "changed_json_files": 158,
+    "replacement_counts": {
+      "organization": 15,
+      "location": 6,
+      "brand": 20,
+      "facility": 2
+    },
+    "scope": "remaining candidate organization, location, facility, market, and brand names, including printable Base64 payloads"
+  },
+  "fifth_pass_identifier_scrub": {
+    "changed_json_files": 134,
+    "replacement_counts": {
+      "customer": 50,
+      "account": 4,
+      "company": 18,
+      "asset": 1
+    },
+    "scope": "legacy customer, user, client, account, merchant, company, manager, and Android brand identifiers, including printable Base64 payloads"
+  },
+  "sixth_pass_account_scrub": {
+    "changed_json_files": 1,
+    "scope": "residual IBAN/account-like uppercase alphanumeric values"
+  },
+  "seventh_pass_facility_scrub": {
+    "changed_json_files": 9,
+    "scope": "residual facility phrase"
+  }
+}

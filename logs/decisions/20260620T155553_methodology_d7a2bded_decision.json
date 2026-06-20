@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-06-20T15:55:53",
+  "decision_type": "methodology",
+  "author": "codex",
+  "content": "Adapt existing benchmarks only at the scenario-family level, using their finance use cases for inspiration while creating original prompts, facts, risk units, and scoring metadata.",
+  "source": "transcript",
+  "content_hash": "d7a2bdedbe8934b30771410c76edab3f919c16214c3f1624dba67e67a718ad67"
+}
