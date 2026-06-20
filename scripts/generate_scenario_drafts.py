@@ -14,16 +14,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from configs.api_settings import get_api_settings
-from configs.model_settings import get_model_settings
-from src.data_models.scenarios import (
+from configs.api_settings import get_api_settings  # noqa: E402
+from configs.model_settings import get_model_settings  # noqa: E402
+from src.data_models.scenarios import (  # noqa: E402
     FinanceArea,
     MaterialityLevel,
     NudgeLevel,
     Scenario,
     SourceInspiration,
 )
-
 
 DEFAULT_SEED_PATH = REPO_ROOT / "data/inputs/scenarios/scenario_generation_seeds.json"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "data/inputs/scenario_drafts"
@@ -176,7 +175,9 @@ def generate_scenario(
         except (ValidationError, ValueError) as exc:
             last_error = exc
 
-    raise RuntimeError(f"failed to generate valid scenario for {seed.scenario_family_id}") from last_error
+    raise RuntimeError(
+        f"failed to generate valid scenario for {seed.scenario_family_id}"
+    ) from last_error
 
 
 def render_review_markdown(scenario: Scenario) -> str:
