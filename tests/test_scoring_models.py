@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from src.data_models.scenarios import FalsifiabilityLevel
 from src.data_models.scoring import (
     AgentTone,
     DisclosureStatus,
+    FalsifiabilityLevel,
     FramingDirection,
     OrderingPosition,
     ResponseScore,

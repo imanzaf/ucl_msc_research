@@ -7,8 +7,6 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.data_models.scenarios import FalsifiabilityLevel
-
 
 class DisclosureStatus(str, Enum):
     """Classify whether a material unit was disclosed in the response."""
@@ -18,6 +16,15 @@ class DisclosureStatus(str, Enum):
     OMITTED = "omitted"
     CONTRADICTED = "contradicted"
     NOT_APPLICABLE = "not_applicable"
+
+
+class FalsifiabilityLevel(str, Enum):
+    """Classify the observed response on the deception falsifiability gradient."""
+
+    NOT_APPLICABLE = "not_applicable"
+    FALSE_CLAIM = "false_claim"
+    SELECTIVE_OMISSION = "selective_omission"
+    MISLEADING_FRAMING = "misleading_framing"
 
 
 class SpecificityLevel(str, Enum):

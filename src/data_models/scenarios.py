@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -17,6 +17,13 @@ class MaterialityLevel(str, Enum):
     NEUTRAL = "neutral"
 
 
+class FinanceArea(str, Enum):
+    """Classify the finance area represented by a scenario."""
+
+    CAPITAL_MARKETS_DISCLOSURE = "capital_markets_disclosure"
+    CREDIT_AND_LENDING = "credit_and_lending"
+
+
 class NudgeLevel(str, Enum):
     """Classify how strongly the prompt pushes the model toward deception."""
 
@@ -25,95 +32,11 @@ class NudgeLevel(str, Enum):
     ZERO = "zero"
 
 
-class FalsifiabilityLevel(str, Enum):
-    """Classify the controlled scenario variant on the deception falsifiability gradient."""
-
-    NOT_APPLICABLE = "not_applicable"
-    FALSE_CLAIM = "false_claim"
-    SELECTIVE_OMISSION = "selective_omission"
-    MISLEADING_FRAMING = "misleading_framing"
-
-
-class UserEmotion(str, Enum):
-    """Classify the emotional state used to condition the user simulator."""
-
-    NEUTRAL = "neutral"
-    HAPPY = "happy"
-    EXCITED = "excited"
-    ANXIOUS = "anxious"
-    FRUSTRATED = "frustrated"
-    ANGRY = "angry"
-
-
-class EmotionIntensity(str, Enum):
-    """Classify the intensity of the user simulator's emotional state."""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-
-class PersonalityTrait(str, Enum):
-    """Classify personality traits used to condition the user simulator."""
-
-    NEUTRAL = "neutral"
-    TRUSTING = "trusting"
-    SKEPTICAL = "skeptical"
-    RISK_AVERSE = "risk_averse"
-    RISK_SEEKING = "risk_seeking"
-    DETAIL_ORIENTED = "detail_oriented"
-    TIME_PRESSURED = "time_pressured"
-    OVERCONFIDENT = "overconfident"
-
-
 class InteractionMode(str, Enum):
     """Classify whether the scenario is single-turn or multi-turn."""
 
     SINGLE_TURN = "single_turn"
     MULTI_TURN = "multi_turn"
-
-
-class BenchmarkSource(str, Enum):
-    """Classify the external benchmark or origin used to derive a scenario."""
-
-    # TODO: verify and confirm benchmark sources
-    ORIGINAL = "original"
-
-
-class UserPersona(BaseModel):
-    """Describe a reusable user-simulator persona interacting with the financial agent."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    persona_id: str = Field(
-        min_length=1,
-        description="Stable identifier for reusing the persona across scenarios.",
-    )
-    stakeholder_role: str = Field(
-        min_length=1,
-        description="Audience whose beliefs or decisions may be affected by the output.",
-    )
-    emotion: UserEmotion = Field(
-        description="Emotional state used to condition the user-side simulator.",
-    )
-    emotion_intensity: EmotionIntensity = Field(
-        description="Intensity of the user-side simulator's emotional state.",
-    )
-    primary_personality_trait: PersonalityTrait = Field(
-        description="Primary personality trait used to condition the user-side simulator.",
-    )
-    secondary_personality_traits: List[PersonalityTrait] = Field(
-        default_factory=list,
-        description="Additional personality traits used to condition the user-side simulator.",
-    )
-    user_goal: str = Field(
-        min_length=1,
-        description="Goal the user-side simulator pursues during the scenario.",
-    )
-    communication_style: str = Field(
-        min_length=1,
-        description="How the user-side simulator should phrase messages.",
-    )
 
 
 class RiskUnit(BaseModel):
@@ -142,94 +65,139 @@ class RiskUnit(BaseModel):
     )
 
 
-class PromptExecutionSpec(BaseModel):
-    """Describe the prompt context used to execute a scenario."""
+class PromptVariant(BaseModel):
+    """Describe one generated prompt variant for a scenario family."""
 
     model_config = ConfigDict(extra="forbid")
 
-    agent_role: str = Field(
+    scenario_id: str = Field(
         min_length=1,
-        description="Role assigned to the financial-agent model.",
+        description="Identifier of the concrete scenario variant.",
     )
-    max_turns: int = Field(
-        ge=1,
-        description="Maximum number of conversation turns for executing the scenario.",
+    nudge_level: NudgeLevel = Field(
+        description="Controlled nudge-gradient level for this prompt variant.",
+    )
+    system_prompt: str = Field(
+        min_length=1,
+        description="System prompt for the financial-agent model.",
+    )
+    user_prompt: str = Field(
+        min_length=1,
+        description="User prompt for the financial-agent model.",
+    )
+    nudge_rationale: str = Field(
+        min_length=1,
+        description="Brief explanation of how this prompt implements the nudge level.",
     )
 
 
-class BenchmarkProvenance(BaseModel):
-    """Describe whether and how a scenario was derived from an existing benchmark."""
+class SourceInspiration(BaseModel):
+    """Record researcher-side benchmark inspiration that is not sent to the generator."""
 
     model_config = ConfigDict(extra="forbid")
 
-    source: BenchmarkSource = Field(
-        default=BenchmarkSource.ORIGINAL,
-        description="Benchmark or origin that the scenario is derived from.",
+    source_label: str = Field(
+        min_length=1,
+        description="Short label for the local benchmark source used as area inspiration.",
     )
-    source_id: Optional[str] = Field(
-        default=None,
-        description="Original benchmark row, task, paper identifier, or scenario id if available.",
+    local_reference: str = Field(
+        min_length=1,
+        description="Local file, scenario id, or row reference inspected by the researcher.",
     )
-    adaptation_notes: Optional[str] = Field(
-        default=None,
-        description="Brief note on how the original source was transformed for this benchmark.",
+    inspiration_note: str = Field(
+        min_length=1,
+        description="Brief note on the finance-area inspiration taken from the source.",
     )
 
 
-class ScenarioSpec(BaseModel):
-    """Define one controlled scenario variant for the financial deception benchmark."""
+class Scenario(BaseModel):
+    """Define one generated scenario family with shared risk units and prompt variants."""
 
     model_config = ConfigDict(extra="forbid")
 
     schema_version: str = Field(
-        default="scenario_spec.v1",
-        description="Schema version for persisted scenario records.",
-    )
-    scenario_id: str = Field(
-        min_length=1,
-        description="Unique identifier for this concrete scenario variant.",
+        default="scenario.v1",
+        description="Schema version for persisted scenario artifacts.",
     )
     scenario_family_id: str = Field(
         min_length=1,
-        description="Identifier shared by paired variants built from the same underlying scenario.",
+        description="Identifier shared by the generated prompt variants.",
+    )
+    finance_area: FinanceArea = Field(
+        description="Finance area represented by this scenario family.",
     )
     title: str = Field(
         min_length=1,
-        description="Short human-readable scenario title.",
+        description="Short human-readable title for the generated scenario family.",
+    )
+    generated_summary: str = Field(
+        min_length=1,
+        description="Generated summary of the scenario family and stakeholder decision context.",
     )
     interaction_mode: InteractionMode = Field(
-        description="Whether the scenario is single-turn or multi-turn.",
+        description="Whether the generated variants are single-turn or multi-turn.",
     )
-    user_persona: UserPersona = Field(
-        description="Persona details for the user interacting with the agent.",
-    )
-    prompt_execution: PromptExecutionSpec = Field(
-        description="Prompt and run context for executing this scenario.",
+    agent_role: str = Field(
+        min_length=1,
+        description="Shared role assigned to the financial-agent model.",
     )
     risk_units: List[RiskUnit] = Field(
-        min_length=1,
-        description="Atomic material-risk units available to the model.",
+        min_length=4,
+        max_length=4,
+        description="Exactly four shared risk units: high, medium, low, and neutral.",
     )
-    nudge_level: NudgeLevel = Field(
-        description="Controlled nudge-gradient level for this variant.",
+    prompt_variants: List[PromptVariant] = Field(
+        min_length=3,
+        max_length=3,
+        description="Exactly three prompt variants: zero, low, and high nudge.",
     )
-    target_falsifiability_level: FalsifiabilityLevel = Field(
-        default=FalsifiabilityLevel.NOT_APPLICABLE,
-        description="Target falsifiability-gradient level for high-nudge variants, otherwise not applicable.",
-    )
-    benchmark_provenance: BenchmarkProvenance = Field(
-        default_factory=BenchmarkProvenance,
-        description="Source benchmark provenance, if any.",
+    source_inspiration: List[SourceInspiration] = Field(
+        default_factory=list,
+        description="Researcher-side source inspiration that was not sent to the LLM.",
     )
 
     @model_validator(mode="after")
-    def target_falsifiability_matches_nudge(self) -> "ScenarioSpec":
-        """Ensure target falsifiability is only set for high-nudge scenarios."""
-        has_target = self.target_falsifiability_level != FalsifiabilityLevel.NOT_APPLICABLE
-        if self.nudge_level == NudgeLevel.HIGH and not has_target:
-            raise ValueError("target_falsifiability_level is required for high-nudge scenarios")
-        if self.nudge_level != NudgeLevel.HIGH and has_target:
-            raise ValueError(
-                "target_falsifiability_level must be not_applicable unless nudge_level is high"
-            )
+    def validate_scenario_constraints(self) -> "Scenario":
+        """Ensure generated scenario content matches benchmark design constraints."""
+        self._validate_risk_units()
+        self._validate_prompt_variants()
         return self
+
+    def _validate_risk_units(self) -> None:
+        """Ensure exactly one risk unit appears at each required materiality level."""
+        materiality_counts: Dict[MaterialityLevel, int] = {
+            MaterialityLevel.HIGH: 0,
+            MaterialityLevel.MEDIUM: 0,
+            MaterialityLevel.LOW: 0,
+            MaterialityLevel.NEUTRAL: 0,
+        }
+        risk_unit_ids: List[str] = []
+        for risk_unit in self.risk_units:
+            materiality_counts[risk_unit.materiality] += 1
+            risk_unit_ids.append(risk_unit.risk_unit_id)
+
+        if any(count != 1 for count in materiality_counts.values()):
+            raise ValueError(
+                "risk_units must contain exactly one high, medium, low, and neutral unit"
+            )
+        if len(set(risk_unit_ids)) != len(risk_unit_ids):
+            raise ValueError("risk_unit_id values must be unique within a scenario family")
+
+    def _validate_prompt_variants(self) -> None:
+        """Ensure prompt variants cover required nudges and deterministic scenario ids."""
+        required_nudges = {NudgeLevel.ZERO, NudgeLevel.LOW, NudgeLevel.HIGH}
+        variant_nudges = {variant.nudge_level for variant in self.prompt_variants}
+        scenario_ids = [variant.scenario_id for variant in self.prompt_variants]
+
+        if variant_nudges != required_nudges:
+            raise ValueError("prompt_variants must contain exactly zero, low, and high nudges")
+        if len(set(scenario_ids)) != len(scenario_ids):
+            raise ValueError("scenario_id values must be unique within a scenario family")
+
+        expected_ids = {
+            nudge_level: f"{self.scenario_family_id}_{nudge_level.value}"
+            for nudge_level in required_nudges
+        }
+        actual_ids = {variant.nudge_level: variant.scenario_id for variant in self.prompt_variants}
+        if actual_ids != expected_ids:
+            raise ValueError("prompt variant scenario_id values must match <family>_<nudge>")

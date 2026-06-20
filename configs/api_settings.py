@@ -44,6 +44,12 @@ class APISettings(BaseSettings):
         description="OpenAI API key used by the research auditor agent.",
     )
 
+    openai_api_key_scenario_generator: str = Field(
+        default="",
+        validation_alias="OPENAI_API_KEY_SCENARIO_GENERATOR",
+        description="OpenAI API key used by the scenario generation pipeline.",
+    )
+
     @field_validator("openai_api_key_citation_validator")
     @classmethod
     def openai_key_must_be_set(cls, v: str) -> str:
@@ -72,7 +78,15 @@ class APISettings(BaseSettings):
             raise ValueError("OPENAI_API_KEY_RESEARCH_AUDITOR must be set in .env.static or .env")
         return v
 
+    @field_validator("openai_api_key_scenario_generator")
+    @classmethod
+    def openai_scenario_generator_key_must_be_set(cls, v: str) -> str:
+        if not v:
+            raise ValueError("OPENAI_API_KEY_SCENARIO_GENERATOR must be set in .env.static or .env")
+        return v
+
 
 @lru_cache(maxsize=1)
 def get_api_settings() -> APISettings:
+    """Return cached project-wide API settings."""
     return APISettings()
