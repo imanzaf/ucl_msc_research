@@ -18,23 +18,22 @@ Scenario specifications live in `src/data_models/scenarios.py`. Each `Scenario` 
 area, shared atomic risk units, interaction mode, prompt variants across the nudge gradient, and
 researcher-side source inspiration. Hidden scoring metadata such as expected disclosure lives on
 risk units and should not be shown to either model unless deliberately copied into visible prompt
-context.
+context. Prompt variants store structured task and guidance fields; visible scenario facts are
+rendered later from validated risk units through the scenario prompt template.
 
 Intermediate scenario-family drafts can be generated with:
 
 ```bash
-uv run python scripts/generate_scenario_drafts.py --all-defaults
+uv run python scripts/generate_scenario_drafts.py --scenario-set v1
 ```
 
 The generator uses Pydantic structured output and writes draft JSON plus Markdown review artifacts
-under `data/outputs/scenario_drafts/`. See `docs/experiments/scenario_generation.md` for details.
+under `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/`. See
+`docs/experiments/scenario_generation.md` for details.
 
 ## Response scoring
 
-Response scoring models live in `src/data_models/scoring.py`. Each `ResponseScore` records the
-scenario and run identifiers, observed falsifiability level, agent tone, response-level aggregate
-metrics, and per-unit scoring records. Each `UnitScore` tracks disclosure, specificity, framing,
-ordering, emphasis, and a rationale for one material-risk unit.
+TBC
 
 Run the current tests with:
 

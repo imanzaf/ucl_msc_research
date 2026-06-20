@@ -65,25 +65,91 @@ class RiskUnit(BaseModel):
     )
 
 
+class PromptInstructions(BaseModel):
+    """Separate the agent task from behavioral guidance in a prompt variant."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    task: str = Field(
+        min_length=1,
+        description="Task the financial-agent model should perform.",
+    )
+    guidance: str = Field(
+        min_length=1,
+        description="Behavioral guidance and nudge-specific constraints for the task.",
+    )
+
+
+class PromptTemplate(BaseModel):
+    """Render prompt instructions with scenario facts injected from risk units."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    template_id: str = Field(
+        default="task_guidance_facts_v1",
+        description="Stable identifier for the prompt rendering template.",
+    )
+    system_template: str = Field(
+        default="Task:\n{task}\n\nGuidance:\n{guidance}\n\nFacts:\n{facts}",
+        description="System prompt template populated with task, guidance, and risk-unit facts.",
+    )
+    fact_line_template: str = Field(
+        default="- [{risk_unit_id}] {fact}",
+        description="Template used to render one visible risk-unit fact.",
+    )
+
+    @model_validator(mode="after")
+    def validate_template_placeholders(self) -> "PromptTemplate":
+        """Ensure templates contain the placeholders required for deterministic rendering."""
+        for placeholder in ["{task}", "{guidance}", "{facts}"]:
+            if placeholder not in self.system_template:
+                raise ValueError(f"system_template must contain {placeholder}")
+        for placeholder in ["{risk_unit_id}", "{fact}"]:
+            if placeholder not in self.fact_line_template:
+                raise ValueError(f"fact_line_template must contain {placeholder}")
+        return self
+
+    def render_facts(self, risk_units: List[RiskUnit]) -> str:
+        """Render visible scenario facts from risk units without hidden scoring metadata."""
+        return "\n".join(
+            self.fact_line_template.format(
+                risk_unit_id=risk_unit.risk_unit_id,
+                fact=risk_unit.fact,
+            )
+            for risk_unit in risk_units
+        )
+
+    def render_system_prompt(
+        self,
+        instructions: PromptInstructions,
+        risk_units: List[RiskUnit],
+    ) -> str:
+        """Render a system prompt by injecting validated facts into the template."""
+        return self.system_template.format(
+            task=instructions.task,
+            guidance=instructions.guidance,
+            facts=self.render_facts(risk_units),
+        )
+
+
 class PromptVariant(BaseModel):
     """Describe one generated prompt variant for a scenario family."""
 
     model_config = ConfigDict(extra="forbid")
 
     scenario_id: str = Field(
-        min_length=1,
+        default="",
         description="Identifier of the concrete scenario variant.",
     )
     nudge_level: NudgeLevel = Field(
         description="Controlled nudge-gradient level for this prompt variant.",
     )
-    system_prompt: str = Field(
-        min_length=1,
-        description="System prompt for the financial-agent model.",
+    system_prompt: PromptInstructions = Field(
+        description="Structured system-prompt instructions rendered with scenario facts at execution time.",
     )
     user_prompt: str = Field(
         min_length=1,
-        description="User prompt for the financial-agent model.",
+        description="Stakeholder request for the financial-agent model, excluding scenario fact lists.",
     )
     nudge_rationale: str = Field(
         min_length=1,
@@ -135,6 +201,7 @@ class Scenario(BaseModel):
         description="Generated summary of the scenario family and stakeholder decision context.",
     )
     interaction_mode: InteractionMode = Field(
+        default=InteractionMode.SINGLE_TURN,
         description="Whether the generated variants are single-turn or multi-turn.",
     )
     agent_role: str = Field(
@@ -150,6 +217,10 @@ class Scenario(BaseModel):
         min_length=3,
         max_length=3,
         description="Exactly three prompt variants: zero, low, and high nudge.",
+    )
+    prompt_template: PromptTemplate = Field(
+        default_factory=PromptTemplate,
+        description="Code-owned template used to render prompt variants with risk-unit facts.",
     )
     source_inspiration: List[SourceInspiration] = Field(
         default_factory=list,
@@ -184,20 +255,32 @@ class Scenario(BaseModel):
             raise ValueError("risk_unit_id values must be unique within a scenario family")
 
     def _validate_prompt_variants(self) -> None:
-        """Ensure prompt variants cover required nudges and deterministic scenario ids."""
+        """Ensure prompt variants cover required nudges and normalize scenario ids."""
         required_nudges = {NudgeLevel.ZERO, NudgeLevel.LOW, NudgeLevel.HIGH}
         variant_nudges = {variant.nudge_level for variant in self.prompt_variants}
-        scenario_ids = [variant.scenario_id for variant in self.prompt_variants]
 
         if variant_nudges != required_nudges:
             raise ValueError("prompt_variants must contain exactly zero, low, and high nudges")
-        if len(set(scenario_ids)) != len(scenario_ids):
-            raise ValueError("scenario_id values must be unique within a scenario family")
 
-        expected_ids = {
-            nudge_level: f"{self.scenario_family_id}_{nudge_level.value}"
-            for nudge_level in required_nudges
-        }
-        actual_ids = {variant.nudge_level: variant.scenario_id for variant in self.prompt_variants}
-        if actual_ids != expected_ids:
-            raise ValueError("prompt variant scenario_id values must match <family>_<nudge>")
+        for variant in self.prompt_variants:
+            variant.scenario_id = f"{self.scenario_family_id}_{variant.nudge_level.value}"
+        self._validate_prompt_fields_exclude_fact_lists()
+
+    def _validate_prompt_fields_exclude_fact_lists(self) -> None:
+        """Ensure prompt variants do not inline risk-unit facts that the template injects."""
+        prompt_texts: List[str] = []
+        for variant in self.prompt_variants:
+            prompt_texts.extend(
+                [
+                    variant.system_prompt.task,
+                    variant.system_prompt.guidance,
+                    variant.user_prompt,
+                ]
+            )
+        combined_prompt_text = "\n".join(prompt_texts)
+        for risk_unit in self.risk_units:
+            if (
+                risk_unit.risk_unit_id in combined_prompt_text
+                or risk_unit.fact in combined_prompt_text
+            ):
+                raise ValueError("prompt variants must not inline risk-unit facts or ids")

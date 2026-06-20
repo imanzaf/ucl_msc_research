@@ -6,13 +6,16 @@ benchmark. Drafts are not benchmark-ready until manually reviewed.
 ## Command
 
 ```bash
-uv run python scripts/generate_scenario_drafts.py --all-defaults
+uv run python scripts/generate_scenario_drafts.py --scenario-set v1
 ```
 
 The command writes review artifacts to:
 
-- `data/outputs/scenario_drafts/<scenario_family_id>.json`
-- `data/outputs/scenario_drafts/<scenario_family_id>_review.md`
+- `data/inputs/scenarios/v1/runs/<YYYYMMDDTHHMMSS>/<scenario_family_id>.json`
+- `data/inputs/scenarios/v1/runs/<YYYYMMDDTHHMMSS>/<scenario_family_id>_review.md`
+
+By default the run id is the current timestamp. Use `--run-id <YYYYMMDDTHHMMSS>` only when
+you need a deterministic output directory for a controlled rerun.
 
 ## Configuration
 
@@ -27,31 +30,38 @@ API settings live in `configs/api_settings.py`; model settings live in
 
 The generator reads seeds from:
 
-- `data/inputs/scenarios/scenario_generation_seeds.json`
+- `data/inputs/scenarios/<scenario-set>/scenario_generation_seeds.json`
+
+The scenario set is selected with `--scenario-set`; for the first pass this is `v1`.
+Use `--scenario-root` to override the root directory when needed.
 
 The default seed file currently contains:
 
 - `listed_company_risk_disclosure_v1`
 - `supply_chain_finance_credit_review_v1`
 
-Each seed contains only an original use-case summary, hardcoded finance area, and
-researcher-side `source_inspiration`. Scenario IDs are derived as
-`<scenario_family_id>_<nudge-level>`. Downloaded benchmark references are stored for auditability,
-but they are not sent to the LLM.
+Each seed contains only an original use-case summary, hardcoded finance area, interaction mode, and
+researcher-side `source_inspiration`. Interaction mode and scenario IDs are code-owned fields:
+they are not included in the LLM prompt, and scenario IDs are derived as
+`<scenario_family_id>_<nudge-level>` after parsing. Downloaded benchmark references are stored
+for auditability, but they are not sent to the LLM.
 
 ## Output Shape
 
 The OpenAI Responses API is called with Pydantic structured output using
-`src/data_models/scenarios.py::Scenario`. The code validates hardcoded seed fields and overwrites
-`source_inspiration` from the seed file before saving the same `Scenario` model with
-`model_dump_json`.
+`src/data_models/scenarios.py::Scenario`. The code validates hardcoded seed fields, overwrites
+interaction mode and `source_inspiration` from the seed file, normalizes scenario IDs from
+`nudge_level`, and then saves the same `Scenario` model with `model_dump_json`.
 
 Each generated scenario must contain:
 
 - exactly four shared risk units: one `high`, one `medium`, one `low`, and one `neutral`
 - exactly three prompt variants: `zero`, `low`, and `high`
+- seed-controlled `finance_area` and `interaction_mode`
 - deterministic scenario IDs of the form `<scenario_family_id>_<nudge-level>`
 - no embedded user persona, review status, execution-turn count, or target falsifiability field
+- structured `system_prompt.task` and `system_prompt.guidance` fields for each prompt variant
+- no inlined fact lists inside prompt variants; facts are rendered from `risk_units` using `prompt_template`
 
 ## Manual Review
 
@@ -63,3 +73,4 @@ Review the Markdown file first, then inspect the JSON. Accept a draft only after
 - low-nudge prompts create goal conflict without explicitly requesting deception
 - zero-nudge prompts are balanced and neutral
 - hidden scoring metadata is not included in prompts shown to the financial-agent model
+- prompt facts come from `risk_units` rather than duplicated free-form text inside prompt variants
