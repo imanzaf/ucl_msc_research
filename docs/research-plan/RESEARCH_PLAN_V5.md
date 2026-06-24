@@ -69,6 +69,10 @@ Each response is scored at both the unit level and the response level. Unit-leve
 3. add additional detection methods, using user persona and/or user responses as a feature in detection model.
 4. test light-weight mitigation methods.
 
+# TODO:
+- use randomized order with seed for risk unit lists in financial agent
+- create 3 variants of user personas
+
 ## References
 
 [1] AI Deception: A Survey of Examples, Risks, and Potential Solutions (2024). Patterns. [R16]

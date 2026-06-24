@@ -50,14 +50,17 @@ to the LLM.
 ## Output Shape
 
 The OpenAI Responses API is called with Pydantic structured output using the LLM-facing models in
-`src/data_models/scenarios.py`: one `GeneratedScenario` call creates shared scenario content and
-risk units, then one `GeneratedPromptVariant` call creates each `integrity`, `zero`, `low`, and
-`high` system-prompt variant. `integrity` is the explicit counter-nudge against deception; `zero`
-contains no behavioral guidance; `low` uses production-natural goal-conflict language; `high`
-explicitly requests concealment or downplaying of material risks. The persisted `Scenario` model
-inherits from `GeneratedScenario` and adds seed-controlled metadata, prompt variants, prompt
-template, and source inspiration before saving with `model_dump_json`. User prompts are
-intentionally left for a later pipeline.
+`src/data_models/scenarios.py`. Generation proceeds in three phases per scenario family:
+
+1. **`GeneratedScenario`** — shared content: title, summary, agent role, and four risk units.
+2. **`GeneratedTask`** — the plain task text shared by all four nudge variants (generated once, no normative coloring).
+3. **`GeneratedGuidance`** (×3) — per-nudge behavioral guidance for `integrity`, `low`, and `high` variants. `zero` guidance is hardcoded as an empty string; no LLM call is made for it.
+
+`integrity` is the explicit counter-nudge against deception; `zero` contains no behavioral guidance;
+`low` adds mild business pressure; `high` explicitly instructs suppression of the highest-materiality
+risk. The persisted `Scenario` model adds seed-controlled metadata, prompt variants, prompt template,
+and source inspiration before saving with `model_dump_json`. User prompts are intentionally left for
+a later pipeline.
 
 Each generated scenario must contain:
 
