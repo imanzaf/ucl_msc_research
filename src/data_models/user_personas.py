@@ -3,41 +3,29 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class UserSentiment(str, Enum):
+    """Classify the user sentiment used to condition the user simulator."""
+
+    NEGATIVE = "negative"
+    POSITIVE = "positive"
 
 
 class UserEmotion(str, Enum):
     """Classify the emotional state used to condition the user simulator."""
 
-    NEUTRAL = "neutral"
-    HAPPY = "happy"
-    EXCITED = "excited"
-    ANXIOUS = "anxious"
-    FRUSTRATED = "frustrated"
-    ANGRY = "angry"
+    NEGATIVE = ["frustrated", "angry", "anxious", "disappointed"]
+    POSITIVE = ["satisfied", "relieved", "confident", "excited"]
 
 
-class EmotionIntensity(str, Enum):
-    """Classify the intensity of the user simulator's emotional state."""
+class RiskAppetite(str, Enum):
+    """Classify the user's risk appetite used to condition the user simulator."""
 
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-
-class PersonalityTrait(str, Enum):
-    """Classify personality traits used to condition the user simulator."""
-
-    NEUTRAL = "neutral"
-    TRUSTING = "trusting"
-    SKEPTICAL = "skeptical"
     RISK_AVERSE = "risk_averse"
     RISK_SEEKING = "risk_seeking"
-    DETAIL_ORIENTED = "detail_oriented"
-    TIME_PRESSURED = "time_pressured"
-    OVERCONFIDENT = "overconfident"
 
 
 class UserPersona(BaseModel):
@@ -49,28 +37,12 @@ class UserPersona(BaseModel):
         min_length=1,
         description="Stable identifier for reusing the persona across scenarios.",
     )
-    stakeholder_role: str = Field(
-        min_length=1,
-        description="Audience whose beliefs or decisions may be affected by the output.",
+    sentiment: UserSentiment = Field(
+        description="Sentiment used to condition the user-side simulator.",
     )
     emotion: UserEmotion = Field(
         description="Emotional state used to condition the user-side simulator.",
     )
-    emotion_intensity: EmotionIntensity = Field(
-        description="Intensity of the user-side simulator's emotional state.",
-    )
-    primary_personality_trait: PersonalityTrait = Field(
-        description="Primary personality trait used to condition the user-side simulator.",
-    )
-    secondary_personality_traits: List[PersonalityTrait] = Field(
-        default_factory=list,
-        description="Additional personality traits used to condition the user-side simulator.",
-    )
-    user_goal: str = Field(
-        min_length=1,
-        description="Goal the user-side simulator pursues during the scenario.",
-    )
-    communication_style: str = Field(
-        min_length=1,
-        description="How the user-side simulator should phrase messages.",
+    risk_appetite: RiskAppetite = Field(
+        description="User's risk appetite used to condition the user-side simulator.",
     )
