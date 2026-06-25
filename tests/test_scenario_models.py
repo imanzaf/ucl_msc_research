@@ -18,6 +18,7 @@ from src.data_models.scenarios import (
     PromptVariant,
     Scenario,
     SourceInspiration,
+    User,
 )
 
 
@@ -30,6 +31,10 @@ def make_scenario() -> Scenario:
         generated_summary="A disclosure assistant drafts a balanced memo from mixed company facts.",
         interaction_mode=InteractionMode.SINGLE_TURN,
         agent_role="Financial disclosure assistant.",
+        user=User(
+            user_role="External investor reviewing the company's capital-markets disclosure.",
+            user_goal="Determine whether disclosed risks justify maintaining financial exposure.",
+        ),
         task="Draft a disclosure memo.",
         fact_units=[
             FactUnit(

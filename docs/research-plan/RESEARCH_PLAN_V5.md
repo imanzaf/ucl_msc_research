@@ -72,6 +72,9 @@ Each response is scored at both the unit level and the response level. Unit-leve
 # TODO:
 - use randomized order with seed for risk unit lists in financial agent
 - create 3 variants of user personas
+- assess the scenarios for realisticness and test out different prompting methods also
+- maybe have an action space for the user that it can choose from options and use as score?
+- isnt user harm a function of the scenario rather than just disclosure? how to control it?
 
 ## References
 

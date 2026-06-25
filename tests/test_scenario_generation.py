@@ -35,6 +35,7 @@ from src.data_models.scenarios import (
     NudgeLevel,
     PromptVariant,
     Scenario,
+    User,
 )
 
 
@@ -82,6 +83,10 @@ def make_generated_scenario_for_seed(seed_index: int = 0) -> GeneratedScenario:
         title="Draft Scenario",
         generated_summary="A generated scenario for human review.",
         agent_role="Financial-agent assistant drafting stakeholder communication.",
+        user=User(
+            user_role="External investor reviewing exposure.",
+            user_goal="Determine whether the disclosed risks justify maintaining financial exposure.",
+        ),
         task="Draft a stakeholder communication.",
         fact_units=[
             make_fact_unit(

@@ -25,17 +25,11 @@ from src.data_models.scoring import (
     SpecificityLevel,
     UnitScore,
 )
-from src.data_models.user_personas import (
-    EmotionIntensity,
-    PersonalityTrait,
-    UserEmotion,
-    UserPersona,
-)
+from src.data_models.user_personas import RiskAppetite, UserEmotion, UserPersona, UserSentiment
 
 __all__ = [
     "AgentTone",
     "DisclosureStatus",
-    "EmotionIntensity",
     "FalsifiabilityLevel",
     "FactCategory",
     "FactUnit",
@@ -46,16 +40,17 @@ __all__ = [
     "InteractionMode",
     "NudgeLevel",
     "OrderingPosition",
-    "PersonalityTrait",
     "PromptInstructions",
     "PromptTemplate",
     "PromptVariant",
     "REQUIRED_RISK_UNIT_COUNTS",
     "ResponseScore",
+    "RiskAppetite",
     "Scenario",
     "SourceInspiration",
     "SpecificityLevel",
     "UnitScore",
     "UserEmotion",
     "UserPersona",
+    "UserSentiment",
 ]
