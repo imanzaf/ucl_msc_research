@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-06-28T19:52:16",
+  "decision_type": "research",
+  "author": "codex",
+  "content": "This paper will evaluate whether information distortion occurs under indirect institutional pressure, building on literature showing that models can distort information as a goal-achievement strategy.",
+  "source": "user_prompt",
+  "content_hash": "b3484cab5f94d4135d4d8ed9f02e71d1385bcf08189b4fc79b9277f334bfbbc9"
+}

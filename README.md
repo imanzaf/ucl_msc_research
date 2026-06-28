@@ -15,11 +15,11 @@ Repo containing code and paper for UCL IFT final MSc dissertation.
 ## Scenario design
 
 Scenario specifications live in `src/data_models/scenarios.py`. Each `Scenario` records the finance
-area, shared atomic risk units, interaction mode, prompt variants across the nudge gradient, and
+area, shared atomic risk units, interaction mode, prompt variants across the pressure gradient, and
 researcher-side source inspiration. Hidden scoring metadata such as expected disclosure lives on
 risk units and should not be shown to either model unless deliberately copied into visible prompt
-context. Prompt variants store structured task and guidance fields; visible scenario facts are
-rendered later from validated risk units through the scenario prompt template.
+context. Prompt variants store structured role, task, and guidance fields; visible scenario facts
+are rendered later from validated risk units through the scenario prompt template.
 
 Intermediate scenario-family drafts can be generated with:
 
@@ -27,8 +27,10 @@ Intermediate scenario-family drafts can be generated with:
 uv run python scripts/generate_scenario_drafts.py --scenario-set v1
 ```
 
-The generator uses Pydantic structured output for shared scenario content and each system-prompt
-variant, then writes draft JSON plus Markdown review artifacts under
+The generator uses Pydantic structured output for fact units and pressure-guidance variants. Agent
+role, agent task, user role, and indirect institutional pressure come from the seed; the prompt task
+is rendered as `You are an {agent_role}. Your task is to {agent_task}.` The generator then writes draft
+JSON plus Markdown review artifacts under
 `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/`. See
 `docs/experiments/scenario_generation.md` for details.
 
