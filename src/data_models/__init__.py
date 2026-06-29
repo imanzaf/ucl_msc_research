@@ -5,7 +5,7 @@ from src.data_models.scenarios import (
     REQUIRED_RISK_UNIT_TOTAL,
     FactCategory,
     FactUnit,
-    FinanceArea,
+    FinanceSegment,
     GeneratedFactSet,
     GeneratedPressureGuidance,
     GeneratedScenario,
@@ -15,7 +15,6 @@ from src.data_models.scenarios import (
     PromptTemplate,
     PromptVariant,
     Scenario,
-    SourceInspiration,
 )
 from src.data_models.scoring import (
     AgentTone,
@@ -35,7 +34,7 @@ __all__ = [
     "FalsifiabilityLevel",
     "FactCategory",
     "FactUnit",
-    "FinanceArea",
+    "FinanceSegment",
     "FramingDirection",
     "GeneratedFactSet",
     "GeneratedPressureGuidance",
@@ -51,7 +50,6 @@ __all__ = [
     "ResponseScore",
     "RiskAppetite",
     "Scenario",
-    "SourceInspiration",
     "SpecificityLevel",
     "UnitScore",
     "UserEmotion",

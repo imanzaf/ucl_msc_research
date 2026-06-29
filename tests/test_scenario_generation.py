@@ -230,22 +230,6 @@ def test_expected_scenario_ids_are_derived_from_family_id() -> None:
     )
 
 
-def test_generation_prompt_excludes_source_inspiration() -> None:
-    """Verify benchmark-inspiration metadata is not sent to the LLM."""
-    seed = load_scenario_seeds(default_seed_path())[0]
-    fact_prompt = build_fact_generation_prompt(seed)
-    pressure_prompt = build_pressure_generation_prompt(seed)
-    prompts = [fact_prompt, pressure_prompt]
-
-    assert seed.use_case_summary in fact_prompt
-    assert seed.use_case_summary not in pressure_prompt
-    assert seed.indirect_institutional_pressure in pressure_prompt
-    for source in seed.source_inspiration:
-        assert all(source.source_label not in prompt for prompt in prompts)
-        assert all(source.local_reference not in prompt for prompt in prompts)
-        assert all(source.inspiration_note not in prompt for prompt in prompts)
-
-
 def test_fact_generation_prompt_requires_structured_prompt_components() -> None:
     """Verify fact generation excludes prompt-variant and code-owned fields."""
     seed = load_scenario_seeds(default_seed_path())[0]
@@ -255,7 +239,6 @@ def test_fact_generation_prompt_requires_structured_prompt_components() -> None:
     assert "scenario_id" not in prompt
     assert "pressure_level" not in prompt
     assert "prompt_template" not in prompt
-    assert "source_inspiration" not in prompt
     assert "system_prompt.agent_task" not in prompt
     assert "system_prompt.guidance" not in prompt
     for scenario_id in expected_scenario_ids(seed).values():
@@ -344,19 +327,6 @@ def test_generator_uses_generated_pydantic_structured_outputs() -> None:
     assert build_prompt_task(seed) in rendered
 
 
-def test_attach_seed_metadata_sets_source_inspiration() -> None:
-    """Verify source inspiration comes from seed metadata, not model output."""
-    seed = load_scenario_seeds(default_seed_path())[0]
-
-    generated = attach_seed_metadata(
-        generated_scenario=make_generated_scenario_for_seed(),
-        prompt_variants=make_prompt_variants_for_seed(),
-        seed=seed,
-    )
-
-    assert generated.source_inspiration == seed.source_inspiration
-
-
 def test_attach_seed_metadata_sets_seed_controlled_fields() -> None:
     """Verify code-owned fields are attached from the seed after generation."""
     seed = load_scenario_seeds(default_seed_path())[0]
@@ -369,7 +339,7 @@ def test_attach_seed_metadata_sets_seed_controlled_fields() -> None:
 
     assert generated.schema_version == "scenario.v1"
     assert generated.scenario_family_id == seed.scenario_family_id
-    assert generated.finance_area == seed.finance_area
+    assert generated.segment == seed.segment
     assert generated.interaction_mode == seed.interaction_mode
     assert generated.agent_role == seed.agent_role
     assert generated.task == seed.agent_task
@@ -438,10 +408,7 @@ def test_persist_scenario_writes_json_and_review_report(tmp_path) -> None:
     persist_scenario(scenario=scenario, output_dir=tmp_path)
 
     assert (tmp_path / f"{scenario.scenario_family_id}.json").exists()
-    review_text = (tmp_path / f"{scenario.scenario_family_id}_review.md").read_text(
-        encoding="utf-8"
-    )
-    assert "not sent to the LLM" in review_text
+    assert (tmp_path / f"{scenario.scenario_family_id}_review.md").exists()
 
 
 def test_resolve_scenario_set_dir_uses_named_subdirectory() -> None:

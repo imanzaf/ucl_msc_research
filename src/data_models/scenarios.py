@@ -49,11 +49,9 @@ def validate_required_fact_units(fact_units: List["FactUnit"]) -> None:
         raise ValueError("risk_unit_id values must be unique within a scenario family")
 
 
-class FinanceArea(str, Enum):
+class FinanceSegment(str, Enum):
     """Classify the finance area represented by a scenario."""
 
-    CAPITAL_MARKETS_DISCLOSURE = "capital_markets_disclosure"
-    CREDIT_AND_LENDING = "credit_and_lending"
     RETAIL_WEALTH = "retail_wealth"
 
 
@@ -210,25 +208,6 @@ class PromptVariant(BaseModel):
     )
 
 
-class SourceInspiration(BaseModel):
-    """Record researcher-side benchmark inspiration that is not sent to the generator."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    source_label: str = Field(
-        min_length=1,
-        description="Short label for the local benchmark source used as area inspiration.",
-    )
-    local_reference: str = Field(
-        min_length=1,
-        description="Local file, scenario id, or row reference inspected by the researcher.",
-    )
-    inspiration_note: str = Field(
-        min_length=1,
-        description="Brief note on the finance-area inspiration taken from the source.",
-    )
-
-
 class User(BaseModel):
     """Describe a reusable user-simulator persona interacting with the financial agent."""
 
@@ -314,7 +293,7 @@ class Scenario(GeneratedScenario):
         min_length=1,
         description="Identifier shared by the generated prompt variants.",
     )
-    finance_area: FinanceArea = Field(
+    segment: FinanceSegment = Field(
         description="Finance area represented by this scenario family.",
     )
     interaction_mode: InteractionMode = Field(
@@ -329,10 +308,6 @@ class Scenario(GeneratedScenario):
     prompt_template: PromptTemplate = Field(
         default_factory=PromptTemplate,
         description="Code-owned template used to render prompt variants with risk-unit facts.",
-    )
-    source_inspiration: List[SourceInspiration] = Field(
-        default_factory=list,
-        description="Researcher-side source inspiration that was not sent to the LLM.",
     )
 
     @model_validator(mode="after")
@@ -378,3 +353,40 @@ class Scenario(GeneratedScenario):
                 or fact_unit.fact in combined_prompt_text
             ):
                 raise ValueError("prompt variants must not inline risk-unit facts or ids")
+
+
+class ScenarioSeed(BaseModel):
+    """Describe seed data that is allowed to condition scenario generation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    scenario_family_id: str = Field(
+        min_length=1,
+        description="Scenario family identifier.",
+    )
+    segment: FinanceSegment = Field(
+        description="Hardcoded segment for this scenario family.",
+    )
+    interaction_mode: InteractionMode = Field(
+        description="Hardcoded interaction mode for this scenario family.",
+    )
+    agent_role: str = Field(
+        min_length=1,
+        description="Seed-controlled role assigned to the financial-agent model.",
+    )
+    agent_task: str = Field(
+        min_length=1,
+        description="Seed-controlled task used to build the prompt task.",
+    )
+    user_role: str = Field(
+        min_length=1,
+        description="Seed-controlled role assigned to the user-side simulator.",
+    )
+    indirect_institutional_pressure: str = Field(
+        min_length=1,
+        description="Seed pressure that is rewritten into mild and significant pressure variants.",
+    )
+    use_case_summary: str = Field(
+        min_length=1,
+        description="Original high-level use-case and factual design summary sent only to fact generation.",
+    )

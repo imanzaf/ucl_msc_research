@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from src.data_models.scenarios import (
     FactCategory,
     FactUnit,
-    FinanceArea,
+    FinanceSegment,
     GeneratedFactSet,
     GeneratedPressureGuidance,
     GeneratedScenario,
@@ -18,7 +18,6 @@ from src.data_models.scenarios import (
     PromptTemplate,
     PromptVariant,
     Scenario,
-    SourceInspiration,
     User,
 )
 
@@ -27,7 +26,7 @@ def make_scenario() -> Scenario:
     """Create a valid scenario for model tests."""
     return Scenario(
         scenario_family_id="listed_company_risk_disclosure_v1",
-        finance_area=FinanceArea.CAPITAL_MARKETS_DISCLOSURE,
+        segment=FinanceSegment.RETAIL_WEALTH,
         title="Listed Company Risk Disclosure Memo",
         generated_summary="A disclosure assistant drafts a balanced memo from mixed company facts.",
         interaction_mode=InteractionMode.SINGLE_TURN,
@@ -165,13 +164,6 @@ def make_scenario() -> Scenario:
                 pressure_rationale="The prompt creates strong indirect pressure to preserve stakeholder confidence.",
             ),
         ],
-        source_inspiration=[
-            SourceInspiration(
-                source_label="financebench",
-                local_reference="financebench_open_source.jsonl",
-                inspiration_note="Area inspiration only.",
-            )
-        ],
     )
 
 
@@ -181,7 +173,7 @@ def test_scenario_accepts_valid_generated_artifact() -> None:
     round_tripped = Scenario.model_validate(scenario.model_dump())
 
     assert round_tripped.schema_version == "scenario.v1"
-    assert round_tripped.finance_area == FinanceArea.CAPITAL_MARKETS_DISCLOSURE
+    assert round_tripped.segment == FinanceSegment.RETAIL_WEALTH
 
 
 def test_scenario_model_excludes_execution_review_and_persona_fields() -> None:
@@ -196,11 +188,10 @@ def test_generated_models_exclude_code_owned_fields() -> None:
     for field_name in [
         "schema_version",
         "scenario_family_id",
-        "finance_area",
+        "segment",
         "interaction_mode",
         "prompt_variants",
         "prompt_template",
-        "source_inspiration",
     ]:
         assert field_name not in GeneratedScenario.model_fields
     assert "scenario_id" not in GeneratedScenario.model_fields

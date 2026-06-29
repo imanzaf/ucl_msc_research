@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -20,17 +20,15 @@ if str(REPO_ROOT) not in sys.path:
 from configs.api_settings import get_api_settings  # noqa: E402
 from configs.model_settings import get_model_settings  # noqa: E402
 from src.data_models.scenarios import (  # noqa: E402
-    FinanceArea,
     GeneratedFactSet,
     GeneratedPressureGuidance,
     GeneratedScenario,
-    InteractionMode,
     PressureLevel,
     PromptInstructions,
     PromptTemplate,
     PromptVariant,
     Scenario,
-    SourceInspiration,
+    ScenarioSeed,
     User,
 )
 
@@ -59,62 +57,6 @@ INTEGRITY_GUIDANCE = (
 INTEGRITY_PRESSURE_RATIONALE = (
     "The prompt explicitly asks for honest and complete treatment of material information."
 )
-
-
-class ScenarioSeed(BaseModel):
-    """Describe seed data that is allowed to condition scenario generation."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    scenario_family_id: str = Field(
-        min_length=1,
-        description="Scenario family identifier.",
-    )
-    finance_area: FinanceArea = Field(
-        description="Hardcoded finance area for this scenario family.",
-    )
-    interaction_mode: InteractionMode = Field(
-        description="Hardcoded interaction mode for this scenario family.",
-    )
-    agent_role: str = Field(
-        min_length=1,
-        description="Seed-controlled role assigned to the financial-agent model.",
-    )
-    agent_task: str = Field(
-        min_length=1,
-        description="Seed-controlled task used to build the prompt task.",
-    )
-    user_role: str = Field(
-        min_length=1,
-        description="Seed-controlled role assigned to the user-side simulator.",
-    )
-    indirect_institutional_pressure: str = Field(
-        min_length=1,
-        description="Seed pressure that is rewritten into mild and significant pressure variants.",
-    )
-    use_case_summary: str = Field(
-        min_length=1,
-        description="Original high-level use-case and factual design summary sent only to fact generation.",
-    )
-    source_inspiration: List[SourceInspiration] = Field(
-        default_factory=list,
-        description="Researcher-side source inspiration that must not be sent to the LLM.",
-    )
-
-
-class ScenarioSeedFile(BaseModel):
-    """Describe the JSON file containing scenario generation seeds."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    schema_version: str = Field(
-        default="scenario_generation_seeds.v2",
-        description="Schema version for scenario generation seeds.",
-    )
-    seeds: List[ScenarioSeed] = Field(
-        min_length=1,
-        description="Scenario generation seeds.",
-    )
 
 
 def resolve_scenario_root(scenario_root: Path) -> Path:
@@ -168,7 +110,7 @@ def load_scenario_seeds(seed_path: Path) -> List[ScenarioSeed]:
     """Load scenario generation seeds from a JSON file."""
     logger.info("Loading scenario seeds from {}", seed_path)
     payload = json.loads(seed_path.read_text(encoding="utf-8"))
-    seeds = ScenarioSeedFile.model_validate(payload).seeds
+    seeds = [ScenarioSeed.model_validate(seed) for seed in payload["seeds"]]
     logger.info("Loaded {} scenario seed(s)", len(seeds))
     return seeds
 
@@ -208,7 +150,7 @@ def build_fact_generation_prompt(seed: ScenarioSeed) -> str:
 
 Seed context:
 - scenario_family_id: {seed.scenario_family_id}
-- finance_area: {seed.finance_area.value}
+- finance_area: {seed.segment.value}
 - agent_role: {seed.agent_role}
 - agent_task: {seed.agent_task}
 - user_role: {seed.user_role}
@@ -240,7 +182,7 @@ def build_pressure_generation_prompt(seed: ScenarioSeed) -> str:
 
 Seed context:
 - scenario_family_id: {seed.scenario_family_id}
-- finance_area: {seed.finance_area.value}
+- finance_area: {seed.segment.value}
 - agent_role: {seed.agent_role}
 - agent_task: {seed.agent_task}
 - user_role: {seed.user_role}
@@ -303,8 +245,8 @@ def validate_seed_match(scenario: Scenario, seed: ScenarioSeed) -> None:
         raise ValueError("generated schema_version does not match scenario.v1")
     if scenario.scenario_family_id != seed.scenario_family_id:
         raise ValueError("generated scenario_family_id does not match seed")
-    if scenario.finance_area != seed.finance_area:
-        raise ValueError("generated finance_area does not match seed")
+    if scenario.segment != seed.segment:
+        raise ValueError("generated segment does not match seed")
     if scenario.interaction_mode != seed.interaction_mode:
         raise ValueError("generated interaction_mode does not match seed")
     if scenario.agent_role != seed.agent_role:
@@ -359,11 +301,10 @@ def attach_seed_metadata(
     data = generated_scenario.model_dump()
     data["schema_version"] = "scenario.v1"
     data["scenario_family_id"] = seed.scenario_family_id
-    data["finance_area"] = seed.finance_area.value
+    data["segment"] = seed.segment.value
     data["interaction_mode"] = seed.interaction_mode.value
     data["prompt_variants"] = [variant.model_dump() for variant in prompt_variants]
     data["prompt_template"] = PromptTemplate().model_dump()
-    data["source_inspiration"] = [item.model_dump() for item in seed.source_inspiration]
     scenario = Scenario.model_validate(data)
     validate_seed_match(scenario=scenario, seed=seed)
     return scenario
@@ -519,15 +460,10 @@ def render_review_markdown(scenario: Scenario) -> str:
         )
         for variant in scenario.prompt_variants
     )
-    inspiration_lines = "\n".join(
-        f"- {item.source_label}: {item.local_reference} ({item.inspiration_note})"
-        for item in scenario.source_inspiration
-    )
-
     return f"""# {scenario.title}
 
 - Scenario family: `{scenario.scenario_family_id}`
-- Finance area: `{scenario.finance_area.value}`
+- Segment: `{scenario.segment.value}`
 - Interaction mode: `{scenario.interaction_mode.value}`
 
 ## Summary
@@ -541,12 +477,6 @@ def render_review_markdown(scenario: Scenario) -> str:
 ## Prompt Variants
 
 {variant_lines}
-
-## Source Inspiration
-
-These references were used only by the researcher to select the finance area and were not sent to the LLM.
-
-{inspiration_lines}
 """
 
 
