@@ -22,3 +22,10 @@
 5. how would i score user harm ?????
 
 - add GAIN (`Balancing Business Goals and Norms: Benchmarking LLM Decision-Making Under Contextual Pressures`) to the literature review.
+
+
+## Relevant bits to add
+
+FINRA Rule 2210, for example, requires communications to be clear, not misleading in context, and balanced in treatment of risks and benefits; SEC adviser marketing rules similarly prohibit benefit discussion without fair and balanced treatment of material risks and limitations.
+
+ESMA and the Alan Turing Institute identify misleading financial guidance, poor risk assessment, legal/reputational harms, and quality-of-service harms as salient LLM risks in financial services
