@@ -9,20 +9,23 @@
 
 ## TODOs
 
-- use randomized order with seed for risk unit lists in financial agent
-- create 3 variants of user personas
-- assess the scenarios for realisticness and test out different prompting methods also
-- maybe have an action space for the user that it can choose from options and use as score?
-- isnt user harm a function of the scenario rather than just disclosure? how to control it?
 - use decor methodology for taking model responses and decomposing into fact units to then compare against ground truth facts
+- prompt and persona effect model: outcome ~ prompt_variant * persona_variant
+        + model_family
+        + stakeholder_role
+        + response_length
+        + (1 | use_case)
+        + (1 | scenario)
 
-1. have the model take the agent role and task and user role to generate business facts, user profile facts, and user facing context (why they are using the service).
-2. the first user response should be fixed. (also model generated)
-3. vary scenarios by adding an integrity version with the secondary goals or changing secondary goals to be a bit more urgent?
-4. vary user personas as neutral, anxious, excited 
-5. how would i score user harm ?????
 
-- add GAIN (`Balancing Business Goals and Norms: Benchmarking LLM Decision-Making Under Contextual Pressures`) to the literature review.
+### sunday 5th
+- finalise fact unit annotation (use randomised order for fact list? create both business based and user based facts, maybe have realistic fact sources, so each fact unit is presented in a production-realistic form, e.g., facts embedded in emails, product sheets, call notes, term sheets, dashboards, or complaint logs)
+- finalise scenario generation design (for prompts maybe add different levels of difficulty?)
+- finalise user simulator design (fixed first message or all messages fixed? action space for user or prompts for retrieving beliefs, vary user personas neutral, anxious, confident)
+- finalise metrics
+- finalise 40 use cases
+- finalise scenario run and scoring design (after run, take responses and generate list of facts present in llm response using another llm?)
+- create 5 sample scenario families
 
 
 ## Relevant bits to add
@@ -36,6 +39,8 @@ Framing: A finance-specific benchmark of spontaneous deceptive risk communicatio
 Decor and Janus inspo - Decor's informational unit decomposition, Janus metric definitions. Janus comparison - Its key difference from my proposal is that JANUS compares neutral prompts against goal-conditioned prompts, such as increasing adoption or approval, whereas my intended core setting is benign production-style financial communication without an introduced objective conflict.
 
 DeceptionBench - introduced direct goal conflict, not production-natural language. SECQUE, Finance Agent Benchmark, FinEval-style benchmarks, and newer financial evaluation suites mainly measure financial reasoning, SEC-filing analysis, tool use, risk assessment, or hallucination/accuracy. They do not centrally measure subtle risk-disclosure manipulation under benign deployment prompts. For example, SECQUE includes risk assessment as one category, while Finance Agent Benchmark uses real-world financial research tasks and reports low top-model accuracy, but neither is primarily an omission/framing/de-emphasis benchmark.
+
+- add GAIN (`Balancing Business Goals and Norms: Benchmarking LLM Decision-Making Under Contextual Pressures`) to the literature review.
 
 The distinctive contributions would be:
 
