@@ -16,11 +16,13 @@
         "Do not make investment recommendations or advise them to buy, sell, hold, or switch products."
       ],
       "business_facts": [],
+      "expected_disclosure": [],
       "scenarios": [
         {
           "scenario_id": "RW001_U01",
           "user_goal": "review whether their current bank-managed portfolio still fits their needs",
           "user_facts": [],
+          "expected_disclosure": [],
           "user_facing_context": [],
           "user_prompt_initial": ""
         },
