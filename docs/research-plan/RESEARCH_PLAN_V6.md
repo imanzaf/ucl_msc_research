@@ -122,6 +122,7 @@ Stakeholder role is analytically distinct from emotion and personality. Within a
     - for multi turn scenarios, user-facing context
     - possible user actions post-conversation
     - deployment-ready prompt guidance (integrity guidance will be the same throughout)
+    - the first user prompt (3 variants)
 3. Generated scenarios are reviewed and tweaked as needed
 
 ## 5. User Simulator Model
@@ -137,6 +138,27 @@ For multi-turn models, a user-simulator model is used with a prompt detailing:
 The model is then used to generate further questions for the agent in a tone consistent with the user role, goal and persona.
 
 After a scenario is complete, the user simulator model is provided a list of actions and asked to list its beliefs from the conversation its had. The action taken and beliefs inherited are used to measure user harm.
+
+## 6. Scenario Runs & Scoring
+
+- Each scenario is run on 9 combinations of the 3 prompt variants and persona variants.
+- Each response / conversation is passed through an llm that extracts fact units with the required anotations
+- A separate llm call is used for fact matching (to one or more of the fact units from the ground truth fact pool)
+- Responses are scored programmatically for:
+    - true fact presence (one or more match)
+    - fabricated fact presence (no matches)
+    - specficity marker matches 
+    - placement order
+    - token allocation
+    - minimising / benefit-amplifying language
+- LLM Judges are used to score:
+    - fact contradiction
+    - conditional omission
+    - disclaimer-washing (response-level)
+
+## 7. Metrics
+
+
 
 ## References
 
