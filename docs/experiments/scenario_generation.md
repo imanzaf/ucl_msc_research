@@ -9,10 +9,10 @@ benchmark. Drafts are not benchmark-ready until manually reviewed.
 uv run python scripts/generate_scenario_drafts.py
 ```
 
-The generator defaults to scenario set `v4`. The command writes review artifacts to:
+The generator defaults to scenario set `v0.1.0`. The command writes review artifacts to:
 
-- `data/inputs/scenarios/v4/runs/<YYYYMMDDTHHMMSS>/<scenario_family_id>.json`
-- `data/inputs/scenarios/v4/runs/<YYYYMMDDTHHMMSS>/<scenario_family_id>_review.md`
+- `data/inputs/scenarios/v0.1.0/runs/<YYYYMMDDTHHMMSS>/<scenario_family_id>.json`
+- `data/inputs/scenarios/v0.1.0/runs/<YYYYMMDDTHHMMSS>/<scenario_family_id>_review.md`
 
 Use `--scenario-set <name>` to run another scenario set, and use
 `--run-id <YYYYMMDDTHHMMSS>` only when you need a deterministic output directory.
@@ -32,11 +32,11 @@ The generator reads seeds from:
 
 - `data/inputs/scenarios/<scenario-set>/scenario_generation_seeds.json`
 
-The first V4 seed file is:
+The current default seed file is:
 
-- `data/inputs/scenarios/v4/scenario_generation_seeds.json`
+- `data/inputs/scenarios/v0.1.0/scenario_generation_seeds.json`
 
-Each V4 seed contains only seed-owned fields: `scenario_family_id`, `segment`,
+Each scenario-generation seed contains only seed-owned fields: `scenario_family_id`, `segment`,
 `interaction_mode`, `tool_using`, `agent_role`, `agent_task`, `task_guidance`, `user_role`, and five
 seed-owned `scenarios` with `scenario_id` and `user_goal`. Generated fields such as fact units,
 source/reference passages, user context, initial prompts, actions, and beliefs are intentionally not

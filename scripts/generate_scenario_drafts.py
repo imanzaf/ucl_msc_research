@@ -1,4 +1,4 @@
-"""Generate human-reviewable V4 scenario-family drafts with Pydantic structured output."""
+"""Generate human-reviewable scenario-family drafts with Pydantic structured output."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ from src.prompts.scenarios.scenario_instance_generation import (  # noqa: E402
 )
 
 DEFAULT_SCENARIO_ROOT = Path("data/inputs/scenarios")
-DEFAULT_SCENARIO_SET = "v4"
+DEFAULT_SCENARIO_SET = "v0.1.0"
 SEED_FILENAME = "scenario_generation_seeds.json"
 RUNS_DIRNAME = "runs"
 RUN_ID_PATTERN = re.compile(r"^[0-9]{8}T[0-9]{6}$")
@@ -64,9 +64,9 @@ def resolve_scenario_set_dir(scenario_root: Path, scenario_set: str) -> Path:
     """Return the directory containing seeds and generated drafts for one scenario set."""
     scenario_set_path = Path(scenario_set)
     if scenario_set_path.is_absolute() or len(scenario_set_path.parts) != 1:
-        raise ValueError("scenario set must be a single directory name such as v4")
+        raise ValueError("scenario set must be a single directory name such as v0.1.0")
     if scenario_set_path.parts[0] in {"", ".", ".."}:
-        raise ValueError("scenario set must be a safe directory name such as v4")
+        raise ValueError("scenario set must be a safe directory name such as v0.1.0")
     return resolve_scenario_root(scenario_root) / scenario_set_path
 
 
@@ -107,12 +107,12 @@ def build_scenario_instance_generation_prompt(
     seed: ScenarioSeed,
     seed_scenario: ScenarioSeedScenario,
 ) -> str:
-    """Build the prompt for generating one V4 scenario instance."""
+    """Build the prompt for generating one scenario instance."""
     return render_scenario_instance_generation_prompt(seed=seed, seed_scenario=seed_scenario)
 
 
 def load_scenario_seeds(seed_path: Path) -> List[ScenarioSeed]:
-    """Load V4 scenario generation seeds from a JSON file."""
+    """Load scenario generation seeds from a JSON file."""
     logger.info("Loading scenario seeds from {}", seed_path)
     payload = json.loads(seed_path.read_text(encoding="utf-8"))
     seeds = [ScenarioSeed.model_validate(seed) for seed in payload["seeds"]]
@@ -348,7 +348,8 @@ def render_belief_review(instance: ScenarioInstance) -> str:
 def render_initial_prompt_review(instance: ScenarioInstance) -> str:
     """Render persona-matched initial prompts for one generated scenario instance."""
     return "\n".join(
-        f"- `{persona_id}`: {prompt}" for persona_id, prompt in instance.initial_user_prompt.items()
+        f"- `{persona_id}`: {prompt}"
+        for persona_id, prompt in instance.initial_user_prompt.model_dump().items()
     )
 
 
@@ -461,7 +462,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--scenario-set",
         default=DEFAULT_SCENARIO_SET,
-        help="Scenario-set subdirectory under the scenario root, for example v4.",
+        help="Scenario-set subdirectory under the scenario root, for example v0.1.0.",
     )
     parser.add_argument(
         "--scenario-root",

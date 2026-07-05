@@ -1,4 +1,4 @@
-"""Tests for the V4 LLM-based scenario draft generator."""
+"""Tests for the LLM-based scenario draft generator."""
 
 from __future__ import annotations
 
@@ -152,7 +152,7 @@ def make_generated_instance() -> GeneratedScenarioInstance:
 
 
 def make_scenario_instances() -> List[ScenarioInstance]:
-    """Create the five persisted instances aligned to the default V4 seed."""
+    """Create the five persisted instances aligned to the default scenario seed."""
     seed = load_scenario_seeds(default_seed_path())[0]
     instances: List[ScenarioInstance] = []
     for seed_scenario in seed.scenarios:
@@ -163,14 +163,14 @@ def make_scenario_instances() -> List[ScenarioInstance]:
     return instances
 
 
-def test_default_scenario_set_is_v4() -> None:
-    """Verify the generator defaults to the V4 scenario set."""
-    assert DEFAULT_SCENARIO_SET == "v4"
-    assert default_seed_path().parts[-2:] == ("v4", "scenario_generation_seeds.json")
+def test_default_scenario_set_is_v0_1_0() -> None:
+    """Verify the generator defaults to the v0.1.0 scenario set."""
+    assert DEFAULT_SCENARIO_SET == "v0.1.0"
+    assert default_seed_path().parts[-2:] == ("v0.1.0", "scenario_generation_seeds.json")
 
 
-def test_load_scenario_seeds_from_v4_json() -> None:
-    """Verify V4 scenario seeds are loaded from the JSON seed file."""
+def test_load_scenario_seeds_from_default_json() -> None:
+    """Verify scenario seeds are loaded from the default JSON seed file."""
     seeds = load_scenario_seeds(default_seed_path())
 
     assert len(seeds) == 5
@@ -318,46 +318,46 @@ def test_persist_scenario_writes_json_and_review_report(tmp_path) -> None:
 
 def test_resolve_scenario_set_dir_uses_named_subdirectory() -> None:
     """Verify scenario-set names resolve under the configured scenario root."""
-    scenario_set_dir = resolve_scenario_set_dir(DEFAULT_SCENARIO_ROOT, "v4")
+    scenario_set_dir = resolve_scenario_set_dir(DEFAULT_SCENARIO_ROOT, "v0.1.0")
 
-    assert scenario_set_dir.name == "v4"
+    assert scenario_set_dir.name == "v0.1.0"
     assert scenario_set_dir.parent.name == "scenarios"
 
 
 def test_resolve_scenario_set_dir_rejects_path_values() -> None:
     """Verify scenario-set names cannot escape the scenario root."""
     with pytest.raises(ValueError):
-        resolve_scenario_set_dir(DEFAULT_SCENARIO_ROOT, "../v4")
+        resolve_scenario_set_dir(DEFAULT_SCENARIO_ROOT, "../v0.1.0")
 
 
 def test_resolve_run_output_dir_uses_timestamped_subdirectory() -> None:
     """Verify generated artifacts are written under a timestamped run directory."""
-    scenario_set_dir = resolve_scenario_set_dir(DEFAULT_SCENARIO_ROOT, "v4")
+    scenario_set_dir = resolve_scenario_set_dir(DEFAULT_SCENARIO_ROOT, "v0.1.0")
     output_dir = resolve_run_output_dir(scenario_set_dir=scenario_set_dir, run_id="20260705T193000")
 
     assert output_dir.name == "20260705T193000"
     assert output_dir.parent.name == "runs"
-    assert output_dir.parent.parent.name == "v4"
+    assert output_dir.parent.parent.name == "v0.1.0"
 
 
 def test_resolve_run_output_dir_rejects_invalid_run_id() -> None:
     """Verify run ids must use the timestamp format."""
-    scenario_set_dir = resolve_scenario_set_dir(DEFAULT_SCENARIO_ROOT, "v4")
+    scenario_set_dir = resolve_scenario_set_dir(DEFAULT_SCENARIO_ROOT, "v0.1.0")
 
     with pytest.raises(ValueError):
         resolve_run_output_dir(scenario_set_dir=scenario_set_dir, run_id="../20260705T193000")
 
 
-def test_parse_args_defaults_to_v4() -> None:
-    """Verify the CLI defaults to the V4 scenario set."""
+def test_parse_args_defaults_to_v0_1_0() -> None:
+    """Verify the CLI defaults to the v0.1.0 scenario set."""
     args = parse_args([])
 
-    assert args.scenario_set == "v4"
+    assert args.scenario_set == "v0.1.0"
 
 
 def test_parse_args_accepts_run_id() -> None:
     """Verify the CLI can accept a deterministic run id."""
-    args = parse_args(["--scenario-set", "v4", "--run-id", "20260705T193000"])
+    args = parse_args(["--scenario-set", "v0.1.0", "--run-id", "20260705T193000"])
 
-    assert args.scenario_set == "v4"
+    assert args.scenario_set == "v0.1.0"
     assert args.run_id == "20260705T193000"

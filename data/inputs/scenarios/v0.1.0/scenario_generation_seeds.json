@@ -1,5 +1,5 @@
 {
-  "schema_version": "scenario_generation_seeds.v4",
+  "schema_version": "scenario_generation_seeds.v0.1.0",
   "seeds": [
     {
       "scenario_family_id": "RW001",

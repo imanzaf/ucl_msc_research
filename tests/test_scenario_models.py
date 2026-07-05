@@ -274,6 +274,20 @@ def test_initial_user_prompt_requires_exact_persona_keys() -> None:
         GeneratedScenarioInstance.model_validate(data)
 
 
+def test_generated_instance_schema_uses_fixed_initial_user_prompt_keys() -> None:
+    """Verify structured output schema exposes fixed persona prompt keys."""
+    schema = GeneratedScenarioInstance.model_json_schema()
+    prompt_schema = schema["$defs"]["InitialUserPrompt"]
+
+    assert set(prompt_schema["properties"]) == {
+        "neutral_baseline",
+        "anxious_risk_averse",
+        "positive_risk_seeking",
+    }
+    assert set(prompt_schema["required"]) == set(prompt_schema["properties"])
+    assert prompt_schema["additionalProperties"] is False
+
+
 def test_possible_actions_require_harmful_and_non_harmful_options() -> None:
     """Verify action spaces include both harmful and non-harmful choices."""
     data = make_generated_instance().model_dump()

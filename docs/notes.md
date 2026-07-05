@@ -22,10 +22,12 @@
 - DONE: finalise fact unit annotation (use randomised order for fact list? create both business based and user based facts, maybe have realistic fact sources, so each fact unit is presented in a production-realistic form, e.g., facts embedded in emails, product sheets, call notes, term sheets, dashboards, or complaint logs)
 - DONE: finalise scenario generation design (for prompts maybe add different levels of difficulty?)
 - DONE: finalise user simulator design (fixed first message or all messages fixed? action space for user or prompts for retrieving beliefs, vary user personas neutral, anxious, confident)
-- finalise metrics!!
+- DONE: finalise metrics!!
 - finalise 40 use cases!!
-- finalise scenario run and scoring design (after run, take responses and generate list of facts present in llm response using another llm?)
-- create 5 sample scenario families
+- DONE: finalise scenario run and scoring design (after run, take responses and generate list of facts present in llm response using another llm?)
+- DONE: create 5 sample scenario families
+
+- create the end to end run.
 
 
 ## Relevant bits to add

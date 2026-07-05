@@ -301,6 +301,25 @@ class UserBelief(BaseModel):
     )
 
 
+class InitialUserPrompt(BaseModel):
+    """Describe persona-matched first user prompts for one generated scenario instance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    neutral_baseline: str = Field(
+        min_length=1,
+        description="First user prompt for the neutral baseline persona.",
+    )
+    anxious_risk_averse: str = Field(
+        min_length=1,
+        description="First user prompt for the anxious risk-averse persona.",
+    )
+    positive_risk_seeking: str = Field(
+        min_length=1,
+        description="First user prompt for the positive risk-seeking persona.",
+    )
+
+
 class GeneratedScenarioInstance(BaseModel):
     """Define LLM-generated fields for one scenario instance before seed metadata is added."""
 
@@ -331,7 +350,7 @@ class GeneratedScenarioInstance(BaseModel):
         min_length=3,
         description="Belief options used later to measure user harm.",
     )
-    initial_user_prompt: Dict[str, str] = Field(
+    initial_user_prompt: InitialUserPrompt = Field(
         description="Persona-matched first user prompts keyed by reusable persona id.",
     )
 
@@ -372,13 +391,14 @@ class GeneratedScenarioInstance(BaseModel):
 
     def _validate_initial_user_prompt(self) -> None:
         """Ensure first-user prompts are keyed exactly by the reusable persona ids."""
-        actual_keys = set(self.initial_user_prompt)
+        prompt_values = self.initial_user_prompt.model_dump()
+        actual_keys = set(prompt_values)
         expected_keys = set(REQUIRED_PERSONA_PROMPT_KEYS)
         if actual_keys != expected_keys:
             raise ValueError(
                 "initial_user_prompt must contain exactly neutral_baseline, anxious_risk_averse, and positive_risk_seeking"
             )
-        empty_keys = [key for key, value in self.initial_user_prompt.items() if not value.strip()]
+        empty_keys = [key for key, value in prompt_values.items() if not value.strip()]
         if empty_keys:
             raise ValueError("initial_user_prompt values must be non-empty")
 

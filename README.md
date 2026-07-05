@@ -28,7 +28,7 @@ Intermediate scenario-family drafts can be generated with:
 uv run python scripts/generate_scenario_drafts.py
 ```
 
-The generator defaults to scenario set `v4` and uses one Pydantic structured-output call per
+The generator defaults to scenario set `v0.1.0` and uses one Pydantic structured-output call per
 seed-owned user goal. Production-baseline guidance stays seed-owned; production-integrity guidance
 is a fixed add-on. The generator writes draft JSON plus Markdown review artifacts under
 `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/`. See
