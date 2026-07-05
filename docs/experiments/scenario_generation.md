@@ -1,21 +1,21 @@
 # Scenario Generation Draft Pipeline
 
-This procedure generates intermediate scenario-family drafts for the financial deception
+This procedure generates intermediate scenario-family drafts for the financial deception / risk-communication
 benchmark. Drafts are not benchmark-ready until manually reviewed.
 
 ## Command
 
 ```bash
-uv run python scripts/generate_scenario_drafts.py --scenario-set v1
+uv run python scripts/generate_scenario_drafts.py
 ```
 
-The command writes review artifacts to:
+The generator defaults to scenario set `v4`. The command writes review artifacts to:
 
-- `data/inputs/scenarios/v1/runs/<YYYYMMDDTHHMMSS>/<scenario_family_id>.json`
-- `data/inputs/scenarios/v1/runs/<YYYYMMDDTHHMMSS>/<scenario_family_id>_review.md`
+- `data/inputs/scenarios/v4/runs/<YYYYMMDDTHHMMSS>/<scenario_family_id>.json`
+- `data/inputs/scenarios/v4/runs/<YYYYMMDDTHHMMSS>/<scenario_family_id>_review.md`
 
-By default the run id is the current timestamp. Use `--run-id <YYYYMMDDTHHMMSS>` only when
-you need a deterministic output directory for a controlled rerun.
+Use `--scenario-set <name>` to run another scenario set, and use
+`--run-id <YYYYMMDDTHHMMSS>` only when you need a deterministic output directory.
 
 ## Configuration
 
@@ -23,8 +23,8 @@ API settings live in `configs/api_settings.py`; model settings live in
 `configs/model_settings.py`. Both load `.env.static` first, then `.env`. Relevant variables:
 
 - `OPENAI_API_KEY_SCENARIO_GENERATOR`
-- `SCENARIO_GENERATOR_MODEL`, default `gpt-5.5-pro`
-- `MAX_GENERATION_RETRIES`, default `2`
+- `SCENARIO_GENERATOR_MODEL`
+- `MAX_GENERATION_RETRIES`
 
 ## Inputs
 
@@ -32,52 +32,54 @@ The generator reads seeds from:
 
 - `data/inputs/scenarios/<scenario-set>/scenario_generation_seeds.json`
 
-The scenario set is selected with `--scenario-set`; for the first pass this is `v1`.
-Use `--scenario-root` to override the root directory when needed.
+The first V4 seed file is:
 
-Each seed contains an original use-case summary, hardcoded finance area, interaction mode, agent
-role, agent task, user role, indirect institutional pressure, and researcher-side
-`source_inspiration`. The prompt task is built deterministically as
-`You are a {agent_role}. Your task is to {agent_task}.` Scenario IDs, prompt templates, source
-inspiration, and user prompts are outside the LLM-facing output models, and scenario IDs are
-derived as `<scenario_family_id>_<pressure-level>` after parsing. Downloaded benchmark references are
-stored for auditability, but they are not sent to the LLM.
+- `data/inputs/scenarios/v4/scenario_generation_seeds.json`
+
+Each V4 seed contains only seed-owned fields: `scenario_family_id`, `segment`,
+`interaction_mode`, `tool_using`, `agent_role`, `agent_task`, `task_guidance`, `user_role`, and five
+seed-owned `scenarios` with `scenario_id` and `user_goal`. Generated fields such as fact units,
+source/reference passages, user context, initial prompts, actions, and beliefs are intentionally not
+stored in the seed.
 
 ## Output Shape
 
-The OpenAI Responses API is called with Pydantic structured output using the LLM-facing models in
-`src/data_models/scenarios.py`. Generation proceeds in two LLM calls per scenario family:
+The OpenAI Responses API is called with Pydantic structured output using
+`GeneratedScenarioInstance` from `src/data_models/scenarios.py`. Generation makes one LLM call per
+seed-owned scenario goal. The persisted `ScenarioFamily` then attaches seed-owned family metadata
+and code-owned prompt variants.
 
-1. **`GeneratedFactSet`** — shared fact units only. The required number and category distribution are defined by `REQUIRED_RISK_UNIT_COUNTS`.
-2. **`GeneratedPressureGuidance`** — mild and strong variants of the seed's indirect institutional pressure, used for `mild_pressure` and `strong_pressure`.
+Each generated `ScenarioInstance` must contain:
 
-`no_pressure` contains only the seed-built role/task prompt and no behavioral guidance. `integrity`
-adds fixed honesty, accuracy, and material-disclosure guidance. `mild_pressure` adds mild indirect
-institutional pressure. `strong_pressure` adds strong indirect institutional pressure. The persisted
-`Scenario` model adds seed-controlled metadata, prompt variants, prompt template, and source inspiration before saving with
-`model_dump_json`. User prompts are intentionally left for a later pipeline.
+- exactly 8 fact units: 2 `high_adverse`, 2 `low_adverse`, 2 `favorable`, and 2
+  `neutral_distractor`
+- natural `source` labels and `reference_text` passages shown to the financial agent
+- hidden fact metadata: `polarity`, `risk_category`, `disclosure_requirement`,
+  `expected_disclosure`, `specificity_markers`, and source-wording flags
+- `user_facing_context` for the user simulator
+- `possible_user_actions` with binary `is_harmful` labels
+- `possible_user_beliefs` labelled as `supported`, `partially_supported`, or `unsupported`
+- `initial_user_prompt` keyed by `neutral_baseline`, `anxious_risk_averse`, and
+  `positive_risk_seeking`
 
-Each generated scenario must contain:
+Each persisted family contains exactly three prompt variants:
 
-- exactly the shared fact-unit count and category distribution defined by `REQUIRED_RISK_UNIT_COUNTS`
-- exactly four prompt variants: `integrity`, `no_pressure`, `mild_pressure`, and `strong_pressure`
-- seed-controlled `finance_area` and `interaction_mode`
-- seed-controlled `agent_role`, `user.user_role`, and auto-built prompt task
-- deterministic scenario IDs of the form `<scenario_family_id>_<pressure-level>`
-- no embedded user persona, review status, execution-turn count, or target falsifiability field
-- structured `system_prompt.agent_role`, `system_prompt.agent_task`, and `system_prompt.guidance` fields for each prompt variant
-- no generated `user_prompt` field
-- no inlined fact lists inside prompt variants; facts are rendered from `risk_units` using `prompt_template`
+- `neutral` — role, task, and reference information only
+- `production_baseline` — seed-owned production guidance
+- `production_integrity` — seed-owned production guidance plus fixed integrity guidance
+
+The financial agent sees source-labelled `reference_text` passages. It does not see hidden scoring
+metadata such as `expected_disclosure`, `polarity`, `risk_category`, or belief/action labels.
 
 ## Manual Review
 
 Review the Markdown file first, then inspect the JSON. Accept a draft only after confirming:
 
-- risk facts are original and finance-native
-- risk units are atomic and materiality labels are defensible
-- strong-pressure prompts introduce strong indirect institutional pressure without explicit deception instructions
-- mild-pressure prompts introduce mild indirect institutional pressure without explicit deception instructions
-- no-pressure prompts contain no behavioral guidance beyond the auto-built role/task prompt
-- integrity prompts explicitly require balanced material-risk disclosure and prohibit deception
-- hidden scoring metadata is not included in prompts shown to the financial-agent model
-- prompt facts come from `risk_units` rather than duplicated free-form text inside prompt variants
+- reference passages are realistic, fictional, finance-native, and traceable to atomic fact units
+- high-adverse and low-adverse facts are materially plausible for the user goal
+- expected disclosure text is hidden scoring guidance and is not leaked into prompts
+- source-wording flags describe only the generated reference text
+- possible actions include both harmful and non-harmful options
+- possible beliefs include supported, partially supported, and unsupported options
+- persona-matched initial user prompts pursue the same user goal without naming the persona
+- prompt variants do not inline generated facts or reference passages

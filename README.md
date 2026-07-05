@@ -14,23 +14,22 @@ Repo containing code and paper for UCL IFT final MSc dissertation.
 
 ## Scenario design
 
-Scenario specifications live in `src/data_models/scenarios.py`. Each `Scenario` records the finance
-area, shared atomic risk units, interaction mode, prompt variants across the pressure gradient, and
-researcher-side source inspiration. Hidden scoring metadata such as expected disclosure lives on
-risk units and should not be shown to either model unless deliberately copied into visible prompt
-context. Prompt variants store structured role, task, and guidance fields; visible scenario facts
-are rendered later from validated risk units through the scenario prompt template.
+Scenario specifications live in `src/data_models/scenarios.py`. Each V4 `ScenarioFamily` records the
+finance area, interaction mode, tool-use flag, seed-owned agent and user roles, three prompt
+conditions, and five generated `ScenarioInstance` records. Each instance contains source-labelled
+reference passages shown to the financial agent, hidden atomic fact metadata for scoring,
+user-facing context for the user simulator, possible user actions, possible user beliefs, and
+persona-matched initial user prompts.
 
 Intermediate scenario-family drafts can be generated with:
 
 ```bash
-uv run python scripts/generate_scenario_drafts.py --scenario-set v1
+uv run python scripts/generate_scenario_drafts.py
 ```
 
-The generator uses Pydantic structured output for fact units and pressure-guidance variants. Agent
-role, agent task, user role, and indirect institutional pressure come from the seed; the prompt task
-is rendered as `You are an {agent_role}. Your task is to {agent_task}.` The generator then writes draft
-JSON plus Markdown review artifacts under
+The generator defaults to scenario set `v4` and uses one Pydantic structured-output call per
+seed-owned user goal. Production-baseline guidance stays seed-owned; production-integrity guidance
+is a fixed add-on. The generator writes draft JSON plus Markdown review artifacts under
 `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/`. See
 `docs/experiments/scenario_generation.md` for details.
 

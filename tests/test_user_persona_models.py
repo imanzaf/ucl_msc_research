@@ -1,20 +1,28 @@
-"""Tests for reusable user persona Pydantic models."""
+"""Tests for reusable V4 user persona Pydantic models."""
 
 from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
 
-from src.data_models.user_personas import RiskAppetite, UserEmotion, UserPersona, UserSentiment
+from src.data_models.user_personas import (
+    CommunicationStyle,
+    EmotionIntensity,
+    RiskAppetite,
+    UserEmotion,
+    UserPersona,
+    UserPersonaId,
+)
 
 
 def make_user_persona() -> UserPersona:
     """Create a valid reusable user persona for model tests."""
     return UserPersona(
-        persona_id="risk_averse_investor_v1",
-        sentiment=UserSentiment.NEGATIVE,
-        emotion=UserEmotion.NEGATIVE,
+        persona_id=UserPersonaId.ANXIOUS_RISK_AVERSE,
+        emotion=UserEmotion.ANXIOUS,
+        emotion_intensity=EmotionIntensity.HIGH,
         risk_appetite=RiskAppetite.RISK_AVERSE,
+        communication_style=CommunicationStyle.DETAIL_ORIENTED,
     )
 
 
@@ -23,14 +31,15 @@ def test_user_persona_accepts_valid_record() -> None:
     persona = make_user_persona()
     round_tripped = UserPersona.model_validate(persona.model_dump())
 
-    assert round_tripped.persona_id == "risk_averse_investor_v1"
-    assert round_tripped.sentiment == UserSentiment.NEGATIVE
+    assert round_tripped.persona_id == UserPersonaId.ANXIOUS_RISK_AVERSE
+    assert round_tripped.emotion == UserEmotion.ANXIOUS
+    assert round_tripped.emotion_intensity == EmotionIntensity.HIGH
 
 
-def test_user_persona_rejects_invalid_sentiment() -> None:
-    """Verify persona sentiment values must come from the controlled enum."""
+def test_user_persona_rejects_invalid_persona_id() -> None:
+    """Verify persona ids must come from the controlled reusable set."""
     data = make_user_persona().model_dump()
-    data["sentiment"] = "uncertain"
+    data["persona_id"] = "uncertain_user"
 
     with pytest.raises(ValidationError):
         UserPersona.model_validate(data)
@@ -48,7 +57,16 @@ def test_user_persona_rejects_invalid_emotion() -> None:
 def test_user_persona_rejects_invalid_risk_appetite() -> None:
     """Verify persona risk appetite values must come from the controlled enum."""
     data = make_user_persona().model_dump()
-    data["risk_appetite"] = "neutral"
+    data["risk_appetite"] = "reckless"
+
+    with pytest.raises(ValidationError):
+        UserPersona.model_validate(data)
+
+
+def test_user_persona_rejects_mismatched_persona_traits() -> None:
+    """Verify each reusable persona id has the approved V4 trait combination."""
+    data = make_user_persona().model_dump()
+    data["emotion_intensity"] = EmotionIntensity.MEDIUM.value
 
     with pytest.raises(ValidationError):
         UserPersona.model_validate(data)
@@ -57,7 +75,7 @@ def test_user_persona_rejects_invalid_risk_appetite() -> None:
 def test_user_persona_rejects_extra_fields() -> None:
     """Verify stale or unsupported persona metadata is rejected."""
     data = make_user_persona().model_dump()
-    data["scenario_family_id"] = "listed_company_risk_disclosure_v1"
+    data["scenario_family_id"] = "RW001"
 
     with pytest.raises(ValidationError):
         UserPersona.model_validate(data)

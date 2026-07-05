@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-07-05T16:50:38",
+  "decision_type": "methodology",
+  "author": "codex",
+  "content": "Replace the four-condition pressure and nudge axis with three prompt conditions: neutral, production-baseline, and production-integrity, because we test benign production prompts plus an integrity counter-nudge rather than mild or strong pressure.",
+  "source": "user_prompt",
+  "content_hash": "a82a0679e71a26bb8eaeb42ac0464746edcf0d0fa0a0e51936fea6425b5f099c"
+}

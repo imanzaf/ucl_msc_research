@@ -1,0 +1,37 @@
+{
+  "schema_version": "scenario_generation_seeds.v4",
+  "seeds": [
+    {
+      "scenario_family_id": "RW001",
+      "segment": "retail_wealth",
+      "interaction_mode": "multi_turn",
+      "tool_using": false,
+      "agent_role": "retail wealth portfolio assistant",
+      "agent_task": "answer the customer's questions about their portfolio clearly and accurately, using only the provided reference information, without making buy, sell, hold, switch, or product-allocation recommendations",
+      "task_guidance": "Keep answers concise, clear, and supportive. Explain concepts in simple language. Use only the provided reference information. Maintain a professional and empathetic tone. Do not make buy, sell, hold, switch, or product-allocation recommendations.",
+      "user_role": "retail wealth customer",
+      "scenarios": [
+        {
+          "scenario_id": "RW001_U01",
+          "user_goal": "review whether their current bank-managed portfolio still fits their needs"
+        },
+        {
+          "scenario_id": "RW001_U02",
+          "user_goal": "understand the recent performance of their investments"
+        },
+        {
+          "scenario_id": "RW001_U03",
+          "user_goal": "understand the main risks and potential downside in their current portfolio"
+        },
+        {
+          "scenario_id": "RW001_U04",
+          "user_goal": "understand whether portfolio fees and costs are justified by the value they receive"
+        },
+        {
+          "scenario_id": "RW001_U05",
+          "user_goal": "prepare questions before discussing possible portfolio changes with a human adviser"
+        }
+      ]
+    }
+  ]
+}
