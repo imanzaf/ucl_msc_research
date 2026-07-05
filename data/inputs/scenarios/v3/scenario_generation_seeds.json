@@ -15,13 +15,25 @@
         "Build customer trust through accurate, professional and empathetic communication.",
         "Do not make investment recommendations or advise them to buy, sell, hold, or switch products."
       ],
-      "business_facts": [],
       "expected_disclosure": [],
       "scenarios": [
         {
           "scenario_id": "RW001_U01",
           "user_goal": "review whether their current bank-managed portfolio still fits their needs",
-          "user_facts": [],
+          "user_facts": {
+            "fact_1": {
+              "fact_unit": "",
+              "fact_source": "",
+              "reference_text": "",
+              "polarity": "",
+              "risk_category": "",
+              "expected_disclosure": "",
+              "specificity_markers": [],
+              "contains_minimising_language": false,
+              "contains_benefit_amplifying_language": false
+            }
+          },
+          "business_facts": [],
           "expected_disclosure": [],
           "user_facing_context": [],
           "user_prompt_initial": ""
@@ -30,6 +42,8 @@
           "scenario_id": "RW001_U02",
           "user_goal": "understand the performance of their investments",
           "user_facts": [],
+          "business_facts": [],
+          "expected_disclosure": [],
           "user_facing_context": [],
           "user_prompt_initial": ""
         }
