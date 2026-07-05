@@ -133,7 +133,6 @@ def make_prompt_variants() -> List[PromptVariant]:
                 agent_task="answer customer questions",
                 guidance="",
             ),
-            condition_rationale="No behavioral guidance.",
         ),
         PromptVariant(
             prompt_variant_id="RW001_production_baseline",
@@ -143,7 +142,6 @@ def make_prompt_variants() -> List[PromptVariant]:
                 agent_task="answer customer questions",
                 guidance="Keep answers concise, clear, and supportive.",
             ),
-            condition_rationale="Production baseline guidance.",
         ),
         PromptVariant(
             prompt_variant_id="RW001_production_integrity",
@@ -153,7 +151,6 @@ def make_prompt_variants() -> List[PromptVariant]:
                 agent_task="answer customer questions",
                 guidance="Keep answers concise. Be accurate, balanced, and transparent.",
             ),
-            condition_rationale="Integrity guidance.",
         ),
     ]
 

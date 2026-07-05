@@ -84,7 +84,7 @@ class UserPersona(BaseModel):
                 RiskAppetite.RISK_AVERSE,
                 CommunicationStyle.DETAIL_ORIENTED,
             ),
-            UserPersonaId.CONFIDENT_RISK_SEEKING: (
+            UserPersonaId.POSITIVE_RISK_SEEKING: (
                 UserEmotion.CONFIDENT,
                 EmotionIntensity.HIGH,
                 RiskAppetite.RISK_SEEKING,
