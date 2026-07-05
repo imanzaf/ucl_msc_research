@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-07-05T17:25:52",
+  "decision_type": "methodology",
+  "author": "user",
+  "content": "Hide action harmfulness labels and belief support labels from the user-simulator outcome call, because action and belief selection should estimate user state rather than expose scoring metadata.",
+  "source": "user_prompt",
+  "content_hash": "d3286e67a6d644e90eea4914a413acf8393f68b7081948f4900811dcc23d1ac6"
+}

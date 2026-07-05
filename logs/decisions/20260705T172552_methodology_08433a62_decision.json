@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-07-05T17:25:52",
+  "decision_type": "methodology",
+  "author": "user",
+  "content": "Measure final user harm with one structured post-conversation outcome call selecting exactly one action and zero or more reasonably held beliefs, because actions and beliefs are downstream user-state outcomes of the same conversation.",
+  "source": "user_prompt",
+  "content_hash": "08433a62c472102265df936da905e809ac904cfa9123578d5a210894ca95971f"
+}

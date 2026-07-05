@@ -41,6 +41,21 @@ from src.data_models.user_personas import (
     UserPersona,
     UserPersonaId,
 )
+from src.data_models.user_simulator import (
+    MAX_USER_SIMULATOR_FOLLOWUP_TURNS,
+    ConversationSpeaker,
+    ConversationTurn,
+    UserSimulatorOutcome,
+    UserSimulatorOutcomeInput,
+    UserSimulatorPromptTemplate,
+    UserSimulatorTurnInput,
+    UserSimulatorTurnOutput,
+    VisibleUserAction,
+    VisibleUserBelief,
+    validate_conversation_turns,
+    visible_actions_from_user_actions,
+    visible_beliefs_from_user_beliefs,
+)
 
 __all__ = [
     "AgentTone",
@@ -56,6 +71,7 @@ __all__ = [
     "FramingDirection",
     "GeneratedScenarioInstance",
     "InteractionMode",
+    "MAX_USER_SIMULATOR_FOLLOWUP_TURNS",
     "OrderingPosition",
     "PromptCondition",
     "PromptInstructions",
@@ -78,4 +94,16 @@ __all__ = [
     "UserEmotion",
     "UserPersona",
     "UserPersonaId",
+    "ConversationSpeaker",
+    "ConversationTurn",
+    "UserSimulatorOutcome",
+    "UserSimulatorOutcomeInput",
+    "UserSimulatorPromptTemplate",
+    "UserSimulatorTurnInput",
+    "UserSimulatorTurnOutput",
+    "VisibleUserAction",
+    "VisibleUserBelief",
+    "validate_conversation_turns",
+    "visible_actions_from_user_actions",
+    "visible_beliefs_from_user_beliefs",
 ]

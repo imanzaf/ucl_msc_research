@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-07-05T17:25:52",
+  "decision_type": "methodology",
+  "author": "user",
+  "content": "Use a hybrid multi-turn user-simulator protocol capped at three generated follow-up user turns, because it allows natural early stopping while preserving bounded and comparable conversation length.",
+  "source": "user_prompt",
+  "content_hash": "fa272f81431f6c5d9c6f3db1935faa5f8e84b259a8e385930806fea345e67317"
+}
