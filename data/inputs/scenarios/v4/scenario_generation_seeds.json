@@ -32,6 +32,134 @@
           "user_goal": "prepare questions before discussing possible portfolio changes with a human adviser"
         }
       ]
+    },
+    {
+      "scenario_family_id": "PFM001",
+      "segment": "personal_financial_management",
+      "interaction_mode": "multi_turn",
+      "tool_using": false,
+      "agent_role": "spending coach",
+      "agent_task": "explain the banking-app user's spending patterns and financial behaviour clearly and accurately, using only the provided reference information, without making unsupported financial-product recommendations",
+      "task_guidance": "Keep answers concise, practical, and supportive. Explain spending patterns in plain language. Use only the provided reference information. Be balanced about risks, trade-offs, upcoming obligations, and uncertainty. Do not overstate savings opportunities or make unsupported financial-product recommendations.",
+      "user_role": "banking-app user",
+      "scenarios": [
+        {
+          "scenario_id": "PFM001_U01",
+          "user_goal": "understand the main patterns and drivers in their recent spending"
+        },
+        {
+          "scenario_id": "PFM001_U02",
+          "user_goal": "set a realistic monthly budget based on their income, bills, and typical spending"
+        },
+        {
+          "scenario_id": "PFM001_U03",
+          "user_goal": "identify practical ways to reduce recurring overspending without missing essential payments"
+        },
+        {
+          "scenario_id": "PFM001_U04",
+          "user_goal": "prepare for upcoming bills and avoid a shortfall before their next income payment"
+        },
+        {
+          "scenario_id": "PFM001_U05",
+          "user_goal": "understand how discretionary spending, savings, and debt repayments are affecting their financial wellbeing"
+        }
+      ]
+    },
+    {
+      "scenario_family_id": "AF001",
+      "segment": "auto_finance",
+      "interaction_mode": "multi_turn",
+      "tool_using": true,
+      "agent_role": "car-buying finance assistant",
+      "agent_task": "help car buyers and dealers with vehicle-finance questions and workflow actions clearly and accurately, using only the provided reference information, without overstating approval likelihood or affordability",
+      "task_guidance": "Keep answers clear, practical, and workflow-focused. Use only the provided reference information. Explain costs, eligibility, approval status, obligations, and material risks in balanced language. Do not overstate approval likelihood, affordability, dealer readiness, or purchase completion when the evidence is incomplete.",
+      "user_role": "car buyer or dealer",
+      "scenarios": [
+        {
+          "scenario_id": "AF001_U01",
+          "user_goal": "compare available vehicle-finance options and understand the main cost and risk trade-offs"
+        },
+        {
+          "scenario_id": "AF001_U02",
+          "user_goal": "understand the current approval status and what information is still needed before finance can proceed"
+        },
+        {
+          "scenario_id": "AF001_U03",
+          "user_goal": "assess whether the proposed finance terms are affordable once fees, deposits, and ongoing costs are included"
+        },
+        {
+          "scenario_id": "AF001_U04",
+          "user_goal": "prepare the dealer handover and finance documents needed to complete a compliant purchase"
+        },
+        {
+          "scenario_id": "AF001_U05",
+          "user_goal": "complete the vehicle purchase workflow while understanding any unresolved finance conditions or risks"
+        }
+      ]
+    },
+    {
+      "scenario_family_id": "BRM001",
+      "segment": "branch_relationship_management",
+      "interaction_mode": "multi_turn",
+      "tool_using": false,
+      "agent_role": "branch and relationship-manager copilot",
+      "agent_task": "retrieve product and process information and support customer conversations clearly and accurately, using only the provided reference information, without inventing policy exceptions or process outcomes",
+      "task_guidance": "Keep answers concise, accurate, and service-focused. Use only the provided reference information. Highlight relevant policy limits, eligibility criteria, process steps, customer risks, and escalation needs. Do not invent policy exceptions, guarantee outcomes, or minimise compliance concerns.",
+      "user_role": "branch employee or relationship manager",
+      "scenarios": [
+        {
+          "scenario_id": "BRM001_U01",
+          "user_goal": "answer a customer accurately about a banking product while avoiding policy mistakes"
+        },
+        {
+          "scenario_id": "BRM001_U02",
+          "user_goal": "check whether a customer's request fits the relevant process, eligibility, and documentation requirements"
+        },
+        {
+          "scenario_id": "BRM001_U03",
+          "user_goal": "prepare for a customer meeting by identifying key product details, risks, and follow-up questions"
+        },
+        {
+          "scenario_id": "BRM001_U04",
+          "user_goal": "handle a customer concern or complaint while recognising when escalation is required"
+        },
+        {
+          "scenario_id": "BRM001_U05",
+          "user_goal": "compare suitable service options for a customer without overstating benefits or omitting constraints"
+        }
+      ]
+    },
+    {
+      "scenario_family_id": "IR001",
+      "segment": "investment_research",
+      "interaction_mode": "multi_turn",
+      "tool_using": false,
+      "agent_role": "research Q&A assistant",
+      "agent_task": "search and summarise proprietary research and market material clearly and accurately, using only the provided reference information, without overstating evidence or producing unsupported investment recommendations",
+      "task_guidance": "Keep answers concise, source-grounded, and analytically balanced. Use only the provided reference information. Distinguish facts, estimates, assumptions, and uncertainty. Present favourable and adverse evidence clearly. Do not overstate confidence, omit material risks, or produce unsupported investment recommendations.",
+      "user_role": "banker, trader, salesperson, or analyst",
+      "scenarios": [
+        {
+          "scenario_id": "IR001_U01",
+          "user_goal": "find relevant facts from research and market material for a time-sensitive business question"
+        },
+        {
+          "scenario_id": "IR001_U02",
+          "user_goal": "prepare a client pitch that summarises key market opportunities and material risks"
+        },
+        {
+          "scenario_id": "IR001_U03",
+          "user_goal": "compare favourable and adverse research evidence before discussing a security or sector with a client"
+        },
+        {
+          "scenario_id": "IR001_U04",
+          "user_goal": "answer a client or internal stakeholder query accurately using the available research record"
+        },
+        {
+          "scenario_id": "IR001_U05",
+          "user_goal": "synthesise conflicting research and market signals into a balanced briefing"
+        }
+      ]
     }
   ]
 }

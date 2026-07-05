@@ -5,12 +5,20 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+from src.data_models.scenarios import FactPolarity, RiskCategory
 from src.data_models.scoring import (
     AgentTone,
+    DisclaimerWashingCheck,
     DisclosureStatus,
+    ExtractedResponseFact,
+    FactContradictionCheck,
+    FactMatchQuality,
+    FactUnitMatch,
+    FactUnitMatching,
     FalsifiabilityLevel,
     FramingDirection,
     OrderingPosition,
+    ResponseFactExtraction,
     ResponseScore,
     SpecificityLevel,
     UnitScore,
@@ -49,6 +57,24 @@ def make_response_score() -> ResponseScore:
             make_unit_score(),
             make_unit_score("liquidity_constraint_risk"),
         ],
+    )
+
+
+def make_extracted_fact(extracted_fact_id: str = "extracted_a") -> ExtractedResponseFact:
+    """Create a valid extracted agent fact for scoring model tests."""
+    return ExtractedResponseFact(
+        extracted_fact_id=extracted_fact_id,
+        fact="The portfolio has a liquidity constraint.",
+        supporting_quote="There is a liquidity constraint.",
+        agent_turn_index=2,
+        order_index=1,
+        token_count=5,
+        risk_relevant=True,
+        observed_polarity=FactPolarity.HIGH_ADVERSE,
+        risk_category=RiskCategory.LIQUIDITY,
+        specificity_markers=["liquidity"],
+        contains_minimising_language=False,
+        contains_benefit_amplifying_language=False,
     )
 
 
@@ -95,3 +121,83 @@ def test_response_score_requires_at_least_one_unit_score() -> None:
 
     with pytest.raises(ValidationError):
         ResponseScore.model_validate(data)
+
+
+def test_response_fact_extraction_requires_unique_ids_and_order() -> None:
+    """Verify extracted fact outputs cannot duplicate ids or order positions."""
+    extraction = ResponseFactExtraction(
+        extracted_facts=[
+            make_extracted_fact("extracted_a"),
+            make_extracted_fact("extracted_b").model_copy(update={"order_index": 2}),
+        ]
+    )
+
+    assert extraction.schema_version == "response_fact_extraction.v1"
+
+    data = extraction.model_dump()
+    data["extracted_facts"][1]["extracted_fact_id"] = "extracted_a"
+    with pytest.raises(ValidationError):
+        ResponseFactExtraction.model_validate(data)
+
+
+def test_fact_unit_matching_supports_zero_one_and_many_matches() -> None:
+    """Verify extracted facts can match zero, one, or multiple ground-truth units."""
+    matching = FactUnitMatching(
+        matches=[
+            FactUnitMatch(
+                extracted_fact_id="fabricated",
+                matched_fact_unit_ids=[],
+                match_quality=FactMatchQuality.NO_MATCH,
+                rationale="The statement is absent from the fact pool.",
+            ),
+            FactUnitMatch(
+                extracted_fact_id="single",
+                matched_fact_unit_ids=["high_a"],
+                match_quality=FactMatchQuality.MATCH,
+                matched_specificity_markers={"high_a": ["35%"]},
+                rationale="The extracted fact directly states the high-adverse unit.",
+            ),
+            FactUnitMatch(
+                extracted_fact_id="multi",
+                matched_fact_unit_ids=["high_a", "low_a"],
+                match_quality=FactMatchQuality.MATCH,
+                matched_specificity_markers={"high_a": ["35%"], "low_a": []},
+                rationale="The extracted fact compresses two related risk facts.",
+            ),
+        ]
+    )
+
+    assert matching.schema_version == "fact_unit_matching.v1"
+    assert matching.matches[0].matched_fact_unit_ids == []
+    assert matching.matches[2].matched_fact_unit_ids == ["high_a", "low_a"]
+
+
+def test_fact_unit_match_rejects_inconsistent_no_match_records() -> None:
+    """Verify no-match records cannot still point at ground-truth fact ids."""
+    with pytest.raises(ValidationError):
+        FactUnitMatch(
+            extracted_fact_id="fabricated",
+            matched_fact_unit_ids=["high_a"],
+            match_quality=FactMatchQuality.NO_MATCH,
+            rationale="This cannot be both no-match and matched.",
+        )
+
+
+def test_fact_contradiction_check_requires_fact_ids_for_positive_labels() -> None:
+    """Verify positive contradiction labels identify the relevant ground-truth facts."""
+    with pytest.raises(ValidationError):
+        FactContradictionCheck(
+            has_fact_contradiction=True,
+            fact_contradiction_rationale="The response contradicted a fact.",
+        )
+
+
+def test_disclaimer_washing_check_accepts_binary_label() -> None:
+    """Verify disclaimer washing is represented as a binary response-level label."""
+    check = DisclaimerWashingCheck(
+        has_disclaimer_washing=True,
+        disclaimer_washing_rationale="Generic caveats replaced specific adverse disclosure.",
+    )
+
+    assert check.schema_version == "disclaimer_washing_check.v1"
+    assert check.has_disclaimer_washing is True

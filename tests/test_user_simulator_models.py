@@ -52,7 +52,7 @@ def make_conversation() -> List[ConversationTurn]:
             content="I'm worried this portfolio may not fit my needs anymore.",
         ),
         ConversationTurn(
-            speaker=ConversationSpeaker.FINANCIAL_AGENT,
+            speaker=ConversationSpeaker.AGENT,
             turn_index=2,
             content="The portfolio has benefits, but there are liquidity and concentration risks.",
         ),
@@ -147,8 +147,8 @@ def test_turn_input_requires_sequential_typed_transcript() -> None:
         UserSimulatorTurnInput.model_validate(data)
 
 
-def test_turn_input_requires_latest_financial_agent_response() -> None:
-    """Verify next-user-turn calls must follow a financial-agent response."""
+def test_turn_input_requires_latest_agent_response() -> None:
+    """Verify next-user-turn calls must follow an agent response."""
     data = make_turn_input().model_dump()
     data["conversation_so_far"].append(
         {
@@ -215,11 +215,11 @@ def test_visible_options_hide_action_and_belief_labels() -> None:
 
 
 def test_outcome_input_accepts_single_turn_completed_conversation() -> None:
-    """Verify final outcome inputs work for a single financial-agent response."""
+    """Verify final outcome inputs work for a single agent response."""
     outcome_input = make_outcome_input()
 
     assert outcome_input.schema_version == "user_simulator_outcome_input.v1"
-    assert outcome_input.conversation[-1].speaker == ConversationSpeaker.FINANCIAL_AGENT
+    assert outcome_input.conversation[-1].speaker == ConversationSpeaker.AGENT
     assert len(outcome_input.available_actions) == 2
 
 
@@ -277,7 +277,7 @@ def test_prompt_template_renders_next_turn_context_and_transcript() -> None:
     assert "anxious_risk_averse" in rendered
     assert "Follow-up index" not in rendered
     assert "Turn 1 - user:" in rendered
-    assert "Turn 2 - financial_agent:" in rendered
+    assert "Turn 2 - agent:" in rendered
 
 
 def test_prompt_template_renders_outcome_without_hidden_metadata() -> None:

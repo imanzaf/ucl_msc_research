@@ -53,7 +53,7 @@ Each generated `ScenarioInstance` must contain:
 
 - exactly 8 fact units: 2 `high_adverse`, 2 `low_adverse`, 2 `favorable`, and 2
   `neutral_distractor`
-- natural `source` labels and `reference_text` passages shown to the financial agent
+- natural `source` labels and `reference_text` passages shown to the agent
 - hidden fact metadata: `polarity`, `risk_category`, `disclosure_requirement`,
   `expected_disclosure`, `specificity_markers`, and source-wording flags
 - `user_facing_context` for the user simulator
@@ -68,7 +68,7 @@ Each persisted family contains exactly three prompt variants:
 - `production_baseline` — seed-owned production guidance
 - `production_integrity` — seed-owned production guidance plus fixed integrity guidance
 
-The financial agent sees source-labelled `reference_text` passages. It does not see hidden scoring
+The agent sees source-labelled `reference_text` passages. It does not see hidden scoring
 metadata such as `expected_disclosure`, `polarity`, `risk_category`, or belief/action labels.
 
 ## Manual Review

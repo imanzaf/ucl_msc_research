@@ -7,6 +7,8 @@ from typing import Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.prompts.scenarios.agent_source_reference import REFERENCE_TEXT_TEMPLATE, SYSTEM_TEMPLATE
+
 
 class FactPolarity(str, Enum):
     """Classify the valence and disclosure materiality of a generated fact unit."""
@@ -59,6 +61,10 @@ class FinanceSegment(str, Enum):
     """Classify the finance area represented by a scenario family."""
 
     RETAIL_WEALTH = "retail_wealth"
+    PERSONAL_FINANCIAL_MANAGEMENT = "personal_financial_management"
+    AUTO_FINANCE = "auto_finance"
+    BRANCH_RELATIONSHIP_MANAGEMENT = "branch_relationship_management"
+    INVESTMENT_RESEARCH = "investment_research"
 
 
 class InteractionMode(str, Enum):
@@ -69,7 +75,7 @@ class InteractionMode(str, Enum):
 
 
 class PromptCondition(str, Enum):
-    """Classify the financial-agent prompt condition used in the 3x3 run matrix."""
+    """Classify the agent prompt condition used in the 3x3 run matrix."""
 
     NEUTRAL = "neutral"
     PRODUCTION_BASELINE = "production_baseline"
@@ -128,7 +134,7 @@ class FactUnit(BaseModel):
     )
     reference_text: str = Field(
         min_length=1,
-        description="Natural evidence passage shown to the financial-agent model.",
+        description="Natural evidence passage shown to the agent model.",
     )
     polarity: FactPolarity = Field(
         description="Valence and disclosure materiality of the fact unit.",
@@ -162,11 +168,11 @@ class PromptInstructions(BaseModel):
 
     agent_role: str = Field(
         min_length=1,
-        description="Role assigned to the financial-agent model.",
+        description="Role assigned to the agent model.",
     )
     agent_task: str = Field(
         min_length=1,
-        description="Task the financial-agent model should perform.",
+        description="Task the agent model should perform.",
     )
     guidance: str = Field(
         default="",
@@ -175,7 +181,7 @@ class PromptInstructions(BaseModel):
 
 
 class PromptVariant(BaseModel):
-    """Describe one code-owned financial-agent prompt condition."""
+    """Describe one code-owned agent prompt condition."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -201,17 +207,11 @@ class PromptTemplate(BaseModel):
         description="Stable identifier for the V4 prompt rendering template.",
     )
     system_template: str = Field(
-        default=(
-            "You are a {agent_role}.\n"
-            "Your task is to {agent_task}.\n\n"
-            "{guidance_block}"
-            "Reference information:\n"
-            "{reference_texts}"
-        ),
+        default=SYSTEM_TEMPLATE,
         description="System prompt template populated with role, task, guidance, and references.",
     )
     reference_text_template: str = Field(
-        default="Source: {source}\n{reference_text}",
+        default=REFERENCE_TEXT_TEMPLATE,
         description="Template used to render one source-labelled reference passage.",
     )
 
@@ -321,7 +321,7 @@ class GeneratedScenarioInstance(BaseModel):
     )
     user_facing_context: List[str] = Field(
         min_length=1,
-        description="Context known to the user simulator but not directly shown to the financial agent.",
+        description="Context known to the user simulator but not directly shown to the agent.",
     )
     possible_user_actions: List[UserAction] = Field(
         min_length=2,
@@ -420,11 +420,11 @@ class ScenarioFamily(BaseModel):
     )
     agent_role: str = Field(
         min_length=1,
-        description="Role assigned to the financial-agent model.",
+        description="Role assigned to the agent model.",
     )
     agent_task: str = Field(
         min_length=1,
-        description="Task the financial-agent model should perform.",
+        description="Task the agent model should perform.",
     )
     task_guidance: str = Field(
         min_length=1,
@@ -535,7 +535,7 @@ class ScenarioSeed(BaseModel):
     )
     agent_role: str = Field(
         min_length=1,
-        description="Seed-controlled role assigned to the financial-agent model.",
+        description="Seed-controlled role assigned to the agent model.",
     )
     agent_task: str = Field(
         min_length=1,

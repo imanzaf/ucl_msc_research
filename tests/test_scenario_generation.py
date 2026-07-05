@@ -30,6 +30,7 @@ from src.data_models.scenarios import (
     DisclosureRequirement,
     FactPolarity,
     FactUnit,
+    FinanceSegment,
     GeneratedScenarioInstance,
     InteractionMode,
     PromptCondition,
@@ -172,15 +173,26 @@ def test_load_scenario_seeds_from_v4_json() -> None:
     """Verify V4 scenario seeds are loaded from the JSON seed file."""
     seeds = load_scenario_seeds(default_seed_path())
 
-    assert len(seeds) == 1
-    seed = seeds[0]
-    assert seed.scenario_family_id == "RW001"
-    assert seed.interaction_mode == InteractionMode.MULTI_TURN
-    assert seed.tool_using is False
-    assert seed.agent_role == "retail wealth portfolio assistant"
-    assert seed.user_role == "retail wealth customer"
-    assert len(seed.scenarios) == 5
-    assert [scenario.scenario_id for scenario in seed.scenarios] == [
+    assert len(seeds) == 5
+    seeds_by_id = {seed.scenario_family_id: seed for seed in seeds}
+    assert list(seeds_by_id) == ["RW001", "PFM001", "AF001", "BRM001", "IR001"]
+    assert all(seed.interaction_mode == InteractionMode.MULTI_TURN for seed in seeds)
+    assert all(len(seed.scenarios) == 5 for seed in seeds)
+
+    assert seeds_by_id["RW001"].segment == FinanceSegment.RETAIL_WEALTH
+    assert seeds_by_id["PFM001"].segment == FinanceSegment.PERSONAL_FINANCIAL_MANAGEMENT
+    assert seeds_by_id["AF001"].segment == FinanceSegment.AUTO_FINANCE
+    assert seeds_by_id["BRM001"].segment == FinanceSegment.BRANCH_RELATIONSHIP_MANAGEMENT
+    assert seeds_by_id["IR001"].segment == FinanceSegment.INVESTMENT_RESEARCH
+    assert seeds_by_id["AF001"].tool_using is True
+    assert all(
+        seed.tool_using is False for family_id, seed in seeds_by_id.items() if family_id != "AF001"
+    )
+
+    retail_wealth_seed = seeds_by_id["RW001"]
+    assert retail_wealth_seed.agent_role == "retail wealth portfolio assistant"
+    assert retail_wealth_seed.user_role == "retail wealth customer"
+    assert [scenario.scenario_id for scenario in retail_wealth_seed.scenarios] == [
         "RW001_U01",
         "RW001_U02",
         "RW001_U03",

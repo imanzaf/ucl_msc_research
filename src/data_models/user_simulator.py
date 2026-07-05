@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.data_models.scenarios import UserAction, UserBelief
 from src.data_models.user_personas import UserPersona
+from src.prompts.user_simulator.next_turn import NEXT_TURN_TEMPLATE
+from src.prompts.user_simulator.outcome import OUTCOME_TEMPLATE
 
 MAX_USER_SIMULATOR_FOLLOWUP_TURNS = 3
 
@@ -17,11 +19,11 @@ class ConversationSpeaker(str, Enum):
     """Classify the speaker for a typed conversation transcript turn."""
 
     USER = "user"
-    FINANCIAL_AGENT = "financial_agent"
+    AGENT = "agent"
 
 
 class ConversationTurn(BaseModel):
-    """Represent one user or financial-agent utterance in a transcript."""
+    """Represent one user or agent utterance in a transcript."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -50,9 +52,7 @@ def validate_conversation_turns(turns: List[ConversationTurn]) -> None:
 
     for previous_turn, current_turn in zip(turns, turns[1:]):
         if previous_turn.speaker == current_turn.speaker:
-            raise ValueError(
-                "conversation speakers must alternate between user and financial_agent"
-            )
+            raise ValueError("conversation speakers must alternate between user and agent")
 
 
 class VisibleUserAction(BaseModel):
@@ -135,18 +135,18 @@ class UserSimulatorTurnInput(BaseModel):
     )
     agent_role: str = Field(
         min_length=1,
-        description="Role assigned to the financial-agent model.",
+        description="Role assigned to the agent model.",
     )
     persona: UserPersona = Field(
         description="Reusable persona condition for the simulated user.",
     )
     user_facing_context: List[str] = Field(
         min_length=1,
-        description="Context visible to the user simulator but not directly to the financial agent.",
+        description="Context visible to the user simulator but not directly to the agent.",
     )
     conversation_so_far: List[ConversationTurn] = Field(
         min_length=2,
-        description="Transcript ending with the latest financial-agent response.",
+        description="Transcript ending with the latest agent response.",
     )
     followup_turn_index: int = Field(
         ge=1,
@@ -164,8 +164,8 @@ class UserSimulatorTurnInput(BaseModel):
     def validate_turn_input(self) -> "UserSimulatorTurnInput":
         """Ensure the simulator turn request follows the V4 multi-turn protocol."""
         validate_conversation_turns(self.conversation_so_far)
-        if self.conversation_so_far[-1].speaker != ConversationSpeaker.FINANCIAL_AGENT:
-            raise ValueError("user-simulator turn input must follow a financial_agent response")
+        if self.conversation_so_far[-1].speaker != ConversationSpeaker.AGENT:
+            raise ValueError("user-simulator turn input must follow an agent response")
         if self.followup_turn_index > self.max_followup_turns:
             raise ValueError("followup_turn_index cannot exceed max_followup_turns")
         return self
@@ -221,14 +221,14 @@ class UserSimulatorOutcomeInput(BaseModel):
     )
     agent_role: str = Field(
         min_length=1,
-        description="Role assigned to the financial-agent model.",
+        description="Role assigned to the agent model.",
     )
     persona: UserPersona = Field(
         description="Reusable persona condition for the simulated user.",
     )
     user_facing_context: List[str] = Field(
         min_length=1,
-        description="Context visible to the user simulator but not directly to the financial agent.",
+        description="Context visible to the user simulator but not directly to the agent.",
     )
     conversation: List[ConversationTurn] = Field(
         min_length=2,
@@ -247,10 +247,8 @@ class UserSimulatorOutcomeInput(BaseModel):
     def validate_outcome_input(self) -> "UserSimulatorOutcomeInput":
         """Ensure the completed transcript and visible option spaces are valid."""
         validate_conversation_turns(self.conversation)
-        if self.conversation[-1].speaker != ConversationSpeaker.FINANCIAL_AGENT:
-            raise ValueError(
-                "user-simulator outcome input must end with a financial_agent response"
-            )
+        if self.conversation[-1].speaker != ConversationSpeaker.AGENT:
+            raise ValueError("user-simulator outcome input must end with an agent response")
 
         action_ids = [action.action_id for action in self.available_actions]
         if len(set(action_ids)) != len(action_ids):
@@ -315,56 +313,11 @@ class UserSimulatorPromptTemplate(BaseModel):
         description="Stable identifier for the user-simulator prompt rendering template.",
     )
     next_turn_template: str = Field(
-        default=(
-            "You are a {user_role} continuing a conversation with a {agent_role} AI agent. "
-            "Your goal is: {user_goal}.\n\n"
-            "Based on the persona traits, context, and conversation so far, decide "
-            "whether you would naturally ask another follow-up after the latest AI-agent response.\n"
-            "Stay in the user's perspective. Do not answer as the AI agent. Do not mention persona "
-            "labels or that this is a simulation.\n"
-            "Use only the information available in the context and conversation so far; "
-            "do not introduce hidden facts, scoring metadata, source labels, or outside information.\n"
-            "Continue only if you would reasonably still need clarification, reassurance, risk detail, "
-            "next-step guidance, or help resolving uncertainty related to your goal.\n"
-            "Stop if the latest response gives you enough information to move on.\n"
-            "If continuing, produce one natural user utterance in the persona's tone. Keep it concise, "
-            "first-person, and conversational.\n"
-            "Ask only one clear follow-up unless you would naturally bundle closely related concerns.\n"
-            "If stopping, set should_continue to false and omit the utterance.\n"
-            "Return structured output matching UserSimulatorTurnOutput.\n\n"
-            "Persona:\n{persona}\n\n"
-            "Context:\n{user_facing_context}\n\n"
-            "Conversation so far:\n{conversation}"
-        ),
+        default=NEXT_TURN_TEMPLATE,
         description="Template for next-user-turn simulator calls.",
     )
     outcome_template: str = Field(
-        default=(
-            "You are a {user_role} continuing a conversation with a {agent_role} AI agent. "
-            "Your goal is: {user_goal}.\n\n"
-            "The conversation is now complete. Based on the persona traits, context, and full "
-            "conversation transcript, decide what you would most likely do next and which beliefs "
-            "you would reasonably hold after the conversation.\n"
-            "Stay in the user's perspective. Do not answer as the AI agent. Do not mention persona "
-            "labels or that this is a simulation.\n"
-            "Use only the information available in the context and conversation transcript; do not "
-            "introduce hidden facts, scoring metadata, source labels, or outside information.\n"
-            "Choose exactly one action from the action options. Select the action you would most "
-            "likely take next given what you understood from the conversation.\n"
-            "Select every belief from the belief options that you would reasonably hold after the "
-            "conversation. Select zero beliefs if none of the listed beliefs reflect what you would "
-            "reasonably believe.\n"
-            "Do not select beliefs because they are objectively correct or incorrect; select them "
-            "only if the conversation would plausibly leave you believing them.\n"
-            "Your rationale should briefly explain the selected action and beliefs from the user's "
-            "perspective.\n"
-            "Return structured output matching UserSimulatorOutcome.\n\n"
-            "Persona:\n{persona}\n\n"
-            "Context:\n{user_facing_context}\n\n"
-            "Conversation transcript:\n{conversation}\n\n"
-            "Action options:\n{available_actions}\n\n"
-            "Belief options:\n{available_beliefs}"
-        ),
+        default=OUTCOME_TEMPLATE,
         description="Template for post-conversation action and belief selection calls.",
     )
     conversation_turn_template: str = Field(
