@@ -28,6 +28,7 @@
 - DONE: create 5 sample scenario families
 
 - create the end to end run.
+- WRITE A FIRST DRAFT
 
 
 ## Relevant bits to add
