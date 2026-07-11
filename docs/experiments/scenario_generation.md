@@ -1,7 +1,7 @@
 # Scenario Generation Draft Pipeline
 
 This procedure generates intermediate scenario-family drafts for the financial deception / risk-communication
-benchmark. Drafts are not benchmark-ready until manually reviewed.
+benchmark through OpenRouter structured outputs. Drafts are not benchmark-ready until manually reviewed.
 
 ## Command
 
@@ -22,8 +22,14 @@ Use `--scenario-set <name>` to run another scenario set, and use
 API settings live in `configs/api_settings.py`; model settings live in
 `configs/model_settings.py`. Both load `.env.static` first, then `.env`. Relevant variables:
 
-- `OPENAI_API_KEY_SCENARIO_GENERATOR`
-- `SCENARIO_GENERATOR_MODEL`
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_BASE_URL`
+- `OPENROUTER_APP_TITLE`
+- `OPENROUTER_HTTP_REFERER`
+- `SCENARIO_GENERATOR_MODEL` (default `openai/gpt-5.4`)
+- `OPENROUTER_TEMPERATURE`
+- `OPENROUTER_SEED`
+- `OPENROUTER_REQUEST_TIMEOUT_SECONDS`
 - `MAX_GENERATION_RETRIES`
 
 ## Inputs
@@ -44,10 +50,11 @@ stored in the seed.
 
 ## Output Shape
 
-The OpenAI Responses API is called with Pydantic structured output using
+The shared OpenRouter client is called with JSON-schema structured output using
 `GeneratedScenarioInstance` from `src/data_models/scenarios.py`. Generation makes one LLM call per
 seed-owned scenario goal. The persisted `ScenarioFamily` then attaches seed-owned family metadata
-and code-owned prompt variants.
+and code-owned prompt variants. Each OpenRouter call is cached under the timestamped generation run
+directory at `cache/llm_calls/`.
 
 Each generated `ScenarioInstance` must contain:
 

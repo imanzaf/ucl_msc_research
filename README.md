@@ -6,6 +6,7 @@ Repo containing code and paper for UCL IFT final MSc dissertation.
 
 - `configs/` - Pydantic settings for API keys and project configuration.
 - `docs/` - Research plans, experiment design, and supporting documents.
+- `experiments/` - End-to-end experiment outputs, caches, logs, and paper assets.
 - `scripts/` - Runnable research utilities and draft-generation pipelines.
 - `src/data_models/` - Pydantic models for benchmark and scoring data structures.
 - `src/prompts/` - Grouped prompt templates for scenarios, user simulation, output processing, and scoring.
@@ -29,15 +30,34 @@ uv run python scripts/generate_scenario_drafts.py
 ```
 
 The generator defaults to scenario set `v0.1.0` and uses one Pydantic structured-output call per
-seed-owned user goal. Production-baseline guidance stays seed-owned; production-integrity guidance
-is a fixed add-on. The generator writes draft JSON plus Markdown review artifacts under
+seed-owned user goal through OpenRouter. Production-baseline guidance stays seed-owned;
+production-integrity guidance is a fixed add-on. The generator writes draft JSON plus Markdown review artifacts under
 `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/`. See
 `docs/experiments/scenario_generation.md` for details.
 
+## End-to-end pipeline
+
+Reviewed scenario artifacts can be run and scored with:
+
+```bash
+uv run python scripts/run_experiment_pipeline.py \
+  --experiment-name deception_probe_v1 \
+  --scenario-run-dir data/inputs/scenarios/v0.1.0/runs/20260705T204014
+```
+
+The pipeline uses OpenRouter for agent, user-simulator, and scoring calls; caches every LLM call under
+`experiments/<name>_v<N>/cache/llm_calls/`; writes transcripts and scoring records under
+`experiments/<name>_v<N>/results/`; logs token usage and cost summaries; and generates a stable
+LaTeX summary table in `experiments/<name>_v<N>/assets/`. Activation capture is disabled in v1
+because API-only OpenRouter runs do not expose model activations. The full model catalog and
+role-specific defaults live in `configs/models.json`; env-overridable settings live in
+`configs/model_settings.py`. See
+`docs/experiments/end_to_end_pipeline.md` for commands and output paths.
+
 ## Response scoring
 
-The initial scoring implementation uses LLM fact extraction, LLM fact-to-ground-truth matching,
-separate LLM checks for contradiction and disclaimer washing, and pure Python metric calculators.
+The scoring implementation uses LLM fact extraction, LLM fact-to-ground-truth matching, separate LLM
+checks for contradiction and disclaimer washing, and pure Python metric calculators.
 See `docs/experiments/scoring.md` for the post-run scoring flow and `docs/experiments/metrics.md`
 for the implemented formulas and interpretation notes.
 

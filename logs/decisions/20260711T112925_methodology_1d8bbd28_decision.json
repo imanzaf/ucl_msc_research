@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-07-11T11:29:25",
+  "decision_type": "methodology",
+  "author": "user",
+  "content": "Use OpenRouter for all v1 API-backed generation, run, simulator, and scoring calls; do not implement activation capture in v1 because OpenRouter/API access does not expose model activations.",
+  "source": "user_prompt",
+  "content_hash": "1d8bbd2817c4720c1c0c240bf07109130e15ff8d420e41d7ec43dc7d302dc83f"
+}

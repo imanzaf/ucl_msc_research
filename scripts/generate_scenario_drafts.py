@@ -8,7 +8,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 
 from loguru import logger
 from pydantic import ValidationError
@@ -19,6 +19,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from configs.api_settings import get_api_settings  # noqa: E402
 from configs.model_settings import get_model_settings  # noqa: E402
+from src.data_models.experiments import ExperimentStage, GenerationConfig  # noqa: E402
 from src.data_models.scenarios import (  # noqa: E402
     GeneratedScenarioInstance,
     PromptCondition,
@@ -30,6 +31,8 @@ from src.data_models.scenarios import (  # noqa: E402
     ScenarioSeed,
     ScenarioSeedScenario,
 )
+from src.experiments.model_catalog import validate_model_ids_against_openrouter  # noqa: E402
+from src.llm.openrouter import OpenRouterStructuredClient  # noqa: E402
 from src.prompts.scenarios.scenario_instance_generation import (  # noqa: E402
     GENERATOR_INSTRUCTIONS,
     INTEGRITY_GUIDANCE,
@@ -51,6 +54,7 @@ PROMPT_VARIANT_ORDER = [
     PromptCondition.PRODUCTION_BASELINE,
     PromptCondition.PRODUCTION_INTEGRITY,
 ]
+SCENARIO_GENERATION_PROMPT_VERSION = "scenario_instance_generation_v1"
 
 
 def resolve_scenario_root(scenario_root: Path) -> Path:
@@ -121,10 +125,11 @@ def load_scenario_seeds(seed_path: Path) -> List[ScenarioSeed]:
 
 
 def request_generated_scenario_instance(
-    client: Any,
+    client: OpenRouterStructuredClient,
     seed: ScenarioSeed,
     seed_scenario: ScenarioSeedScenario,
     model_id: str,
+    generation_config: GenerationConfig,
 ) -> GeneratedScenarioInstance:
     """Request one structured scenario instance from the LLM."""
     logger.info(
@@ -132,19 +137,30 @@ def request_generated_scenario_instance(
         seed_scenario.scenario_id,
         seed.scenario_family_id,
     )
-    response = client.responses.parse(
-        model=model_id,
-        input=build_scenario_instance_generation_prompt(
-            seed=seed,
-            seed_scenario=seed_scenario,
-        ),
-        instructions=GENERATOR_INSTRUCTIONS,
-        text_format=GeneratedScenarioInstance,
-        store=False,
+    response = client.complete_structured(
+        stage=ExperimentStage.SCENARIO_GENERATION,
+        model_id=model_id,
+        messages=[
+            {"role": "system", "content": GENERATOR_INSTRUCTIONS},
+            {
+                "role": "user",
+                "content": build_scenario_instance_generation_prompt(
+                    seed=seed,
+                    seed_scenario=seed_scenario,
+                ),
+            },
+        ],
+        output_model=GeneratedScenarioInstance,
+        generation_config=generation_config,
+        prompt_version=SCENARIO_GENERATION_PROMPT_VERSION,
+        metadata={
+            "stage": ExperimentStage.SCENARIO_GENERATION.value,
+            "scenario_family_id": seed.scenario_family_id,
+            "scenario_id": seed_scenario.scenario_id,
+            "session_id": f"generate__{seed.scenario_family_id}__{seed_scenario.scenario_id}",
+        },
     )
-    if response.output_parsed is None:
-        raise ValueError("scenario instance generator returned no parsed output")
-    return response.output_parsed
+    return GeneratedScenarioInstance.model_validate(response.parsed)
 
 
 def assemble_scenario_instance(
@@ -159,11 +175,12 @@ def assemble_scenario_instance(
 
 
 def generate_scenario_instance(
-    client: Any,
+    client: OpenRouterStructuredClient,
     seed: ScenarioSeed,
     seed_scenario: ScenarioSeedScenario,
     model_id: str,
     max_generation_retries: int,
+    generation_config: GenerationConfig,
 ) -> ScenarioInstance:
     """Generate and validate one scenario instance with retry on structured-output failures."""
     last_error: Optional[Exception] = None
@@ -181,6 +198,7 @@ def generate_scenario_instance(
                 seed=seed,
                 seed_scenario=seed_scenario,
                 model_id=model_id,
+                generation_config=generation_config,
             )
             return assemble_scenario_instance(
                 generated_instance=generated_instance,
@@ -279,10 +297,11 @@ def attach_seed_metadata(
 
 
 def generate_scenario(
-    client: Any,
+    client: OpenRouterStructuredClient,
     seed: ScenarioSeed,
     model_id: str,
     max_generation_retries: int,
+    generation_config: GenerationConfig,
 ) -> ScenarioFamily:
     """Generate and validate one V4 scenario family with five scenario instances."""
     scenario_instances = [
@@ -292,6 +311,7 @@ def generate_scenario(
             seed_scenario=seed_scenario,
             model_id=model_id,
             max_generation_retries=max_generation_retries,
+            generation_config=generation_config,
         )
         for seed_scenario in seed.scenarios
     ]
@@ -428,11 +448,12 @@ def persist_scenario(family: ScenarioFamily, output_dir: Path) -> None:
 
 
 def generate_default_scenarios(
-    client: Any,
+    client: OpenRouterStructuredClient,
     seeds: List[ScenarioSeed],
     model_id: str,
     output_dir: Path,
     max_generation_retries: int,
+    generation_config: GenerationConfig,
 ) -> List[ScenarioFamily]:
     """Generate and persist the provided scenario seeds."""
     families: List[ScenarioFamily] = []
@@ -449,6 +470,7 @@ def generate_default_scenarios(
             seed=seed,
             model_id=model_id,
             max_generation_retries=max_generation_retries,
+            generation_config=generation_config,
         )
         persist_scenario(family=family, output_dir=output_dir)
         families.append(family)
@@ -474,6 +496,11 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         default=None,
         help="Optional output run id in YYYYMMDDTHHMMSS format; defaults to the current timestamp.",
     )
+    parser.add_argument(
+        "--skip-model-validation",
+        action="store_true",
+        help="Skip OpenRouter /models validation.",
+    )
     return parser.parse_args(argv)
 
 
@@ -487,22 +514,35 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     run_id = args.run_id or create_timestamped_run_id()
     output_dir = resolve_run_output_dir(scenario_set_dir=scenario_set_dir, run_id=run_id)
 
-    from openai import OpenAI
-
     api_settings = get_api_settings()
     model_settings = get_model_settings()
+    generation_config = GenerationConfig(
+        temperature=model_settings.openrouter_temperature,
+        seed=model_settings.openrouter_seed,
+    )
     logger.info(
         "Starting scenario draft generation for set {} with model {}; output directory: {}",
         args.scenario_set,
         model_settings.scenario_generator_model,
         output_dir,
     )
+    if not args.skip_model_validation:
+        validate_model_ids_against_openrouter(
+            model_ids=[model_settings.scenario_generator_model],
+            api_settings=api_settings,
+            timeout_seconds=model_settings.openrouter_request_timeout_seconds,
+        )
     families = generate_default_scenarios(
-        client=OpenAI(api_key=api_settings.openai_api_key_scenario_generator),
+        client=OpenRouterStructuredClient.from_settings(
+            api_settings=api_settings,
+            model_settings=model_settings,
+            cache_dir=output_dir / "cache" / "llm_calls",
+        ),
         seeds=load_scenario_seeds(scenario_set_dir / SEED_FILENAME),
         model_id=model_settings.scenario_generator_model,
         output_dir=output_dir,
         max_generation_retries=model_settings.max_generation_retries,
+        generation_config=generation_config,
     )
     logger.success("Generated {} scenario family draft(s) in {}", len(families), output_dir)
     return 0

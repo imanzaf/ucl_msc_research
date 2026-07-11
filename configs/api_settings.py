@@ -49,6 +49,26 @@ class APISettings(BaseSettings):
         validation_alias="OPENAI_API_KEY_SCENARIO_GENERATOR",
         description="OpenAI API key used by the scenario generation pipeline.",
     )
+    openrouter_api_key: str = Field(
+        default="",
+        validation_alias="OPENROUTER_API_KEY",
+        description="OpenRouter API key used by all v1 experiment API calls.",
+    )
+    openrouter_base_url: str = Field(
+        default="https://openrouter.ai/api/v1",
+        validation_alias="OPENROUTER_BASE_URL",
+        description="OpenRouter OpenAI-compatible API base URL.",
+    )
+    openrouter_http_referer: str = Field(
+        default="",
+        validation_alias="OPENROUTER_HTTP_REFERER",
+        description="Optional OpenRouter attribution referer header.",
+    )
+    openrouter_app_title: str = Field(
+        default="ucl-msc-research",
+        validation_alias="OPENROUTER_APP_TITLE",
+        description="Optional OpenRouter attribution app title header.",
+    )
 
     @field_validator("openai_api_key_citation_validator")
     @classmethod
@@ -84,6 +104,22 @@ class APISettings(BaseSettings):
         if not v:
             raise ValueError("OPENAI_API_KEY_SCENARIO_GENERATOR must be set in .env.static or .env")
         return v
+
+    @field_validator("openrouter_api_key")
+    @classmethod
+    def openrouter_key_must_be_set(cls, v: str) -> str:
+        """Ensure OpenRouter-backed experiment calls have an API key configured."""
+        if not v:
+            raise ValueError("OPENROUTER_API_KEY must be set in .env.static or .env")
+        return v
+
+    @field_validator("openrouter_base_url")
+    @classmethod
+    def openrouter_base_url_must_be_set(cls, v: str) -> str:
+        """Ensure OpenRouter-backed experiment calls have a base URL configured."""
+        if not v:
+            raise ValueError("OPENROUTER_BASE_URL must be set in .env.static or .env")
+        return v.rstrip("/")
 
 
 @lru_cache(maxsize=1)

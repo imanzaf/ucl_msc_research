@@ -1,7 +1,8 @@
 # Post-Scenario Scoring Pipeline
 
-This document describes what happens after a scenario run produces an agent transcript. It covers
-the first implemented scoring pass only; it does not add an evaluator API runner.
+This document describes what happens after a scenario run produces an agent transcript. The scoring
+pipeline is available through `scripts/score_runs.py` and the joint wrapper
+`scripts/run_experiment_pipeline.py`.
 
 ## Inputs
 

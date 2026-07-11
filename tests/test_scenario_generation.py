@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, Dict, List
 
 import pytest
@@ -25,6 +24,7 @@ from scripts.generate_scenario_drafts import (
     resolve_scenario_set_dir,
     seed_path_for_scenario_set,
 )
+from src.data_models.experiments import GenerationConfig
 from src.data_models.scenarios import (
     BeliefSupport,
     DisclosureRequirement,
@@ -42,26 +42,18 @@ from src.data_models.scenarios import (
 )
 
 
-class FakeResponsesClient:
-    """Fake Responses client that records parse calls and returns parsed models."""
+class FakeOpenRouterStructuredClient:
+    """Fake OpenRouter client that records structured calls and returns parsed models."""
 
     def __init__(self, parsed_outputs: List[Any]) -> None:
         """Store the parsed outputs returned by parse calls."""
         self.parsed_outputs = list(parsed_outputs)
         self.calls: List[Dict[str, Any]] = []
 
-    def parse(self, **kwargs: Any) -> SimpleNamespace:
-        """Record parse arguments and return the configured structured output."""
+    def complete_structured(self, **kwargs: Any) -> Any:
+        """Record structured-call arguments and return the configured output."""
         self.calls.append(kwargs)
-        return SimpleNamespace(output_parsed=self.parsed_outputs.pop(0))
-
-
-class FakeClient:
-    """Fake OpenAI client exposing only the responses attribute used by the generator."""
-
-    def __init__(self, parsed_outputs: List[Any]) -> None:
-        """Create a fake client with a fake Responses API."""
-        self.responses = FakeResponsesClient(parsed_outputs)
+        return type("FakeResult", (), {"parsed": self.parsed_outputs.pop(0)})
 
 
 def default_seed_path() -> Path:
@@ -227,26 +219,27 @@ def test_scenario_instance_prompt_matches_approved_generation_scope() -> None:
 
 def test_generator_uses_one_structured_call_per_seed_scenario() -> None:
     """Verify the Responses API is called once for each seed-owned user goal."""
-    client = FakeClient([make_generated_instance() for _ in range(5)])
+    client = FakeOpenRouterStructuredClient([make_generated_instance() for _ in range(5)])
     seed = load_scenario_seeds(default_seed_path())[0]
 
     family = generate_scenario(
         client=client,
         seed=seed,
-        model_id="gpt-5.4-2026-03-05",
+        model_id="openai/gpt-5.5",
         max_generation_retries=0,
+        generation_config=GenerationConfig(),
     )
 
     assert isinstance(family, ScenarioFamily)
-    assert len(client.responses.calls) == 5
-    assert [call["text_format"] for call in client.responses.calls] == [
+    assert len(client.calls) == 5
+    assert [call["output_model"] for call in client.calls] == [
         GeneratedScenarioInstance,
         GeneratedScenarioInstance,
         GeneratedScenarioInstance,
         GeneratedScenarioInstance,
         GeneratedScenarioInstance,
     ]
-    assert all(call["model"] == "gpt-5.4-2026-03-05" for call in client.responses.calls)
+    assert all(call["model_id"] == "openai/gpt-5.5" for call in client.calls)
     assert [instance.scenario_id for instance in family.scenario_instances] == [
         "RW001_U01",
         "RW001_U02",
