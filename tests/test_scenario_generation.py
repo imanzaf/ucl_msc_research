@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
+from threading import Lock
 from typing import Any, Dict, List
 
 import pytest
@@ -16,8 +18,10 @@ from scripts.generate_scenario_drafts import (
     build_scenario_instance_generation_prompt,
     expected_prompt_variant_ids,
     generate_scenario,
+    generate_scenario_instances,
     load_scenario_seeds,
     parse_args,
+    parse_positive_int,
     persist_scenario,
     resolve_run_output_dir,
     resolve_scenario_set_dir,
@@ -49,11 +53,14 @@ class FakeOpenRouterStructuredClient:
         """Store the parsed outputs returned by parse calls."""
         self.parsed_outputs = list(parsed_outputs)
         self.calls: List[Dict[str, Any]] = []
+        self.lock = Lock()
 
     def complete_structured(self, **kwargs: Any) -> Any:
         """Record structured-call arguments and return the configured output."""
-        self.calls.append(kwargs)
-        return type("FakeResult", (), {"parsed": self.parsed_outputs.pop(0)})
+        with self.lock:
+            self.calls.append(kwargs)
+            parsed = self.parsed_outputs.pop(0)
+        return type("FakeResult", (), {"parsed": parsed})
 
 
 def default_seed_path() -> Path:
@@ -244,16 +251,25 @@ def test_scenario_instance_prompt_matches_approved_generation_scope() -> None:
     seed = default_retail_wealth_seed()
     prompt = build_scenario_instance_generation_prompt(seed, seed.scenarios[0])
 
-    assert "scenario_id: RW001_U01" in prompt
-    assert "exactly 8 fact units" in prompt
-    assert "single self-contained reference artifact" in prompt
+    assert "exactly 8 fact_units" in prompt
+    assert "reference_text: agent context only" in prompt
+    assert "The agent will receive the user question" in prompt
+    assert "Do not put" in prompt
+    assert "user question, agent task, prompt variants" in prompt
+    assert "relevant excerpt or data" in prompt
+    assert "directly in reference_text" in prompt
     assert "transaction feed" in prompt
-    assert "reference_rationale must identify" in prompt
+    assert "reference_rationale must identify where reference_text supports the fact" in prompt
+    assert "risk-material quantitative anchors only" in prompt
+    assert "Do not use traceability labels as specificity markers" in prompt
     assert "possible_user_beliefs" in prompt
-    assert "production_integrity_instructions:" in prompt
-    assert f"- {seed.integrity_instructions[0]}" in prompt
     assert "neutral_baseline, anxious_risk_averse, positive_risk_seeking" in prompt
     assert "Do not generate agent prompt variants" in prompt
+    assert "scenario_family_id:" not in prompt
+    assert "scenario_id:" not in prompt
+    assert "production_task_guidance:" not in prompt
+    assert "production_integrity_instructions:" not in prompt
+    assert seed.integrity_instructions[0] not in prompt
     assert "pressure_level" not in prompt
     assert "mild_pressure" not in prompt
     assert "strong_pressure" not in prompt
@@ -283,6 +299,30 @@ def test_generator_uses_one_structured_call_per_seed_scenario() -> None:
     ]
     assert all(call["model_id"] == "openai/gpt-5.5" for call in client.calls)
     assert [instance.scenario_id for instance in family.scenario_instances] == [
+        "RW001_U01",
+        "RW001_U02",
+        "RW001_U03",
+        "RW001_U04",
+        "RW001_U05",
+    ]
+
+
+def test_generator_can_run_seed_scenarios_concurrently() -> None:
+    """Verify concurrent generation preserves seed scenario ordering."""
+    client = FakeOpenRouterStructuredClient([make_generated_instance() for _ in range(5)])
+    seed = default_retail_wealth_seed()
+
+    instances = generate_scenario_instances(
+        client=client,
+        seed=seed,
+        model_id="openai/gpt-5.5",
+        max_generation_retries=0,
+        generation_config=GenerationConfig(),
+        family_scenario_concurrency=5,
+    )
+
+    assert len(client.calls) == 5
+    assert [instance.scenario_id for instance in instances] == [
         "RW001_U01",
         "RW001_U02",
         "RW001_U03",
@@ -324,8 +364,8 @@ def test_attach_seed_metadata_builds_code_owned_prompt_variants() -> None:
     assert build_prompt_task(seed).startswith("You are a portfolio assistant")
 
 
-def test_prompt_template_renders_scenario_reference_for_generated_instance() -> None:
-    """Verify agent prompts render one reference artifact instead of hidden fact metadata."""
+def test_prompt_template_renders_scenario_context_for_generated_instance() -> None:
+    """Verify agent prompts render source context instead of hidden fact metadata."""
     seed = default_retail_wealth_seed()
     family = attach_seed_metadata(scenario_instances=make_scenario_instances(), seed=seed)
     rendered = family.prompt_template.render_system_prompt(
@@ -333,7 +373,7 @@ def test_prompt_template_renders_scenario_reference_for_generated_instance() -> 
         reference_text=family.scenario_instances[0].reference_text,
     )
 
-    assert "Reference information:" in rendered
+    assert "Context information:" in rendered
     assert "Guidance:\n- Answer only from available portfolio data" in rendered
     assert "Integrity instructions:\n- Never fabricate or alter a holding" in rendered
     assert '"cash_buffer_days":3' in rendered
@@ -355,6 +395,8 @@ def test_persist_scenario_writes_json_and_review_report(tmp_path) -> None:
     assert "Possible User Actions" in review_text
     assert "Initial User Prompts" in review_text
     assert "Production Integrity Instructions" in review_text
+    assert "Agent Context" in review_text
+    assert "Prompt Variants" not in review_text
 
 
 def test_resolve_scenario_set_dir_uses_named_subdirectory() -> None:
@@ -394,11 +436,35 @@ def test_parse_args_defaults_to_v0_2_0() -> None:
     args = parse_args([])
 
     assert args.scenario_set == "v0.2.0"
+    assert args.max_families is None
+    assert args.family_scenario_concurrency == 1
 
 
-def test_parse_args_accepts_run_id() -> None:
-    """Verify the CLI can accept a deterministic run id."""
-    args = parse_args(["--scenario-set", "v0.1.0", "--run-id", "20260705T193000"])
+def test_parse_args_accepts_run_id_and_max_families() -> None:
+    """Verify the CLI can accept deterministic run and family-limit arguments."""
+    args = parse_args(
+        [
+            "--scenario-set",
+            "v0.1.0",
+            "--run-id",
+            "20260705T193000",
+            "--max-families",
+            "2",
+            "--family-scenario-concurrency",
+            "5",
+        ]
+    )
 
     assert args.scenario_set == "v0.1.0"
+    assert args.family_scenario_concurrency == 5
     assert args.run_id == "20260705T193000"
+    assert args.max_families == 2
+
+
+def test_parse_positive_int_rejects_non_positive_values() -> None:
+    """Verify positive integer CLI arguments reject zero and negative values."""
+    with pytest.raises(argparse.ArgumentTypeError):
+        parse_positive_int("0")
+
+    with pytest.raises(argparse.ArgumentTypeError):
+        parse_positive_int("-1")

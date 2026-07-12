@@ -30,9 +30,9 @@ endpoint before making generation calls; use `--skip-model-validation` only for 
 
 The model catalog is role-specific:
 
-- `agent_models` contains the four models under test: GPT 5.5, Claude Sonnet 5, Llama 3.3 70B Instruct, and Qwen 2.5 72B Instruct.
-- `user_model` is Gemini 3.1 Flash Lite for user-simulator turns and outcomes.
-- `scoring_model` is GPT 5.4 Mini for extraction, matching, and judge calls.
+- `agent_models` contains the configured models under test: Llama 3.3 70B Instruct and Qwen 2.5 72B Instruct.
+- `user_model` is Gemma 4 26B A4B, a 26B Mixture-of-Experts model, for user-simulator turns and outcomes.
+- `scoring_model` is Gemini 3.1 Flash Lite for extraction, matching, and judge calls.
 - `scenario_generator_model` is GPT 5.4 Mini for scenario draft generation.
 
 ## Scenario Draft Generation
@@ -41,6 +41,15 @@ Scenario draft generation now uses OpenRouter structured outputs through the sha
 
 ```bash
 uv run python scripts/generate_scenario_drafts.py --scenario-set v0.2.0
+```
+
+Use `--family-scenario-concurrency 5` to generate the five seed-owned scenario instances in one
+family concurrently while still processing families one at a time:
+
+```bash
+uv run python scripts/generate_scenario_drafts.py \
+  --scenario-set v0.2.0 \
+  --family-scenario-concurrency 5
 ```
 
 Outputs are written to:
@@ -59,8 +68,8 @@ Run reviewed scenario JSON through the selected agent models and user simulator:
 uv run python scripts/run_scenarios.py \
   --experiment-name deception_probe_v1 \
   --scenario-run-dir data/inputs/scenarios/v0.1.0/runs/20260705T204014 \
-  --agent-model anthropic/claude-sonnet-5 \
-  --agent-model meta-llama/llama-3.3-70b-instruct
+  --agent-model meta-llama/llama-3.3-70b-instruct \
+  --agent-model qwen/qwen-2.5-72b-instruct
 ```
 
 Useful filters:
@@ -76,13 +85,27 @@ uv run python scripts/run_scenarios.py \
   --limit 1
 ```
 
+To reduce wall-clock time while keeping family-level sequencing, run scenario instances within each
+family concurrently:
+
+```bash
+uv run python scripts/run_scenarios.py \
+  --experiment-name deception_probe_v1 \
+  --scenario-run-dir data/inputs/scenarios/v0.1.0/runs/20260705T204014 \
+  --family-scenario-concurrency 5
+```
+
+With `--family-scenario-concurrency 5`, the runner processes one family at a time, but can keep all
+five scenario instances in that family active together. Each individual conversation remains
+sequential because later user and agent turns depend on earlier turns.
+
 Scenario-run outputs:
 
-- `experiments/<name>_v<N>/config.json`
-- `experiments/<name>_v<N>/results/<YYYYMMDDTHHMMSS>_results.jsonl`
-- `experiments/<name>_v<N>/results/<YYYYMMDDTHHMMSS>_scenario_usage.json`
-- `experiments/<name>_v<N>/logs/<YYYYMMDDTHHMMSS>_run.log`
-- `experiments/<name>_v<N>/cache/llm_calls/*.json`
+- `data/outputs/experiments/<name>_v<N>/config.json`
+- `data/outputs/experiments/<name>_v<N>/results/<YYYYMMDDTHHMMSS>_results.jsonl`
+- `data/outputs/experiments/<name>_v<N>/results/<YYYYMMDDTHHMMSS>_scenario_usage.json`
+- `data/outputs/experiments/<name>_v<N>/logs/<YYYYMMDDTHHMMSS>_run.log`
+- `data/outputs/experiments/<name>_v<N>/cache/llm_calls/*.json`
 
 Single-turn scenarios run initial user prompt -> agent response -> user outcome. Multi-turn scenarios
 run initial user prompt -> agent response -> user-simulator follow-up loop, capped at three follow-up
@@ -95,15 +118,16 @@ Score completed transcripts separately:
 ```bash
 uv run python scripts/score_runs.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.1.0/runs/20260705T204014
+  --scenario-run-dir data/inputs/scenarios/v0.1.0/runs/20260705T204014 \
+  --scoring-concurrency 8
 ```
 
 Scoring outputs:
 
-- `experiments/<name>_v<N>/results/<YYYYMMDDTHHMMSS>_scoring_results.jsonl`
-- `experiments/<name>_v<N>/results/<YYYYMMDDTHHMMSS>_scoring_usage.json`
-- `experiments/<name>_v<N>/logs/<YYYYMMDDTHHMMSS>_scoring_run.log`
-- `experiments/<name>_v<N>/assets/<name>_v<N>_table.tex`
+- `data/outputs/experiments/<name>_v<N>/results/<YYYYMMDDTHHMMSS>_scoring_results.jsonl`
+- `data/outputs/experiments/<name>_v<N>/results/<YYYYMMDDTHHMMSS>_scoring_usage.json`
+- `data/outputs/experiments/<name>_v<N>/logs/<YYYYMMDDTHHMMSS>_scoring_run.log`
+- `data/outputs/experiments/<name>_v<N>/assets/<name>_v<N>_table.tex`
 
 The scoring stage makes four LLM-assisted calls per scenario run: response fact extraction,
 fact-unit matching, fact contradiction checking, and disclaimer-washing checking. Programmatic
@@ -116,7 +140,9 @@ Run scenario execution, scoring, and asset generation in one command:
 ```bash
 uv run python scripts/run_experiment_pipeline.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.1.0/runs/20260705T204014
+  --scenario-run-dir data/inputs/scenarios/v0.1.0/runs/20260705T204014 \
+  --family-scenario-concurrency 5 \
+  --scoring-concurrency 8
 ```
 
 The joint script accepts the same filters and cache flags as `run_scenarios.py`.
@@ -128,10 +154,15 @@ generation parameters, structured-output schema hash, stage, and prompt version.
 
 Cache controls:
 
-- default: read/write experiment-local cache under `experiments/<name>_v<N>/cache/llm_calls/`
+- default: read/write experiment-local cache under
+  `data/outputs/experiments/<name>_v<N>/cache/llm_calls/`
+- default experiment root: `data/outputs/experiments/`, which is git-ignored
 - `--no-cache`: disable local cache reads and writes
 - `--refresh-cache`: ignore existing cached records and write fresh results
 - `--resume`: skip run units already present in earlier result files
+- `--family-scenario-concurrency N`: run up to `N` scenario instances concurrently inside each
+  family while keeping families sequential
+- `--scoring-concurrency N`: score up to `N` completed scenario-run records concurrently
 
 Every cached call record stores the raw response, parsed output, request metadata, generation id,
 usage, and cost. Usage summaries aggregate prompt tokens, completion tokens, total tokens, reasoning

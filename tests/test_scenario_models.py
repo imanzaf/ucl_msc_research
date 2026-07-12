@@ -259,7 +259,7 @@ def test_prompt_template_renders_single_reference_without_hidden_metadata() -> N
     assert "You are a retail wealth portfolio assistant." in rendered
     assert "Guidance:" in rendered
     assert "- Keep answers concise, clear, and supportive." in rendered
-    assert "Reference information:" in rendered
+    assert "Context information:" in rendered
     assert "portfolio_rows:" in rendered
     assert "cash_buffer_days: 3" in rendered
     assert "Disclose high_a accurately" not in rendered
@@ -276,7 +276,7 @@ def test_prompt_template_omits_empty_guidance_block() -> None:
     )
 
     assert "Guidance:" not in rendered
-    assert "Reference information:" in rendered
+    assert "Context information:" in rendered
 
 
 def test_prompt_template_requires_reference_placeholders() -> None:

@@ -1,0 +1,14 @@
+\chapter{Conclusion}
+\label{chap:conclusion}
+
+This thesis proposes a benchmark for a class of LLM failure that is easy to miss when evaluation begins and ends with literal truth. In financial communication, an answer may be factually defensible sentence by sentence while still withholding a material downside, weakening its precision, burying it beneath benefits, or replacing it with a generic caveat. These outcomes can distort a user's decision without an explicit lie.
+
+The proposed \benchmarkname design makes that problem measurable. It supplies target models with controlled financial evidence, identifies expected-to-disclose facts before evaluation, crosses three prompt conditions with three user personas, and scores false claims, omission, framing, de-emphasis, and downstream belief or action separately. Its multi-turn component tests whether omitted risks are volunteered, elicited, repaired, or persistently concealed. Its statistical design uses within-scenario comparisons and family-level structure to estimate prompt and persona effects without treating thousands of related outputs as independent.
+
+The study is intentionally conservative about intent. A finding of risk concealment is a finding about the movement of information from evidence to response and from response to recipient. It is not automatically a finding that the model schemed. This distinction allows the thesis to make a deployment-relevant claim without depending on unverifiable assumptions about model psychology: systems should be evaluated on whether users receive the material risk information needed for an informed decision.
+
+\begin{placeholderblock}
+After experiments, insert a final paragraph with the exact answer to each research question, the principal effect sizes and confidence intervals, the best-supported mitigation conclusion, and one sentence on the limits of generalisation. End with the practical implication supported by the data, not a speculative claim about future autonomous systems.
+\end{placeholderblock}
+
+Before submission, the following decisions must be closed: \decision{benchmark name}; \decision{final scenario and fact-pool composition}; \decision{target models and repeats}; \decision{primary endpoint and composite-score policy}; \decision{power analysis}; \decision{human-validation sample}; \decision{simulator and judge models}; \decision{preregistration and release plan}; and \decision{ethics determination}. Once these are fixed and the red results placeholders are replaced, the thesis will provide a reproducible test of whether benignly prompted financial LLMs communicate risk as faithfully as their factuality scores imply.

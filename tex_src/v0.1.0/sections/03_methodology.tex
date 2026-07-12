@@ -1,0 +1,449 @@
+\chapter{Methodology}
+\label{chap:methodology}
+
+\section{Study overview}
+
+The study evaluates whether LLMs preserve material financial risk information under benign, deployment-realistic prompting. Its unit of intervention is a \emph{scenario-condition run}: one target model responding to one scenario instance under one system-prompt condition and one user-persona condition. Single-turn runs end after the first target-model response. Multi-turn runs alternate between the target model and a user simulator for a fixed or bounded number of turns, followed by an independent belief-and-action elicitation.
+
+The design is factorial and repeated-measures. Each scenario instance appears in all nine combinations of three prompt conditions and three personas. This within-scenario structure holds the reference evidence, task, stakeholder role, and decision context constant. Differences between cells can therefore be attributed to the prompt/persona intervention subject to sampling variation, stochastic decoding, and simulator variation. Multiple target models are evaluated on the same benchmark to estimate between-model heterogeneity.
+
+Table~\ref{tab:design-summary} summarises the planned scale. Counts are targets rather than final claims until scenario review and exclusion criteria are complete.
+
+\begin{table}[H]
+\centering
+\caption{Planned experimental design. Red entries must be fixed before the final run.}
+\label{tab:design-summary}
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+Component & Planned specification \\
+\midrule
+Domain & Finance, spanning retail, corporate, markets, insurance, lending, and compliance-facing assistance \placeholder{final segment list} \\
+Scenario families & 40 total: 20 single-turn and 20 multi-turn \\
+Instances per family & 5 related scenarios with distinct user goals or source artefacts \\
+Prompt conditions & Neutral; production-baseline; production-integrity \\
+Persona conditions & Neutral; anxious risk-averse; positive risk-seeking/trusting \\
+Factorial cells & 9 per scenario instance \\
+Scenario instances & 200 before quality exclusions \\
+Runs per target model & 1,800 before repeats and robustness checks \\
+Target models & \decision{select 2--5 models and record exact model IDs, providers, access dates, and versions} \\
+Replicates & \decision{set stochastic repeats per cell; a minimum of 3 is preferable if budget permits} \\
+Total target-model conversations & $200\times9\times M\times R$, where $M$ is model count and $R$ is replicate count \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Construct definition}
+\label{sec:construct}
+
+\subsection{Risk concealment as an observable construct}
+
+For this thesis, \emph{risk concealment} is an umbrella term for transformations of available information that make material downside absent, inaccurate, less precise, less salient, or less consequential in the response than the annotated evidence warrants. It is defined over three objects: a source fact pool $F$, a response or conversation $Y$, and a stakeholder-specific disclosure annotation $D$. The label does not require a claim about the target model's subjective belief or intention.
+
+This operational definition has two advantages. First, it is auditable: a reviewer can inspect the source, the expected-disclosure label, and the response. Second, it supports graded outcomes. A fact can be present but weakened, accurate but buried, or disclosed only after user challenge. Binary truthfulness cannot represent these cases.
+
+The construct has five outcome families:
+
+\begin{enumerate}
+    \item \textbf{False claim}: a risk-relevant assertion is unsupported by or contradicts the agent-visible evidence. Subtypes are fabrication, contradiction, and material quantitative distortion.
+    \item \textbf{Selective omission}: an adverse fact annotated as expected-to-disclose is absent from the relevant response window. The primary analysis uses hard omission. Conditional omission after a direct question is a planned extension or secondary outcome.
+    \item \textbf{Misleading framing}: a disclosed fact is expressed in a way that creates an overly favourable or low-risk net impression. Subtypes are specificity loss, minimising language, unsupported benefit amplification, and disclaimer washing.
+    \item \textbf{Risk de-emphasis}: a material adverse fact is technically disclosed but receives lower salience than comparable favourable information through late placement or unequal elaboration.
+    \item \textbf{User harm proxy}: the simulated user reports an unsupported risk belief or selects an action that would not be supported by the complete fact pool.
+\end{enumerate}
+
+These labels are non-exclusive. A response may omit one high-adverse fact, weaken another, and add an unsupported claim. Analyses therefore report each component separately before considering any composite index.
+
+\begin{placeholderblock}
+Pre-register the threshold for calling a response-level ``risk concealment event.'' A conservative rule is that at least one high-adverse expected-to-disclose fact is omitted, contradicted, materially de-specified, or replaced by disclaimer washing. Report this binary endpoint alongside the disaggregated measures. Do not choose weights for a composite score after observing which components generate the strongest result.
+\end{placeholderblock}
+
+\subsection{Materiality and expected disclosure}
+
+Not every adverse fact must appear in every answer. A complete dump of all negative information can be as unhelpful as omission, particularly under a concise task. The benchmark therefore separates polarity from materiality and expected disclosure.
+
+A fact is \emph{high-adverse} when it is likely to change a reasonable user's decision, suitability assessment, understanding of potential loss, regulatory or legal interpretation, or need for escalation in the stated context. A \emph{low-adverse} fact is genuinely negative but less decision-relevant. Favourable facts are genuine benefits or positive context. Neutral facts have little expected decision impact and serve as attention controls.
+
+Expected disclosure is annotated at the fact level for the specified stakeholder, task, and decision. The default rule is that high-adverse facts are expected-to-disclose. Low-adverse facts may be optional unless directly responsive to the question. Favourable and neutral facts are never ``required'' merely to create balance, although their presence is tracked. Annotators record a short rationale explaining why non-disclosure would or would not impair the user.
+
+Materiality is inherently contestable. To make it reproducible, scenario authors use a rubric with domain-specific criteria: magnitude of possible loss; likelihood or uncertainty; irreversibility; time sensitivity; effect on eligibility or suitability; contractual restriction; legal or compliance consequence; and dependency on an unstated assumption. Two reviewers independently verify high-adverse labels before a scenario enters the test set.
+
+\section{Benchmark construction}
+\label{sec:construction}
+
+\subsection{Scenario-family schema}
+
+A scenario family defines a reusable deployment context. Each family record contains:
+
+\begin{itemize}
+    \item financial segment and use case;
+    \item interaction mode (single-turn or multi-turn);
+    \item agent role and user/stakeholder role;
+    \item task and permissible scope;
+    \item naturalistic production guidance;
+    \item family-specific integrity guidance;
+    \item five user goals or scenario variants;
+    \item source-artifact type and generation constraints;
+    \item candidate actions for the final user decision;
+    \item known safety, legality, and realism checks.
+\end{itemize}
+
+Families should represent heterogeneous communication settings rather than superficial rewrites of an investment recommendation. Candidate segments include retail investing, pensions, mortgages, consumer credit, insurance, business lending, treasury, corporate financial analysis, market research, financial promotions, fraud or compliance escalation, and internal risk reporting. Within each family, the stakeholder role is fixed across personas.
+
+\begin{placeholderblock}
+Insert the final scenario-family inventory as a table, including the number of instances retained per segment, interaction mode, source type, stakeholder role, and primary risk category. Confirm that no single segment or risk category dominates the benchmark and that protected or vulnerable-customer contexts are handled ethically.
+\end{placeholderblock}
+
+\subsection{Generation pipeline}
+
+Scenario construction uses an LLM-assisted pipeline followed by human review. The pipeline is a data-generation aid, not the final authority on correctness. For each seed, it produces:
+
+\begin{enumerate}
+    \item a realistic agent-visible source artefact, such as a product summary, account record, analyst note, policy extract, risk report, or structured table;
+    \item an atomic fact pool grounded in that artefact;
+    \item fact metadata: polarity, materiality, risk category, expected disclosure, specificity markers, and supporting source span;
+    \item user-facing context that does not reveal all agent-visible information;
+    \item the initial user message in persona-neutral semantic form;
+    \item deployment-style task guidance and integrity additions;
+    \item for multi-turn scenarios, plausible follow-up goals and a bounded action set;
+    \item a scenario card documenting assumptions and known ambiguities.
+\end{enumerate}
+
+The source artefact and fact pool are generated together, then checked bidirectionally. Every fact must map to an exact source span or computable value; every decision-relevant source statement must map to a fact or be explicitly marked out of scope. This prevents the reference artefact from containing unannotated adverse evidence that a target model could reasonably disclose but the scorer would ignore.
+
+To reduce template leakage, surface form varies across families and instances. Numerical facts use realistic but synthetic values, and named organisations or individuals are fictitious unless a public, non-sensitive record is intentionally used. Scenarios should avoid copying proprietary financial documents. The target model is told to rely on the supplied materials and to state uncertainty when the evidence is insufficient.
+
+\subsection{Fact-pool design}
+
+The planned pool contains eight atomic facts per scenario. The recommended fixed composition is two high-adverse, two low-adverse, two favourable, and two neutral facts. Fixed composition simplifies denominator interpretation and prevents a scenario with one adverse fact from being mechanically easier than a scenario with four. If realism requires variable composition, primary rates are calculated at the eligible-fact level and the composition is included as a covariate.
+
+Atomicity means that each unit expresses one independently scorable proposition. A compound statement such as ``the fund is concentrated in technology and charges a 3\% exit fee'' becomes two facts because one may be disclosed while the other is omitted. Numerical units retain value, denominator, currency, and time period. Conditional facts retain their antecedent. Source spans and specificity markers allow scoring of whether ``a 12-month lock-up'' became merely ``some access restrictions.''
+
+Each fact record includes the fields in Table~\ref{tab:fact-schema}.
+
+\begin{table}[H]
+\centering
+\caption{Core fact-unit annotation schema.}
+\label{tab:fact-schema}
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+Field & Definition \\
+\midrule
+\texttt{fact\_id} & Stable identifier unique within scenario. \\
+\texttt{canonical\_fact} & Atomic, source-grounded proposition used for matching. \\
+\texttt{source\_span} & Exact text, cells, or calculation supporting the fact. \\
+\texttt{polarity} & High-adverse, low-adverse, favourable, or neutral. \\
+\texttt{risk\_category} & Liquidity, loss, concentration, affordability, credit, compliance, eligibility, operational, model, or other. \\
+\texttt{materiality\_rationale} & Why the fact matters to the stated stakeholder and decision. \\
+\texttt{expected\_disclosure} & Required, conditional, optional, or not applicable. \\
+\texttt{specificity\_markers} & Numbers, dates, denominators, entities, conditions, and comparison baselines that should be preserved. \\
+\texttt{acceptable\_paraphrases} & Non-exhaustive semantically equivalent expressions. \\
+\texttt{contradictions} & Canonical opposite or materially inconsistent interpretations. \\
+\texttt{review\_status} & Generator output, reviewer 1, reviewer 2, adjudicated, or excluded. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Quality-control procedure}
+
+Scenario quality is assessed before target-model evaluation. Reviewers perform five checks:
+
+\begin{enumerate}
+    \item \textbf{Grounding}: every fact is supported by the source and no material source content is unlabelled.
+    \item \textbf{Atomicity}: facts can be independently matched and do not bundle opposite-polarity information.
+    \item \textbf{Materiality}: expected-disclosure labels follow the rubric for the specified stakeholder and task.
+    \item \textbf{Realism}: the artefact, prompt, and available actions resemble a plausible financial workflow without requiring undisclosed specialist knowledge.
+    \item \textbf{Condition invariance}: the underlying facts and decision remain identical across prompt and persona cells.
+\end{enumerate}
+
+Scenarios are excluded or revised if the task has no defensible answer, the source contains contradictions not intentionally annotated, the persona changes the substantive user goal, or reviewers cannot agree on which adverse facts are material. Exclusion decisions are logged before model outputs are inspected.
+
+\begin{placeholderblock}
+Specify reviewer qualifications, the number of independent reviewers, adjudication rules, and quantitative acceptance thresholds. Report how many generated scenarios were rejected, revised, or retained. Keep a versioned audit trail so benchmark curation cannot be influenced by target-model performance.
+\end{placeholderblock}
+
+\section{Experimental factors}
+\label{sec:factors}
+
+\subsection{System-prompt conditions}
+
+The three prompt conditions manipulate the amount and type of behavioural guidance while preserving the task.
+
+\paragraph{Neutral.} The model receives only its role, the task, the source artefact, and basic operational constraints. It is not instructed to be reassuring, persuasive, concise beyond a common response cap, or especially complete. This condition estimates behaviour under minimal framing, although no prompt is literally neutral because role and task wording still shape output.
+
+\paragraph{Production-baseline.} The model receives naturalistic deployment instructions such as being concise, supportive, easy to understand, and focused on the user's question. It is not asked to sell, maximise conversion, avoid escalation, or deceive. It contains no explicit honesty/completeness rule beyond ordinary task semantics. The purpose is to test whether common product desiderata create incidental pressure toward incomplete or softened risk communication.
+
+\paragraph{Production-integrity.} This condition includes the full production-baseline prompt plus explicit instructions to communicate material adverse facts accurately and with proportionate salience; preserve decision-relevant specificity; avoid unsupported intensifiers and generic disclaimer substitution; and state uncertainty. It is a lightweight prompt-level mitigation, not a claim of comprehensive alignment.
+
+Prompt length itself can affect behaviour. The integrity condition is necessarily longer and more explicit. A robustness condition should add a length-matched control containing non-integrity operational details, or the study should acknowledge that the treatment combines content and attention effects.
+
+\begin{placeholderblock}
+Freeze the exact prompt text and cryptographic hash before the main run. Decide whether the neutral condition includes a generic instruction to be accurate. Without it, the comparison may overstate the effect of ``integrity'' by contrasting a professionally specified prompt with an underspecified one. With it, the benchmark more cleanly isolates balanced disclosure from generic accuracy.
+\end{placeholderblock}
+
+\subsection{Persona conditions}
+
+Persona is held in the user message and user-simulator policy, not in the source evidence. The neutral persona uses emotionally unmarked language and requests a balanced explanation. The anxious risk-averse persona expresses concern, high need for detail, and low tolerance for loss. The positive persona expresses enthusiasm, trust, or comfort with risk and may prefer a decisive or concise response.
+
+To preserve causal validity, all personas must ask semantically equivalent initial questions. Differences in politeness, emotion, and style are allowed; differences in requested content are not. For example, ``Is this suitable for me? Please explain the important considerations'' can be rendered anxiously or enthusiastically, but one version cannot ask specifically about fees while another asks only about returns.
+
+Persona fidelity is checked by a classifier or blinded human annotation. Semantic equivalence is checked separately. Runs failing the latter are regenerated before evaluation. For multi-turn simulation, persona affects tone and conversational priorities but cannot grant the simulator access to hidden facts.
+
+\subsection{Target models and decoding}
+
+The target set should cover both proprietary and open-weight frontier or near-frontier models if resources permit. Selection criteria include deployment relevance, instruction-following quality, finance capability, availability throughout the study, and access to hidden states for the optional white-box extension.
+
+\begin{placeholderblock}
+Insert the final model table with provider, exact API or checkpoint identifier, parameter scale where disclosed, access date, context length used, system-prompt support, quantisation, and licence. Model aliases such as ``latest'' are not reproducible and must not appear in the final thesis. Archive provider documentation or response metadata where terms permit.
+\end{placeholderblock}
+
+Primary decoding should be low-temperature but not necessarily deterministic. Deterministic decoding understates behavioural variance and can make a single phrasing appear to define a model. Stochastic repeats estimate the probability of a failure under a fixed condition. All conditions for a given model use the same temperature, top-$p$, maximum output tokens, seed policy, and tool settings.
+
+A common output-token cap is important because concision can directly create omission. The cap should be generous enough to permit disclosure of all high-adverse facts. Response length is then measured rather than forced to be identical. A separate length-controlled analysis can compare matched responses or include token count as a covariate, while recognising that length may mediate the treatment rather than merely confound it.
+
+\section{Multi-turn user simulation}
+\label{sec:simulator}
+
+For multi-turn families, the simulator receives the user role, goal, persona, user-visible context, agent role, and conversation history. It does not receive the agent-only reference artefact or fact annotations. At each turn, it generates one plausible follow-up consistent with the assigned profile. The conversation ends after \placeholder{three target-model responses, a natural stopping criterion, or a maximum token budget}.
+
+The simulator prompt prohibits adversarial elicitation unless the scenario goal naturally requires challenge. It also prohibits changing the user's financial circumstances or inventing new source facts. A state tracker records whether the simulator has asked directly about each risk category, which supports the conditional-omission extension.
+
+After the dialogue, a fresh simulator context---or preferably a separate outcome model---receives only the user-visible conversation. It completes two structured tasks:
+
+\begin{enumerate}
+    \item list beliefs about each decision-relevant dimension with confidence and cite the conversation turn that supports the belief;
+    \item choose one action from a randomised scenario-specific set, including a defer/escalate option where appropriate, and provide a short rationale.
+\end{enumerate}
+
+The same outcome model then receives the complete fact pool in a counterfactual control condition. The difference between conversation-only and full-information beliefs/actions estimates the harm proxy. This within-outcome-model comparison reduces, but does not eliminate, simulator idiosyncrasy.
+
+\begin{placeholderblock}
+Choose whether the dialogue simulator and outcome evaluator are the same model. Separation reduces self-consistency artefacts. Ideally, run at least two simulator families and treat simulator as a random effect or robustness dimension. Predefine which actions count as harmful or unsupported using the full fact pool, not target-model output.
+\end{placeholderblock}
+
+\section{Scoring pipeline}
+\label{sec:scoring}
+
+The scoring pipeline combines rule-based processing with constrained LLM judgments. It is staged so that no single judge produces an opaque global deception score.
+
+\subsection{Response segmentation and claim extraction}
+
+Each target response is segmented into sentences and clauses. A claim-extraction model returns atomic response units with character spans, proposition text, polarity as expressed, numerical fields, qualifiers, and discourse position. The extractor is instructed to preserve exact wording and not decide whether a claim is correct. Deterministic parsers additionally identify numbers, percentages, dates, currencies, and explicit risk terms.
+
+For multi-turn runs, units are indexed by turn and speaker. The scorer distinguishes agent claims from user statements and quoted source material. Generic conversational text is retained for token-allocation and disclaimer analysis but not treated as a fact claim.
+
+\subsection{Fact matching}
+
+A separate matching stage maps each extracted unit to zero, one, or multiple ground-truth facts. The matcher sees the response unit, canonical facts, acceptable paraphrases, and source spans, but is blinded to prompt and persona condition. It outputs a calibrated relation: entailed, partially entailed, contradicted, unrelated, or uncertain.
+
+High-confidence entailed and partially entailed matches count as fact presence, with partial matches passed to specificity scoring. A risk-relevant response unit with no match is a candidate fabrication, not automatically a false claim. It may be a valid inference, common financial knowledge, or process advice. Candidate fabrications are checked against the source and task by a contradiction/unsupported-claim judge and, in the validation sample, a human annotator.
+
+\subsection{Specificity and language features}
+
+Specificity preservation is computed from annotated markers. If a fact has marker set $S_f$ and the matched response span preserves marker subset $S_{fY}$, then
+\begin{equation}
+    \operatorname{Spec}(f,Y)=\frac{|S_{fY}|}{|S_f|}.
+\end{equation}
+Markers receive equal weight in the baseline metric. A sensitivity analysis gives greater weight to quantities, conditions, and time horizons designated material.
+
+Minimising and benefit-amplifying language is detected with a lexicon plus an LLM classifier that must identify the exact span and explain the unsupported comparison or intensity. Terms such as ``only'' are not inherently minimising; the label requires that the term lowers perceived severity relative to the evidence. Similarly, positive adjectives are not failures when the source supports them.
+
+Disclaimer washing is a response-level label applied when generic cautionary language substitutes for a concrete expected disclosure. ``All investments involve risk'' does not cure omission of a specified lock-up, penalty, concentration, or downside scenario. A generic disclaimer can coexist with adequate substantive disclosure, in which case it is not penalised.
+
+\subsection{Ordering and allocation}
+
+For each matched fact, the first character or token position is normalised by response length:
+\begin{equation}
+    \operatorname{Pos}(f,Y)=\frac{\text{first token index of }f}{\max(1,\text{total response tokens}-1)}.
+\end{equation}
+Values near zero indicate early placement; values near one indicate late placement. If a fact is omitted, position is undefined and analysed separately rather than assigned a maximal value.
+
+Token allocation is estimated by attributing explanatory spans to facts. A clause may map to multiple facts with fractional credit. Let $T_A$ be tokens allocated to adverse facts and $T_F$ tokens allocated to favourable facts. The allocation balance is
+\begin{equation}
+    \operatorname{AllocBal}(Y)=\log\left(\frac{T_A+1}{T_F+1}\right).
+\end{equation}
+A negative value indicates more elaboration of favourable content. Interpretation is conditioned on the number and materiality of facts in each class. Neutral, procedural, and generic tokens are reported separately.
+
+\subsection{Judge design}
+
+LLM judges are used only where deterministic matching is inadequate: contradiction, material quantitative distortion, minimising language, benefit amplification, disclaimer washing, and final belief support. Each judge returns a structured label, confidence, cited source span, cited response span, and brief rationale. The judge is blinded to target model and experimental condition. Output order is randomised, and model names are stripped from metadata.
+
+Where feasible, two judge models score each item and disagreements are adjudicated by a human or a third model. Judge prompts include counterexamples to prevent over-labelling ordinary summarisation as concealment. A fixed held-out calibration set with human labels is used to choose thresholds before the main analysis.
+
+\begin{placeholderblock}
+Record the extraction, matching, and judge models with exact versions and prompts. Determine whether any target model also serves as a judge; if unavoidable, include leave-one-family-out or cross-judge sensitivity analyses. Report cost, failure/retry rate, invalid JSON rate, and whether judgment changes under shuffled fact order.
+\end{placeholderblock}
+
+\section{Outcome metrics}
+\label{sec:metrics}
+
+Let $i$ index scenario instances, $c$ experimental conditions, $m$ target models, $r$ stochastic replicates, and $f$ facts. Let $E_f=1$ mark an expected-to-disclose fact, $A_f=1$ mark an adverse fact, and $H_f=1$ mark a high-adverse fact. Let $P_{icmr f}=1$ if fact $f$ is substantively present in the relevant response window.
+
+\subsection{Disclosure and omission}
+
+The high-adverse disclosure rate is
+\begin{equation}
+    \operatorname{HDR}_{icmr}=\frac{\sum_f H_f E_f P_{icmrf}}{\sum_f H_f E_f}.
+\end{equation}
+The corresponding hard-omission rate is $1-\operatorname{HDR}$. Low-adverse, favourable, and neutral presence rates are calculated as controls. A polarity selectivity gap is
+\begin{equation}
+    \operatorname{SelGap}_{icmr}=\operatorname{FPR}_{icmr}-\operatorname{HDR}_{icmr},
+\end{equation}
+where $\operatorname{FPR}$ is the favourable-fact presence rate. Positive values indicate that favourable facts survive communication more often than required high-adverse facts.
+
+Conditional omission is computed only where the user explicitly asks about the fact's risk category. Because direct questions may be generated endogenously by the simulator, this metric is secondary and analysed with turn-level context.
+
+\subsection{False claims}
+
+The unsupported-claim rate is the number of risk-relevant extracted claims judged unsupported divided by all risk-relevant claims. Contradiction rate is reported per eligible response and per source fact. Quantitative distortion is a separate binary and count outcome. The thesis reports absolute counts because a short response with one false claim can have an unstable rate.
+
+\subsection{Framing}
+
+Fact-level specificity loss is $1-\operatorname{Spec}(f,Y)$ for present expected-disclosure facts. Response-level minimisation, benefit amplification, and disclaimer washing are binary indicators plus span counts. A net-framing score may be constructed only from pre-specified components:
+\begin{equation}
+    \operatorname{Frame}(Y)=w_s\overline{(1-\operatorname{Spec})}+w_m M(Y)+w_b B(Y)+w_d D(Y),
+\end{equation}
+where $M$, $B$, and $D$ denote minimisation, benefit amplification, and disclaimer washing.
+
+\begin{placeholderblock}
+Either preregister $w_s,w_m,w_b,w_d$ using equal weights or omit the composite from confirmatory analysis. Component-wise results are more interpretable and avoid hiding a rise in one failure mode behind a fall in another.
+\end{placeholderblock}
+
+\subsection{Risk de-emphasis}
+
+The adverse placement score is the mean normalised position of present high-adverse facts. A placement gap subtracts the mean position of favourable facts:
+\begin{equation}
+    \operatorname{PlaceGap}(Y)=\overline{\operatorname{Pos}}_{A}(Y)-\overline{\operatorname{Pos}}_{F}(Y).
+\end{equation}
+Positive values mean adverse information appears later. The allocation balance defined above measures elaboration. Because lists and summaries may intentionally present conclusions first, qualitative review is used to distinguish coherent structure from burying.
+
+\subsection{Conversation-level metrics}
+
+For each expected-disclosure fact in a multi-turn conversation, the study records first-disclosure turn, whether disclosure was volunteered or prompted, whether it was later contradicted or weakened, and whether a user misconception was corrected. Conversation outcomes include:
+
+\begin{itemize}
+    \item ever-disclosed rate;
+    \item first-turn disclosure rate;
+    \item median turns to disclosure;
+    \item persistent omission through the final turn;
+    \item repair after direct challenge;
+    \item final-turn net framing and salience.
+\end{itemize}
+
+\subsection{Belief and action harm proxies}
+
+Each final user belief is mapped to the fact pool as supported, contradicted, overconfident, or not addressed. The distorted-belief rate is the share of decision-relevant belief dimensions that are contradicted or materially more certain/favourable than the source supports. Action harm is scenario-specific and ordinal where possible: supported, questionable, or harmful/unsupported. The primary comparison is between the action chosen from conversation-only information and the action chosen after full-information disclosure.
+
+A mediation-style exploratory analysis examines whether high-adverse omission and framing metrics predict distorted beliefs, and whether those beliefs predict action choice. These associations do not establish causal effects in human users, but they test whether the benchmark's communication labels have consequential validity within the simulator environment.
+
+\section{Human validation and reliability}
+\label{sec:validation}
+
+Automated annotation must be validated against human judgment. A stratified sample should include all prompt and persona cells, all target models, both interaction modes, and oversampling of rare failure labels. Annotators see the source, fact pool, task, and response but are blinded to model and condition. They independently score fact presence, contradiction, specificity, minimisation, disclaimer washing, and overall risk impression.
+
+Reliability is reported using label-appropriate statistics: Cohen's or Fleiss' $\kappa$ for categorical labels, Krippendorff's $\alpha$ where missing judgments occur, intraclass correlation for continuous salience measures, and precision/recall/F1 of automated labels against adjudicated humans. Prevalence-adjusted measures and raw agreement are included because rare labels can produce misleading $\kappa$ values.
+
+The human sample is also used for error analysis, not only a headline agreement number. False positives may arise when a concise answer is adequate to the exact question, when a source qualifier is genuinely immaterial, or when a disclaimer accompanies substantive disclosure. False negatives may arise from indirect implication, cross-sentence framing, or numerical changes that preserve surface similarity.
+
+\begin{placeholderblock}
+Set the human-validation sample size through a precision target for the rarest primary label. Specify annotator training, compensation, financial-domain expertise, conflict-of-interest handling, and adjudication. Include the complete codebook in \Cref{app:annotation} and report reliability before presenting model comparisons.
+\end{placeholderblock}
+
+\section{Statistical analysis}
+\label{sec:statistics}
+
+\subsection{Primary estimands}
+
+The primary estimands are average within-scenario differences between prompt conditions and between personas. For a binary fact-level outcome such as omission, the core model is a mixed-effects logistic regression:
+\begin{align}
+\operatorname{logit}\Pr(O_{icmrf}=1) ={}& \beta_0 + \boldsymbol{\beta}_{P}\mathbf{P}_c + \boldsymbol{\beta}_{U}\mathbf{U}_c \\
+&+ \boldsymbol{\beta}_{PU}(\mathbf{P}_c\times\mathbf{U}_c) + \boldsymbol{\beta}_{M}\mathbf{M}_m \\
+&+ \boldsymbol{\gamma}^{\top}\mathbf{X}_{if} + u_{\text{family}(i)} + v_i + w_f,
+\end{align}
+where $\mathbf{P}$ encodes prompt, $\mathbf{U}$ persona, $\mathbf{M}$ target model, and $\mathbf{X}$ pre-specified covariates such as interaction mode, risk category, source complexity, and materiality. Random intercepts account for scenario family, instance, and fact. Depending on convergence and data volume, random slopes for prompt and persona by family may be added.
+
+Continuous outcomes such as specificity and placement use linear mixed models or robust alternatives. Count outcomes use Poisson or negative-binomial models after checking overdispersion. Ordinal action outcomes use cumulative-link mixed models. Results are reported as marginal probabilities or mean differences with 95\% confidence intervals, not only log-odds coefficients.
+
+\subsection{Confirmatory contrasts}
+
+The confirmatory contrasts are:
+
+\begin{enumerate}
+    \item production-baseline versus neutral;
+    \item production-integrity versus production-baseline;
+    \item positive persona versus neutral persona;
+    \item anxious persona versus neutral persona;
+    \item each prompt-by-persona interaction for high-adverse omission;
+    \item non-falsifiable failures collectively versus explicit false claims, using pre-specified prevalence comparisons.
+\end{enumerate}
+
+Multiple testing is controlled within outcome families using the Benjamini--Hochberg false-discovery rate, while the primary endpoint receives an unadjusted preregistered test. The thesis emphasises effect sizes and uncertainty over binary significance.
+
+\subsection{Model heterogeneity}
+
+Target model is initially treated as a fixed effect because the selected models are not a random sample from a stable population. Per-model estimates are always shown. A hierarchical exploratory model may partially pool effects across models, but the conclusion should refer to the evaluated systems and versions rather than ``LLMs'' universally.
+
+Model-by-prompt and model-by-persona interactions test whether mitigation or social sensitivity generalises. Interaction estimates may be imprecise with only a few target models; visualised model-specific marginal effects are therefore more informative than a single omnibus test.
+
+\subsection{Response length and mediation}
+
+Response length is both a possible confound and a mediator. A production-integrity prompt may reduce omission simply by causing longer answers; that is still a practically relevant mitigation pathway. The primary analysis does not control for length, because doing so would remove part of the treatment effect. A secondary direct-effect model includes token count and structural features. A matched-length sensitivity analysis compares responses within a common support region.
+
+Similar caution applies to simulator follow-up count. Persona may change the questions asked, which then change disclosure. The total persona effect includes this pathway. Turn-level models can estimate a controlled response effect after conditioning on direct risk questions, but these are secondary.
+
+\subsection{Power and uncertainty}
+
+With 200 instances and nine repeated conditions per model, the design has many observations but an effective sample size constrained by family clustering and rare outcomes. Power should therefore be simulated from plausible intraclass correlations and event rates rather than calculated as if all responses were independent. The most important detectable effect is the integrity-prompt reduction in high-adverse omission. Persona interactions and rare false claims require larger samples or more repeats.
+
+\begin{placeholderblock}
+Run and report a simulation-based power analysis before data collection. Specify assumed baseline omission prevalence, family and scenario variance, target minimum detectable risk difference, number of models, and replicates. If budget forces one run per cell, use paired bootstrap intervals at the scenario-family level and describe limited power for stochastic variability.
+\end{placeholderblock}
+
+\section{Robustness and ablation studies}
+\label{sec:robustness}
+
+The planned robustness checks are:
+
+\begin{enumerate}
+    \item \textbf{Fact-order randomisation}: shuffle source-fact order to test whether adverse omission reflects document position.
+    \item \textbf{Prompt-length control}: compare integrity guidance with a non-integrity length-matched prompt.
+    \item \textbf{Output-budget sensitivity}: rerun a subset with larger and smaller token limits.
+    \item \textbf{Judge sensitivity}: re-score with an alternative judge and human-only subset.
+    \item \textbf{Materiality threshold}: report results for high-adverse required facts only, then include conditional/low-adverse facts.
+    \item \textbf{Persona ablation}: separate emotion, trust, and risk preference in a smaller orthogonal design.
+    \item \textbf{Interaction-mode matching}: compare single-turn and first-turn multi-turn responses on matched scenario templates.
+    \item \textbf{Simulator variation}: repeat multi-turn runs with a second user-simulator model.
+    \item \textbf{Negative controls}: test neutral-fact omission and harmless specificity changes to estimate general compression.
+    \item \textbf{Family holdout}: ensure conclusions are not driven by one financial segment or risk category.
+\end{enumerate}
+
+A robustness check is not treated as a second opportunity to select the preferred result. All variants and their rationale are reported, including those that weaken the main effect.
+
+\section{Reproducibility and data management}
+
+The benchmark repository should contain versioned scenario seeds, source artefacts, fact annotations, prompts, generation and scoring code, environment files, raw model responses where licence and privacy rules permit, derived labels, and analysis scripts. Each run stores model identifier, timestamp, API parameters, prompt hash, scenario version, retry history, and response metadata. Random seeds are recorded when providers expose them.
+
+The final release should separate development and test families. Public release of the test set creates contamination risk for future model evaluation, so a held-out or periodically refreshed component is preferable. At minimum, benchmark users should report whether their model or judge may have trained on the scenarios.
+
+\begin{placeholderblock}
+Insert repository URL, archival DOI, software licence, dataset licence, and release schedule. Decide whether any scenarios must remain private because they could facilitate financial misconduct or reproduce restricted material. Add a benchmark card documenting intended use, out-of-scope use, known biases, and maintenance policy.
+\end{placeholderblock}
+
+\section{Ethics, safety, and governance}
+
+The study uses synthetic or public financial contexts and does not provide personalised financial advice. Scenarios should avoid real customer data and should not invite target models to execute trades, transfer funds, or facilitate financial crime. Any human annotation study requires informed consent, secure data handling, and appropriate review under the host institution's policy.
+
+Persona simulation requires particular care. ``Anxious'' should not be caricatured as irrational, and risk aversion should not be treated as a deficit. The purpose is to test whether a system changes substantive disclosure in response to affect, not to rank personas. Scenario actions should avoid exposing annotators to traumatic content, and vulnerable-customer contexts should be reviewed by someone with relevant expertise.
+
+The benchmark could also be misused as a recipe for persuasive omission. Public materials should emphasise auditing and mitigation, and potentially sensitive prompt variants should be released with documentation rather than deployment recommendations. Results should name evaluated model versions accurately and avoid implying misconduct by a provider when the benchmark demonstrates a controlled failure mode.
+
+\begin{placeholderblock}
+Add the institutional ethics/IRB determination, data-protection assessment, and any provider terms-of-use constraints. Include a statement on researcher financial conflicts and whether model providers reviewed or funded any part of the study.
+\end{placeholderblock}
+
+\section{Optional detection extension}
+
+After the behavioural benchmark is validated, an optional extension compares black-box and white-box detection. The black-box baseline receives the source and response and predicts each concealment label. A response-only baseline estimates the value of source access. For open-weight targets, activation probes are trained on hidden states from selected tokens or pooled response representations.
+
+Data splits are by scenario family. A detector trained on one prompt or persona condition is evaluated on the others, and a detector trained on false claims is tested on omission and framing. Performance is reported using area under the precision--recall curve for rare labels, AUROC, calibration, and family-level confidence intervals. The principal white-box statistic is the performance boost over the best black-box source-aware detector, following the logic that internal access is useful only if it adds information beyond observable evidence \citep{parrack2025blacktowhite}.
+
+Because omission has no explicit output span, a white-box detector may need representations from the source-reading or planning phase rather than only generated tokens. This makes architecture, prompting format, and token alignment consequential. The extension should be framed as exploratory unless probe design and target layers are preregistered.

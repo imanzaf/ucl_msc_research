@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from loguru import logger
 
@@ -26,12 +27,14 @@ from src.data_models.scoring import (
 )
 from src.data_models.user_simulator import UserSimulatorPromptTemplate
 from src.experiments.io import (
+    add_record_usage,
     append_jsonl,
     create_timestamped_run_id,
     load_scenario_families,
     prepare_experiment_dir,
     read_jsonl_models,
     result_paths,
+    summarize_record_usage,
     write_experiment_config,
 )
 from src.llm.openrouter import LLMCallResult, OpenRouterStructuredClient
@@ -151,6 +154,8 @@ def request_matching(
     """Request structured fact-to-ground-truth matching."""
     prompt = FACT_UNIT_MATCHING_TEMPLATE.format(
         ground_truth_fact_units=render_fact_units(instance),
+        agent_context=instance.reference_text,
+        conversation=render_conversation(record),
         extracted_facts=render_extracted_facts(extraction),
     )
     return client.complete_structured(
@@ -219,7 +224,6 @@ def score_one_run(
     experiment_name: str,
     scoring_run_id: str,
     scenario_record: ScenarioRunRecord,
-    family: ScenarioFamily,
     instance: ScenarioInstance,
     scoring_model: str,
     generation_config: GenerationConfig,
@@ -318,6 +322,86 @@ def write_usage_summary(path: Path, summary: ExperimentUsageSummary) -> None:
     path.write_text(summary.model_dump_json(indent=2), encoding="utf-8")
 
 
+def build_scoring_specs(
+    scenario_records: Sequence[ScenarioRunRecord],
+    scenario_index: Dict[Tuple[str, str], Tuple[ScenarioFamily, ScenarioInstance]],
+    skip_ids: Iterable[str],
+    run_unit_ids: Optional[Sequence[str]] = None,
+    limit: Optional[int] = None,
+) -> List[Tuple[ScenarioRunRecord, ScenarioInstance]]:
+    """Select scenario-run records for scoring after filters, resume skips, and limit."""
+    allowed_run_unit_ids = set(run_unit_ids) if run_unit_ids else None
+    skipped_unit_ids = set(skip_ids)
+    selected_specs: List[Tuple[ScenarioRunRecord, ScenarioInstance]] = []
+    for scenario_record in scenario_records:
+        unit_id = scenario_record.run_unit.run_unit_id
+        if allowed_run_unit_ids is not None and unit_id not in allowed_run_unit_ids:
+            continue
+        if unit_id in skipped_unit_ids:
+            logger.info("Skipping previously scored run unit {}", unit_id)
+            continue
+        if limit is not None and len(selected_specs) >= limit:
+            break
+        key = (
+            scenario_record.run_unit.scenario_family_id,
+            scenario_record.run_unit.scenario_id,
+        )
+        if key not in scenario_index:
+            raise ValueError(f"scenario artifact missing for run unit {unit_id}")
+        _, instance = scenario_index[key]
+        selected_specs.append((scenario_record, instance))
+    return selected_specs
+
+
+def score_selected_spec(
+    client: OpenRouterStructuredClient,
+    experiment_config: ExperimentConfig,
+    scoring_run_id: str,
+    spec: Tuple[ScenarioRunRecord, ScenarioInstance],
+) -> ScoredRunRecord:
+    """Score one selected scenario-run record."""
+    scenario_record, instance = spec
+    logger.info("Scoring run unit {}", scenario_record.run_unit.run_unit_id)
+    return score_one_run(
+        client=client,
+        experiment_name=experiment_config.experiment_name,
+        scoring_run_id=scoring_run_id,
+        scenario_record=scenario_record,
+        instance=instance,
+        scoring_model=experiment_config.scoring_model,
+        generation_config=experiment_config.generation_config,
+    )
+
+
+def score_specs_concurrently(
+    client: OpenRouterStructuredClient,
+    experiment_config: ExperimentConfig,
+    scoring_run_id: str,
+    specs: Sequence[Tuple[ScenarioRunRecord, ScenarioInstance]],
+    collect_record: Callable[[ScoredRunRecord], None],
+) -> None:
+    """Score selected records with a bounded worker pool."""
+    worker_count = min(experiment_config.scoring_concurrency, len(specs))
+    if worker_count < 1:
+        return
+    logger.info("Scoring {} run unit(s) with {} worker(s)", len(specs), worker_count)
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures: Dict[Future[ScoredRunRecord], str] = {
+            executor.submit(
+                score_selected_spec,
+                client,
+                experiment_config,
+                scoring_run_id,
+                spec,
+            ): spec[0].run_unit.run_unit_id
+            for spec in specs
+        }
+        for future in as_completed(futures):
+            unit_id = futures[future]
+            collect_record(future.result())
+            logger.info("Completed scoring run unit {}", unit_id)
+
+
 def score_scenario_runs(
     client: OpenRouterStructuredClient,
     experiment_root: Path,
@@ -339,7 +423,6 @@ def score_scenario_runs(
     if not scenario_records:
         raise ValueError(f"no scenario-run records found under {experiment_dir / 'results'}")
 
-    allowed_run_unit_ids = set(run_unit_ids) if run_unit_ids else None
     skip_ids = (
         set(existing_scored_run_unit_ids(experiment_dir)) if experiment_config.resume else set()
     )
@@ -347,38 +430,48 @@ def score_scenario_runs(
     output_path = experiment_dir / "results" / f"{run_id}_scoring_results.jsonl"
     usage_path = experiment_dir / "results" / f"{run_id}_scoring_usage.json"
     produced_records: List[ScoredRunRecord] = []
-    stage_usage = ExperimentUsageSummary()
+    existing_output_records = (
+        read_jsonl_models(path=output_path, model=ScoredRunRecord)
+        if experiment_config.resume
+        else []
+    )
+    stage_usage = (
+        summarize_record_usage(existing_output_records)
+        if experiment_config.resume
+        else ExperimentUsageSummary()
+    )
+    specs = build_scoring_specs(
+        scenario_records=scenario_records,
+        scenario_index=scenario_index,
+        skip_ids=skip_ids,
+        run_unit_ids=run_unit_ids,
+        limit=limit,
+    )
 
-    for scenario_record in scenario_records:
-        unit_id = scenario_record.run_unit.run_unit_id
-        if allowed_run_unit_ids is not None and unit_id not in allowed_run_unit_ids:
-            continue
-        if unit_id in skip_ids:
-            logger.info("Skipping previously scored run unit {}", unit_id)
-            continue
-        if limit is not None and len(produced_records) >= limit:
-            break
-        key = (
-            scenario_record.run_unit.scenario_family_id,
-            scenario_record.run_unit.scenario_id,
-        )
-        if key not in scenario_index:
-            raise ValueError(f"scenario artifact missing for run unit {unit_id}")
-        family, instance = scenario_index[key]
-        logger.info("Scoring run unit {}", unit_id)
-        scored_record = score_one_run(
+    def collect_record(record: ScoredRunRecord) -> None:
+        """Store one completed scoring record in output artifacts and in-memory run state."""
+        append_jsonl(path=output_path, records=[record])
+        add_record_usage(summary=stage_usage, records=[record])
+        produced_records.append(record)
+
+    if experiment_config.scoring_concurrency > 1:
+        score_specs_concurrently(
             client=client,
-            experiment_name=experiment_config.experiment_name,
+            experiment_config=experiment_config,
             scoring_run_id=run_id,
-            scenario_record=scenario_record,
-            family=family,
-            instance=instance,
-            scoring_model=experiment_config.scoring_model,
-            generation_config=experiment_config.generation_config,
+            specs=specs,
+            collect_record=collect_record,
         )
-        append_jsonl(path=output_path, records=[scored_record])
-        stage_usage.merge(scored_record.usage_summary)
-        produced_records.append(scored_record)
+    else:
+        for spec in specs:
+            collect_record(
+                score_selected_spec(
+                    client=client,
+                    experiment_config=experiment_config,
+                    scoring_run_id=run_id,
+                    spec=spec,
+                )
+            )
 
     write_usage_summary(path=usage_path, summary=stage_usage)
     logger.success(

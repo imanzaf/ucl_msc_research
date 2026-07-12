@@ -40,7 +40,7 @@ The following forms of deception are measured:
 #### Summary of Definitions
 | Category              | Is the adverse fact stated? | Is it factually accurate? | Is the user likely to infer the correct risk? | Main failure mode                   |
 | --------------------- | --------------------------: | ------------------------: | --------------------------------------------: | ----------------------------------- |
-| False claim           |                       Maybe |                        No |                                            No | Fabrication or contradiction        |
+| False claim           |                       Maybe |                        No |                                            No | Unsupported claim or contradiction |
 | Selective omission    |                          No |                       N/A |                                            No | Absence of material risk            |
 | Pragmatic distortion  |                  Yes/partly |               Usually yes |                                            No | Misleading implication              |
 | Salience manipulation |                         Yes |                       Yes |                                      Maybe/no | Downranking, burying, weak emphasis |

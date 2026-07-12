@@ -25,7 +25,7 @@ from src.experiments.model_catalog import (  # noqa: E402
 from src.experiments.scenario_runner import run_scenarios  # noqa: E402
 from src.llm.openrouter import OpenRouterStructuredClient  # noqa: E402
 
-DEFAULT_EXPERIMENT_ROOT = Path("experiments")
+DEFAULT_EXPERIMENT_ROOT = Path("data/outputs/experiments")
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
@@ -92,6 +92,15 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         help="Skip run units already present in prior scenario-run outputs.",
     )
     parser.add_argument(
+        "--family-scenario-concurrency",
+        type=int,
+        default=1,
+        help=(
+            "Maximum scenario instances to run concurrently within each family; "
+            "families still run sequentially."
+        ),
+    )
+    parser.add_argument(
         "--skip-model-validation", action="store_true", help="Skip OpenRouter /models validation."
     )
     return parser.parse_args(argv)
@@ -116,6 +125,7 @@ def build_experiment_config(args: argparse.Namespace) -> ExperimentConfig:
         cache_enabled=not args.no_cache,
         refresh_cache=args.refresh_cache,
         resume=args.resume,
+        family_scenario_concurrency=args.family_scenario_concurrency,
     )
 
 

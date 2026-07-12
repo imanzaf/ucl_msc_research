@@ -80,27 +80,29 @@ The `Stop` hook automatically scans your response for these lines and persists q
 **Directory layout** — every experiment lives entirely under its own subdirectory:
 
 ```
-experiments/
+data/outputs/experiments/
   <name>_v<N>/
-    config.json          # full config used for this run (committed)
+    config.json          # full config used for this run
     results/             # raw outputs: JSONL records, CSVs
     cache/               # output caches (if relevant)
     logs/                # run logs, stderr captures
     assets/              # paper-ready outputs (see below)
-    checkpoints/         # model weights 
+    checkpoints/         # model weights
 ```
 
+Experiment output directories live under `data/outputs/experiments/`; keep this tree git-ignored.
+
 **Paper asset generator** — every eval script must have an accompanying `generate_assets.py` (or `generate_paper_assets()` function) that:
-- Reads from `experiments/<name>_v<N>/results/`
-- Writes to `experiments/<name>_v<N>/assets/`
+- Reads from `data/outputs/experiments/<name>_v<N>/results/`
+- Writes to `data/outputs/experiments/<name>_v<N>/assets/`
 - Produces at minimum a LaTeX table (`<name>_table.tex`, ready to `\input{}`) or a PDF figure (`<name>_figure.pdf`), whichever is more appropriate
 - Asset filenames are stable (no timestamps) so the dissertation can reference them by fixed path
 
 **Saving conventions**
-- Raw results: `experiments/<name>_v<N>/results/<YYYYMMDDTHHMMSS>_results.jsonl`
-- Run log: `experiments/<name>_v<N>/logs/<YYYYMMDDTHHMMSS>_run.log`
-- Config snapshot: `experiments/<name>_v<N>/config.json` (written before the run starts)
-- Paper assets: `experiments/<name>_v<N>/assets/<name>_table.tex`, `<name>_figure.pdf`
+- Raw results: `data/outputs/experiments/<name>_v<N>/results/<YYYYMMDDTHHMMSS>_results.jsonl`
+- Run log: `data/outputs/experiments/<name>_v<N>/logs/<YYYYMMDDTHHMMSS>_run.log`
+- Config snapshot: `data/outputs/experiments/<name>_v<N>/config.json` (written before the run starts)
+- Paper assets: `data/outputs/experiments/<name>_v<N>/assets/<name>_table.tex`, `<name>_figure.pdf`
 
 ## Documentation
 

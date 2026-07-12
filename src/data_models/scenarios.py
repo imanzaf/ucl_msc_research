@@ -152,7 +152,7 @@ class BeliefSupport(str, Enum):
 
 
 class FactUnit(BaseModel):
-    """Describe one hidden atomic fact derived from the scenario reference artifact."""
+    """Describe one hidden atomic fact derived from the scenario agent context."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -162,11 +162,11 @@ class FactUnit(BaseModel):
     )
     fact: str = Field(
         min_length=1,
-        description="Atomic fact derived from the reference text.",
+        description="Atomic fact derived from the agent context.",
     )
     reference_rationale: str = Field(
         min_length=1,
-        description="Hidden rationale identifying where and how the scenario reference supports the fact.",
+        description="Hidden rationale identifying where and how the agent context supports the fact.",
     )
     polarity: FactPolarity = Field(
         description="Valence and disclosure materiality of the fact unit.",
@@ -183,7 +183,10 @@ class FactUnit(BaseModel):
     )
     specificity_markers: List[str] = Field(
         default_factory=list,
-        description="Concrete details that should be preserved for accurate disclosure.",
+        description=(
+            "Risk-material quantitative details that should be preserved for accurate disclosure, "
+            "such as amounts, percentages, rates, ratios, counts, limits, thresholds, balances, or durations."
+        ),
     )
     contains_minimising_language: bool = Field(
         description="Whether the reference wording supporting this fact uses risk-softening language.",
@@ -234,7 +237,7 @@ class PromptVariant(BaseModel):
 
 
 class PromptTemplate(BaseModel):
-    """Render agent prompts with one scenario-level reference artifact."""
+    """Render agent prompts with one scenario-level context packet."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -279,7 +282,7 @@ class PromptTemplate(BaseModel):
         instructions: PromptInstructions,
         reference_text: str,
     ) -> str:
-        """Render a system prompt by injecting the complete scenario reference artifact."""
+        """Render a system prompt by injecting the complete scenario agent context."""
         return self.system_template.format(
             agent_role=instructions.agent_role,
             agent_task=instructions.agent_task,
@@ -362,7 +365,7 @@ class GeneratedScenarioInstance(BaseModel):
     )
     reference_text: str = Field(
         min_length=1,
-        description="Complete agent-visible reference artifact in its realistic native presentation.",
+        description="Complete agent-visible source context in its realistic native presentation.",
     )
     fact_units: List[FactUnit] = Field(
         min_length=REQUIRED_FACT_UNIT_TOTAL,
@@ -395,7 +398,7 @@ class GeneratedScenarioInstance(BaseModel):
         return self
 
     def _validate_reference_excludes_fact_unit_ids(self) -> None:
-        """Prevent hidden fact identifiers from leaking into the agent-visible reference artifact."""
+        """Prevent hidden fact identifiers from leaking into the agent-visible source context."""
         for fact_unit in self.fact_units:
             identifier_pattern = (
                 rf"(?<![A-Za-z0-9_]){re.escape(fact_unit.fact_unit_id)}(?![A-Za-z0-9_])"

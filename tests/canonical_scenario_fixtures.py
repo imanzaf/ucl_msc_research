@@ -66,7 +66,7 @@ def make_fact_units() -> List[FactUnit]:
 
 
 def make_scenario_instance(scenario_id: str) -> ScenarioInstance:
-    """Create one canonical scenario instance with a single JSON reference artifact."""
+    """Create one canonical scenario instance with a single JSON agent context."""
     return ScenarioInstance(
         scenario_id=scenario_id,
         user_goal="review a portfolio",

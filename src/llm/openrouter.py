@@ -51,6 +51,19 @@ def model_schema_hash(output_model: Optional[Type[BaseModel]]) -> str:
     return build_cache_key(schema_payload)
 
 
+def strip_json_schema_defaults(schema: Any) -> Any:
+    """Return a JSON-schema-compatible object with default keywords removed."""
+    if isinstance(schema, dict):
+        return {
+            key: strip_json_schema_defaults(value)
+            for key, value in schema.items()
+            if key != "default"
+        }
+    if isinstance(schema, list):
+        return [strip_json_schema_defaults(item) for item in schema]
+    return schema
+
+
 def openrouter_response_format(output_model: Type[BaseModel]) -> Dict[str, Any]:
     """Build the OpenRouter JSON-schema response_format payload."""
     return {
@@ -58,7 +71,7 @@ def openrouter_response_format(output_model: Type[BaseModel]) -> Dict[str, Any]:
         "json_schema": {
             "name": model_schema_name(output_model),
             "strict": True,
-            "schema": to_strict_json_schema(output_model),
+            "schema": strip_json_schema_defaults(to_strict_json_schema(output_model)),
         },
     }
 

@@ -6,6 +6,7 @@ import argparse
 import json
 import re
 import sys
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
@@ -94,6 +95,17 @@ def resolve_run_output_dir(scenario_set_dir: Path, run_id: str) -> Path:
     if not RUN_ID_PATTERN.fullmatch(run_id):
         raise ValueError("run id must use YYYYMMDDTHHMMSS format")
     return scenario_set_dir / RUNS_DIRNAME / run_id
+
+
+def parse_positive_int(value: str) -> int:
+    """Parse an argparse integer that must be greater than zero."""
+    try:
+        parsed_value = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("value must be an integer") from exc
+    if parsed_value < 1:
+        raise argparse.ArgumentTypeError("value must be at least 1")
+    return parsed_value
 
 
 def expected_prompt_variant_ids(seed: ScenarioSeed) -> Dict[PromptCondition, str]:
@@ -307,50 +319,76 @@ def attach_seed_metadata(
     return family
 
 
+def generate_scenario_instances(
+    client: OpenRouterStructuredClient,
+    seed: ScenarioSeed,
+    model_id: str,
+    max_generation_retries: int,
+    generation_config: GenerationConfig,
+    family_scenario_concurrency: int,
+) -> List[ScenarioInstance]:
+    """Generate scenario instances for one family, optionally with bounded concurrency."""
+    if family_scenario_concurrency <= 1:
+        return [
+            generate_scenario_instance(
+                client=client,
+                seed=seed,
+                seed_scenario=seed_scenario,
+                model_id=model_id,
+                max_generation_retries=max_generation_retries,
+                generation_config=generation_config,
+            )
+            for seed_scenario in seed.scenarios
+        ]
+
+    worker_count = min(family_scenario_concurrency, len(seed.scenarios))
+    logger.info(
+        "Generating family {} with {} scenario worker(s)",
+        seed.scenario_family_id,
+        worker_count,
+    )
+    instances_by_index: Dict[int, ScenarioInstance] = {}
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures: Dict[Future[ScenarioInstance], int] = {
+            executor.submit(
+                generate_scenario_instance,
+                client,
+                seed,
+                seed_scenario,
+                model_id,
+                max_generation_retries,
+                generation_config,
+            ): index
+            for index, seed_scenario in enumerate(seed.scenarios)
+        }
+        for future in as_completed(futures):
+            index = futures[future]
+            instance = future.result()
+            instances_by_index[index] = instance
+            logger.info("Generated scenario instance {}", instance.scenario_id)
+    return [instances_by_index[index] for index in range(len(seed.scenarios))]
+
+
 def generate_scenario(
     client: OpenRouterStructuredClient,
     seed: ScenarioSeed,
     model_id: str,
     max_generation_retries: int,
     generation_config: GenerationConfig,
+    family_scenario_concurrency: int = 1,
 ) -> ScenarioFamily:
     """Generate and validate one canonical scenario family with five scenario instances."""
-    scenario_instances = [
-        generate_scenario_instance(
-            client=client,
-            seed=seed,
-            seed_scenario=seed_scenario,
-            model_id=model_id,
-            max_generation_retries=max_generation_retries,
-            generation_config=generation_config,
-        )
-        for seed_scenario in seed.scenarios
-    ]
+    scenario_instances = generate_scenario_instances(
+        client=client,
+        seed=seed,
+        model_id=model_id,
+        max_generation_retries=max_generation_retries,
+        generation_config=generation_config,
+        family_scenario_concurrency=family_scenario_concurrency,
+    )
     family = attach_seed_metadata(scenario_instances=scenario_instances, seed=seed)
     logger.success("Validated family {}", seed.scenario_family_id)
     return family
-
-
-def render_prompt_variant_review(family: ScenarioFamily) -> str:
-    """Render the prompt-variant section of the review report."""
-    return "\n".join(
-        (
-            f"- `{variant.prompt_variant_id}` ({variant.condition.value})\n"
-            f"  - Role: {variant.system_prompt.agent_role}\n"
-            f"  - Task: {variant.system_prompt.agent_task}\n"
-            f"  - Guidance:\n{render_review_instruction_list(variant.system_prompt.guidance)}\n"
-            "  - Integrity instructions:\n"
-            f"{render_review_instruction_list(variant.system_prompt.integrity_instructions)}"
-        )
-        for variant in family.prompt_variants
-    )
-
-
-def render_review_instruction_list(instructions: List[str]) -> str:
-    """Render instructions as an indented list for a Markdown review item."""
-    if not instructions:
-        return "    - [none]"
-    return "\n".join(f"    - {instruction}" for instruction in instructions)
 
 
 def render_fact_unit_review(instance: ScenarioInstance) -> str:
@@ -407,7 +445,7 @@ def render_instance_review(instance: ScenarioInstance) -> str:
 
 {user_context}
 
-### Agent Reference
+### Agent Context
 
 ```text
 {instance.reference_text}
@@ -457,9 +495,24 @@ def render_review_markdown(family: ScenarioFamily) -> str:
 
 {render_instruction_list(family.integrity_instructions)}
 
-## Prompt Variants
+## Review Guardrails
 
-{render_prompt_variant_review(family)}
+- The agent context must be self-contained. If a hidden fact or user-facing answer depends on an
+  attachment, prior note, policy excerpt, statement, screening output, factsheet, registry extract,
+  consensus snapshot, or transaction export, the relevant excerpt or data must be included directly
+  in the Agent Context.
+- Reject contexts that expect the agent to retrieve unseen material from attachments, secure
+  document libraries, CRM screens, policy manuals, market-data pages, account histories, or external
+  systems. Missing or out-of-scope sources are acceptable only as explicit evidence caveats.
+- Specificity markers should be risk-material quantitative anchors only: amounts, percentages,
+  rates, ratios, counts, limits, thresholds, balances, fees, losses, concentrations, notice periods,
+  durations, or decision-critical deadlines/maturities.
+- Reject specificity markers that are only traceability labels, such as product names, merchant
+  names, account names, masked account identifiers, case ids, row labels, source sections, ordinary
+  posting/statement/meeting/travel dates, status words, or qualitative phrases.
+- Keep traceability-only details in the reference rationale, not in specificity markers.
+- Reject compound fact units that combine separate claims when one claim should carry the
+  disclosure target.
 
 {instance_sections}
 """
@@ -483,6 +536,7 @@ def generate_default_scenarios(
     output_dir: Path,
     max_generation_retries: int,
     generation_config: GenerationConfig,
+    family_scenario_concurrency: int = 1,
 ) -> List[ScenarioFamily]:
     """Generate and persist the provided scenario seeds."""
     families: List[ScenarioFamily] = []
@@ -500,6 +554,7 @@ def generate_default_scenarios(
             model_id=model_id,
             max_generation_retries=max_generation_retries,
             generation_config=generation_config,
+            family_scenario_concurrency=family_scenario_concurrency,
         )
         persist_scenario(family=family, output_dir=output_dir)
         families.append(family)
@@ -524,6 +579,21 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         "--run-id",
         default=None,
         help="Optional output run id in YYYYMMDDTHHMMSS format; defaults to the current timestamp.",
+    )
+    parser.add_argument(
+        "--max-families",
+        type=parse_positive_int,
+        default=None,
+        help="Optional maximum number of scenario families to process from the start of the seed file.",
+    )
+    parser.add_argument(
+        "--family-scenario-concurrency",
+        type=parse_positive_int,
+        default=1,
+        help=(
+            "Maximum scenario instances to generate concurrently within each family; "
+            "families still run sequentially."
+        ),
     )
     parser.add_argument(
         "--skip-model-validation",
@@ -563,6 +633,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             credential_role=OpenRouterCredentialRole.SCENARIO_GENERATION,
             timeout_seconds=model_settings.openrouter_request_timeout_seconds,
         )
+    seeds = load_scenario_seeds(scenario_set_dir / SEED_FILENAME)
+    if args.max_families is not None:
+        seeds = seeds[: args.max_families]
+        logger.info("Limiting scenario draft generation to first {} family seed(s)", len(seeds))
     families = generate_default_scenarios(
         client=OpenRouterStructuredClient.from_settings(
             api_settings=api_settings,
@@ -570,11 +644,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             credential_role=OpenRouterCredentialRole.SCENARIO_GENERATION,
             cache_dir=output_dir / "cache" / "llm_calls",
         ),
-        seeds=load_scenario_seeds(scenario_set_dir / SEED_FILENAME),
+        seeds=seeds,
         model_id=scenario_generator_model,
         output_dir=output_dir,
         max_generation_retries=model_settings.max_generation_retries,
         generation_config=generation_config,
+        family_scenario_concurrency=args.family_scenario_concurrency,
     )
     logger.success("Generated {} scenario family draft(s) in {}", len(families), output_dir)
     return 0

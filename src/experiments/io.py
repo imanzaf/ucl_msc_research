@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Type, TypeVar
 
 from pydantic import BaseModel
 
-from src.data_models.experiments import ExperimentConfig
+from src.data_models.experiments import ExperimentConfig, ExperimentUsageSummary
 from src.data_models.scenarios import ScenarioFamily
 
 ExperimentRecordT = TypeVar("ExperimentRecordT", bound=BaseModel)
@@ -51,6 +51,20 @@ def append_jsonl(path: Path, records: Iterable[BaseModel]) -> None:
         for record in records:
             handle.write(record.model_dump_json())
             handle.write("\n")
+
+
+def summarize_record_usage(records: Iterable[Any]) -> ExperimentUsageSummary:
+    """Aggregate usage summaries stored on experiment records."""
+    summary = ExperimentUsageSummary()
+    for record in records:
+        summary.merge(record.usage_summary)
+    return summary
+
+
+def add_record_usage(summary: ExperimentUsageSummary, records: Iterable[Any]) -> None:
+    """Add usage summaries from experiment records into an existing summary."""
+    for record in records:
+        summary.merge(record.usage_summary)
 
 
 def read_jsonl_models(path: Path, model: Type[ExperimentRecordT]) -> List[ExperimentRecordT]:

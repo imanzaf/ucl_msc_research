@@ -52,18 +52,15 @@ def test_role_specific_model_fields_are_available() -> None:
 
     assert catalog.schema_version.value == "5.0"
     assert [model.name for model in catalog.agent_models] == [
-        "GPT 5.5",
-        "Claude Sonnet 5",
         "Llama 3.3 70B Instruct",
         "Qwen 2.5 72B Instruct",
     ]
-    assert catalog.user_model.model_id == "google/gemini-3.1-flash-lite"
+    assert catalog.user_model.model_id == "google/gemma-4-26b-a4b-it"
     assert default_scenario_generator_model_id() == "openai/gpt-5.4-mini"
-    assert catalog.scoring_model.model_id == "openai/gpt-5.4-mini"
-    assert catalog.user_model.name == "Gemini 3.1 Flash Lite"
-    assert catalog.scoring_model.name == "GPT 5.4 Mini"
+    assert catalog.scoring_model.model_id == "google/gemini-3.1-flash-lite"
+    assert catalog.user_model.name == "Gemma 4 26B A4B"
+    assert catalog.scoring_model.name == "Gemini 3.1 Flash Lite"
     assert catalog.scenario_generator_model.name == "GPT 5.4 Mini"
-    assert catalog.scenario_generator_model.model_id == catalog.scoring_model.model_id
 
 
 def test_model_selection_is_not_environment_configurable() -> None:
@@ -79,11 +76,16 @@ def test_agent_model_selection_is_restricted_to_catalog() -> None:
     """Verify CLI agent subsets cannot introduce model ids outside the canonical catalog."""
     catalog = load_model_catalog()
 
-    assert resolve_agent_model_ids(catalog, ["openai/gpt-5.5"]) == ["openai/gpt-5.5"]
+    assert resolve_agent_model_ids(catalog, ["meta-llama/llama-3.3-70b-instruct"]) == [
+        "meta-llama/llama-3.3-70b-instruct"
+    ]
     with pytest.raises(ValueError):
         resolve_agent_model_ids(catalog, ["unconfigured/model"])
     with pytest.raises(ValueError):
-        resolve_agent_model_ids(catalog, ["openai/gpt-5.5", "openai/gpt-5.5"])
+        resolve_agent_model_ids(
+            catalog,
+            ["meta-llama/llama-3.3-70b-instruct", "meta-llama/llama-3.3-70b-instruct"],
+        )
 
 
 def test_validate_model_ids_against_openrouter_rejects_unknown_ids(

@@ -1,0 +1,58 @@
+\documentclass[12pt,oneside]{report}
+\input{preamble}
+
+\title{\textbf{Nothing Untrue: Omission and Pragmatic Distortion in Financial LLM Agents}\\[0.7em]
+\large Risk Concealment under Deployment-Realistic Prompting}
+\author{\placeholder{Author name, programme, department, and institution}}
+\date{\placeholder{Submission month and year}}
+
+\begin{document}
+\pagenumbering{gobble}
+
+\begin{titlepage}
+    \centering
+    \vspace*{2.0cm}
+    {\Huge\bfseries Nothing Untrue\par}
+    \vspace{0.4cm}
+    {\LARGE Omission and Pragmatic Distortion in Financial LLM Agents\par}
+    \vspace{0.8cm}
+    {\Large Risk Concealment under Deployment-Realistic Prompting\par}
+    \vfill
+    {\large \placeholder{Author name}\par}
+    \vspace{0.3cm}
+    {\large \placeholder{Degree programme and institution}\par}
+    \vspace{0.3cm}
+    {\large \placeholder{Supervisor name}\par}
+    \vfill
+    {\large \placeholder{Submission date}\par}
+    \vspace{1.2cm}
+    \fbox{\parbox{0.86\textwidth}{\centering\color{placeholderred}\textbf{First-draft notice.} Red text marks unresolved design decisions, claims that must be updated after experiments, and material that requires a final verification pass.}}
+\end{titlepage}
+
+\clearpage
+\pagenumbering{roman}
+\input{sections/00_abstract}
+\clearpage
+\tableofcontents
+\clearpage
+\listoftables
+\clearpage
+
+\pagenumbering{arabic}
+\input{sections/01_introduction}
+\input{sections/02_literature_review}
+\input{sections/03_methodology}
+\input{sections/04_results}
+\input{sections/05_discussion}
+\input{sections/06_conclusion}
+
+\appendix
+\input{appendices/A_prompt_templates}
+\input{appendices/B_annotation_schema}
+\input{appendices/C_reporting_checklist}
+
+\clearpage
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

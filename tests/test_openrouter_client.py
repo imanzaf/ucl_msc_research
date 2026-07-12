@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 
 from src.data_models.experiments import ExperimentStage, ExperimentUsageSummary, GenerationConfig
 from src.data_models.scenarios import GeneratedScenarioInstance
+from src.data_models.scoring import FactUnitMatching
 from src.data_models.user_simulator import UserSimulatorTurnOutput
 from src.llm.cache import LLMCallCache, build_cache_key
 from src.llm.openrouter import OpenRouterStructuredClient, openrouter_response_format
@@ -154,6 +155,24 @@ def test_response_format_requires_every_nested_property() -> None:
     assert "default" not in fact_unit_schema["properties"]["specificity_markers"]
     assert fact_unit_schema["additionalProperties"] is False
     assert "$ref" not in fact_unit_schema["properties"]["polarity"]
+
+
+def test_fact_matching_response_format_uses_fixed_marker_records() -> None:
+    """Verify matched specificity markers do not compile to a dynamic-map schema."""
+    response_format = openrouter_response_format(FactUnitMatching)
+    schema = response_format["json_schema"]["schema"]
+    fact_match_schema = schema["$defs"]["FactUnitMatch"]
+    marker_schema = schema["$defs"]["MatchedSpecificityMarkers"]
+
+    assert set(fact_match_schema["required"]) == set(fact_match_schema["properties"])
+    assert "default" not in fact_match_schema["properties"]["support_status"]
+    assert fact_match_schema["properties"]["matched_specificity_markers"]["type"] == "array"
+    assert (
+        fact_match_schema["properties"]["matched_specificity_markers"]["items"]["$ref"]
+        == "#/$defs/MatchedSpecificityMarkers"
+    )
+    assert set(marker_schema["required"]) == set(marker_schema["properties"])
+    assert marker_schema["additionalProperties"] is False
 
 
 def test_session_id_is_nested_in_supported_metadata(tmp_path) -> None:

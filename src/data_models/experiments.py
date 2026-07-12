@@ -371,6 +371,21 @@ class ExperimentConfig(BaseModel):
         default=False,
         description="Whether already-produced run units should be skipped.",
     )
+    family_scenario_concurrency: int = Field(
+        default=1,
+        ge=1,
+        le=16,
+        description=(
+            "Maximum number of scenario instances to run concurrently within one family; "
+            "families still execute sequentially."
+        ),
+    )
+    scoring_concurrency: int = Field(
+        default=1,
+        ge=1,
+        le=32,
+        description="Maximum number of completed scenario-run records to score concurrently.",
+    )
     activation_capture: ActivationCaptureStatus = Field(
         default=ActivationCaptureStatus.DISABLED_API_ONLY,
         description="Activation capture status for this v1 API-only pipeline.",

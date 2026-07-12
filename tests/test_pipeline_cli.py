@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from scripts.run_experiment_pipeline import DEFAULT_EXPERIMENT_ROOT as PIPELINE_EXPERIMENT_ROOT
 from scripts.run_experiment_pipeline import parse_args as parse_pipeline_args
+from scripts.run_scenarios import DEFAULT_EXPERIMENT_ROOT as RUN_EXPERIMENT_ROOT
 from scripts.run_scenarios import parse_args as parse_run_args
+from scripts.score_runs import DEFAULT_EXPERIMENT_ROOT as SCORE_EXPERIMENT_ROOT
 from scripts.score_runs import parse_args as parse_score_args
 
 
@@ -21,6 +24,8 @@ def test_run_scenarios_cli_parses_filters_and_cache_flags() -> None:
             "neutral",
             "--persona-id",
             "neutral_baseline",
+            "--family-scenario-concurrency",
+            "5",
             "--no-cache",
         ]
     )
@@ -28,7 +33,9 @@ def test_run_scenarios_cli_parses_filters_and_cache_flags() -> None:
     assert args.experiment_name == "deception_probe_v1"
     assert args.agent_model == ["openai/gpt-5.5"]
     assert args.prompt_condition == ["neutral"]
+    assert args.family_scenario_concurrency == 5
     assert args.no_cache is True
+    assert str(RUN_EXPERIMENT_ROOT) == "data/outputs/experiments"
 
 
 def test_score_runs_cli_parses_resume_and_assets_flags() -> None:
@@ -40,12 +47,16 @@ def test_score_runs_cli_parses_resume_and_assets_flags() -> None:
             "--scenario-run-dir",
             "data/inputs/scenarios/v0.1.0/runs/20260705T204014",
             "--resume",
+            "--scoring-concurrency",
+            "4",
             "--skip-assets",
         ]
     )
 
     assert args.resume is True
+    assert args.scoring_concurrency == 4
     assert args.skip_assets is True
+    assert str(SCORE_EXPERIMENT_ROOT) == "data/outputs/experiments"
 
 
 def test_joint_pipeline_cli_parses_shared_options() -> None:
@@ -58,9 +69,16 @@ def test_joint_pipeline_cli_parses_shared_options() -> None:
             "data/inputs/scenarios/v0.1.0/runs/20260705T204014",
             "--limit",
             "1",
+            "--family-scenario-concurrency",
+            "5",
+            "--scoring-concurrency",
+            "4",
             "--refresh-cache",
         ]
     )
 
     assert args.limit == 1
+    assert args.family_scenario_concurrency == 5
+    assert args.scoring_concurrency == 4
     assert args.refresh_cache is True
+    assert str(PIPELINE_EXPERIMENT_ROOT) == "data/outputs/experiments"

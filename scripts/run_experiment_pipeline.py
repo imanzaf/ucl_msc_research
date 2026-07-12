@@ -27,7 +27,7 @@ from src.experiments.scenario_runner import run_scenarios  # noqa: E402
 from src.experiments.scoring_pipeline import score_scenario_runs  # noqa: E402
 from src.llm.openrouter import OpenRouterStructuredClient  # noqa: E402
 
-DEFAULT_EXPERIMENT_ROOT = Path("experiments")
+DEFAULT_EXPERIMENT_ROOT = Path("data/outputs/experiments")
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
@@ -92,6 +92,21 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         "--resume", action="store_true", help="Skip run units already present in prior outputs."
     )
     parser.add_argument(
+        "--family-scenario-concurrency",
+        type=int,
+        default=1,
+        help=(
+            "Maximum scenario instances to run concurrently within each family; "
+            "families still run sequentially."
+        ),
+    )
+    parser.add_argument(
+        "--scoring-concurrency",
+        type=int,
+        default=1,
+        help="Maximum completed scenario-run records to score concurrently.",
+    )
+    parser.add_argument(
         "--skip-assets",
         action="store_true",
         help="Do not regenerate the stable LaTeX summary table.",
@@ -121,6 +136,8 @@ def build_experiment_config(args: argparse.Namespace) -> ExperimentConfig:
         cache_enabled=not args.no_cache,
         refresh_cache=args.refresh_cache,
         resume=args.resume,
+        family_scenario_concurrency=args.family_scenario_concurrency,
+        scoring_concurrency=args.scoring_concurrency,
     )
 
 

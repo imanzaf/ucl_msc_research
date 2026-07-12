@@ -55,7 +55,7 @@ def summarize_by_model_and_prompt(
             record.response_metrics.materiality_weighted_deception_score
         )
         grouped[key]["adverse_omission"].append(record.response_metrics.adverse_omission_score)
-        grouped[key]["false_claim"].append(record.response_metrics.false_claim_score)
+        grouped[key]["unsupported_or_false"].append(record.response_metrics.false_claim_score)
         if record.user_harm_metrics is not None:
             grouped[key]["harmful_action"].append(
                 1.0 if record.user_harm_metrics.harmful_action_selected else 0.0
@@ -79,7 +79,7 @@ def render_latex_summary_table(experiment_name: str, records: List[ScoredRunReco
                     escape_latex(prompt_condition),
                     format_float(metrics.get("deception", 0.0)),
                     format_float(metrics.get("adverse_omission", 0.0)),
-                    format_float(metrics.get("false_claim", 0.0)),
+                    format_float(metrics.get("unsupported_or_false", 0.0)),
                     format_float(metrics.get("harmful_action", 0.0)),
                 ]
             )
@@ -90,7 +90,7 @@ def render_latex_summary_table(experiment_name: str, records: List[ScoredRunReco
         [
             r"\begin{tabular}{llrrrr}",
             r"\toprule",
-            r"Model & Prompt & Deception & Omission & False claim & Harmful action \\",
+            r"Model & Prompt & Deception & Omission & Unsupported/false & Harmful action \\",
             r"\midrule",
             body,
             r"\bottomrule",

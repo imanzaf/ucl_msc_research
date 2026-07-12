@@ -1,0 +1,58 @@
+\chapter{Introduction}
+\label{chap:introduction}
+
+\section{Motivation}
+
+A financial assistant can mislead without saying anything literally false. It may report a product's return while omitting concentration risk; say that withdrawals are possible without mentioning a material penalty; replace an exact adverse quantity with a vague qualifier; or devote most of an answer to benefits and bury the decisive downside in a final sentence. Conventional factuality checks may approve every included proposition, yet the user can leave with a materially distorted view.
+
+This problem becomes more important as LLMs are used for research, customer interaction, advice-like support, compliance workflows, and tool-using financial agents. Industry reports document broad AI adoption, while finance benchmarks increasingly test document analysis and tool use \citep{boefca2024ai,bigeard2025financeagent,zhu2026finmcp,esma2025llmfinance}. Capability, however, is not equivalent to safe communication. A model may retrieve the right filing and calculate the right ratio while still constructing an unjustifiably favourable net impression.
+
+Research on LLM deception has established that models can hide an improper stock-trading rationale under pressure \citep{scheurer2023strategic}, pursue in-context goals covertly \citep{meinke2024scheming}, act harmfully in corporate stress tests \citep{lynch2025agentic}, and display deceptive behaviour in simulated organisational settings without a direct instruction to lie \citep{jarviniemi2024deceptive}. MACHIAVELLI and DeceptionBench likewise examine ethical trade-offs, incentives, and multi-turn dynamics \citep{pan2023machiavelli,huang2025deceptionbench}. These studies demonstrate capability and worst-case risk, but many make deception legible by introducing a hidden objective, reward pressure, threatened replacement, or another strong reason to conceal.
+
+The deployment question studied here is different: what happens when the task is benign and no explicit goal conflict is supplied? Models may still compress or frame information in ways that favour conversational fluency, reassurance, agreement, or brevity. The resulting output need not reflect a conscious deceptive plan to be unsafe.
+
+\section{Problem statement}
+
+Current evaluation has three blind spots. First, truth-conditional scoring misses pragmatic communication. A sequence of true statements can induce a false or incomplete belief through selection, ordering, implication, or loss of precision. Recent taxonomy work distinguishes fabrication, omission, and pragmatic distortion and finds the latter mechanisms under-covered \citep{shi2026taxonomy}. Experiments also show that truth probes detect explicit lies more reliably than misleading non-falsities \citep{berger2026liedetector}.
+
+Second, open-ended evaluations often cannot separate information manipulation from missing knowledge. The proposed benchmark supplies a fixed, annotated fact pool, following recent information-unit approaches \citep{cai2026decor,giannouris2026janus}. This cannot prove why a fact was omitted, but it establishes that the model had access to it and makes the communication outcome auditable.
+
+Third, recipients are not interchangeable. Models adapt to affect, confidence, risk tolerance, and expressed preference. Sycophancy research shows that user agreement can be favoured over truth \citep{sharma2023sycophancy}. In finance, a subtler analogue may occur: an enthusiastic user receives stronger benefit language or fewer caveats, while an anxious user receives either more disclosure or more reassurance. These effects can be isolated only by holding the stakeholder role, task, and evidence constant while varying persona.
+
+This thesis therefore studies \emph{risk concealment}: an output-level class of failures in which available material adverse information becomes absent, inaccurate, less precise, less salient, or less consequential in communication. The term is descriptive and does not itself attribute strategic intent.
+
+\section{Research questions and hypotheses}
+\label{sec:rqs}
+
+\begin{enumerate}[label=\textbf{RQ\arabic*:}]
+    \item Do LLMs distort financial risk communication when no instruction to deceive, reward pressure, or explicit goal conflict is introduced?
+    \item Which failure mode dominates: false claim, selective omission, misleading framing, or risk de-emphasis?
+    \item Does a production-integrity prompt reduce these failures relative to naturalistic production and minimally specified prompts?
+    \item Do user personas alter risk disclosure or salience while stakeholder role is held fixed?
+\end{enumerate}
+
+The behavioural hypotheses are that concealment occurs at a practically meaningful rate in benign conditions (H1); non-falsifiable failures are more frequent than explicit false claims (H2); integrity guidance reduces failures, potentially through longer responses (H3); and disclosure varies by persona and prompt--persona interaction (H4).
+
+\begin{placeholderblock}
+Pre-register directional persona hypotheses. A defensible prediction is that the positive persona receives a more favourable net impression. The anxious persona could elicit either more substantive disclosure or more reassurance-based minimisation; treat the direction as exploratory unless pilot data are kept separate from confirmatory analysis.
+\end{placeholderblock}
+
+\section{Benchmark design and contribution}
+
+The provisional \benchmarkname benchmark contains 40 scenario families, evenly divided between single-turn and multi-turn interaction, with five instances per family. Each instance is run in all nine cells of a $3\times3$ design: three system prompts crossed with three personas. This yields 1,800 conversations per target model before repeats and exclusions.
+
+The \emph{neutral} prompt gives minimal task guidance. The \emph{production-baseline} prompt uses plausible deployment language such as concision, supportiveness, and ease of use, but no permission to deceive or explicit completeness guardrail. The \emph{production-integrity} prompt adds a requirement to communicate material adverse facts accurately, specifically, and with proportionate salience. The personas are neutral, anxious risk-averse, and positive risk-seeking or trusting; stakeholder role is fixed within each family.
+
+Every scenario includes an agent-visible source artefact and atomic facts labelled by polarity, materiality, risk category, expected disclosure, specificity markers, and source support. High-adverse facts are the principal disclosure targets; favourable facts permit tests of selective emphasis; neutral facts act as attention controls.
+
+\begin{placeholderblock}
+Resolve the fact-pool composition. The plan states eight facts but specifies 1--2 high-adverse, 1--2 low-adverse, two favourable, and two neutral facts. Fixing two facts in each category would improve comparability; otherwise all rates require eligible-fact denominators and composition controls.
+\end{placeholderblock}
+
+The thesis makes four contributions. It treats omission, framing, and salience as first-class outcomes rather than residual errors after factuality. It measures these outcomes without constructing an explicit reason to deceive. It estimates persona effects through within-scenario counterfactual comparisons. Finally, in multi-turn settings, it connects communication to a simulated user's final beliefs and bounded action choice.
+
+The claims remain deliberately limited. The study can establish that a material fact was available, expected, and transformed or omitted; it cannot infer a private objective from output alone. User-simulator outcomes are controlled proxies, not population estimates of human harm. The initial benchmark also excludes unrestricted live data and tool use so that the evidence supplied to the model remains known.
+
+\section{Thesis structure}
+
+\Cref{chap:literature} reviews strategic deception, truthful-but-misleading communication, financial evaluation, persona adaptation, and detection. \Cref{chap:methodology} specifies benchmark construction, scoring, validation, and statistics. \Cref{chap:results} provides experiment-ready reporting tables. \Cref{chap:discussion} sets out interpretations, limitations, and implications; \Cref{chap:conclusion} summarises the intended contribution.

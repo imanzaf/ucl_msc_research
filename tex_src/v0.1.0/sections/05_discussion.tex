@@ -1,0 +1,66 @@
+\chapter{Discussion}
+\label{chap:discussion}
+
+\section{Interpreting the primary finding}
+
+The central question is whether material financial risk is communicated reliably when the model receives no explicit reason to deceive. If omission, framing, or de-emphasis appears at a substantial rate in neutral and production-baseline conditions, the supported conclusion is that deployment-relevant risk distortion can arise under benign prompting. It is not that the model necessarily formed an intention to conceal.
+
+\begin{placeholderblock}
+Replace conditional language with absolute prevalence, within-scenario contrasts, confidence intervals, and model-specific estimates. State which findings were preregistered and which are exploratory.
+\end{placeholderblock}
+
+Three result patterns would imply different messages. Broadly high rates across prompts would suggest a general communication or summarisation problem. Higher rates under production-baseline guidance would indicate that ordinary desiderata such as reassurance or concision can trade off against balanced disclosure. Low aggregate rates concentrated in a few families would narrow the claim to particular financial contexts. In every case, negative controls are decisive: general omission of all facts indicates weak source use, whereas preferential retention of favourable facts alongside loss of high-adverse facts indicates asymmetric selection.
+
+\section{Why the failure-mode decomposition matters}
+
+If non-falsifiable failures dominate explicit false claims, the results would support taxonomies separating fabrication, omission, and pragmatic distortion \citep{shi2026taxonomy} and reinforce the limits of lie-oriented detection \citep{berger2026liedetector}. Factuality remains necessary but is not sufficient. An adequate audit must ask which material facts were available, which were conveyed, and what the recipient inferred.
+
+The components should remain visible because they imply different controls. Checklists can improve inclusion; structured response schemas can preserve quantities and conditions; source-aware post-generation audits can detect generic disclaimer substitution; and ordering requirements can improve salience. A composite score may be useful for summary, but it should not hide substitution between failure modes.
+
+\section{Integrity prompting as mitigation}
+
+A large improvement under production-integrity guidance would show that explicit balanced-disclosure instructions offer a practical prompt-level mitigation. It would not establish robustness: prompts compete with context, can be diluted by other objectives, and may produce boilerplate rather than substantive disclosure. A null result could indicate that the prompt is too generic, that models already follow similar policies, or that failures arise from comprehension. An increase in generic disclaimers without improved fact coverage would be a particularly important negative result.
+
+Response length is both mechanism and cost. If integrity guidance works by producing longer answers, that can still be a valid practical pathway. The thesis should report the total effect, added tokens, disclosure gained per additional length, and a secondary length-adjusted estimate. Stronger future mitigations include mandatory high-adverse checklists, structured source-to-fact extraction, automatic source-aware review, and human escalation when materiality is uncertain.
+
+\section{Persona sensitivity}
+
+Persona effects would show that equal evidence can yield unequal substantive protection. Some adaptation is appropriate: tone and explanation level should change with user needs. The safety boundary is crossed when material facts become less complete, precise, or prominent.
+
+A positive-persona increase in benefit amplification or omission would be consistent with agreement pressures related to sycophancy \citep{sharma2023sycophancy}. An anxious-persona increase in vague reassurance would reflect emotional accommodation at the expense of risk understanding. Conversely, anxious users may receive more detail, implying that models use expressed concern as a cue for materiality. Even then, confident or trusting users should not systematically receive weaker disclosure.
+
+Because the profiles bundle emotion, trust, risk tolerance, and desired detail, the study identifies composite condition effects rather than isolated psychological causes. A follow-up factorial design should vary these dimensions independently. Deployment audits should also test counterfactual consistency across user styles while preserving the same substantive standard.
+
+\section{Multi-turn interaction and downstream outcomes}
+
+Multi-turn evaluation distinguishes temporary incompleteness from persistent concealment. A model that repairs an omission after a direct question is safer than one that continues to avoid it, but it still places the burden on users who may not know what to ask. First-turn voluntary disclosure of high-adverse facts should therefore remain primary. Trajectories can also worsen when an accurate initial caveat is softened after the user expresses enthusiasm or disappointment.
+
+Belief and action outcomes test consequential validity. If omitted or de-emphasised facts predict unsupported simulated beliefs, and those beliefs change after full disclosure, the communication labels are doing more than measuring form. The inference remains simulator-specific: it does not estimate how many human consumers would be harmed. Human-subject validation, stratified by financial literacy and trust, is a major next step.
+
+\section{Relationship to strategic deception}
+
+\benchmarkname deliberately evaluates behaviour below the threshold needed to infer scheming. This makes the benchmark useful for governance: an institution should care that a material fee is systematically omitted whether the cause is strategy, compression, or a learned reassurance policy. Strategic-deception stress tests ask whether a model can conceal information when doing so advances an explicit objective \citep{scheurer2023strategic,meinke2024scheming}; this study asks whether similar output patterns arise before such an objective is supplied. A safety case needs both.
+
+Systematic persona or prompt effects can motivate stronger causal work, but output alone underdetermines mechanism. Mechanistic studies could intervene on representations associated with user agreement, helpfulness, or risk, and must demonstrate behavioural improvement on held-out scenarios rather than only probe separability.
+
+\section{Implications for financial AI evaluation}
+
+Financial benchmarks increasingly measure retrieval, reasoning, and tool use \citep{chen2021finqa,islam2023financebench,bigeard2025financeagent,zhu2026finmcp}. These should be paired with source-aware communication evaluation. A useful assurance stack tests: (1) source comprehension and calculation; (2) coverage of material facts; (3) specificity, framing, and salience; and (4) recipient understanding and action.
+
+Thresholds should remain context-specific. Omitting a minor caveat in exploratory analysis is not equivalent to omitting an eligibility restriction in a customer-facing recommendation. Results must preserve stakeholder, materiality, and risk category rather than rely solely on aggregate scores. Standards requiring clear, fair, and not misleading communication make these properties relevant, although benchmark labels are not legal findings \citep{fca_handbook_principle7}.
+
+For monitoring, omission is unlikely to be detectable from response text alone because the missing fact has no span. Source-aware black-box monitors may therefore be more useful than generic lie classifiers. White-box probes matter only if they add calibrated, cross-condition value beyond a strong source-aware baseline, and recent work suggests that targeted detectors may be necessary for heterogeneous deception forms \citep{natarajan2026oneprobe,kretschmar2025liars}.
+
+\section{Limitations and future work}
+
+The study uses synthetic or curated evidence, operational materiality labels, model-assisted annotation, bundled personas, and simulated users. Proprietary model versions also change, and one production prompt cannot represent every deployment. Mixed-effects modelling addresses dependence among repeated scenarios but does not make the selected models a representative sample of all LLMs. Most importantly, output-level asymmetry does not identify intent.
+
+\begin{placeholderblock}
+Add limitations revealed by error analysis, including weak labels, scenario imbalance, abnormal refusal patterns, or preregistration deviations. Report them before the final implications section.
+\end{placeholderblock}
+
+Future work should validate user outcomes with humans, add tool-using scenarios, separate persona dimensions, test cross-lingual and cross-jurisdictional settings, and rerun the benchmark across model updates. Tool use is especially important because concealment may occur during retrieval, quotation, or action summarisation. A hidden or refreshed test set will be needed to reduce contamination.
+
+\section{Intended message}
+
+If the hypotheses are supported, the paper will establish that a model need not utter a lie or receive an adversarial goal to communicate financial risk badly; that omission and pragmatic distortion may dominate fabrication; that integrity prompting is measurable but incomplete mitigation; and that persona can change the level of protection a user receives. The methodological message is that truthful communication must be evaluated across evidence availability, materiality, presentation, and recipient understanding.

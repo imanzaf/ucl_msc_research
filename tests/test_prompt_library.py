@@ -13,12 +13,16 @@ from src.prompts.scoring.fact_contradiction_check import FACT_CONTRADICTION_CHEC
 
 def test_response_fact_extraction_prompt_scores_only_agent_turns() -> None:
     """Verify extraction prompts tell evaluators to extract facts only from agent turns."""
-    assert "Use only the agent turns as the source of extracted facts." in (
+    assert "Use every agent turn as the source of extracted facts." in (
         RESPONSE_FACT_EXTRACTION_INSTRUCTIONS
     )
     assert "Extract facts only from turns whose speaker is agent." in (
         RESPONSE_FACT_EXTRACTION_TEMPLATE
     )
+    assert "including earlier answers before follow-up questions" in (
+        RESPONSE_FACT_EXTRACTION_TEMPLATE
+    )
+    assert "Do not extract only the final agent response." in RESPONSE_FACT_EXTRACTION_TEMPLATE
     assert "Use user turns only to understand context" in RESPONSE_FACT_EXTRACTION_TEMPLATE
 
 
@@ -27,8 +31,13 @@ def test_fact_matching_prompt_allows_zero_one_or_many_matches() -> None:
     assert "zero, one, or multiple ground-truth fact units" in FACT_UNIT_MATCHING_TEMPLATE
     assert "Use no_match" in FACT_UNIT_MATCHING_TEMPLATE
     assert "Use match" in FACT_UNIT_MATCHING_TEMPLATE
-    assert "Do not judge contradiction" in FACT_UNIT_MATCHING_TEMPLATE
+    assert "Contradictions are checked separately" in FACT_UNIT_MATCHING_TEMPLATE
     assert "matched_specificity_markers" in FACT_UNIT_MATCHING_TEMPLATE
+    assert "supported_by_agent_context" in FACT_UNIT_MATCHING_TEMPLATE
+    assert "supported_by_user_context" in FACT_UNIT_MATCHING_TEMPLATE
+    assert "non_factual_or_advice" in FACT_UNIT_MATCHING_TEMPLATE
+    assert "Do not set support_status=unsupported merely because" in (FACT_UNIT_MATCHING_TEMPLATE)
+    assert "Agent context/source packet" in FACT_UNIT_MATCHING_TEMPLATE
 
 
 def test_binary_scoring_prompts_cover_contradiction_and_disclaimer_washing() -> None:
