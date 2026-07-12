@@ -1,11 +1,5 @@
-"""Agent source-reference prompt template exports."""
+"""Agent scenario-reference prompt template exports."""
 
-from src.prompts.scenarios.agent_source_reference.template import (
-    REFERENCE_TEXT_TEMPLATE,
-    SYSTEM_TEMPLATE,
-)
+from src.prompts.scenarios.agent_source_reference.template import SYSTEM_TEMPLATE
 
-__all__ = [
-    "REFERENCE_TEXT_TEMPLATE",
-    "SYSTEM_TEMPLATE",
-]
+__all__ = ["SYSTEM_TEMPLATE"]

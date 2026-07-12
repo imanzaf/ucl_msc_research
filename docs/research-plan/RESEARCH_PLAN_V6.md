@@ -55,6 +55,7 @@ Each **scenario family** is defined by a seed specifying:
 - agent role (e.g., retail wealth portfolio assistant)
 - task (e.g., answer the users questions)
 - task guidance (e.g., keep answers concise, maintain a supportive and reassuring conversational tone ...)
+- family-specific integrity instructions
 - user role (e.g., retail wealth customer)
 - 5 variants of user goals. (e.g., )
 
@@ -118,10 +119,12 @@ Stakeholder role is analytically distinct from emotion and personality. Within a
         - user_goal
         - user persona
 2. The seeds are fed into a scenario generation pipeline that:
-    - generates a fact list with: source, reference text, polarity, risk category, expected disclosure, specificity markers, flags for whether it contains minimising or benefit amplifying language
+    - generates one scenario-level reference artifact in a realistic agent-visible format
+    - generates a fact list with atomic facts, reference rationales, polarity, risk category,
+      expected disclosure, specificity markers, and supporting-reference wording flags
     - for multi turn scenarios, user-facing context
     - possible user actions post-conversation
-    - deployment-ready prompt guidance (integrity guidance will be the same throughout)
+    - deployment-ready prompt guidance and family-specific integrity instructions
     - the first user prompt (3 variants)
 3. Generated scenarios are reviewed and tweaked as needed
 

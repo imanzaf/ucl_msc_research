@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from configs.api_settings import get_api_settings  # noqa: E402
+from configs.api_settings import OpenRouterCredentialRole, get_api_settings  # noqa: E402
 from configs.model_settings import get_model_settings  # noqa: E402
 from src.data_models.experiments import ExperimentStage, GenerationConfig  # noqa: E402
 from src.data_models.scenarios import (  # noqa: E402
@@ -28,15 +28,17 @@ from src.data_models.scenarios import (  # noqa: E402
     PromptVariant,
     ScenarioFamily,
     ScenarioInstance,
+    ScenarioSchemaVersion,
     ScenarioSeed,
     ScenarioSeedScenario,
+    render_instruction_list,
 )
-from src.experiments.model_catalog import validate_model_ids_against_openrouter  # noqa: E402
+from src.experiments.model_catalog import (  # noqa: E402
+    default_scenario_generator_model_id,
+    validate_model_ids_against_openrouter,
+)
 from src.llm.openrouter import OpenRouterStructuredClient  # noqa: E402
-from src.prompts.scenarios.scenario_instance_generation import (  # noqa: E402
-    GENERATOR_INSTRUCTIONS,
-    INTEGRITY_GUIDANCE,
-)
+from src.prompts.scenarios.scenario_instance_generation import GENERATOR_INSTRUCTIONS  # noqa: E402
 from src.prompts.scenarios.scenario_instance_generation import (  # noqa: E402
     build_prompt_task as render_prompt_task,
 )
@@ -45,7 +47,7 @@ from src.prompts.scenarios.scenario_instance_generation import (  # noqa: E402
 )
 
 DEFAULT_SCENARIO_ROOT = Path("data/inputs/scenarios")
-DEFAULT_SCENARIO_SET = "v0.1.0"
+DEFAULT_SCENARIO_SET = "v0.2.0"
 SEED_FILENAME = "scenario_generation_seeds.json"
 RUNS_DIRNAME = "runs"
 RUN_ID_PATTERN = re.compile(r"^[0-9]{8}T[0-9]{6}$")
@@ -223,11 +225,16 @@ def assemble_prompt_variant(
     seed: ScenarioSeed,
     condition: PromptCondition,
 ) -> PromptVariant:
-    """Assemble one code-owned prompt variant from seed fields and fixed guidance."""
-    guidance_by_condition: Dict[PromptCondition, str] = {
-        PromptCondition.NEUTRAL: "",
+    """Assemble one code-owned prompt variant from seed-owned instruction fields."""
+    guidance_by_condition: Dict[PromptCondition, List[str]] = {
+        PromptCondition.NEUTRAL: [],
         PromptCondition.PRODUCTION_BASELINE: seed.task_guidance,
-        PromptCondition.PRODUCTION_INTEGRITY: f"{seed.task_guidance}\n\n{INTEGRITY_GUIDANCE}",
+        PromptCondition.PRODUCTION_INTEGRITY: seed.task_guidance,
+    }
+    integrity_by_condition: Dict[PromptCondition, List[str]] = {
+        PromptCondition.NEUTRAL: [],
+        PromptCondition.PRODUCTION_BASELINE: [],
+        PromptCondition.PRODUCTION_INTEGRITY: seed.integrity_instructions,
     }
     return PromptVariant(
         prompt_variant_id=expected_prompt_variant_ids(seed)[condition],
@@ -236,14 +243,15 @@ def assemble_prompt_variant(
             agent_role=seed.agent_role,
             agent_task=seed.agent_task,
             guidance=guidance_by_condition[condition],
+            integrity_instructions=integrity_by_condition[condition],
         ),
     )
 
 
 def validate_seed_match(family: ScenarioFamily, seed: ScenarioSeed) -> None:
     """Reject assembled output that changes hardcoded seed constraints."""
-    if family.schema_version != "scenario_family.v4":
-        raise ValueError("generated schema_version does not match scenario_family.v4")
+    if family.schema_version != ScenarioSchemaVersion.V5:
+        raise ValueError("generated schema_version does not match scenario_family.v5")
     if family.scenario_family_id != seed.scenario_family_id:
         raise ValueError("generated scenario_family_id does not match seed")
     if family.segment != seed.segment:
@@ -258,6 +266,8 @@ def validate_seed_match(family: ScenarioFamily, seed: ScenarioSeed) -> None:
         raise ValueError("generated agent_task does not match seed")
     if family.task_guidance != seed.task_guidance:
         raise ValueError("generated task_guidance does not match seed")
+    if family.integrity_instructions != seed.integrity_instructions:
+        raise ValueError("generated integrity_instructions do not match seed")
     if family.user_role != seed.user_role:
         raise ValueError("generated user_role does not match seed")
     expected_instance_goals = {
@@ -276,7 +286,7 @@ def attach_seed_metadata(
 ) -> ScenarioFamily:
     """Attach seed-owned family metadata and code-owned prompt variants."""
     family = ScenarioFamily(
-        schema_version="scenario_family.v4",
+        schema_version=ScenarioSchemaVersion.V5,
         scenario_family_id=seed.scenario_family_id,
         segment=seed.segment,
         interaction_mode=seed.interaction_mode,
@@ -284,6 +294,7 @@ def attach_seed_metadata(
         agent_role=seed.agent_role,
         agent_task=seed.agent_task,
         task_guidance=seed.task_guidance,
+        integrity_instructions=seed.integrity_instructions,
         user_role=seed.user_role,
         scenario_instances=scenario_instances,
         prompt_variants=[
@@ -303,7 +314,7 @@ def generate_scenario(
     max_generation_retries: int,
     generation_config: GenerationConfig,
 ) -> ScenarioFamily:
-    """Generate and validate one V4 scenario family with five scenario instances."""
+    """Generate and validate one canonical scenario family with five scenario instances."""
     scenario_instances = [
         generate_scenario_instance(
             client=client,
@@ -327,10 +338,19 @@ def render_prompt_variant_review(family: ScenarioFamily) -> str:
             f"- `{variant.prompt_variant_id}` ({variant.condition.value})\n"
             f"  - Role: {variant.system_prompt.agent_role}\n"
             f"  - Task: {variant.system_prompt.agent_task}\n"
-            f"  - Guidance: {variant.system_prompt.guidance or '[none]'}"
+            f"  - Guidance:\n{render_review_instruction_list(variant.system_prompt.guidance)}\n"
+            "  - Integrity instructions:\n"
+            f"{render_review_instruction_list(variant.system_prompt.integrity_instructions)}"
         )
         for variant in family.prompt_variants
     )
+
+
+def render_review_instruction_list(instructions: List[str]) -> str:
+    """Render instructions as an indented list for a Markdown review item."""
+    if not instructions:
+        return "    - [none]"
+    return "\n".join(f"    - {instruction}" for instruction in instructions)
 
 
 def render_fact_unit_review(instance: ScenarioInstance) -> str:
@@ -340,8 +360,7 @@ def render_fact_unit_review(instance: ScenarioInstance) -> str:
             f"- `{unit.fact_unit_id}` ({unit.polarity.value}, {unit.risk_category.value}, "
             f"{unit.disclosure_requirement.value})\n"
             f"  - Fact: {unit.fact}\n"
-            f"  - Source: {unit.source}\n"
-            f"  - Reference: {unit.reference_text}\n"
+            f"  - Reference rationale: {unit.reference_rationale}\n"
             f"  - Specificity markers: {', '.join(unit.specificity_markers) or '[none]'}"
         )
         for unit in instance.fact_units
@@ -388,6 +407,12 @@ def render_instance_review(instance: ScenarioInstance) -> str:
 
 {user_context}
 
+### Agent Reference
+
+```text
+{instance.reference_text}
+```
+
 ### Fact Units
 
 {render_fact_unit_review(instance)}
@@ -426,7 +451,11 @@ def render_review_markdown(family: ScenarioFamily) -> str:
 
 ## Production Baseline Guidance
 
-{family.task_guidance}
+{render_instruction_list(family.task_guidance)}
+
+## Production Integrity Instructions
+
+{render_instruction_list(family.integrity_instructions)}
 
 ## Prompt Variants
 
@@ -484,7 +513,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--scenario-set",
         default=DEFAULT_SCENARIO_SET,
-        help="Scenario-set subdirectory under the scenario root, for example v0.1.0.",
+        help="Scenario-set subdirectory under the scenario root, for example v0.2.0.",
     )
     parser.add_argument(
         "--scenario-root",
@@ -516,6 +545,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     api_settings = get_api_settings()
     model_settings = get_model_settings()
+    scenario_generator_model = default_scenario_generator_model_id()
     generation_config = GenerationConfig(
         temperature=model_settings.openrouter_temperature,
         seed=model_settings.openrouter_seed,
@@ -523,23 +553,25 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     logger.info(
         "Starting scenario draft generation for set {} with model {}; output directory: {}",
         args.scenario_set,
-        model_settings.scenario_generator_model,
+        scenario_generator_model,
         output_dir,
     )
     if not args.skip_model_validation:
         validate_model_ids_against_openrouter(
-            model_ids=[model_settings.scenario_generator_model],
+            model_ids=[scenario_generator_model],
             api_settings=api_settings,
+            credential_role=OpenRouterCredentialRole.SCENARIO_GENERATION,
             timeout_seconds=model_settings.openrouter_request_timeout_seconds,
         )
     families = generate_default_scenarios(
         client=OpenRouterStructuredClient.from_settings(
             api_settings=api_settings,
             model_settings=model_settings,
+            credential_role=OpenRouterCredentialRole.SCENARIO_GENERATION,
             cache_dir=output_dir / "cache" / "llm_calls",
         ),
         seeds=load_scenario_seeds(scenario_set_dir / SEED_FILENAME),
-        model_id=model_settings.scenario_generator_model,
+        model_id=scenario_generator_model,
         output_dir=output_dir,
         max_generation_retries=model_settings.max_generation_retries,
         generation_config=generation_config,

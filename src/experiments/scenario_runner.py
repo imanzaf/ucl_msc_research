@@ -259,7 +259,8 @@ def build_outcome_input(
 
 
 def run_one_scenario_unit(
-    client: OpenRouterStructuredClient,
+    agent_client: OpenRouterStructuredClient,
+    user_simulator_client: OpenRouterStructuredClient,
     experiment_name: str,
     run_id: str,
     family: ScenarioFamily,
@@ -285,7 +286,7 @@ def run_one_scenario_unit(
     simulator_turn_outputs: List[UserSimulatorTurnOutput] = []
     system_prompt = family.prompt_template.render_system_prompt(
         instructions=variant.system_prompt,
-        fact_units=instance.fact_units,
+        reference_text=instance.reference_text,
     )
     initial_user_prompt = initial_prompt_for_persona(instance=instance, persona_id=persona_id)
     transcript = [
@@ -297,7 +298,7 @@ def run_one_scenario_unit(
     ]
 
     agent_result = request_agent_response(
-        client=client,
+        client=agent_client,
         unit=unit,
         system_prompt=system_prompt,
         transcript=transcript,
@@ -325,7 +326,7 @@ def run_one_scenario_unit(
                 max_followup_turns=max_followup_turns,
             )
             turn_result = request_user_turn(
-                client=client,
+                client=user_simulator_client,
                 unit=unit,
                 model_id=user_simulator_model,
                 turn_input=turn_input,
@@ -343,7 +344,7 @@ def run_one_scenario_unit(
                 )
             )
             agent_result = request_agent_response(
-                client=client,
+                client=agent_client,
                 unit=unit,
                 system_prompt=system_prompt,
                 transcript=transcript,
@@ -365,7 +366,7 @@ def run_one_scenario_unit(
         transcript=transcript,
     )
     outcome_result = request_user_outcome(
-        client=client,
+        client=user_simulator_client,
         unit=unit,
         model_id=user_simulator_model,
         outcome_input=outcome_input,
@@ -406,7 +407,8 @@ def write_usage_summary(path: Path, summary: ExperimentUsageSummary) -> None:
 
 
 def run_scenarios(
-    client: OpenRouterStructuredClient,
+    agent_client: OpenRouterStructuredClient,
+    user_simulator_client: OpenRouterStructuredClient,
     experiment_root: Path,
     experiment_config: ExperimentConfig,
     scenario_family_ids: Optional[Sequence[str]] = None,
@@ -459,7 +461,8 @@ def run_scenarios(
             break
         logger.info("Running scenario unit {} ({})", index, unit_id)
         record = run_one_scenario_unit(
-            client=client,
+            agent_client=agent_client,
+            user_simulator_client=user_simulator_client,
             experiment_name=experiment_config.experiment_name,
             run_id=scenario_run_id,
             family=family,

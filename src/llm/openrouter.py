@@ -9,9 +9,10 @@ from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Uni
 from uuid import uuid4
 
 from openai import OpenAI
+from openai.lib._pydantic import to_strict_json_schema
 from pydantic import BaseModel
 
-from configs.api_settings import APISettings
+from configs.api_settings import APISettings, OpenRouterCredentialRole
 from configs.model_settings import ModelSettings
 from src.data_models.experiments import (
     ExperimentStage,
@@ -57,7 +58,7 @@ def openrouter_response_format(output_model: Type[BaseModel]) -> Dict[str, Any]:
         "json_schema": {
             "name": model_schema_name(output_model),
             "strict": True,
-            "schema": output_model.model_json_schema(),
+            "schema": to_strict_json_schema(output_model),
         },
     }
 
@@ -129,11 +130,12 @@ class OpenRouterStructuredClient:
         cls,
         api_settings: APISettings,
         model_settings: ModelSettings,
+        credential_role: OpenRouterCredentialRole,
         cache_dir: Path,
         cache_enabled: bool = True,
         refresh_cache: bool = False,
     ) -> "OpenRouterStructuredClient":
-        """Create an OpenRouter client from project settings."""
+        """Create an OpenRouter client using the key assigned to one pipeline role."""
         headers: Dict[str, str] = {}
         if api_settings.openrouter_http_referer:
             headers["HTTP-Referer"] = api_settings.openrouter_http_referer
@@ -141,7 +143,7 @@ class OpenRouterStructuredClient:
             headers["X-OpenRouter-Title"] = api_settings.openrouter_app_title
 
         openai_client = OpenAI(
-            api_key=api_settings.openrouter_api_key,
+            api_key=api_settings.openrouter_api_key_for(credential_role),
             base_url=api_settings.openrouter_base_url,
             timeout=model_settings.openrouter_request_timeout_seconds,
             default_headers=headers or None,
@@ -274,7 +276,6 @@ class OpenRouterStructuredClient:
         }
         if metadata:
             payload["metadata"] = metadata
-            payload["session_id"] = metadata.get("session_id", "")
         if output_model is not None:
             payload["response_format"] = openrouter_response_format(output_model)
         return payload

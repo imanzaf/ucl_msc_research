@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ModelSettings(BaseSettings):
-    """Project-wide model selection and generation settings."""
+    """Project-wide generation settings for OpenRouter calls."""
 
     model_config = SettingsConfigDict(
         env_file=[".env.static", ".env"],
@@ -15,21 +15,6 @@ class ModelSettings(BaseSettings):
         extra="ignore",
     )
 
-    scenario_generator_model: str = Field(
-        default="openai/gpt-5.4",
-        validation_alias="SCENARIO_GENERATOR_MODEL",
-        description="OpenRouter model slug used to generate scenario drafts.",
-    )
-    user_simulator_model: str = Field(
-        default="google/gemini-3.1-flash-lite",
-        validation_alias="USER_SIMULATOR_MODEL",
-        description="OpenRouter model slug used for user-simulator turns and outcomes.",
-    )
-    scoring_model: str = Field(
-        default="openai/gpt-5.4-mini",
-        validation_alias="SCORING_MODEL",
-        description="OpenRouter model slug used for scoring extraction and judge calls.",
-    )
     max_generation_retries: int = Field(
         default=2,
         ge=0,

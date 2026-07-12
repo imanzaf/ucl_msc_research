@@ -2,7 +2,6 @@
 
 from src.prompts.scenarios.scenario_instance_generation.template import (
     GENERATOR_INSTRUCTIONS,
-    INTEGRITY_GUIDANCE,
     build_enum_values,
     build_fact_unit_breakdown,
     build_prompt_task,
@@ -11,7 +10,6 @@ from src.prompts.scenarios.scenario_instance_generation.template import (
 
 __all__ = [
     "GENERATOR_INSTRUCTIONS",
-    "INTEGRITY_GUIDANCE",
     "build_enum_values",
     "build_fact_unit_breakdown",
     "build_prompt_task",

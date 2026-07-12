@@ -30,8 +30,7 @@ from src.data_models.user_simulator import (
 from src.experiments.io import append_jsonl
 from src.experiments.scoring_pipeline import score_scenario_runs
 from src.llm.openrouter import LLMCallResult
-
-SCENARIO_RUN_DIR = Path("data/inputs/scenarios/v0.1.0/runs/20260705T204014").resolve()
+from tests.canonical_scenario_fixtures import write_scenario_run_dir
 
 
 class FakeScoringClient:
@@ -65,11 +64,11 @@ class FakeScoringClient:
         return LLMCallResult(parsed=parsed, record=record)
 
 
-def make_config() -> ExperimentConfig:
+def make_config(scenario_run_dir: Path) -> ExperimentConfig:
     """Create a minimal experiment config for scoring tests."""
     return ExperimentConfig(
         experiment_name="pipeline_scoring_v1",
-        scenario_run_dir=str(SCENARIO_RUN_DIR),
+        scenario_run_dir=str(scenario_run_dir),
         agent_model_ids=["fake/agent"],
         user_simulator_model="fake/simulator",
         scoring_model="fake/scorer",
@@ -136,7 +135,7 @@ def test_scoring_pipeline_writes_metrics_and_usage(tmp_path) -> None:
     records = score_scenario_runs(
         client=client,
         experiment_root=tmp_path,
-        experiment_config=make_config(),
+        experiment_config=make_config(write_scenario_run_dir(tmp_path)),
         scoring_run_id="20260711T040404",
     )
 

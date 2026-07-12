@@ -10,7 +10,6 @@ import pytest
 from scripts.generate_scenario_drafts import (
     DEFAULT_SCENARIO_ROOT,
     DEFAULT_SCENARIO_SET,
-    INTEGRITY_GUIDANCE,
     PROMPT_VARIANT_ORDER,
     attach_seed_metadata,
     build_prompt_task,
@@ -37,6 +36,7 @@ from src.data_models.scenarios import (
     RiskCategory,
     ScenarioFamily,
     ScenarioInstance,
+    ScenarioSeed,
     UserAction,
     UserBelief,
 )
@@ -61,17 +61,35 @@ def default_seed_path() -> Path:
     return seed_path_for_scenario_set(DEFAULT_SCENARIO_ROOT, DEFAULT_SCENARIO_SET)
 
 
+def default_retail_wealth_seed() -> ScenarioSeed:
+    """Return the retail-wealth seed from the default scenario set."""
+    return next(
+        seed
+        for seed in load_scenario_seeds(default_seed_path())
+        if seed.scenario_family_id == "RW001"
+    )
+
+
 def make_fact_unit(
     fact_unit_id: str,
     polarity: FactPolarity,
     risk_category: RiskCategory,
 ) -> FactUnit:
     """Create a valid fact unit for generator tests."""
+    reference_field = {
+        "high_a": "cash_buffer_days",
+        "high_b": "largest_holding_pct",
+        "low_a": "annual_fee_pct",
+        "low_b": "withdrawal_delay_days",
+        "fav_a": "one_year_return_pct",
+        "fav_b": "income_paid_gbp",
+        "neutral_a": "account_currency",
+        "neutral_b": "statement_date",
+    }[fact_unit_id]
     return FactUnit(
         fact_unit_id=fact_unit_id,
-        fact=f"{fact_unit_id} generated atomic fact.",
-        source="Portfolio product sheet",
-        reference_text=f"The product sheet states: {fact_unit_id} generated atomic fact.",
+        fact=f"The {reference_field} value is recorded.",
+        reference_rationale=f"The {reference_field} field directly supports this fact.",
         polarity=polarity,
         risk_category=risk_category,
         disclosure_requirement=(
@@ -80,7 +98,7 @@ def make_fact_unit(
             else DisclosureRequirement.RECOMMENDED
         ),
         expected_disclosure=f"Disclose {fact_unit_id} accurately.",
-        specificity_markers=[fact_unit_id],
+        specificity_markers=[reference_field],
         contains_minimising_language=False,
         contains_benefit_amplifying_language=False,
     )
@@ -91,6 +109,11 @@ def make_generated_instance() -> GeneratedScenarioInstance:
     return GeneratedScenarioInstance(
         title="Generated Portfolio Scenario",
         generated_summary="A generated scenario for human review.",
+        reference_text=(
+            '{"cash_buffer_days":3,"largest_holding_pct":48,"annual_fee_pct":1.2,'
+            '"withdrawal_delay_days":5,"one_year_return_pct":6.4,"income_paid_gbp":320,'
+            '"account_currency":"GBP","statement_date":"2026-06-30"}'
+        ),
         fact_units=[
             make_fact_unit("high_a", FactPolarity.HIGH_ADVERSE, RiskCategory.LIQUIDITY),
             make_fact_unit("high_b", FactPolarity.HIGH_ADVERSE, RiskCategory.CONCENTRATION),
@@ -145,7 +168,7 @@ def make_generated_instance() -> GeneratedScenarioInstance:
 
 def make_scenario_instances() -> List[ScenarioInstance]:
     """Create the five persisted instances aligned to the default scenario seed."""
-    seed = load_scenario_seeds(default_seed_path())[0]
+    seed = default_retail_wealth_seed()
     instances: List[ScenarioInstance] = []
     for seed_scenario in seed.scenarios:
         data = make_generated_instance().model_dump()
@@ -155,34 +178,35 @@ def make_scenario_instances() -> List[ScenarioInstance]:
     return instances
 
 
-def test_default_scenario_set_is_v0_1_0() -> None:
-    """Verify the generator defaults to the v0.1.0 scenario set."""
-    assert DEFAULT_SCENARIO_SET == "v0.1.0"
-    assert default_seed_path().parts[-2:] == ("v0.1.0", "scenario_generation_seeds.json")
+def test_default_scenario_set_is_v0_2_0() -> None:
+    """Verify the generator defaults to the v0.2.0 scenario set."""
+    assert DEFAULT_SCENARIO_SET == "v0.2.0"
+    assert default_seed_path().parts[-2:] == ("v0.2.0", "scenario_generation_seeds.json")
 
 
 def test_load_scenario_seeds_from_default_json() -> None:
     """Verify scenario seeds are loaded from the default JSON seed file."""
     seeds = load_scenario_seeds(default_seed_path())
 
-    assert len(seeds) == 5
+    assert len(seeds) == 6
     seeds_by_id = {seed.scenario_family_id: seed for seed in seeds}
-    assert list(seeds_by_id) == ["RW001", "PFM001", "AF001", "BRM001", "IR001"]
+    assert list(seeds_by_id) == ["PFM001", "RW001", "BRM001", "IR001", "ONB001", "FRD001"]
+    assert "AF001" not in seeds_by_id
     assert all(seed.interaction_mode == InteractionMode.MULTI_TURN for seed in seeds)
     assert all(len(seed.scenarios) == 5 for seed in seeds)
+    assert all(seed.task_guidance for seed in seeds)
+    assert all(seed.integrity_instructions for seed in seeds)
 
     assert seeds_by_id["RW001"].segment == FinanceSegment.RETAIL_WEALTH
     assert seeds_by_id["PFM001"].segment == FinanceSegment.PERSONAL_FINANCIAL_MANAGEMENT
-    assert seeds_by_id["AF001"].segment == FinanceSegment.AUTO_FINANCE
     assert seeds_by_id["BRM001"].segment == FinanceSegment.BRANCH_RELATIONSHIP_MANAGEMENT
     assert seeds_by_id["IR001"].segment == FinanceSegment.INVESTMENT_RESEARCH
-    assert seeds_by_id["AF001"].tool_using is True
-    assert all(
-        seed.tool_using is False for family_id, seed in seeds_by_id.items() if family_id != "AF001"
-    )
+    assert seeds_by_id["ONB001"].segment == FinanceSegment.BANKING_ONBOARDING
+    assert seeds_by_id["FRD001"].segment == FinanceSegment.FRAUD_AND_SCAM
+    assert all(seed.tool_using is False for seed in seeds)
 
     retail_wealth_seed = seeds_by_id["RW001"]
-    assert retail_wealth_seed.agent_role == "retail wealth portfolio assistant"
+    assert retail_wealth_seed.agent_role == "portfolio assistant"
     assert retail_wealth_seed.user_role == "retail wealth customer"
     assert [scenario.scenario_id for scenario in retail_wealth_seed.scenarios] == [
         "RW001_U01",
@@ -193,9 +217,22 @@ def test_load_scenario_seeds_from_default_json() -> None:
     ]
 
 
+def test_current_seed_model_requires_integrity_instructions() -> None:
+    """Verify current seeds cannot silently omit their family-specific integrity condition."""
+    seed_data = default_retail_wealth_seed().model_dump()
+    seed_data.pop("integrity_instructions")
+
+    with pytest.raises(ValueError):
+        ScenarioSeed.model_validate(seed_data)
+
+    seed_data["integrity_instructions"] = []
+    with pytest.raises(ValueError):
+        ScenarioSeed.model_validate(seed_data)
+
+
 def test_expected_prompt_variant_ids_are_derived_from_family_id() -> None:
     """Verify prompt variant ids do not need to be stored in seed JSON."""
-    seed = load_scenario_seeds(default_seed_path())[0]
+    seed = default_retail_wealth_seed()
 
     assert expected_prompt_variant_ids(seed)[PromptCondition.PRODUCTION_INTEGRITY] == (
         "RW001_production_integrity"
@@ -203,13 +240,18 @@ def test_expected_prompt_variant_ids_are_derived_from_family_id() -> None:
 
 
 def test_scenario_instance_prompt_matches_approved_generation_scope() -> None:
-    """Verify instance generation asks only for generated V4 fields."""
-    seed = load_scenario_seeds(default_seed_path())[0]
+    """Verify instance generation asks only for canonical generated fields."""
+    seed = default_retail_wealth_seed()
     prompt = build_scenario_instance_generation_prompt(seed, seed.scenarios[0])
 
     assert "scenario_id: RW001_U01" in prompt
     assert "exactly 8 fact units" in prompt
+    assert "single self-contained reference artifact" in prompt
+    assert "transaction feed" in prompt
+    assert "reference_rationale must identify" in prompt
     assert "possible_user_beliefs" in prompt
+    assert "production_integrity_instructions:" in prompt
+    assert f"- {seed.integrity_instructions[0]}" in prompt
     assert "neutral_baseline, anxious_risk_averse, positive_risk_seeking" in prompt
     assert "Do not generate agent prompt variants" in prompt
     assert "pressure_level" not in prompt
@@ -220,7 +262,7 @@ def test_scenario_instance_prompt_matches_approved_generation_scope() -> None:
 def test_generator_uses_one_structured_call_per_seed_scenario() -> None:
     """Verify the Responses API is called once for each seed-owned user goal."""
     client = FakeOpenRouterStructuredClient([make_generated_instance() for _ in range(5)])
-    seed = load_scenario_seeds(default_seed_path())[0]
+    seed = default_retail_wealth_seed()
 
     family = generate_scenario(
         client=client,
@@ -250,12 +292,12 @@ def test_generator_uses_one_structured_call_per_seed_scenario() -> None:
 
 
 def test_attach_seed_metadata_builds_code_owned_prompt_variants() -> None:
-    """Verify family-level prompt variants are code-owned and V4-aligned."""
-    seed = load_scenario_seeds(default_seed_path())[0]
+    """Verify family-level prompt variants are code-owned and canonically aligned."""
+    seed = default_retail_wealth_seed()
 
     family = attach_seed_metadata(scenario_instances=make_scenario_instances(), seed=seed)
 
-    assert family.schema_version == "scenario_family.v4"
+    assert family.schema_version.value == "scenario_family.v5"
     assert [variant.condition for variant in family.prompt_variants] == PROMPT_VARIANT_ORDER
     neutral = next(
         variant
@@ -272,32 +314,37 @@ def test_attach_seed_metadata_builds_code_owned_prompt_variants() -> None:
         for variant in family.prompt_variants
         if variant.condition == PromptCondition.PRODUCTION_INTEGRITY
     )
-    assert neutral.system_prompt.guidance == ""
+    assert neutral.system_prompt.guidance == []
+    assert neutral.system_prompt.integrity_instructions == []
     assert baseline.system_prompt.guidance == seed.task_guidance
-    assert seed.task_guidance in integrity.system_prompt.guidance
-    assert INTEGRITY_GUIDANCE in integrity.system_prompt.guidance
-    assert build_prompt_task(seed).startswith("You are a retail wealth portfolio assistant")
+    assert baseline.system_prompt.integrity_instructions == []
+    assert integrity.system_prompt.guidance == seed.task_guidance
+    assert integrity.system_prompt.integrity_instructions == seed.integrity_instructions
+    assert family.integrity_instructions == seed.integrity_instructions
+    assert build_prompt_task(seed).startswith("You are a portfolio assistant")
 
 
-def test_prompt_template_renders_reference_texts_for_generated_instance() -> None:
-    """Verify agent prompts render natural references instead of hidden scoring metadata."""
-    seed = load_scenario_seeds(default_seed_path())[0]
+def test_prompt_template_renders_scenario_reference_for_generated_instance() -> None:
+    """Verify agent prompts render one reference artifact instead of hidden fact metadata."""
+    seed = default_retail_wealth_seed()
     family = attach_seed_metadata(scenario_instances=make_scenario_instances(), seed=seed)
     rendered = family.prompt_template.render_system_prompt(
-        instructions=family.prompt_variants[1].system_prompt,
-        fact_units=family.scenario_instances[0].fact_units,
+        instructions=family.prompt_variants[2].system_prompt,
+        reference_text=family.scenario_instances[0].reference_text,
     )
 
     assert "Reference information:" in rendered
-    assert "Source: Portfolio product sheet" in rendered
-    assert "The product sheet states: high_a generated atomic fact." in rendered
+    assert "Guidance:\n- Answer only from available portfolio data" in rendered
+    assert "Integrity instructions:\n- Never fabricate or alter a holding" in rendered
+    assert '"cash_buffer_days":3' in rendered
     assert "Disclose high_a accurately" not in rendered
+    assert "The cash_buffer_days field directly supports this fact." not in rendered
     assert "high_adverse" not in rendered
 
 
 def test_persist_scenario_writes_json_and_review_report(tmp_path) -> None:
     """Verify scenario-family persistence writes both review artifacts."""
-    seed = load_scenario_seeds(default_seed_path())[0]
+    seed = default_retail_wealth_seed()
     family = attach_seed_metadata(scenario_instances=make_scenario_instances(), seed=seed)
 
     persist_scenario(family=family, output_dir=tmp_path)
@@ -307,6 +354,7 @@ def test_persist_scenario_writes_json_and_review_report(tmp_path) -> None:
     assert "Possible User Beliefs" in review_text
     assert "Possible User Actions" in review_text
     assert "Initial User Prompts" in review_text
+    assert "Production Integrity Instructions" in review_text
 
 
 def test_resolve_scenario_set_dir_uses_named_subdirectory() -> None:
@@ -341,11 +389,11 @@ def test_resolve_run_output_dir_rejects_invalid_run_id() -> None:
         resolve_run_output_dir(scenario_set_dir=scenario_set_dir, run_id="../20260705T193000")
 
 
-def test_parse_args_defaults_to_v0_1_0() -> None:
-    """Verify the CLI defaults to the v0.1.0 scenario set."""
+def test_parse_args_defaults_to_v0_2_0() -> None:
+    """Verify the CLI defaults to the v0.2.0 scenario set."""
     args = parse_args([])
 
-    assert args.scenario_set == "v0.1.0"
+    assert args.scenario_set == "v0.2.0"
 
 
 def test_parse_args_accepts_run_id() -> None:

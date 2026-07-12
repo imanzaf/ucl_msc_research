@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from src.data_models.experiments import ExperimentStage, ExperimentUsageSummary, GenerationConfig
+from src.data_models.scenarios import GeneratedScenarioInstance
 from src.data_models.user_simulator import UserSimulatorTurnOutput
 from src.llm.cache import LLMCallCache, build_cache_key
-from src.llm.openrouter import OpenRouterStructuredClient
+from src.llm.openrouter import OpenRouterStructuredClient, openrouter_response_format
 
 
 class FakeChatCompletions:
@@ -140,6 +141,42 @@ def test_structured_call_retries_after_invalid_json(tmp_path) -> None:
 def test_cache_key_is_stable_for_sorted_payloads() -> None:
     """Verify cache keys ignore dictionary insertion order."""
     assert build_cache_key({"b": 2, "a": 1}) == build_cache_key({"a": 1, "b": 2})
+
+
+def test_response_format_requires_every_nested_property() -> None:
+    """Verify Pydantic defaults are converted to strict structured-output requirements."""
+    response_format = openrouter_response_format(GeneratedScenarioInstance)
+    schema = response_format["json_schema"]["schema"]
+    fact_unit_schema = schema["$defs"]["FactUnit"]
+
+    assert set(fact_unit_schema["required"]) == set(fact_unit_schema["properties"])
+    assert "specificity_markers" in fact_unit_schema["required"]
+    assert "default" not in fact_unit_schema["properties"]["specificity_markers"]
+    assert fact_unit_schema["additionalProperties"] is False
+    assert "$ref" not in fact_unit_schema["properties"]["polarity"]
+
+
+def test_session_id_is_nested_in_supported_metadata(tmp_path) -> None:
+    """Verify session identifiers are not sent as unsupported top-level completion arguments."""
+    fake_client = FakeClient([make_response("Metadata accepted.")])
+    client = OpenRouterStructuredClient(
+        client=fake_client,
+        cache=LLMCallCache(tmp_path),
+        max_retries=0,
+    )
+
+    client.complete_text(
+        stage=ExperimentStage.AGENT_RESPONSE,
+        model_id="openai/gpt-5.5",
+        messages=[{"role": "user", "content": "Answer"}],
+        generation_config=GenerationConfig(),
+        prompt_version="metadata_prompt_v1",
+        metadata={"session_id": "session-123", "stage": "agent_response"},
+    )
+
+    request = fake_client.completions.calls[0]
+    assert request["metadata"]["session_id"] == "session-123"
+    assert "session_id" not in request
 
 
 def test_usage_summary_excludes_local_cache_hits_from_actual_spend(tmp_path) -> None:

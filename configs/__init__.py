@@ -1,3 +1,3 @@
-from configs.api_settings import APISettings, get_api_settings
+from configs.api_settings import APISettings, OpenRouterCredentialRole, get_api_settings
 
-__all__ = ["APISettings", "get_api_settings"]
+__all__ = ["APISettings", "OpenRouterCredentialRole", "get_api_settings"]

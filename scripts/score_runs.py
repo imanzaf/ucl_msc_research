@@ -13,13 +13,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from configs.api_settings import get_api_settings  # noqa: E402
+from configs.api_settings import OpenRouterCredentialRole, get_api_settings  # noqa: E402
 from configs.model_settings import get_model_settings  # noqa: E402
 from src.data_models.experiments import ExperimentConfig, GenerationConfig  # noqa: E402
 from src.experiments.assets import generate_paper_assets  # noqa: E402
 from src.experiments.io import create_timestamped_run_id, prepare_experiment_dir  # noqa: E402
 from src.experiments.model_catalog import (  # noqa: E402
-    default_agent_model_ids,
+    load_model_catalog,
+    resolve_agent_model_ids,
     validate_model_ids_against_openrouter,
 )
 from src.experiments.scoring_pipeline import score_scenario_runs  # noqa: E402
@@ -89,13 +90,14 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
 def build_experiment_config(args: argparse.Namespace) -> ExperimentConfig:
     """Build a typed experiment config from CLI arguments and settings."""
     model_settings = get_model_settings()
-    agent_models = args.agent_model or default_agent_model_ids()
+    model_catalog = load_model_catalog()
+    agent_models = resolve_agent_model_ids(model_catalog, args.agent_model)
     return ExperimentConfig(
         experiment_name=args.experiment_name,
         scenario_run_dir=str(Path(args.scenario_run_dir).resolve()),
         agent_model_ids=agent_models,
-        user_simulator_model=model_settings.user_simulator_model,
-        scoring_model=model_settings.scoring_model,
+        user_simulator_model=model_catalog.user_model.model_id,
+        scoring_model=model_catalog.scoring_model.model_id,
         generation_config=GenerationConfig(
             temperature=model_settings.openrouter_temperature,
             seed=model_settings.openrouter_seed,
@@ -123,17 +125,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         validate_model_ids_against_openrouter(
             model_ids=[experiment_config.scoring_model],
             api_settings=api_settings,
+            credential_role=OpenRouterCredentialRole.SCORING,
             timeout_seconds=model_settings.openrouter_request_timeout_seconds,
         )
-    client = OpenRouterStructuredClient.from_settings(
+    scoring_client = OpenRouterStructuredClient.from_settings(
         api_settings=api_settings,
         model_settings=model_settings,
+        credential_role=OpenRouterCredentialRole.SCORING,
         cache_dir=experiment_dir / "cache" / "llm_calls",
         cache_enabled=experiment_config.cache_enabled,
         refresh_cache=experiment_config.refresh_cache,
     )
     score_scenario_runs(
-        client=client,
+        client=scoring_client,
         experiment_root=Path(args.experiment_root),
         experiment_config=experiment_config,
         run_unit_ids=args.run_unit_id,

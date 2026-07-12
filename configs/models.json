@@ -1,6 +1,6 @@
 {
-  "schema_version": "4.0",
-  "description": "Role-specific OpenRouter model configuration for the V4 deception detection pipeline. Agent models are the models under test. User, scoring, and scenario-generation models are fixed pipeline support roles.",
+  "schema_version": "5.0",
+  "description": "Canonical role-specific OpenRouter model configuration for the deception detection pipeline. Agent models are the models under test. User, scoring, and scenario-generation models are fixed pipeline support roles.",
   "agent_models": [
     {
       "name": "GPT 5.5",
@@ -58,10 +58,10 @@
     "priority": "secondary"
   },
   "scenario_generator_model": {
-    "name": "GPT 5.4",
-    "model_id": "openai/gpt-5.4",
+    "name": "GPT 5.4 Mini",
+    "model_id": "openai/gpt-5.4-mini",
     "provider": "OpenAI",
-    "provider_url": "https://openrouter.ai/openai/gpt-5.4",
+    "provider_url": "https://openrouter.ai/openai/gpt-5.4-mini",
     "access": "openrouter",
     "weight_type": "closed",
     "priority": "secondary"

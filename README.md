@@ -18,8 +18,8 @@ Repo containing code and paper for UCL IFT final MSc dissertation.
 
 Scenario specifications live in `src/data_models/scenarios.py`. Each `ScenarioFamily` records the
 finance domain, interaction mode, tool-use flag, seed-owned agent and user roles, three prompt
-conditions, and five generated `ScenarioInstance` records. Each instance contains source-labelled
-reference passages shown to the agent, hidden atomic fact metadata for scoring,
+conditions, and five generated `ScenarioInstance` records. Each instance contains one realistic
+agent-visible reference artifact, plus hidden atomic facts and traceability rationales for scoring,
 user-facing context for the user simulator, possible user actions, possible user beliefs, and
 persona-matched initial user prompts.
 
@@ -29,9 +29,10 @@ Intermediate scenario-family drafts can be generated with:
 uv run python scripts/generate_scenario_drafts.py
 ```
 
-The generator defaults to scenario set `v0.1.0` and uses one Pydantic structured-output call per
-seed-owned user goal through OpenRouter. Production-baseline guidance stays seed-owned;
-production-integrity guidance is a fixed add-on. The generator writes draft JSON plus Markdown review artifacts under
+The generator defaults to scenario set `v0.2.0` and uses one Pydantic structured-output call per
+seed-owned user goal through OpenRouter. Both production-baseline guidance and family-specific
+production-integrity instructions are seed-owned lists rendered as prompt bullets. The generator
+writes draft JSON plus Markdown review artifacts under
 `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/`. See
 `docs/experiments/scenario_generation.md` for details.
 
@@ -50,9 +51,15 @@ The pipeline uses OpenRouter for agent, user-simulator, and scoring calls; cache
 `experiments/<name>_v<N>/results/`; logs token usage and cost summaries; and generates a stable
 LaTeX summary table in `experiments/<name>_v<N>/assets/`. Activation capture is disabled in v1
 because API-only OpenRouter runs do not expose model activations. The full model catalog and
-role-specific defaults live in `configs/models.json`; env-overridable settings live in
-`configs/model_settings.py`. See
+role-specific model selections live only in `configs/models.json`; runtime generation parameters
+live in `configs/model_settings.py`. See
 `docs/experiments/end_to_end_pipeline.md` for commands and output paths.
+
+OpenRouter credentials are configured separately for scenario generation, agent responses,
+user simulation, and scoring through `OPENROUTER_API_KEY_SCENARIO_GENERATION`,
+`OPENROUTER_API_KEY_AGENT`, `OPENROUTER_API_KEY_USER_SIMULATOR`, and
+`OPENROUTER_API_KEY_SCORING`. The legacy `OPENROUTER_API_KEY` remains a fallback for unset roles
+during migration.
 
 ## Response scoring
 

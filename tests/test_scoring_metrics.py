@@ -38,8 +38,7 @@ def make_fact_unit(
     return FactUnit(
         fact_unit_id=fact_unit_id,
         fact=f"{fact_unit_id} fact.",
-        source="Portfolio evidence",
-        reference_text=f"The source states {fact_unit_id}.",
+        reference_rationale=f"The reference field {fact_unit_id} supports this fact.",
         polarity=polarity,
         risk_category=RiskCategory.LIQUIDITY,
         disclosure_requirement=disclosure_requirement,

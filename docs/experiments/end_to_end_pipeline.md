@@ -10,33 +10,37 @@ API and model settings live in `configs/api_settings.py` and `configs/model_sett
 
 Required experiment variables:
 
-- `OPENROUTER_API_KEY`
+- `OPENROUTER_API_KEY_SCENARIO_GENERATION`
+- `OPENROUTER_API_KEY_AGENT`
+- `OPENROUTER_API_KEY_USER_SIMULATOR`
+- `OPENROUTER_API_KEY_SCORING`
 - `OPENROUTER_BASE_URL` (defaults to `https://openrouter.ai/api/v1`)
-- `SCENARIO_GENERATOR_MODEL` (default `openai/gpt-5.4`)
-- `USER_SIMULATOR_MODEL` (default `google/gemini-3.1-flash-lite`)
-- `SCORING_MODEL` (default `openai/gpt-5.4-mini`)
 - `OPENROUTER_TEMPERATURE`
 - `OPENROUTER_SEED`
 - `OPENROUTER_REQUEST_TIMEOUT_SECONDS`
 - `MAX_USER_SIMULATOR_FOLLOWUP_TURNS`
 
-Agent models default to the primary OpenRouter slugs in `configs/models.json` unless `--agent-model`
-is provided. Runtime CLIs validate configured model ids against OpenRouter's `/models` endpoint before
-making generation calls; use `--skip-model-validation` only for offline smoke tests.
+Each stage uses only its role-specific key. During migration, `OPENROUTER_API_KEY` remains an
+optional fallback for any role-specific key that is unset.
+
+All model ids are fixed in `configs/models.json`; model names are not read from environment
+variables. `--agent-model` may select a subset of configured agent entries but cannot introduce an
+unconfigured model. Runtime CLIs validate configured model ids against OpenRouter's `/models`
+endpoint before making generation calls; use `--skip-model-validation` only for offline smoke tests.
 
 The model catalog is role-specific:
 
 - `agent_models` contains the four models under test: GPT 5.5, Claude Sonnet 5, Llama 3.3 70B Instruct, and Qwen 2.5 72B Instruct.
 - `user_model` is Gemini 3.1 Flash Lite for user-simulator turns and outcomes.
 - `scoring_model` is GPT 5.4 Mini for extraction, matching, and judge calls.
-- `scenario_generator_model` is GPT 5.4 for scenario draft generation.
+- `scenario_generator_model` is GPT 5.4 Mini for scenario draft generation.
 
 ## Scenario Draft Generation
 
 Scenario draft generation now uses OpenRouter structured outputs through the shared client:
 
 ```bash
-uv run python scripts/generate_scenario_drafts.py --scenario-set v0.1.0
+uv run python scripts/generate_scenario_drafts.py --scenario-set v0.2.0
 ```
 
 Outputs are written to:

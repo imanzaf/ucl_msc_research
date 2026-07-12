@@ -1,13 +1,14 @@
-"""Pydantic models for V4 financial risk-communication scenario generation."""
+"""Pydantic models for canonical financial risk-communication scenario generation."""
 
 from __future__ import annotations
 
+import re
 from enum import Enum
-from typing import Dict, List
+from typing import Annotated, Dict, List
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
-from src.prompts.scenarios.agent_source_reference import REFERENCE_TEXT_TEMPLATE, SYSTEM_TEMPLATE
+from src.prompts.scenarios.agent_source_reference import SYSTEM_TEMPLATE
 
 
 class FactPolarity(str, Enum):
@@ -34,8 +35,36 @@ REQUIRED_PERSONA_PROMPT_KEYS = [
 ]
 
 
+def normalize_instruction_list(value: object) -> object:
+    """Convert legacy string instructions to the list representation used by current scenarios."""
+    if not isinstance(value, str):
+        return value
+    if not value.strip():
+        return []
+    return [value.strip()]
+
+
+def render_instruction_list(instructions: List[str]) -> str:
+    """Render prompt instructions as a Markdown-style bullet list."""
+    return "\n".join(f"- {instruction}" for instruction in instructions)
+
+
+def validate_instruction_list(instructions: List[str]) -> List[str]:
+    """Reject blank instruction items that would create malformed prompt lists."""
+    if any(not instruction.strip() for instruction in instructions):
+        raise ValueError("prompt instruction items must not be blank")
+    return instructions
+
+
+InstructionList = Annotated[
+    List[str],
+    BeforeValidator(normalize_instruction_list),
+    AfterValidator(validate_instruction_list),
+]
+
+
 def validate_required_fact_units(fact_units: List["FactUnit"]) -> None:
-    """Ensure fact units match the required V4 polarity counts and have unique identifiers."""
+    """Ensure fact units match the required polarity counts and have unique identifiers."""
     polarity_counts: Dict[FactPolarity, int] = {
         polarity: 0 for polarity in REQUIRED_FACT_UNIT_COUNTS
     }
@@ -62,9 +91,10 @@ class FinanceSegment(str, Enum):
 
     RETAIL_WEALTH = "retail_wealth"
     PERSONAL_FINANCIAL_MANAGEMENT = "personal_financial_management"
-    AUTO_FINANCE = "auto_finance"
     BRANCH_RELATIONSHIP_MANAGEMENT = "branch_relationship_management"
     INVESTMENT_RESEARCH = "investment_research"
+    BANKING_ONBOARDING = "banking_onboarding"
+    FRAUD_AND_SCAM = "fraud_and_scam"
 
 
 class InteractionMode(str, Enum):
@@ -80,6 +110,12 @@ class PromptCondition(str, Enum):
     NEUTRAL = "neutral"
     PRODUCTION_BASELINE = "production_baseline"
     PRODUCTION_INTEGRITY = "production_integrity"
+
+
+class ScenarioSchemaVersion(str, Enum):
+    """Identify the canonical persisted scenario-family schema."""
+
+    V5 = "scenario_family.v5"
 
 
 class RiskCategory(str, Enum):
@@ -116,7 +152,7 @@ class BeliefSupport(str, Enum):
 
 
 class FactUnit(BaseModel):
-    """Describe one generated atomic fact and its natural evidence passage."""
+    """Describe one hidden atomic fact derived from the scenario reference artifact."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -128,13 +164,9 @@ class FactUnit(BaseModel):
         min_length=1,
         description="Atomic fact derived from the reference text.",
     )
-    source: str = Field(
+    reference_rationale: str = Field(
         min_length=1,
-        description="Human-readable label for the natural source of the reference text.",
-    )
-    reference_text: str = Field(
-        min_length=1,
-        description="Natural evidence passage shown to the agent model.",
+        description="Hidden rationale identifying where and how the scenario reference supports the fact.",
     )
     polarity: FactPolarity = Field(
         description="Valence and disclosure materiality of the fact unit.",
@@ -154,10 +186,10 @@ class FactUnit(BaseModel):
         description="Concrete details that should be preserved for accurate disclosure.",
     )
     contains_minimising_language: bool = Field(
-        description="Whether the reference text itself uses risk-softening wording.",
+        description="Whether the reference wording supporting this fact uses risk-softening language.",
     )
     contains_benefit_amplifying_language: bool = Field(
-        description="Whether the reference text itself uses promotional or amplifying wording.",
+        description="Whether the reference wording supporting this fact uses promotional wording.",
     )
 
 
@@ -174,9 +206,13 @@ class PromptInstructions(BaseModel):
         min_length=1,
         description="Task the agent model should perform.",
     )
-    guidance: str = Field(
-        default="",
+    guidance: InstructionList = Field(
+        default_factory=list,
         description="Condition-specific guidance; empty for the neutral prompt condition.",
+    )
+    integrity_instructions: InstructionList = Field(
+        default_factory=list,
+        description="Seed-owned integrity instructions added only to the production-integrity condition.",
     )
 
 
@@ -198,21 +234,17 @@ class PromptVariant(BaseModel):
 
 
 class PromptTemplate(BaseModel):
-    """Render agent prompts with source-labelled reference evidence."""
+    """Render agent prompts with one scenario-level reference artifact."""
 
     model_config = ConfigDict(extra="forbid")
 
     template_id: str = Field(
-        default="source_reference_prompt_v1",
-        description="Stable identifier for the V4 prompt rendering template.",
+        default="single_reference_prompt_v2",
+        description="Stable identifier for the canonical prompt rendering template.",
     )
     system_template: str = Field(
         default=SYSTEM_TEMPLATE,
         description="System prompt template populated with role, task, guidance, and references.",
-    )
-    reference_text_template: str = Field(
-        default=REFERENCE_TEXT_TEMPLATE,
-        description="Template used to render one source-labelled reference passage.",
     )
 
     @model_validator(mode="after")
@@ -222,42 +254,37 @@ class PromptTemplate(BaseModel):
             "{agent_role}",
             "{agent_task}",
             "{guidance_block}",
-            "{reference_texts}",
+            "{reference_text}",
         ]:
             if placeholder not in self.system_template:
                 raise ValueError(f"system_template must contain {placeholder}")
-        for placeholder in ["{source}", "{reference_text}"]:
-            if placeholder not in self.reference_text_template:
-                raise ValueError(f"reference_text_template must contain {placeholder}")
         return self
 
-    def render_reference_texts(self, fact_units: List[FactUnit]) -> str:
-        """Render the model-visible reference passages from generated fact units."""
-        return "\n\n".join(
-            self.reference_text_template.format(
-                source=fact_unit.source,
-                reference_text=fact_unit.reference_text,
-            )
-            for fact_unit in fact_units
-        )
-
     def render_guidance_block(self, instructions: PromptInstructions) -> str:
-        """Render the optional guidance block used outside the neutral prompt condition."""
-        if not instructions.guidance:
+        """Render optional guidance and integrity blocks as prompt-ready lists."""
+        blocks: List[str] = []
+        if instructions.guidance:
+            blocks.append(f"Guidance:\n{render_instruction_list(instructions.guidance)}")
+        if instructions.integrity_instructions:
+            blocks.append(
+                "Integrity instructions:\n"
+                f"{render_instruction_list(instructions.integrity_instructions)}"
+            )
+        if not blocks:
             return ""
-        return f"Guidance:\n{instructions.guidance}\n\n"
+        return "\n\n".join(blocks) + "\n\n"
 
     def render_system_prompt(
         self,
         instructions: PromptInstructions,
-        fact_units: List[FactUnit],
+        reference_text: str,
     ) -> str:
-        """Render a system prompt by injecting source-labelled reference passages."""
+        """Render a system prompt by injecting the complete scenario reference artifact."""
         return self.system_template.format(
             agent_role=instructions.agent_role,
             agent_task=instructions.agent_task,
             guidance_block=self.render_guidance_block(instructions),
-            reference_texts=self.render_reference_texts(fact_units),
+            reference_text=reference_text,
         )
 
 
@@ -333,6 +360,10 @@ class GeneratedScenarioInstance(BaseModel):
         min_length=1,
         description="One- to two-sentence summary of the user goal and decision context.",
     )
+    reference_text: str = Field(
+        min_length=1,
+        description="Complete agent-visible reference artifact in its realistic native presentation.",
+    )
     fact_units: List[FactUnit] = Field(
         min_length=REQUIRED_FACT_UNIT_TOTAL,
         max_length=REQUIRED_FACT_UNIT_TOTAL,
@@ -356,11 +387,21 @@ class GeneratedScenarioInstance(BaseModel):
 
     @model_validator(mode="after")
     def validate_generated_instance_constraints(self) -> "GeneratedScenarioInstance":
-        """Ensure generated scenario-instance content matches V4 benchmark constraints."""
+        """Ensure generated scenario-instance content matches canonical benchmark constraints."""
         validate_required_fact_units(self.fact_units)
+        self._validate_reference_excludes_fact_unit_ids()
         self._validate_user_harm_spaces()
         self._validate_initial_user_prompt()
         return self
+
+    def _validate_reference_excludes_fact_unit_ids(self) -> None:
+        """Prevent hidden fact identifiers from leaking into the agent-visible reference artifact."""
+        for fact_unit in self.fact_units:
+            identifier_pattern = (
+                rf"(?<![A-Za-z0-9_]){re.escape(fact_unit.fact_unit_id)}(?![A-Za-z0-9_])"
+            )
+            if re.search(identifier_pattern, self.reference_text, flags=re.IGNORECASE):
+                raise ValueError("reference_text must not expose hidden fact_unit_id values")
 
     def _validate_user_harm_spaces(self) -> None:
         """Ensure generated action and belief spaces are useful for downstream harm measurement."""
@@ -417,13 +458,13 @@ class ScenarioInstance(GeneratedScenarioInstance):
 
 
 class ScenarioFamily(BaseModel):
-    """Define one persisted V4 scenario family containing five generated instances."""
+    """Define one persisted canonical scenario family containing five generated instances."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = Field(
-        default="scenario_family.v4",
-        description="Schema version for persisted V4 scenario-family artifacts.",
+    schema_version: ScenarioSchemaVersion = Field(
+        default=ScenarioSchemaVersion.V5,
+        description="Schema version for persisted canonical scenario-family artifacts.",
     )
     scenario_family_id: str = Field(
         min_length=1,
@@ -446,9 +487,13 @@ class ScenarioFamily(BaseModel):
         min_length=1,
         description="Task the agent model should perform.",
     )
-    task_guidance: str = Field(
+    task_guidance: InstructionList = Field(
         min_length=1,
         description="Seed-owned production-baseline guidance.",
+    )
+    integrity_instructions: InstructionList = Field(
+        min_length=1,
+        description="Seed-owned integrity instructions for the production-integrity condition.",
     )
     user_role: str = Field(
         min_length=1,
@@ -466,12 +511,12 @@ class ScenarioFamily(BaseModel):
     )
     prompt_template: PromptTemplate = Field(
         default_factory=PromptTemplate,
-        description="Code-owned template used to render prompt variants with reference passages.",
+        description="Code-owned template used to render prompt variants with the scenario reference.",
     )
 
     @model_validator(mode="after")
     def validate_family_constraints(self) -> "ScenarioFamily":
-        """Ensure the persisted family artifact matches the V4 scenario-generation design."""
+        """Ensure the persisted family artifact matches the canonical scenario-generation design."""
         self._validate_prompt_variants()
         self._validate_scenario_instance_ids()
         self._validate_prompt_fields_exclude_generated_evidence()
@@ -489,8 +534,28 @@ class ScenarioFamily(BaseModel):
             raise ValueError(
                 "prompt_variants must contain exactly neutral, production_baseline, and production_integrity"
             )
+        variants_by_condition = {variant.condition: variant for variant in self.prompt_variants}
         for variant in self.prompt_variants:
             variant.prompt_variant_id = f"{self.scenario_family_id}_{variant.condition.value}"
+            if variant.system_prompt.agent_role != self.agent_role:
+                raise ValueError("prompt variant agent_role must match the scenario family")
+            if variant.system_prompt.agent_task != self.agent_task:
+                raise ValueError("prompt variant agent_task must match the scenario family")
+
+        neutral = variants_by_condition[PromptCondition.NEUTRAL].system_prompt
+        baseline = variants_by_condition[PromptCondition.PRODUCTION_BASELINE].system_prompt
+        integrity = variants_by_condition[PromptCondition.PRODUCTION_INTEGRITY].system_prompt
+        if neutral.guidance or neutral.integrity_instructions:
+            raise ValueError(
+                "neutral prompt variant must not contain guidance or integrity instructions"
+            )
+        if baseline.guidance != self.task_guidance or baseline.integrity_instructions:
+            raise ValueError("production-baseline prompt must contain only family task guidance")
+        if (
+            integrity.guidance != self.task_guidance
+            or integrity.integrity_instructions != self.integrity_instructions
+        ):
+            raise ValueError("production-integrity prompt must contain all family instructions")
 
     def _validate_scenario_instance_ids(self) -> None:
         """Ensure generated scenario instance ids are unique within the family."""
@@ -506,18 +571,21 @@ class ScenarioFamily(BaseModel):
                 [
                     variant.system_prompt.agent_role,
                     variant.system_prompt.agent_task,
-                    variant.system_prompt.guidance,
+                    *variant.system_prompt.guidance,
+                    *variant.system_prompt.integrity_instructions,
                 ]
             )
         combined_prompt_text = "\n".join(prompt_texts)
         for instance in self.scenario_instances:
+            if instance.reference_text in combined_prompt_text:
+                raise ValueError("prompt variants must not inline scenario reference text")
             for fact_unit in instance.fact_units:
                 if (
                     fact_unit.fact_unit_id in combined_prompt_text
                     or fact_unit.fact in combined_prompt_text
-                    or fact_unit.reference_text in combined_prompt_text
+                    or fact_unit.reference_rationale in combined_prompt_text
                 ):
-                    raise ValueError("prompt variants must not inline fact units or reference text")
+                    raise ValueError("prompt variants must not inline hidden fact-unit metadata")
 
 
 class ScenarioSeedScenario(BaseModel):
@@ -536,7 +604,7 @@ class ScenarioSeedScenario(BaseModel):
 
 
 class ScenarioSeed(BaseModel):
-    """Describe seed data that is allowed to condition V4 scenario generation."""
+    """Describe seed data that is allowed to condition canonical scenario generation."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -561,9 +629,13 @@ class ScenarioSeed(BaseModel):
         min_length=1,
         description="Seed-controlled task used in all prompt conditions.",
     )
-    task_guidance: str = Field(
+    task_guidance: InstructionList = Field(
         min_length=1,
         description="Seed-owned production-baseline guidance.",
+    )
+    integrity_instructions: InstructionList = Field(
+        min_length=1,
+        description="Seed-owned integrity instructions for the production-integrity condition.",
     )
     user_role: str = Field(
         min_length=1,

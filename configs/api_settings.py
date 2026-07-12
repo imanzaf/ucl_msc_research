@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+from enum import Enum
 from functools import lru_cache
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class OpenRouterCredentialRole(str, Enum):
+    """Identify the pipeline role assigned to an OpenRouter API key."""
+
+    SCENARIO_GENERATION = "scenario_generation"
+    AGENT = "agent"
+    USER_SIMULATOR = "user_simulator"
+    SCORING = "scoring"
 
 
 class APISettings(BaseSettings):
@@ -44,15 +54,30 @@ class APISettings(BaseSettings):
         description="OpenAI API key used by the research auditor agent.",
     )
 
-    openai_api_key_scenario_generator: str = Field(
+    openrouter_api_key_scenario_generation: str = Field(
         default="",
-        validation_alias="OPENAI_API_KEY_SCENARIO_GENERATOR",
-        description="OpenAI API key used by the scenario generation pipeline.",
+        validation_alias="OPENROUTER_API_KEY_SCENARIO_GENERATION",
+        description="OpenRouter API key used by the scenario generation pipeline.",
+    )
+    openrouter_api_key_agent: str = Field(
+        default="",
+        validation_alias="OPENROUTER_API_KEY_AGENT",
+        description="OpenRouter API key used for agent response calls.",
+    )
+    openrouter_api_key_user_simulator: str = Field(
+        default="",
+        validation_alias="OPENROUTER_API_KEY_USER_SIMULATOR",
+        description="OpenRouter API key used for user-simulator calls.",
+    )
+    openrouter_api_key_scoring: str = Field(
+        default="",
+        validation_alias="OPENROUTER_API_KEY_SCORING",
+        description="OpenRouter API key used for scoring calls.",
     )
     openrouter_api_key: str = Field(
         default="",
         validation_alias="OPENROUTER_API_KEY",
-        description="OpenRouter API key used by all v1 experiment API calls.",
+        description="Legacy shared OpenRouter key used only when a role-specific key is unset.",
     )
     openrouter_base_url: str = Field(
         default="https://openrouter.ai/api/v1",
@@ -98,21 +123,6 @@ class APISettings(BaseSettings):
             raise ValueError("OPENAI_API_KEY_RESEARCH_AUDITOR must be set in .env.static or .env")
         return v
 
-    @field_validator("openai_api_key_scenario_generator")
-    @classmethod
-    def openai_scenario_generator_key_must_be_set(cls, v: str) -> str:
-        if not v:
-            raise ValueError("OPENAI_API_KEY_SCENARIO_GENERATOR must be set in .env.static or .env")
-        return v
-
-    @field_validator("openrouter_api_key")
-    @classmethod
-    def openrouter_key_must_be_set(cls, v: str) -> str:
-        """Ensure OpenRouter-backed experiment calls have an API key configured."""
-        if not v:
-            raise ValueError("OPENROUTER_API_KEY must be set in .env.static or .env")
-        return v
-
     @field_validator("openrouter_base_url")
     @classmethod
     def openrouter_base_url_must_be_set(cls, v: str) -> str:
@@ -120,6 +130,37 @@ class APISettings(BaseSettings):
         if not v:
             raise ValueError("OPENROUTER_BASE_URL must be set in .env.static or .env")
         return v.rstrip("/")
+
+    @model_validator(mode="after")
+    def populate_openrouter_role_key_fallbacks(self) -> "APISettings":
+        """Fill unset role keys from the legacy shared OpenRouter key or reject the configuration."""
+        role_fields = [
+            "openrouter_api_key_scenario_generation",
+            "openrouter_api_key_agent",
+            "openrouter_api_key_user_simulator",
+            "openrouter_api_key_scoring",
+        ]
+        missing_fields = [field_name for field_name in role_fields if not getattr(self, field_name)]
+        if not missing_fields:
+            return self
+        if not self.openrouter_api_key:
+            missing_aliases = [field_name.upper() for field_name in missing_fields]
+            raise ValueError(
+                "OpenRouter API keys must be set for these roles: " + ", ".join(missing_aliases)
+            )
+        for field_name in missing_fields:
+            setattr(self, field_name, self.openrouter_api_key)
+        return self
+
+    def openrouter_api_key_for(self, credential_role: OpenRouterCredentialRole) -> str:
+        """Return the OpenRouter API key assigned to a pipeline credential role."""
+        keys_by_role = {
+            OpenRouterCredentialRole.SCENARIO_GENERATION: self.openrouter_api_key_scenario_generation,
+            OpenRouterCredentialRole.AGENT: self.openrouter_api_key_agent,
+            OpenRouterCredentialRole.USER_SIMULATOR: self.openrouter_api_key_user_simulator,
+            OpenRouterCredentialRole.SCORING: self.openrouter_api_key_scoring,
+        }
+        return keys_by_role[credential_role]
 
 
 @lru_cache(maxsize=1)
