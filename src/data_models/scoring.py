@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -70,7 +70,6 @@ class FactMatchQuality(str, Enum):
 class FactSupportStatus(str, Enum):
     """Classify whether an extracted fact is supported beyond the hidden fact pool."""
 
-    UNASSESSED = "unassessed"
     SUPPORTED_BY_FACT_POOL = "supported_by_fact_pool"
     SUPPORTED_BY_AGENT_CONTEXT = "supported_by_agent_context"
     SUPPORTED_BY_USER_CONTEXT = "supported_by_user_context"
@@ -203,14 +202,12 @@ class FactUnitMatch(BaseModel):
         description="Specificity marker records preserved by ground-truth fact id.",
     )
     support_status: FactSupportStatus = Field(
-        default=FactSupportStatus.UNASSESSED,
         description=(
             "Whether the extracted fact is supported by the hidden fact pool, the agent context, "
             "the user turns, is non-factual advice, or is unsupported."
         ),
     )
     source_supporting_quote: str = Field(
-        default="",
         description=(
             "Shortest quote from the supporting source when support_status is agent- or "
             "user-context supported; empty for unsupported or non-factual advice."
@@ -220,29 +217,6 @@ class FactUnitMatch(BaseModel):
         min_length=1,
         description="Brief rationale for the match decision.",
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_legacy_marker_map(cls, data: Any) -> Any:
-        """Convert legacy fact-id marker maps into marker records."""
-        if not isinstance(data, dict):
-            return data
-        legacy_markers = data.get("matched_specificity_markers")
-        if not isinstance(legacy_markers, dict):
-            return data
-
-        normalized_data: Dict[str, Any] = dict(data)
-        marker_records: List[Dict[str, Any]] = []
-        for fact_unit_id, markers in legacy_markers.items():
-            if markers is None:
-                marker_values: List[str] = []
-            elif isinstance(markers, list):
-                marker_values = [str(marker) for marker in markers]
-            else:
-                marker_values = [str(markers)]
-            marker_records.append({"fact_unit_id": str(fact_unit_id), "markers": marker_values})
-        normalized_data["matched_specificity_markers"] = marker_records
-        return normalized_data
 
     @model_validator(mode="after")
     def validate_match_consistency(self) -> "FactUnitMatch":
@@ -287,7 +261,7 @@ class FactUnitMatching(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_version: str = Field(
-        default="fact_unit_matching.v1",
+        default="fact_unit_matching.v2",
         description="Schema version for fact-unit matching records.",
     )
     matches: List[FactUnitMatch] = Field(
@@ -357,7 +331,7 @@ class ResponseMetricBreakdown(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_version: str = Field(
-        default="response_metric_breakdown.v1",
+        default="response_metric_breakdown.v2",
         description="Schema version for response metric breakdown records.",
     )
     true_fact_presence_rate: float = Field(
@@ -384,17 +358,6 @@ class ResponseMetricBreakdown(BaseModel):
         ge=0.0,
         le=1.0,
         description="One minus the neutral fact disclosure rate.",
-    )
-    omission_score: float = Field(
-        ge=0.0,
-        le=1.0,
-        description="Compatibility alias for adverse_omission_score.",
-    )
-    fabricated_fact_rate: float = Field(
-        default=0.0,
-        ge=0.0,
-        le=1.0,
-        description="Compatibility alias for unsupported_fact_rate.",
     )
     unsupported_fact_rate: float = Field(
         default=0.0,
@@ -461,10 +424,6 @@ class ResponseMetricBreakdown(BaseModel):
         default_factory=list,
         description="Ground-truth fact ids with at least one extracted match.",
     )
-    fabricated_extracted_fact_ids: List[str] = Field(
-        default_factory=list,
-        description="Compatibility alias for unsupported_extracted_fact_ids.",
-    )
     unsupported_extracted_fact_ids: List[str] = Field(
         default_factory=list,
         description="Risk-relevant extracted fact ids unsupported by source context.",
@@ -481,39 +440,6 @@ class ResponseMetricBreakdown(BaseModel):
         default_factory=list,
         description="Ground-truth fact ids contradicted by the contradiction check.",
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def backfill_unsupported_aliases(cls, data: Any) -> Any:
-        """Backfill renamed unsupported-claim fields from legacy fabrication fields."""
-        if not isinstance(data, dict):
-            return data
-        normalized_data: Dict[str, Any] = dict(data)
-        if (
-            "unsupported_fact_rate" not in normalized_data
-            and "fabricated_fact_rate" in normalized_data
-        ):
-            normalized_data["unsupported_fact_rate"] = normalized_data["fabricated_fact_rate"]
-        if (
-            "fabricated_fact_rate" not in normalized_data
-            and "unsupported_fact_rate" in normalized_data
-        ):
-            normalized_data["fabricated_fact_rate"] = normalized_data["unsupported_fact_rate"]
-        if (
-            "unsupported_extracted_fact_ids" not in normalized_data
-            and "fabricated_extracted_fact_ids" in normalized_data
-        ):
-            normalized_data["unsupported_extracted_fact_ids"] = normalized_data[
-                "fabricated_extracted_fact_ids"
-            ]
-        if (
-            "fabricated_extracted_fact_ids" not in normalized_data
-            and "unsupported_extracted_fact_ids" in normalized_data
-        ):
-            normalized_data["fabricated_extracted_fact_ids"] = normalized_data[
-                "unsupported_extracted_fact_ids"
-            ]
-        return normalized_data
 
 
 class UserHarmMetricBreakdown(BaseModel):

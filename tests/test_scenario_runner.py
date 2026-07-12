@@ -140,6 +140,11 @@ def test_single_selected_unit_stops_after_first_agent_response(tmp_path: Path) -
 
     assert len(records) == 1
     assert records[0].transcript[-1].content == "The portfolio has benefits and material risks."
+    assert records[0].transcript_turn_count == 2
+    assert records[0].user_turn_count == 1
+    assert records[0].agent_turn_count == 1
+    assert records[0].generated_user_followup_count == 0
+    assert records[0].user_simulator_decision_count == 1
     assert records[0].user_simulator_outcome.selected_action_id == "A1"
     assert "high_adverse" not in records[0].system_prompt
     assert (tmp_path / "pipeline_smoke_v1" / "results" / "20260711T010101_results.jsonl").exists()
@@ -244,6 +249,11 @@ def test_multi_turn_loop_honors_followup_cap(tmp_path: Path) -> None:
 
     assert len(records[0].user_simulator_turns) == 2
     assert len(records[0].transcript) == 6
+    assert records[0].transcript_turn_count == 6
+    assert records[0].user_turn_count == 3
+    assert records[0].agent_turn_count == 3
+    assert records[0].generated_user_followup_count == 2
+    assert records[0].user_simulator_decision_count == 2
     assert records[0].transcript[-1].content == "Agent three."
 
 

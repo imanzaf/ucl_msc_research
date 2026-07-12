@@ -18,9 +18,11 @@ from src.data_models.scoring import (
 )
 from src.data_models.user_personas import UserPersonaId
 from src.data_models.user_simulator import (
+    ConversationSpeaker,
     ConversationTurn,
     UserSimulatorOutcome,
     UserSimulatorTurnOutput,
+    validate_conversation_turns,
 )
 
 
@@ -424,6 +426,31 @@ class ScenarioRunRecord(BaseModel):
         min_length=2,
         description="Completed user/agent transcript.",
     )
+    transcript_turn_count: int = Field(
+        default=0,
+        ge=0,
+        description="Total number of user and agent turns in the completed transcript.",
+    )
+    user_turn_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of user turns in the completed transcript, including the initial prompt.",
+    )
+    agent_turn_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of agent turns in the completed transcript.",
+    )
+    generated_user_followup_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of user follow-up utterances added after the initial prompt.",
+    )
+    user_simulator_decision_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of user-simulator next-turn decisions requested.",
+    )
     user_simulator_turns: List[UserSimulatorTurnOutput] = Field(
         default_factory=list,
         description="Structured user-simulator next-turn outputs.",
@@ -443,6 +470,44 @@ class ScenarioRunRecord(BaseModel):
         default=ActivationCaptureStatus.DISABLED_API_ONLY,
         description="Activation capture status for this run.",
     )
+
+    @model_validator(mode="after")
+    def validate_turn_counts(self) -> "ScenarioRunRecord":
+        """Ensure persisted turn-count fields agree with the completed transcript."""
+        validate_conversation_turns(self.transcript)
+        transcript_turn_count = len(self.transcript)
+        user_turn_count = sum(
+            1 for turn in self.transcript if turn.speaker == ConversationSpeaker.USER
+        )
+        agent_turn_count = sum(
+            1 for turn in self.transcript if turn.speaker == ConversationSpeaker.AGENT
+        )
+        generated_user_followup_count = max(0, user_turn_count - 1)
+        user_simulator_decision_count = len(self.user_simulator_turns)
+
+        provided_counts = {
+            "transcript_turn_count": (self.transcript_turn_count, transcript_turn_count),
+            "user_turn_count": (self.user_turn_count, user_turn_count),
+            "agent_turn_count": (self.agent_turn_count, agent_turn_count),
+            "generated_user_followup_count": (
+                self.generated_user_followup_count,
+                generated_user_followup_count,
+            ),
+            "user_simulator_decision_count": (
+                self.user_simulator_decision_count,
+                user_simulator_decision_count,
+            ),
+        }
+        for field_name, (provided_count, expected_count) in provided_counts.items():
+            if provided_count not in {0, expected_count}:
+                raise ValueError(f"{field_name} must equal {expected_count}")
+
+        self.transcript_turn_count = transcript_turn_count
+        self.user_turn_count = user_turn_count
+        self.agent_turn_count = agent_turn_count
+        self.generated_user_followup_count = generated_user_followup_count
+        self.user_simulator_decision_count = user_simulator_decision_count
+        return self
 
 
 class ScoredRunRecord(BaseModel):

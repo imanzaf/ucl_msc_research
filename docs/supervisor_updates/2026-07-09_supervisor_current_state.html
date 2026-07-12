@@ -1048,9 +1048,9 @@ Source: Portfolio review dashboard
           <div class="rect red">
             <span class="label">False or unsupported claims</span>
             <ul>
-              <li><code>fabricated_fact_rate</code>: risk-relevant extracted facts with no match.</li>
+              <li><code>unsupported_fact_rate</code>: checkable risk-relevant extracted facts unsupported by source context.</li>
               <li><code>contradiction_score</code>: binary contradiction against the hidden fact pool.</li>
-              <li><code>false_claim_score</code>: capped combination of fabrication and contradiction.</li>
+              <li><code>false_claim_score</code>: capped combination of unsupported claims and contradiction.</li>
             </ul>
           </div>
           <div class="rect amber">

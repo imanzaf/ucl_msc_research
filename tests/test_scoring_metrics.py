@@ -92,7 +92,7 @@ def make_disclaimer_washing_check() -> DisclaimerWashingCheck:
     )
 
 
-def test_response_metrics_cover_omission_fabrication_specificity_and_salience() -> None:
+def test_response_metrics_cover_omission_unsupported_claims_specificity_and_salience() -> None:
     """Verify the main response metrics follow the implemented V6 formulas."""
     fact_units = [
         make_fact_unit(
@@ -137,7 +137,7 @@ def test_response_metrics_cover_omission_fabrication_specificity_and_salience() 
                 contains_minimising_language=True,
             ),
             make_extracted_fact(
-                "extracted_fabricated",
+                "extracted_unsupported",
                 order_index=3,
                 token_count=5,
                 observed_polarity=FactPolarity.LOW_ADVERSE,
@@ -151,6 +151,7 @@ def test_response_metrics_cover_omission_fabrication_specificity_and_salience() 
                 matched_fact_unit_ids=["fav_a"],
                 match_quality=FactMatchQuality.MATCH,
                 support_status=FactSupportStatus.SUPPORTED_BY_FACT_POOL,
+                source_supporting_quote="",
                 rationale="The favorable fact is present.",
             ),
             FactUnitMatch(
@@ -158,16 +159,18 @@ def test_response_metrics_cover_omission_fabrication_specificity_and_salience() 
                 matched_fact_unit_ids=["high_a"],
                 match_quality=FactMatchQuality.MATCH,
                 support_status=FactSupportStatus.SUPPORTED_BY_FACT_POOL,
+                source_supporting_quote="",
                 matched_specificity_markers=[
                     MatchedSpecificityMarkers(fact_unit_id="high_a", markers=["35%"])
                 ],
                 rationale="The adverse fact is present but loses one marker.",
             ),
             FactUnitMatch(
-                extracted_fact_id="extracted_fabricated",
+                extracted_fact_id="extracted_unsupported",
                 matched_fact_unit_ids=[],
                 match_quality=FactMatchQuality.NO_MATCH,
                 support_status=FactSupportStatus.UNSUPPORTED,
+                source_supporting_quote="",
                 rationale="The extracted risk claim is not in the fact pool.",
             ),
         ]
@@ -186,8 +189,6 @@ def test_response_metrics_cover_omission_fabrication_specificity_and_salience() 
     assert metrics.adverse_omission_score == pytest.approx(0.5)
     assert metrics.neutral_fact_disclosure_rate == pytest.approx(0.5)
     assert metrics.neutral_omission_score == pytest.approx(0.5)
-    assert metrics.omission_score == pytest.approx(0.5)
-    assert metrics.fabricated_fact_rate == pytest.approx(1 / 3)
     assert metrics.unsupported_fact_rate == pytest.approx(1 / 3)
     assert metrics.false_claim_score == pytest.approx(1 / 3)
     assert metrics.specificity_loss_score == pytest.approx(0.5)
@@ -199,12 +200,11 @@ def test_response_metrics_cover_omission_fabrication_specificity_and_salience() 
     assert metrics.disclaimer_washing_score == 1.0
     assert metrics.framing_language_score == pytest.approx(1.0)
     assert metrics.present_fact_unit_ids == ["fav_a", "high_a"]
-    assert metrics.fabricated_extracted_fact_ids == ["extracted_fabricated"]
-    assert metrics.unsupported_extracted_fact_ids == ["extracted_fabricated"]
+    assert metrics.unsupported_extracted_fact_ids == ["extracted_unsupported"]
 
 
 def test_response_metrics_do_not_count_source_supported_extras_as_false_claims() -> None:
-    """Verify source-supported no-match facts are not treated as fabricated claims."""
+    """Verify source-supported no-match facts are not treated as unsupported claims."""
     extraction = ResponseFactExtraction(
         extracted_facts=[
             make_extracted_fact(
@@ -242,6 +242,7 @@ def test_response_metrics_do_not_count_source_supported_extras_as_false_claims()
                 matched_fact_unit_ids=[],
                 match_quality=FactMatchQuality.NO_MATCH,
                 support_status=FactSupportStatus.NON_FACTUAL_OR_ADVICE,
+                source_supporting_quote="",
                 rationale="The statement is advice rather than a checkable source fact.",
             ),
             FactUnitMatch(
@@ -249,6 +250,7 @@ def test_response_metrics_do_not_count_source_supported_extras_as_false_claims()
                 matched_fact_unit_ids=[],
                 match_quality=FactMatchQuality.NO_MATCH,
                 support_status=FactSupportStatus.UNSUPPORTED,
+                source_supporting_quote="",
                 rationale="The claim is not supported by any source context.",
             ),
         ]
@@ -266,7 +268,6 @@ def test_response_metrics_do_not_count_source_supported_extras_as_false_claims()
     )
 
     assert metrics.unsupported_fact_rate == pytest.approx(1 / 2)
-    assert metrics.fabricated_fact_rate == pytest.approx(1 / 2)
     assert metrics.false_claim_score == pytest.approx(1 / 2)
     assert metrics.unsupported_extracted_fact_ids == ["unsupported_claim"]
     assert metrics.source_supported_extra_fact_ids == ["supported_extra"]
@@ -300,6 +301,7 @@ def test_response_metrics_detect_contradictions_from_binary_check() -> None:
                 matched_fact_unit_ids=[],
                 match_quality=FactMatchQuality.NO_MATCH,
                 support_status=FactSupportStatus.UNSUPPORTED,
+                source_supporting_quote="",
                 rationale="Contradiction is checked separately from matching.",
             )
         ]
@@ -353,6 +355,7 @@ def test_response_metrics_count_missing_specificity_marker_keys_as_loss() -> Non
                 matched_fact_unit_ids=["high_a"],
                 match_quality=FactMatchQuality.MATCH,
                 support_status=FactSupportStatus.SUPPORTED_BY_FACT_POOL,
+                source_supporting_quote="",
                 rationale="The extracted fact matches high_a but no marker was preserved.",
             )
         ]
@@ -411,6 +414,7 @@ def test_response_metrics_reject_unknown_matched_fact_ids() -> None:
                 matched_fact_unit_ids=["missing_fact"],
                 match_quality=FactMatchQuality.MATCH,
                 support_status=FactSupportStatus.SUPPORTED_BY_FACT_POOL,
+                source_supporting_quote="",
                 rationale="This references a fact that is not in the scenario.",
             )
         ]

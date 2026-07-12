@@ -111,6 +111,10 @@ Single-turn scenarios run initial user prompt -> agent response -> user outcome.
 run initial user prompt -> agent response -> user-simulator follow-up loop, capped at three follow-up
 user turns -> user outcome.
 
+Each `ScenarioRunRecord` persists the full transcript plus explicit count fields:
+`transcript_turn_count`, `user_turn_count`, `agent_turn_count`,
+`generated_user_followup_count`, and `user_simulator_decision_count`.
+
 ## Score Runs
 
 Score completed transcripts separately:
