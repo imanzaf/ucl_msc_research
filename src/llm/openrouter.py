@@ -17,6 +17,8 @@ from configs.model_settings import ModelSettings
 from src.data_models.experiments import (
     ExperimentStage,
     GenerationConfig,
+    LLMCallFailureAttempt,
+    LLMCallFailureRecord,
     LLMCallRecord,
     LLMCallUsage,
 )
@@ -31,6 +33,15 @@ class LLMCallResult(BaseModel, Generic[ParsedT]):
 
     parsed: ParsedT
     record: LLMCallRecord
+
+
+class OpenRouterAttemptsExhausted(Exception):
+    """Carry every failed OpenRouter attempt to the audit persistence boundary."""
+
+    def __init__(self, attempts: List[LLMCallFailureAttempt]) -> None:
+        """Store failed attempts and initialize the terminal exception."""
+        super().__init__("OpenRouter request attempts exhausted")
+        self.attempts = attempts
 
 
 def utc_now_iso() -> str:
@@ -197,6 +208,7 @@ class OpenRouterStructuredClient:
         generation_config: GenerationConfig,
         prompt_version: str,
         metadata: Optional[Dict[str, str]] = None,
+        require_supported_parameters: bool = False,
     ) -> LLMCallResult[StructuredOutputT]:
         """Request a structured chat completion parsed as a Pydantic model."""
         return cast(
@@ -209,6 +221,7 @@ class OpenRouterStructuredClient:
                 prompt_version=prompt_version,
                 output_model=output_model,
                 metadata=metadata,
+                require_supported_parameters=require_supported_parameters,
             ),
         )
 
@@ -221,6 +234,7 @@ class OpenRouterStructuredClient:
         prompt_version: str,
         output_model: Optional[Type[BaseModel]],
         metadata: Optional[Dict[str, str]],
+        require_supported_parameters: bool = False,
     ) -> LLMCallResult[Any]:
         """Run a cached text or structured OpenRouter call."""
         request_payload = self._build_request_payload(
@@ -229,6 +243,7 @@ class OpenRouterStructuredClient:
             generation_config=generation_config,
             output_model=output_model,
             metadata=metadata,
+            require_supported_parameters=require_supported_parameters,
         )
         cache_payload = {
             "provider": "openrouter",
@@ -246,10 +261,25 @@ class OpenRouterStructuredClient:
                 record=cached_record.model_copy(update={"cache_hit": True}),
             )
 
-        response_payload, text_output, parsed_output = self._request_and_parse_with_retries(
-            request_payload=request_payload,
-            output_model=output_model,
-        )
+        try:
+            response_payload, text_output, parsed_output = self._request_and_parse_with_retries(
+                request_payload=request_payload,
+                output_model=output_model,
+            )
+        except OpenRouterAttemptsExhausted as exc:
+            self.cache.set_failure(
+                LLMCallFailureRecord(
+                    failure_id=str(uuid4()),
+                    stage=stage,
+                    model_id=model_id,
+                    cache_key=cache_key,
+                    created_at=utc_now_iso(),
+                    prompt_version=prompt_version,
+                    request_payload=request_payload,
+                    attempts=exc.attempts,
+                )
+            )
+            raise RuntimeError("OpenRouter request failed after retries") from exc
 
         usage = parse_usage(response_payload.get("usage"))
         record = LLMCallRecord(
@@ -280,6 +310,7 @@ class OpenRouterStructuredClient:
         generation_config: GenerationConfig,
         output_model: Optional[Type[BaseModel]],
         metadata: Optional[Dict[str, str]],
+        require_supported_parameters: bool = False,
     ) -> Dict[str, Any]:
         """Build the JSON-compatible request payload for OpenRouter."""
         payload: Dict[str, Any] = {
@@ -291,6 +322,8 @@ class OpenRouterStructuredClient:
             payload["metadata"] = metadata
         if output_model is not None:
             payload["response_format"] = openrouter_response_format(output_model)
+        if require_supported_parameters:
+            payload["provider"] = {"require_parameters": True}
         return payload
 
     def _request_and_parse_with_retries(
@@ -299,8 +332,9 @@ class OpenRouterStructuredClient:
         output_model: Optional[Type[BaseModel]],
     ) -> Tuple[Dict[str, Any], str, Optional[BaseModel]]:
         """Send a chat-completions request, retrying API and structured-parse failures."""
-        last_error: Optional[Exception] = None
-        for _attempt in range(1, self.max_retries + 2):
+        attempts: List[LLMCallFailureAttempt] = []
+        for attempt in range(1, self.max_retries + 2):
+            response_payload: Dict[str, Any] = {}
             try:
                 response = self.client.chat.completions.create(**request_payload)
                 response_payload = response_to_dict(response)
@@ -312,8 +346,15 @@ class OpenRouterStructuredClient:
                 )
                 return response_payload, text_output, parsed_output
             except Exception as exc:  # noqa: BLE001
-                last_error = exc
-        raise RuntimeError("OpenRouter request failed after retries") from last_error
+                attempts.append(
+                    LLMCallFailureAttempt(
+                        attempt=attempt,
+                        error_type=type(exc).__name__,
+                        error_message=str(exc) or repr(exc),
+                        response_payload=response_payload,
+                    )
+                )
+        raise OpenRouterAttemptsExhausted(attempts)
 
     def _parsed_from_record(
         self,

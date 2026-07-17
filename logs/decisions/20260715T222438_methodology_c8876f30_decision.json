@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-07-15T22:24:38",
+  "decision_type": "methodology",
+  "author": "codex",
+  "content": "Replace V0.3.0 family-specific task-guidance and integrity prose with a V0.3.1 code-owned omission-integrity profile in which invariant source and authority constraints appear in every prompt condition, factuality controls are shared by baseline and integrity, and only integrity adds completeness and framing requirements; this isolates the disclosure treatment and reduces family-specific prompt, verbosity, caution, and refusal confounds.",
+  "source": "user_prompt",
+  "content_hash": "c8876f30ab3596211ccbb01452184742522485ff5e77cfc07327af99fa0d1b46"
+}

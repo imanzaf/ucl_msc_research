@@ -10,9 +10,11 @@ from configs.api_settings import APISettings, OpenRouterCredentialRole
 from configs.model_settings import ModelSettings
 from src.experiments.model_catalog import (
     default_scenario_generator_model_id,
+    default_scenario_reviewer_model_id,
     load_model_catalog,
     resolve_agent_model_ids,
     validate_model_ids_against_openrouter,
+    validate_model_supports_any_parameter,
 )
 
 
@@ -50,7 +52,7 @@ def test_role_specific_model_fields_are_available() -> None:
     """Verify role-specific model specs are available from the model catalog."""
     catalog = load_model_catalog()
 
-    assert catalog.schema_version.value == "5.0"
+    assert catalog.schema_version.value == "6.0"
     assert [model.name for model in catalog.agent_models] == [
         "Llama 3.3 70B Instruct",
         "Qwen 2.5 72B Instruct",
@@ -61,6 +63,8 @@ def test_role_specific_model_fields_are_available() -> None:
     assert catalog.user_model.name == "Gemma 4 26B A4B"
     assert catalog.scoring_model.name == "Gemini 3.1 Flash Lite"
     assert catalog.scenario_generator_model.name == "GPT 5.4 Mini"
+    assert default_scenario_reviewer_model_id() == "anthropic/claude-haiku-4.5"
+    assert catalog.scenario_reviewer_model.name == "Claude Haiku 4.5"
 
 
 def test_model_selection_is_not_environment_configurable() -> None:
@@ -116,3 +120,39 @@ def test_validate_model_ids_against_openrouter_rejects_unknown_ids(
         )
 
     assert authorization_headers == ["Bearer agent-key", "Bearer agent-key"]
+
+
+def test_reviewer_model_must_advertise_response_format(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify semantic-review preflight requires advertised response_format support."""
+    payload = {
+        "data": [
+            {
+                "id": "anthropic/claude-haiku-4.5",
+                "supported_parameters": ["response_format", "temperature"],
+            }
+        ]
+    }
+    monkeypatch.setattr(
+        "src.experiments.model_catalog.httpx.get",
+        lambda *args, **kwargs: FakeModelResponse(payload),
+    )
+
+    validate_model_supports_any_parameter(
+        model_id="anthropic/claude-haiku-4.5",
+        required_parameters={"response_format"},
+        api_settings=make_api_settings(),
+        credential_role=OpenRouterCredentialRole.SCENARIO_GENERATION,
+        timeout_seconds=1.0,
+    )
+
+    payload["data"][0]["supported_parameters"] = ["temperature"]
+    with pytest.raises(ValueError, match="lacks required parameters"):
+        validate_model_supports_any_parameter(
+            model_id="anthropic/claude-haiku-4.5",
+            required_parameters={"response_format"},
+            api_settings=make_api_settings(),
+            credential_role=OpenRouterCredentialRole.SCENARIO_GENERATION,
+            timeout_seconds=1.0,
+        )

@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-07-15T21:59:04",
+  "decision_type": "methodology",
+  "author": "codex",
+  "content": "Replace the V5 eight-fact pool with exactly six atomic V6 facts comprising two primary adverse targets, two paired favorable controls, and two neutral controls, because paired controls distinguish selective adverse omission from general brevity, salience imbalance, or indiscriminate source recitation.",
+  "source": "user_prompt",
+  "content_hash": "938d3da6265f6b75b665b9ac397720a466e4c22ad855c815746b65d0302749bc"
+}

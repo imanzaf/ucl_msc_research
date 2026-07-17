@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 from src.data_models.experiments import ScoredRunRecord
+from src.data_models.scoring import ResponseMetricBreakdownV6
 from src.experiments.io import read_jsonl_models, result_paths
 
 
@@ -41,24 +42,72 @@ def format_float(value: float) -> str:
     return f"{value:.3f}"
 
 
-def summarize_by_model_and_prompt(
+def format_summary_metric(metrics: Dict[str, float], metric: str) -> str:
+    """Format an aggregate metric or show an explicit unavailable marker."""
+    if metric not in metrics:
+        return "--"
+    return format_float(metrics[metric])
+
+
+def summarize_by_model_prompt_and_persona(
     records: List[ScoredRunRecord],
-) -> Dict[Tuple[str, str], Dict[str, float]]:
-    """Aggregate headline metrics by agent model and prompt condition."""
-    grouped: Dict[Tuple[str, str], Dict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
+) -> Dict[Tuple[str, str, str], Dict[str, float]]:
+    """Aggregate metrics without collapsing the experimental persona factor."""
+    grouped: Dict[Tuple[str, str, str], Dict[str, List[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
     for record in records:
         key = (
             record.run_unit.agent_model_id,
             record.run_unit.prompt_condition.value,
+            record.run_unit.persona_id.value,
         )
-        grouped[key]["deception"].append(
-            record.response_metrics.materiality_weighted_deception_score
-        )
-        grouped[key]["adverse_omission"].append(record.response_metrics.adverse_omission_score)
         grouped[key]["unsupported_or_false"].append(record.response_metrics.false_claim_score)
+        if isinstance(record.response_metrics, ResponseMetricBreakdownV6):
+            grouped[key]["initial_omission"].append(
+                record.response_metrics.initial_primary_omission_score
+            )
+            grouped[key]["persistent_omission"].append(
+                record.response_metrics.persistent_primary_omission_score
+            )
+            if record.response_metrics.repair_rate is not None:
+                grouped[key]["repair"].append(record.response_metrics.repair_rate)
+            grouped[key]["initial_understatement"].append(
+                record.response_metrics.initial_understatement_rate
+            )
+            grouped[key]["post_understatement"].append(
+                record.response_metrics.post_followup_understatement_rate
+            )
+            grouped[key]["specificity_loss"].append(
+                record.response_metrics.initial_primary_specificity_loss_score
+            )
+            grouped[key]["favorable_disclosure"].append(
+                record.response_metrics.favorable_control_disclosure_rate
+            )
+            grouped[key]["neutral_disclosure"].append(
+                record.response_metrics.neutral_control_disclosure_rate
+            )
+            grouped[key]["unsupported_fact_rate"].append(
+                record.response_metrics.unsupported_fact_rate
+            )
+            grouped[key]["contradiction"].append(record.response_metrics.contradiction_score)
+            grouped[key]["exploratory_composite"].append(
+                record.response_metrics.exploratory_equal_weight_composite
+            )
+        else:
+            grouped[key]["deception"].append(
+                record.response_metrics.materiality_weighted_deception_score
+            )
+            grouped[key]["adverse_omission"].append(record.response_metrics.adverse_omission_score)
         if record.user_harm_metrics is not None:
             grouped[key]["harmful_action"].append(
                 1.0 if record.user_harm_metrics.harmful_action_selected else 0.0
+            )
+            grouped[key]["unsupported_belief"].append(
+                record.user_harm_metrics.unsupported_belief_rate
+            )
+            grouped[key]["partial_or_unsupported_belief"].append(
+                record.user_harm_metrics.partial_or_unsupported_belief_rate
             )
 
     return {
@@ -69,14 +118,24 @@ def summarize_by_model_and_prompt(
 
 def render_latex_summary_table(experiment_name: str, records: List[ScoredRunRecord]) -> str:
     """Render a stable LaTeX tabular summary for scored experiment outputs."""
-    summary = summarize_by_model_and_prompt(records)
+    metric_types = {type(record.response_metrics) for record in records}
+    if len(metric_types) > 1:
+        raise ValueError("paper assets cannot combine V5 and V6 response metric records")
+    summary = summarize_by_model_prompt_and_persona(records)
+    uses_v6_metrics = bool(records) and isinstance(
+        records[0].response_metrics,
+        ResponseMetricBreakdownV6,
+    )
+    if uses_v6_metrics:
+        return render_v6_latex_summary_table(experiment_name=experiment_name, summary=summary)
     rows = []
-    for (model_id, prompt_condition), metrics in sorted(summary.items()):
+    for (model_id, prompt_condition, persona_id), metrics in sorted(summary.items()):
         rows.append(
             " & ".join(
                 [
                     escape_latex(model_id),
                     escape_latex(prompt_condition),
+                    escape_latex(persona_id),
                     format_float(metrics.get("deception", 0.0)),
                     format_float(metrics.get("adverse_omission", 0.0)),
                     format_float(metrics.get("unsupported_or_false", 0.0)),
@@ -85,17 +144,122 @@ def render_latex_summary_table(experiment_name: str, records: List[ScoredRunReco
             )
             + r" \\"
         )
-    body = "\n".join(rows) if rows else r"\multicolumn{6}{l}{No scored records available.} \\"
+    body = "\n".join(rows) if rows else r"\multicolumn{7}{l}{No scored records available.} \\"
     return "\n".join(
         [
-            r"\begin{tabular}{llrrrr}",
+            r"\begin{tabular}{lllrrrr}",
             r"\toprule",
-            r"Model & Prompt & Deception & Omission & Unsupported/false & Harmful action \\",
+            r"Model & Prompt & Persona & Deception & Omission & Unsupported/false & Harmful action \\",
             r"\midrule",
             body,
             r"\bottomrule",
             r"\end{tabular}",
             f"% Generated from {escape_latex(experiment_name)} scored outputs.",
+        ]
+    )
+
+
+def render_v6_latex_summary_table(
+    experiment_name: str,
+    summary: Dict[Tuple[str, str, str], Dict[str, float]],
+) -> str:
+    """Render V6 headline, control, and false-claim metrics without collapsing persona."""
+    headline_rows = []
+    diagnostic_rows = []
+    user_outcome_rows = []
+    for (model_id, prompt_condition, persona_id), metrics in sorted(summary.items()):
+        identity = [
+            escape_latex(model_id),
+            escape_latex(prompt_condition),
+            escape_latex(persona_id),
+        ]
+        headline_rows.append(
+            " & ".join(
+                identity
+                + [
+                    format_float(metrics.get("initial_omission", 0.0)),
+                    format_float(metrics.get("persistent_omission", 0.0)),
+                    format_summary_metric(metrics, "repair"),
+                    format_float(metrics.get("initial_understatement", 0.0)),
+                    format_float(metrics.get("post_understatement", 0.0)),
+                    format_float(metrics.get("specificity_loss", 0.0)),
+                    format_float(metrics.get("exploratory_composite", 0.0)),
+                ]
+            )
+            + r" \\"
+        )
+        diagnostic_rows.append(
+            " & ".join(
+                identity
+                + [
+                    format_float(metrics.get("favorable_disclosure", 0.0)),
+                    format_float(metrics.get("neutral_disclosure", 0.0)),
+                    format_float(metrics.get("unsupported_fact_rate", 0.0)),
+                    format_float(metrics.get("contradiction", 0.0)),
+                    format_float(metrics.get("unsupported_or_false", 0.0)),
+                ]
+            )
+            + r" \\"
+        )
+        user_outcome_rows.append(
+            " & ".join(
+                identity
+                + [
+                    format_summary_metric(metrics, "harmful_action"),
+                    format_summary_metric(metrics, "unsupported_belief"),
+                    format_summary_metric(metrics, "partial_or_unsupported_belief"),
+                ]
+            )
+            + r" \\"
+        )
+    headline_body = (
+        "\n".join(headline_rows)
+        if headline_rows
+        else r"\multicolumn{10}{l}{No scored records available.} \\"
+    )
+    diagnostic_body = (
+        "\n".join(diagnostic_rows)
+        if diagnostic_rows
+        else r"\multicolumn{8}{l}{No scored records available.} \\"
+    )
+    user_outcome_body = (
+        "\n".join(user_outcome_rows)
+        if user_outcome_rows
+        else r"\multicolumn{6}{l}{No scored records available.} \\"
+    )
+    return "\n".join(
+        [
+            r"\begin{tabular}{lllrrrrrrr}",
+            r"\toprule",
+            (
+                r"Model & Prompt & Persona & Initial omit. & Persistent omit. & Repair & "
+                r"Initial understate & Post understate & Specificity loss & "
+                r"Exploratory composite \\"
+            ),
+            r"\midrule",
+            headline_body,
+            r"\bottomrule",
+            r"\end{tabular}",
+            "",
+            r"\begin{tabular}{lllrrrrr}",
+            r"\toprule",
+            r"Model & Prompt & Persona & Favorable disclose. & Neutral disclose. & Unsupported fact & Contradiction & False claim \\",
+            r"\midrule",
+            diagnostic_body,
+            r"\bottomrule",
+            r"\end{tabular}",
+            "",
+            r"\begin{tabular}{lllrrr}",
+            r"\toprule",
+            (
+                r"Model & Prompt & Persona & Harmful action & Unsupported belief & "
+                r"Partial/unsupported belief \\"
+            ),
+            r"\midrule",
+            user_outcome_body,
+            r"\bottomrule",
+            r"\end{tabular}",
+            f"% Generated from {escape_latex(experiment_name)} V6 scored outputs.",
         ]
     )
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Set
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -14,6 +14,7 @@ from configs.api_settings import APISettings, OpenRouterCredentialRole
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL_CATALOG_PATH = REPO_ROOT / "configs" / "models.json"
+V6_SCENARIO_REVIEWER_MODEL_ID = "anthropic/claude-haiku-4.5"
 
 
 class ModelPriority(str, Enum):
@@ -26,7 +27,7 @@ class ModelPriority(str, Enum):
 class ModelCatalogSchemaVersion(str, Enum):
     """Identify the canonical experiment model-catalog schema."""
 
-    V5 = "5.0"
+    V6 = "6.0"
 
 
 class ExperimentModelSpec(BaseModel):
@@ -88,13 +89,20 @@ class ExperimentModelCatalog(BaseModel):
     scenario_generator_model: ExperimentModelSpec = Field(
         description="Model used for scenario draft generation.",
     )
+    scenario_reviewer_model: ExperimentModelSpec = Field(
+        description="Independent model used for V6 semantic scenario review.",
+    )
 
     @model_validator(mode="after")
     def validate_unique_agent_model_ids(self) -> "ExperimentModelCatalog":
-        """Ensure the set of agent models under test does not contain duplicate ids."""
+        """Ensure agent ids are unique and the V6 reviewer remains fixed and independent."""
         model_ids = [model.model_id for model in self.agent_models]
         if len(set(model_ids)) != len(model_ids):
             raise ValueError("agent model_id values must be unique")
+        if self.scenario_reviewer_model.model_id != V6_SCENARIO_REVIEWER_MODEL_ID:
+            raise ValueError(f"V6 scenario reviewer must be {V6_SCENARIO_REVIEWER_MODEL_ID}")
+        if self.scenario_reviewer_model.model_id == self.scenario_generator_model.model_id:
+            raise ValueError("V6 scenario reviewer must differ from the scenario generator")
         return self
 
 
@@ -107,6 +115,11 @@ def load_model_catalog(path: Path = DEFAULT_MODEL_CATALOG_PATH) -> ExperimentMod
 def default_scenario_generator_model_id(path: Path = DEFAULT_MODEL_CATALOG_PATH) -> str:
     """Return the default scenario-generator model slug."""
     return load_model_catalog(path).scenario_generator_model.model_id
+
+
+def default_scenario_reviewer_model_id(path: Path = DEFAULT_MODEL_CATALOG_PATH) -> str:
+    """Return the fixed V6 semantic-reviewer model slug."""
+    return load_model_catalog(path).scenario_reviewer_model.model_id
 
 
 def resolve_agent_model_ids(
@@ -144,6 +157,51 @@ def fetch_openrouter_model_ids(
     return {str(model["id"]) for model in payload.get("data", []) if "id" in model}
 
 
+def fetch_openrouter_models(
+    api_settings: APISettings,
+    credential_role: OpenRouterCredentialRole,
+    timeout_seconds: float,
+) -> List[Dict[str, Any]]:
+    """Fetch OpenRouter model metadata using the credential assigned to one pipeline role."""
+    response = httpx.get(
+        f"{api_settings.openrouter_base_url}/models",
+        headers={"Authorization": f"Bearer {api_settings.openrouter_api_key_for(credential_role)}"},
+        timeout=timeout_seconds,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    return [model for model in payload.get("data", []) if isinstance(model, dict)]
+
+
+def validate_model_supports_any_parameter(
+    model_id: str,
+    required_parameters: Set[str],
+    api_settings: APISettings,
+    credential_role: OpenRouterCredentialRole,
+    timeout_seconds: float,
+) -> None:
+    """Reject a model that does not advertise any required OpenRouter parameter."""
+    model_by_id = {
+        str(model.get("id")): model
+        for model in fetch_openrouter_models(
+            api_settings=api_settings,
+            credential_role=credential_role,
+            timeout_seconds=timeout_seconds,
+        )
+        if model.get("id")
+    }
+    if model_id not in model_by_id:
+        raise ValueError(f"OpenRouter model id not found: {model_id}")
+    supported_parameters = {
+        str(parameter) for parameter in model_by_id[model_id].get("supported_parameters", [])
+    }
+    if supported_parameters.isdisjoint(required_parameters):
+        raise ValueError(
+            f"OpenRouter model {model_id} lacks required parameters; expected one of "
+            + ", ".join(sorted(required_parameters))
+        )
+
+
 def validate_model_ids_against_openrouter(
     model_ids: Iterable[str],
     api_settings: APISettings,
@@ -159,3 +217,34 @@ def validate_model_ids_against_openrouter(
     unknown_model_ids = sorted(set(model_ids) - available_model_ids)
     if unknown_model_ids:
         raise ValueError("OpenRouter model ids not found: " + ", ".join(unknown_model_ids))
+
+
+def validate_models_and_capabilities(
+    model_ids: Iterable[str],
+    required_parameters_by_model: Dict[str, Set[str]],
+    api_settings: APISettings,
+    credential_role: OpenRouterCredentialRole,
+    timeout_seconds: float,
+) -> None:
+    """Validate model existence and advertised parameters from one metadata snapshot."""
+    model_by_id = {
+        str(model.get("id")): model
+        for model in fetch_openrouter_models(
+            api_settings=api_settings,
+            credential_role=credential_role,
+            timeout_seconds=timeout_seconds,
+        )
+        if model.get("id")
+    }
+    unknown_model_ids = sorted(set(model_ids) - set(model_by_id))
+    if unknown_model_ids:
+        raise ValueError("OpenRouter model ids not found: " + ", ".join(unknown_model_ids))
+    for model_id, required_parameters in required_parameters_by_model.items():
+        supported_parameters = {
+            str(parameter) for parameter in model_by_id[model_id].get("supported_parameters", [])
+        }
+        if not required_parameters.issubset(supported_parameters):
+            missing = sorted(required_parameters - supported_parameters)
+            raise ValueError(
+                f"OpenRouter model {model_id} lacks required parameters: " + ", ".join(missing)
+            )

@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from src.data_models.experiments import LLMCallRecord
+from src.data_models.experiments import LLMCallFailureRecord, LLMCallRecord
 
 
 def stable_json_dumps(payload: Dict[str, Any]) -> str:
@@ -49,3 +49,10 @@ class LLMCallCache:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         cache_path = self.path_for_key(record.cache_key)
         cache_path.write_text(record.model_dump_json(indent=2), encoding="utf-8")
+
+    def set_failure(self, record: LLMCallFailureRecord) -> None:
+        """Persist an exhausted call even when normal cache reuse is disabled."""
+        failure_dir = self.cache_dir / "failures"
+        failure_dir.mkdir(parents=True, exist_ok=True)
+        failure_path = failure_dir / f"{record.cache_key}_{record.failure_id}.json"
+        failure_path.write_text(record.model_dump_json(indent=2), encoding="utf-8")

@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-07-15T21:54:40",
+  "decision_type": "methodology",
+  "author": "codex",
+  "content": "Restrict V0.3 evaluation to neutral and anxious risk-averse personas, deriving the anxious request with a code-owned tone-only wrapper from the neutral seed request; this lowers the pilot from 72 to 48 conversations while preserving semantic invariance and avoiding an LLM-generated persona confound.",
+  "source": "user_prompt",
+  "content_hash": "2a1e22c1b2380b0451fd4f20f20fa7e58a74849d400d4389a22ac35513e3b962"
+}

@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-07-15T20:52:08",
+  "decision_type": "methodology",
+  "author": "user",
+  "content": "Add a V0.3 semantic review-and-revision stage in which Claude Haiku 4.5 independently audits each four-scenario family against a predeclared semantic rubric and only flagged scenarios receive one full-correction generation pass; this reduces generator-correlated blind spots and makes missing requirements auditable while retaining final human review as the acceptance gate.",
+  "source": "user_prompt",
+  "content_hash": "d508df61d9c7977538e92053cbb5a558417ecbc7206320d5a98464bcd8655563"
+}

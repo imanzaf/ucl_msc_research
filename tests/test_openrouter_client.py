@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, List
 
-from src.data_models.experiments import ExperimentStage, ExperimentUsageSummary, GenerationConfig
+import pytest
+
+from src.data_models.experiments import (
+    ExperimentStage,
+    ExperimentUsageSummary,
+    GenerationConfig,
+    LLMCallFailureRecord,
+)
 from src.data_models.scenarios import GeneratedScenarioInstance
 from src.data_models.scoring import FactUnitMatching
 from src.data_models.user_simulator import UserSimulatorTurnOutput
@@ -87,6 +95,35 @@ def test_structured_call_parses_usage_and_response_format(tmp_path) -> None:
     assert fake_client.completions.calls[0]["response_format"]["type"] == "json_schema"
 
 
+def test_strict_structured_routing_is_cached_with_provider_requirement(tmp_path: Path) -> None:
+    """Verify reviewer-style strict routing participates in cache identity and reuse."""
+    fake_client = FakeClient(
+        [make_response('{"should_continue": false, "rationale": "Enough detail."}')]
+    )
+    client = OpenRouterStructuredClient(
+        client=fake_client,
+        cache=LLMCallCache(tmp_path),
+        max_retries=0,
+    )
+    kwargs = {
+        "stage": ExperimentStage.SCENARIO_SEMANTIC_REVIEW,
+        "model_id": "anthropic/claude-haiku-4.5",
+        "messages": [{"role": "user", "content": "Audit"}],
+        "output_model": UserSimulatorTurnOutput,
+        "generation_config": GenerationConfig(temperature=0.0),
+        "prompt_version": "scenario_semantic_review_v1",
+        "require_supported_parameters": True,
+    }
+
+    first = client.complete_structured(**kwargs)
+    second = client.complete_structured(**kwargs)
+
+    assert fake_client.completions.calls[0]["provider"] == {"require_parameters": True}
+    assert first.record.cache_hit is False
+    assert second.record.cache_hit is True
+    assert len(fake_client.completions.calls) == 1
+
+
 def test_cache_hit_returns_cached_record_without_second_api_call(tmp_path) -> None:
     """Verify identical calls are served from the local cache on repeat."""
     fake_client = FakeClient([make_response("Cached answer.")])
@@ -137,6 +174,61 @@ def test_structured_call_retries_after_invalid_json(tmp_path) -> None:
 
     assert result.parsed.rationale == "Valid retry."
     assert len(fake_client.completions.calls) == 2
+
+
+def test_terminal_structured_failure_preserves_raw_attempt(tmp_path: Path) -> None:
+    """Verify exhausted parse failures retain the provider response for audit."""
+    fake_client = FakeClient([make_response("not valid json")])
+    client = OpenRouterStructuredClient(
+        client=fake_client,
+        cache=LLMCallCache(tmp_path, enabled=False),
+        max_retries=0,
+    )
+
+    with pytest.raises(RuntimeError, match="failed after retries"):
+        client.complete_structured(
+            stage=ExperimentStage.SCENARIO_SEMANTIC_REVIEW,
+            model_id="anthropic/claude-haiku-4.5",
+            messages=[{"role": "user", "content": "Audit"}],
+            output_model=UserSimulatorTurnOutput,
+            generation_config=GenerationConfig(temperature=0.0),
+            prompt_version="scenario_semantic_review_v1",
+            require_supported_parameters=True,
+        )
+
+    failure_paths = list((tmp_path / "failures").glob("*.json"))
+    assert len(failure_paths) == 1
+    failure = LLMCallFailureRecord.model_validate_json(failure_paths[0].read_text(encoding="utf-8"))
+    assert failure.stage == ExperimentStage.SCENARIO_SEMANTIC_REVIEW
+    assert len(failure.attempts) == 1
+    assert failure.attempts[0].response_payload["choices"][0]["message"]["content"] == (
+        "not valid json"
+    )
+
+
+def test_repeated_terminal_failures_preserve_separate_records(tmp_path: Path) -> None:
+    """Verify identical exhausted calls retain separate failure records."""
+    fake_client = FakeClient([make_response("invalid one"), make_response("invalid two")])
+    client = OpenRouterStructuredClient(
+        client=fake_client,
+        cache=LLMCallCache(tmp_path, enabled=False),
+        max_retries=0,
+    )
+    kwargs = {
+        "stage": ExperimentStage.SCENARIO_SEMANTIC_REVIEW,
+        "model_id": "anthropic/claude-haiku-4.5",
+        "messages": [{"role": "user", "content": "Audit"}],
+        "output_model": UserSimulatorTurnOutput,
+        "generation_config": GenerationConfig(temperature=0.0),
+        "prompt_version": "scenario_semantic_review_v1",
+        "require_supported_parameters": True,
+    }
+
+    for _ in range(2):
+        with pytest.raises(RuntimeError, match="failed after retries"):
+            client.complete_structured(**kwargs)
+
+    assert len(list((tmp_path / "failures").glob("*.json"))) == 2
 
 
 def test_cache_key_is_stable_for_sorted_payloads() -> None:

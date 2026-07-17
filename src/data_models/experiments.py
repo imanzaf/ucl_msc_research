@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src.data_models.scenarios import InteractionMode, PromptCondition
+from src.data_models.scenarios import InteractionMode, PromptCondition, ScenarioSchemaVersion
 from src.data_models.scoring import (
+    DirectFactDisclosureAssessment,
     DisclaimerWashingCheck,
     FactContradictionCheck,
     FactUnitMatching,
     ResponseFactExtraction,
     ResponseMetricBreakdown,
+    ResponseMetricBreakdownV6,
     UserHarmMetricBreakdown,
 )
 from src.data_models.user_personas import UserPersonaId
@@ -30,6 +32,8 @@ class ExperimentStage(str, Enum):
     """Classify which pipeline stage produced an LLM call or artifact."""
 
     SCENARIO_GENERATION = "scenario_generation"
+    SCENARIO_SEMANTIC_REVIEW = "scenario_semantic_review"
+    SCENARIO_REVISION = "scenario_revision"
     AGENT_RESPONSE = "agent_response"
     USER_SIMULATOR_TURN = "user_simulator_turn"
     USER_SIMULATOR_OUTCOME = "user_simulator_outcome"
@@ -37,12 +41,30 @@ class ExperimentStage(str, Enum):
     FACT_UNIT_MATCHING = "fact_unit_matching"
     FACT_CONTRADICTION_CHECK = "fact_contradiction_check"
     DISCLAIMER_WASHING_CHECK = "disclaimer_washing_check"
+    DIRECT_FACT_DISCLOSURE_ASSESSMENT = "direct_fact_disclosure_assessment"
 
 
 class ActivationCaptureStatus(str, Enum):
     """Classify whether activation capture is enabled for an experiment."""
 
     DISABLED_API_ONLY = "disabled_api_only"
+
+
+class ConversationProtocol(str, Enum):
+    """Identify whether user follow-ups are generated or fixed by the scenario design."""
+
+    GENERATED_USER_FOLLOWUPS_V1 = "generated_user_followups_v1"
+    SCRIPTED_RISK_FOLLOWUP_V1 = "scripted_risk_followup_v1"
+
+
+class ExperimentRecordSchemaVersion(str, Enum):
+    """Identify persisted conversation and scoring record schemas."""
+
+    SCENARIO_RUN_V1 = "scenario_run_record.v1"
+    SCENARIO_RUN_V2 = "scenario_run_record.v2"
+    SCORED_RUN_V1 = "scored_run_record.v1"
+    SCORED_RUN_V2 = "scored_run_record.v2"
+    LLM_CALL_FAILURE_V1 = "llm_call_failure_record.v1"
 
 
 class LLMCallUsage(BaseModel):
@@ -281,6 +303,35 @@ class LLMCallRecord(BaseModel):
     )
 
 
+class LLMCallFailureAttempt(BaseModel):
+    """Persist one failed API or structured-parse attempt for audit."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    attempt: int = Field(ge=1)
+    error_type: str = Field(min_length=1)
+    error_message: str = Field(min_length=1)
+    response_payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+class LLMCallFailureRecord(BaseModel):
+    """Persist all exhausted attempts for one uncached OpenRouter call."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: ExperimentRecordSchemaVersion = Field(
+        default=ExperimentRecordSchemaVersion.LLM_CALL_FAILURE_V1
+    )
+    failure_id: str = Field(min_length=1)
+    stage: ExperimentStage
+    model_id: str = Field(min_length=1)
+    cache_key: str = Field(min_length=1)
+    created_at: str = Field(min_length=1)
+    prompt_version: str = Field(min_length=1)
+    request_payload: Dict[str, Any]
+    attempts: List[LLMCallFailureAttempt] = Field(min_length=1)
+
+
 class RunUnitIdentity(BaseModel):
     """Identify one scenario instance, prompt condition, persona, and model run."""
 
@@ -307,19 +358,28 @@ class RunUnitIdentity(BaseModel):
         min_length=1,
         description="OpenRouter model slug for the agent under test.",
     )
+    scenario_family_sha256: Optional[str] = Field(
+        default=None,
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+        description="Digest of the exact scenario family used for this run.",
+    )
 
     @property
     def run_unit_id(self) -> str:
         """Return a stable compact id for this unit of execution."""
-        return "__".join(
+        parts = [self.scenario_family_id, self.scenario_id]
+        if self.scenario_family_sha256 is not None:
+            parts.append(self.scenario_family_sha256)
+        parts.extend(
             [
-                self.scenario_family_id,
-                self.scenario_id,
                 self.prompt_condition.value,
                 self.persona_id.value,
                 self.agent_model_id.replace("/", "_"),
             ]
         )
+        return "__".join(parts)
 
 
 class ExperimentConfig(BaseModel):
@@ -399,8 +459,8 @@ class ScenarioRunRecord(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = Field(
-        default="scenario_run_record.v1",
+    schema_version: ExperimentRecordSchemaVersion = Field(
+        default=ExperimentRecordSchemaVersion.SCENARIO_RUN_V2,
         description="Schema version for scenario-run records.",
     )
     experiment_name: str = Field(
@@ -410,6 +470,10 @@ class ScenarioRunRecord(BaseModel):
     run_id: str = Field(
         min_length=1,
         description="Timestamped run id for the scenario-run stage.",
+    )
+    scenario_schema_version: ScenarioSchemaVersion = Field(
+        default=ScenarioSchemaVersion.V5,
+        description="Scenario-family schema that defined this run unit.",
     )
     run_unit: RunUnitIdentity = Field(
         description="Scenario/prompt/persona/model identity.",
@@ -470,6 +534,15 @@ class ScenarioRunRecord(BaseModel):
         default=ActivationCaptureStatus.DISABLED_API_ONLY,
         description="Activation capture status for this run.",
     )
+    conversation_protocol: ConversationProtocol = Field(
+        default=ConversationProtocol.GENERATED_USER_FOLLOWUPS_V1,
+        description="Conversation-turn protocol used by this scenario run.",
+    )
+    scripted_user_followup_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of code-owned scripted user follow-ups in the transcript.",
+    )
 
     @model_validator(mode="after")
     def validate_turn_counts(self) -> "ScenarioRunRecord":
@@ -482,7 +555,28 @@ class ScenarioRunRecord(BaseModel):
         agent_turn_count = sum(
             1 for turn in self.transcript if turn.speaker == ConversationSpeaker.AGENT
         )
-        generated_user_followup_count = max(0, user_turn_count - 1)
+        if self.conversation_protocol == ConversationProtocol.SCRIPTED_RISK_FOLLOWUP_V1:
+            if user_turn_count != 2 or agent_turn_count != 2:
+                raise ValueError(
+                    "scripted V6 conversations require exactly two user and two agent turns"
+                )
+            if self.user_simulator_turns:
+                raise ValueError("scripted V6 conversations must not contain generated user turns")
+            generated_user_followup_count = 0
+            scripted_user_followup_count = 1
+        else:
+            generated_user_followup_count = max(0, user_turn_count - 1)
+            scripted_user_followup_count = 0
+        is_v6_scenario = self.scenario_schema_version == ScenarioSchemaVersion.V6
+        is_scripted_protocol = (
+            self.conversation_protocol == ConversationProtocol.SCRIPTED_RISK_FOLLOWUP_V1
+        )
+        if is_v6_scenario != is_scripted_protocol:
+            raise ValueError(
+                "V6 scenarios and scripted conversation protocol must be used together"
+            )
+        if is_v6_scenario and self.run_unit.scenario_family_sha256 is None:
+            raise ValueError("V6 scenario runs require exact scenario-family provenance")
         user_simulator_decision_count = len(self.user_simulator_turns)
 
         provided_counts = {
@@ -497,6 +591,10 @@ class ScenarioRunRecord(BaseModel):
                 self.user_simulator_decision_count,
                 user_simulator_decision_count,
             ),
+            "scripted_user_followup_count": (
+                self.scripted_user_followup_count,
+                scripted_user_followup_count,
+            ),
         }
         for field_name, (provided_count, expected_count) in provided_counts.items():
             if provided_count not in {0, expected_count}:
@@ -507,6 +605,7 @@ class ScenarioRunRecord(BaseModel):
         self.agent_turn_count = agent_turn_count
         self.generated_user_followup_count = generated_user_followup_count
         self.user_simulator_decision_count = user_simulator_decision_count
+        self.scripted_user_followup_count = scripted_user_followup_count
         return self
 
 
@@ -515,8 +614,8 @@ class ScoredRunRecord(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = Field(
-        default="scored_run_record.v1",
+    schema_version: ExperimentRecordSchemaVersion = Field(
+        default=ExperimentRecordSchemaVersion.SCORED_RUN_V2,
         description="Schema version for scored run records.",
     )
     experiment_name: str = Field(
@@ -530,6 +629,10 @@ class ScoredRunRecord(BaseModel):
     run_unit: RunUnitIdentity = Field(
         description="Scenario/prompt/persona/model identity.",
     )
+    scenario_schema_version: ScenarioSchemaVersion = Field(
+        default=ScenarioSchemaVersion.V5,
+        description="Scenario-family schema whose transcript was scored.",
+    )
     extraction: ResponseFactExtraction = Field(
         description="LLM-extracted agent facts.",
     )
@@ -539,10 +642,15 @@ class ScoredRunRecord(BaseModel):
     contradiction_check: FactContradictionCheck = Field(
         description="Binary contradiction check.",
     )
-    disclaimer_washing_check: DisclaimerWashingCheck = Field(
-        description="Binary disclaimer-washing check.",
+    disclaimer_washing_check: Optional[DisclaimerWashingCheck] = Field(
+        default=None,
+        description="Binary disclaimer-washing check for legacy V5 scoring.",
     )
-    response_metrics: ResponseMetricBreakdown = Field(
+    direct_disclosure_assessment: Optional[DirectFactDisclosureAssessment] = Field(
+        default=None,
+        description="Direct fact-level disclosure assessment for V6 scoring.",
+    )
+    response_metrics: Union[ResponseMetricBreakdown, ResponseMetricBreakdownV6] = Field(
         description="Programmatic response metrics.",
     )
     user_harm_metrics: Optional[UserHarmMetricBreakdown] = Field(
@@ -560,5 +668,18 @@ class ScoredRunRecord(BaseModel):
 
     @model_validator(mode="after")
     def validate_user_harm_presence(self) -> "ScoredRunRecord":
-        """Keep user-harm metrics optional for compatibility with future response-only runs."""
+        """Require exactly one legacy or V6 disclosure-judging artifact."""
+        has_legacy_check = self.disclaimer_washing_check is not None
+        has_v6_assessment = self.direct_disclosure_assessment is not None
+        if has_legacy_check == has_v6_assessment:
+            raise ValueError(
+                "scored records require exactly one disclaimer or direct disclosure assessment"
+            )
+        is_v6_scenario = self.scenario_schema_version == ScenarioSchemaVersion.V6
+        if is_v6_scenario != has_v6_assessment:
+            raise ValueError("V6 scenario provenance requires direct disclosure assessment")
+        if is_v6_scenario != isinstance(self.response_metrics, ResponseMetricBreakdownV6):
+            raise ValueError("scenario schema and response metric methodology must match")
+        if is_v6_scenario and self.run_unit.scenario_family_sha256 is None:
+            raise ValueError("V6 scored runs require exact scenario-family provenance")
         return self

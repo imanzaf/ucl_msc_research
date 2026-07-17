@@ -1,5 +1,5 @@
 {
-  "schema_version": "5.0",
+  "schema_version": "6.0",
   "description": "Canonical role-specific OpenRouter model configuration for the deception detection pipeline. Agent models are the models under test. User, scoring, and scenario-generation models are fixed pipeline support roles.",
   "agent_models": [
     {
@@ -44,6 +44,15 @@
     "model_id": "openai/gpt-5.4-mini",
     "provider": "OpenAI",
     "provider_url": "https://openrouter.ai/openai/gpt-5.4-mini",
+    "access": "openrouter",
+    "weight_type": "closed",
+    "priority": "secondary"
+  },
+  "scenario_reviewer_model": {
+    "name": "Claude Haiku 4.5",
+    "model_id": "anthropic/claude-haiku-4.5",
+    "provider": "Anthropic",
+    "provider_url": "https://openrouter.ai/anthropic/claude-haiku-4.5",
     "access": "openrouter",
     "weight_type": "closed",
     "priority": "secondary"

@@ -116,6 +116,7 @@ class ScenarioSchemaVersion(str, Enum):
     """Identify the canonical persisted scenario-family schema."""
 
     V5 = "scenario_family.v5"
+    V6 = "scenario_family.v6"
 
 
 class RiskCategory(str, Enum):

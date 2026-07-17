@@ -7,7 +7,10 @@ from threading import Lock
 from typing import Any, List
 from uuid import uuid4
 
+import pytest
+
 from src.data_models.experiments import (
+    ConversationProtocol,
     ExperimentConfig,
     ExperimentStage,
     ExperimentUsageSummary,
@@ -17,12 +20,18 @@ from src.data_models.experiments import (
     RunUnitIdentity,
     ScenarioRunRecord,
 )
+from src.data_models.scenario_review import artifact_sha256
 from src.data_models.scenarios import InteractionMode, PromptCondition
 from src.data_models.scoring import (
+    DirectDisclosureStatus,
+    DirectFactDisclosureAssessment,
     DisclaimerWashingCheck,
     FactContradictionCheck,
+    FactDisclosureJudgment,
     FactUnitMatching,
+    FramingDirection,
     ResponseFactExtraction,
+    ResponseMetricBreakdownV6,
 )
 from src.data_models.user_personas import UserPersonaId
 from src.data_models.user_simulator import (
@@ -31,9 +40,16 @@ from src.data_models.user_simulator import (
     UserSimulatorOutcome,
 )
 from src.experiments.io import append_jsonl
-from src.experiments.scoring_pipeline import score_scenario_runs
+from src.experiments.scoring_pipeline import (
+    build_scoring_specs,
+    filter_scenario_run_records,
+    index_scenario_instances,
+    score_one_run,
+    score_scenario_runs,
+)
 from src.llm.openrouter import LLMCallResult
 from tests.canonical_scenario_fixtures import write_scenario_run_dir
+from tests.v6_scenario_fixtures import make_v6_family
 
 
 class FakeScoringClient:
@@ -45,7 +61,7 @@ class FakeScoringClient:
         self.calls: List[Any] = []
         self.lock = Lock()
 
-    def complete_structured(self, **kwargs: Any) -> LLMCallResult:
+    def complete_structured(self, **kwargs: Any) -> LLMCallResult[Any]:
         """Return the next fake structured output."""
         with self.lock:
             self.calls.append(kwargs)
@@ -57,7 +73,7 @@ class FakeScoringClient:
 class StageAwareFakeScoringClient:
     """Fake scoring client returning outputs based on requested model type."""
 
-    def complete_structured(self, **kwargs: Any) -> LLMCallResult:
+    def complete_structured(self, **kwargs: Any) -> LLMCallResult[Any]:
         """Return a structured output matching the requested model."""
         output_model = kwargs["output_model"]
         if output_model is ResponseFactExtraction:
@@ -79,7 +95,37 @@ class StageAwareFakeScoringClient:
         return make_scoring_result(parsed=parsed, stage=kwargs["stage"])
 
 
-def make_scoring_result(parsed: Any, stage: ExperimentStage) -> LLMCallResult:
+class StageAwareV6ScoringClient:
+    """Return complete stage-specific outputs for one V6 scoring run."""
+
+    max_retries = 0
+
+    def __init__(self, assessment: DirectFactDisclosureAssessment) -> None:
+        """Store the complete direct assessment and requested stages."""
+        self.assessment = assessment
+        self.stages: List[ExperimentStage] = []
+
+    def complete_structured(self, **kwargs: Any) -> LLMCallResult[Any]:
+        """Return a valid output for each V6 scoring stage."""
+        self.stages.append(kwargs["stage"])
+        output_model = kwargs["output_model"]
+        if output_model is ResponseFactExtraction:
+            parsed = ResponseFactExtraction(extracted_facts=[])
+        elif output_model is FactUnitMatching:
+            parsed = FactUnitMatching(matches=[])
+        elif output_model is FactContradictionCheck:
+            parsed = FactContradictionCheck(
+                has_fact_contradiction=False,
+                fact_contradiction_rationale="No contradiction.",
+            )
+        elif output_model is DirectFactDisclosureAssessment:
+            parsed = self.assessment
+        else:
+            raise AssertionError(f"unexpected V6 output model: {output_model!r}")
+        return make_scoring_result(parsed=parsed, stage=kwargs["stage"])
+
+
+def make_scoring_result(parsed: Any, stage: ExperimentStage) -> LLMCallResult[Any]:
     """Create a fake scoring call result with deterministic usage."""
     record = LLMCallRecord(
         call_id=str(uuid4()),
@@ -220,3 +266,137 @@ def test_scoring_pipeline_can_score_records_concurrently(tmp_path: Path) -> None
     assert len(records) == 2
     assert {record.run_unit.scenario_id for record in records} == {"RW001_U01", "RW001_U02"}
     assert (experiment_dir / "results" / "20260711T060606_scoring_results.jsonl").exists()
+
+
+def test_v6_scoring_uses_direct_assessment_without_disclaimer_call() -> None:
+    """Verify the V6 branch persists direct metrics and skips legacy disclaimer judging."""
+    family = make_v6_family()
+    instance = family.scenario_instances[0]
+    assessment = DirectFactDisclosureAssessment(
+        judgments=[
+            FactDisclosureJudgment(
+                fact_unit_id=fact_unit.fact_unit_id,
+                checkpoint=checkpoint,
+                disclosure_status=DirectDisclosureStatus.OMITTED,
+                evidence_quotes=[],
+                preserved_specificity_markers=[],
+                framing_direction=FramingDirection.NOT_APPLICABLE,
+                rationale="The fact is absent from this response.",
+            )
+            for fact_unit in instance.fact_units
+            for checkpoint in fact_unit.expected_checkpoints
+        ],
+        assessment_summary="No controlled facts were disclosed.",
+    )
+    record = ScenarioRunRecord(
+        experiment_name="pipeline_scoring_v1",
+        run_id="20260715T030303",
+        run_unit=RunUnitIdentity(
+            scenario_family_id=family.scenario_family_id,
+            scenario_id=instance.scenario_id,
+            interaction_mode=InteractionMode.MULTI_TURN,
+            prompt_condition=PromptCondition.NEUTRAL,
+            persona_id=UserPersonaId.NEUTRAL_BASELINE,
+            agent_model_id="fake/agent",
+            scenario_family_sha256=artifact_sha256(family),
+        ),
+        scenario_schema_version=family.schema_version,
+        conversation_protocol=ConversationProtocol.SCRIPTED_RISK_FOLLOWUP_V1,
+        system_prompt="You are a financial assistant.",
+        initial_user_prompt=instance.core_initial_request,
+        transcript=[
+            ConversationTurn(
+                speaker=ConversationSpeaker.USER,
+                turn_index=1,
+                content=instance.core_initial_request,
+            ),
+            ConversationTurn(
+                speaker=ConversationSpeaker.AGENT,
+                turn_index=2,
+                content="I cannot provide an assessment.",
+            ),
+            ConversationTurn(
+                speaker=ConversationSpeaker.USER,
+                turn_index=3,
+                content=instance.core_risk_followup,
+            ),
+            ConversationTurn(
+                speaker=ConversationSpeaker.AGENT,
+                turn_index=4,
+                content="I have nothing further to add.",
+            ),
+        ],
+        user_simulator_outcome=UserSimulatorOutcome(
+            selected_action_id="review_plan",
+            selected_belief_ids=["supported"],
+            rationale="The user reviews the plan.",
+        ),
+    )
+    client = StageAwareV6ScoringClient(assessment)
+
+    scored = score_one_run(
+        client=client,
+        experiment_name="pipeline_scoring_v1",
+        scoring_run_id="20260715T040404",
+        scenario_record=record,
+        instance=instance,
+        scoring_model="fake/scorer",
+        generation_config=GenerationConfig(),
+    )
+
+    assert isinstance(scored.response_metrics, ResponseMetricBreakdownV6)
+    assert scored.direct_disclosure_assessment is not None
+    assert scored.disclaimer_washing_check is None
+    assert ExperimentStage.DISCLAIMER_WASHING_CHECK not in client.stages
+    assert client.stages.count(ExperimentStage.DIRECT_FACT_DISCLOSURE_ASSESSMENT) == 1
+
+
+def test_v6_scoring_rejects_transcript_from_different_family_artifact() -> None:
+    """Verify scoring cannot join a V6 transcript to a same-ID replacement family."""
+    family = make_v6_family()
+    instance = family.scenario_instances[0]
+    wrong_hash = "0" * 64
+    assert wrong_hash != artifact_sha256(family)
+    record = ScenarioRunRecord.model_construct(
+        run_unit=RunUnitIdentity(
+            scenario_family_id=family.scenario_family_id,
+            scenario_id=instance.scenario_id,
+            interaction_mode=InteractionMode.MULTI_TURN,
+            prompt_condition=PromptCondition.NEUTRAL,
+            persona_id=UserPersonaId.NEUTRAL_BASELINE,
+            agent_model_id="fake/agent",
+            scenario_family_sha256=wrong_hash,
+        )
+    )
+
+    with pytest.raises(ValueError, match="scenario artifact hash mismatch"):
+        build_scoring_specs(
+            scenario_records=[record],
+            scenario_index=index_scenario_instances([family]),
+            skip_ids=[],
+        )
+
+
+def test_scoring_filters_run_units_before_loading_family_gates() -> None:
+    """Verify targeted scoring derives artifact families only from selected records."""
+    records = [
+        ScenarioRunRecord.model_construct(
+            run_unit=RunUnitIdentity(
+                scenario_family_id=family_id,
+                scenario_id=f"{family_id}_T1_R1",
+                interaction_mode=InteractionMode.MULTI_TURN,
+                prompt_condition=PromptCondition.NEUTRAL,
+                persona_id=UserPersonaId.NEUTRAL_BASELINE,
+                agent_model_id="fake/agent",
+            )
+        )
+        for family_id in ["PFM001", "RW001"]
+    ]
+
+    filtered = filter_scenario_run_records(
+        scenario_records=records,
+        skip_ids=[],
+        run_unit_ids=[records[0].run_unit.run_unit_id],
+    )
+
+    assert [record.run_unit.scenario_family_id for record in filtered] == ["PFM001"]

@@ -2,29 +2,48 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from loguru import logger
 
 from src.data_models.experiments import (
     ActivationCaptureStatus,
+    ConversationProtocol,
     ExperimentConfig,
     ExperimentStage,
     ExperimentUsageSummary,
     GenerationConfig,
     RunUnitIdentity,
     ScenarioRunRecord,
+    ScoredRunRecord,
+)
+from src.data_models.scenario_review import (
+    PilotExpansionStatus,
+    PilotHumanAnnotationArtifact,
+    ScenarioPilotExpansionGate,
+    artifact_sha256,
+    calculate_pilot_omission_precision_recall,
+    calculate_quadratic_weighted_kappa,
 )
 from src.data_models.scenarios import (
     InteractionMode,
     PromptCondition,
     PromptVariant,
-    ScenarioFamily,
-    ScenarioInstance,
+    ScenarioSchemaVersion,
+)
+from src.data_models.scenarios_v6 import (
+    DisclosureCheckpoint,
+    FactEvaluationRole,
+    ScenarioFamilyArtifact,
+    ScenarioFamilyV6,
+    ScenarioInstanceArtifact,
+    ScenarioInstanceV6,
 )
 from src.data_models.user_personas import (
     CommunicationStyle,
@@ -57,9 +76,13 @@ from src.experiments.io import (
     write_experiment_config,
 )
 from src.llm.openrouter import LLMCallResult, OpenRouterStructuredClient
+from src.prompts.scenarios.persona_tone import V6_PERSONA_IDS, V6_PERSONA_TONE_PREFIXES
 
 SCENARIO_RUN_PROMPT_VERSION = "scenario_run_v1"
 USER_SIMULATOR_PROMPT_VERSION = "user_simulator_prompt_v1"
+V6_PILOT_FAMILY_IDS = {"PFM001", "RW001"}
+V6_PILOT_AGENT_MODEL_ID = "meta-llama/llama-3.3-70b-instruct"
+V6_PILOT_EXPANSION_GATE_PATH = Path("pilot_validation") / "manifest.json"
 
 
 @dataclass(frozen=True)
@@ -67,8 +90,8 @@ class ScenarioRunSpec:
     """Store one selected scenario/prompt/persona/model run unit."""
 
     index: int
-    family: ScenarioFamily
-    instance: ScenarioInstance
+    family: ScenarioFamilyArtifact
+    instance: ScenarioInstanceArtifact
     variant: PromptVariant
     persona_id: UserPersonaId
     agent_model_id: str
@@ -83,6 +106,7 @@ class ScenarioRunSpec:
             prompt_condition=self.variant.condition,
             persona_id=self.persona_id,
             agent_model_id=self.agent_model_id,
+            scenario_family_sha256=artifact_sha256(self.family),
         ).run_unit_id
 
 
@@ -118,14 +142,24 @@ def persona_for_id(persona_id: UserPersonaId) -> UserPersona:
     )
 
 
-def initial_prompt_for_persona(instance: ScenarioInstance, persona_id: UserPersonaId) -> str:
+def tone_wrap_prompt(prompt: str, persona_id: UserPersonaId) -> str:
+    """Apply a code-owned affect-only persona wrapper to a fixed V6 request."""
+    return f"{V6_PERSONA_TONE_PREFIXES[persona_id]}{prompt}"
+
+
+def initial_prompt_for_persona(
+    instance: ScenarioInstanceArtifact,
+    persona_id: UserPersonaId,
+) -> str:
     """Return the scenario's first user prompt for a reusable persona."""
+    if isinstance(instance, ScenarioInstanceV6):
+        return tone_wrap_prompt(prompt=instance.core_initial_request, persona_id=persona_id)
     prompt_values = instance.initial_user_prompt.model_dump()
     return str(prompt_values[persona_id.value])
 
 
 def prompt_variant_by_condition(
-    family: ScenarioFamily,
+    family: ScenarioFamilyArtifact,
     condition: PromptCondition,
 ) -> PromptVariant:
     """Return a family's prompt variant for one prompt condition."""
@@ -141,13 +175,15 @@ def filter_allowed(value: str, allowed_values: Optional[Sequence[str]]) -> bool:
 
 
 def iter_run_specs(
-    families: Iterable[ScenarioFamily],
+    families: Iterable[ScenarioFamilyArtifact],
     agent_model_ids: Sequence[str],
     scenario_family_ids: Optional[Sequence[str]] = None,
     scenario_ids: Optional[Sequence[str]] = None,
     prompt_conditions: Optional[Sequence[str]] = None,
     persona_ids: Optional[Sequence[str]] = None,
-) -> Iterable[Tuple[ScenarioFamily, ScenarioInstance, PromptVariant, UserPersonaId, str]]:
+) -> Iterable[
+    Tuple[ScenarioFamilyArtifact, ScenarioInstanceArtifact, PromptVariant, UserPersonaId, str]
+]:
     """Yield every scenario/prompt/persona/model combination selected for execution."""
     allowed_conditions = (
         {PromptCondition(value) for value in prompt_conditions} if prompt_conditions else None
@@ -156,13 +192,23 @@ def iter_run_specs(
     for family in families:
         if not filter_allowed(family.scenario_family_id, scenario_family_ids):
             continue
+        active_persona_ids = (
+            V6_PERSONA_IDS if isinstance(family, ScenarioFamilyV6) else tuple(UserPersonaId)
+        )
+        if isinstance(family, ScenarioFamilyV6) and allowed_personas is not None:
+            unsupported_personas = allowed_personas - set(V6_PERSONA_IDS)
+            if unsupported_personas:
+                unsupported_values = ", ".join(
+                    sorted(persona_id.value for persona_id in unsupported_personas)
+                )
+                raise ValueError(f"V6 does not run these persona ids: {unsupported_values}")
         for instance in family.scenario_instances:
             if not filter_allowed(instance.scenario_id, scenario_ids):
                 continue
             for variant in family.prompt_variants:
                 if allowed_conditions is not None and variant.condition not in allowed_conditions:
                     continue
-                for persona_id in UserPersonaId:
+                for persona_id in active_persona_ids:
                     if allowed_personas is not None and persona_id not in allowed_personas:
                         continue
                     for agent_model_id in agent_model_ids:
@@ -170,7 +216,7 @@ def iter_run_specs(
 
 
 def build_selected_run_specs(
-    families: Iterable[ScenarioFamily],
+    families: Iterable[ScenarioFamilyArtifact],
     agent_model_ids: Sequence[str],
     skip_ids: Iterable[str],
     scenario_family_ids: Optional[Sequence[str]] = None,
@@ -206,6 +252,208 @@ def build_selected_run_specs(
             break
         selected_specs.append(spec)
     return selected_specs
+
+
+def resolve_pilot_evidence_path(scenario_run_dir: Path, configured_path: str) -> Path:
+    """Resolve one pilot-evidence path relative to the reviewed scenario run."""
+    path = Path(configured_path)
+    return path if path.is_absolute() else scenario_run_dir / path
+
+
+def sha256_file(path: Path) -> str:
+    """Return the SHA-256 digest of one persisted evidence artifact."""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def expected_primary_annotation_keys(
+    instance: ScenarioInstanceV6,
+) -> Set[Tuple[str, DisclosureCheckpoint]]:
+    """Return the four primary-fact/checkpoint keys required by the human audit."""
+    return {
+        (fact.fact_unit_id, checkpoint)
+        for fact in instance.fact_units
+        if fact.evaluation_role == FactEvaluationRole.PRIMARY_ADVERSE_TARGET
+        for checkpoint in fact.expected_checkpoints
+    }
+
+
+def recompute_pilot_validation_metrics(
+    pilot_records: List[ScoredRunRecord],
+    pilot_families: List[ScenarioFamilyV6],
+    annotations: PilotHumanAnnotationArtifact,
+    manifest: ScenarioPilotExpansionGate,
+) -> Tuple[float, float, float]:
+    """Align human labels to scored facts and recompute all pilot-validation statistics."""
+    records_by_id = {record.run_unit.run_unit_id: record for record in pilot_records}
+    instances_by_key = {
+        (family.scenario_family_id, instance.scenario_id): instance
+        for family in pilot_families
+        for instance in family.scenario_instances
+    }
+    annotation_ids = {item.run_unit_id for item in annotations.conversations}
+    if annotation_ids != set(manifest.audited_conversation_ids):
+        raise ValueError("pilot annotation conversations do not match the 36-case audit")
+    second_reviewed_ids = {
+        item.run_unit_id
+        for item in annotations.conversations
+        if item.judgments[0].secondary_human_status is not None
+    }
+    if second_reviewed_ids != set(manifest.second_reviewed_conversation_ids):
+        raise ValueError("pilot annotation second reviews do not match the 12-case subset")
+
+    automated_human_pairs = []
+    reviewer_pairs = []
+    for conversation in annotations.conversations:
+        record = records_by_id.get(conversation.run_unit_id)
+        if record is None:
+            raise ValueError("pilot annotation references an unknown scored run unit")
+        instance_key = (
+            record.run_unit.scenario_family_id,
+            record.run_unit.scenario_id,
+        )
+        instance = instances_by_key.get(instance_key)
+        if instance is None:
+            raise ValueError("pilot annotation references an unknown accepted scenario")
+        expected_keys = expected_primary_annotation_keys(instance)
+        annotation_keys = {(item.fact_unit_id, item.checkpoint) for item in conversation.judgments}
+        if annotation_keys != expected_keys:
+            raise ValueError("pilot annotation does not cover every primary fact checkpoint")
+        assessment = record.direct_disclosure_assessment
+        if assessment is None:
+            raise ValueError("pilot scored records require direct disclosure assessments")
+        automated_by_key = {
+            (item.fact_unit_id, item.checkpoint): item.disclosure_status
+            for item in assessment.judgments
+        }
+        for item in conversation.judgments:
+            key = (item.fact_unit_id, item.checkpoint)
+            if key not in automated_by_key:
+                raise ValueError("pilot scored assessment lacks a human-audited fact checkpoint")
+            automated_human_pairs.append((automated_by_key[key], item.primary_human_status))
+            if item.secondary_human_status is not None:
+                reviewer_pairs.append((item.primary_human_status, item.secondary_human_status))
+    precision, recall = calculate_pilot_omission_precision_recall(automated_human_pairs)
+    kappa = calculate_quadratic_weighted_kappa(reviewer_pairs)
+    return precision, recall, kappa
+
+
+def validate_recomputed_pilot_metrics(
+    manifest: ScenarioPilotExpansionGate,
+    precision: float,
+    recall: float,
+    kappa: float,
+) -> None:
+    """Require assessor-reported pilot statistics to equal deterministic recomputation."""
+    reported_and_computed = [
+        ("omission_precision", manifest.omission_precision, precision),
+        ("omission_recall", manifest.omission_recall, recall),
+        (
+            "weighted_inter_reviewer_kappa",
+            manifest.weighted_inter_reviewer_kappa,
+            kappa,
+        ),
+    ]
+    for metric_name, reported, computed in reported_and_computed:
+        if not math.isclose(reported, computed, rel_tol=1e-9, abs_tol=1e-9):
+            raise ValueError(f"reported {metric_name} does not match annotation recomputation")
+
+
+def validate_pilot_evidence_artifacts(
+    scenario_run_dir: Path,
+    manifest: ScenarioPilotExpansionGate,
+) -> None:
+    """Bind a passed pilot gate to exact result and human-annotation artifacts."""
+    pilot_results_path = resolve_pilot_evidence_path(scenario_run_dir, manifest.pilot_results_path)
+    annotations_path = resolve_pilot_evidence_path(
+        scenario_run_dir, manifest.human_annotations_path
+    )
+    for path, expected_hash in [
+        (pilot_results_path, manifest.pilot_results_sha256),
+        (annotations_path, manifest.human_annotations_sha256),
+    ]:
+        if not path.is_file():
+            raise ValueError(f"pilot evidence artifact does not exist: {path}")
+        if sha256_file(path) != expected_hash:
+            raise ValueError(f"pilot evidence artifact hash mismatch: {path}")
+
+    pilot_records = read_jsonl_models(path=pilot_results_path, model=ScoredRunRecord)
+    annotations = PilotHumanAnnotationArtifact.model_validate_json(
+        annotations_path.read_text(encoding="utf-8")
+    )
+    actual_run_unit_ids = [record.run_unit.run_unit_id for record in pilot_records]
+    if len(actual_run_unit_ids) != manifest.pilot_conversation_count:
+        raise ValueError("pilot result artifact does not contain exactly 48 conversations")
+    if set(actual_run_unit_ids) != set(manifest.pilot_run_unit_ids):
+        raise ValueError("pilot result artifact run units do not match the expansion manifest")
+    if {record.run_unit.scenario_family_id for record in pilot_records} != set(
+        manifest.pilot_family_ids
+    ):
+        raise ValueError("pilot result artifact does not cover the declared families")
+    if {record.run_unit.agent_model_id for record in pilot_records} != {
+        manifest.pilot_agent_model_id
+    }:
+        raise ValueError("pilot result artifact does not use the declared single agent model")
+    if any(record.scenario_schema_version != ScenarioSchemaVersion.V6 for record in pilot_records):
+        raise ValueError("pilot result artifact must contain only V6 conversations")
+    pilot_families = load_scenario_families(
+        scenario_run_dir,
+        scenario_family_ids=manifest.pilot_family_ids,
+    )
+    expected_run_unit_ids = {
+        spec.unit_id
+        for spec in build_selected_run_specs(
+            families=pilot_families,
+            agent_model_ids=[manifest.pilot_agent_model_id],
+            skip_ids=[],
+        )
+    }
+    if set(actual_run_unit_ids) != expected_run_unit_ids:
+        raise ValueError(
+            "pilot result artifact does not match the complete accepted "
+            "family/prompt/persona matrix"
+        )
+    precision, recall, kappa = recompute_pilot_validation_metrics(
+        pilot_records=pilot_records,
+        pilot_families=pilot_families,
+        annotations=annotations,
+        manifest=manifest,
+    )
+    validate_recomputed_pilot_metrics(
+        manifest=manifest,
+        precision=precision,
+        recall=recall,
+        kappa=kappa,
+    )
+
+
+def validate_v6_pilot_expansion_gate(
+    scenario_run_dir: Path,
+    selected_v6_family_ids: Sequence[str],
+    selected_v6_agent_model_ids: Sequence[str],
+) -> None:
+    """Require passed evidence before adding a V6 family or agent model beyond the pilot."""
+    selected_family_ids = set(selected_v6_family_ids)
+    if not selected_family_ids:
+        return
+    if selected_family_ids.issubset(V6_PILOT_FAMILY_IDS) and set(selected_v6_agent_model_ids) == {
+        V6_PILOT_AGENT_MODEL_ID
+    }:
+        return
+    manifest_path = scenario_run_dir / V6_PILOT_EXPANSION_GATE_PATH
+    if not manifest_path.exists():
+        raise ValueError("non-pilot V6 execution requires pilot_validation/manifest.json")
+    manifest = ScenarioPilotExpansionGate.model_validate_json(
+        manifest_path.read_text(encoding="utf-8")
+    )
+    if manifest.status != PilotExpansionStatus.PASSED:
+        raise ValueError(f"V6 pilot expansion gate is not passed: {manifest.status.value}")
+    if manifest.pilot_agent_model_id != V6_PILOT_AGENT_MODEL_ID:
+        raise ValueError("V6 pilot evidence does not use the fixed primary agent model")
+    validate_pilot_evidence_artifacts(scenario_run_dir=scenario_run_dir, manifest=manifest)
 
 
 def group_specs_by_family(
@@ -248,7 +496,7 @@ def simulator_messages(prompt: str) -> List[Dict[str, str]]:
 def add_call_usage(
     summary: ExperimentUsageSummary,
     call_ids: List[str],
-    result: LLMCallResult,
+    result: LLMCallResult[Any],
 ) -> None:
     """Accumulate one LLM call result into a run usage summary."""
     summary.add_call(usage=result.record.usage, cache_hit=result.record.cache_hit)
@@ -327,8 +575,8 @@ def request_user_outcome(
 
 
 def build_outcome_input(
-    family: ScenarioFamily,
-    instance: ScenarioInstance,
+    family: ScenarioFamilyArtifact,
+    instance: ScenarioInstanceArtifact,
     persona_id: UserPersonaId,
     transcript: List[ConversationTurn],
 ) -> UserSimulatorOutcomeInput:
@@ -350,8 +598,8 @@ def run_one_scenario_unit(
     user_simulator_client: OpenRouterStructuredClient,
     experiment_name: str,
     run_id: str,
-    family: ScenarioFamily,
-    instance: ScenarioInstance,
+    family: ScenarioFamilyArtifact,
+    instance: ScenarioInstanceArtifact,
     variant: PromptVariant,
     persona_id: UserPersonaId,
     agent_model_id: str,
@@ -367,6 +615,7 @@ def run_one_scenario_unit(
         prompt_condition=variant.condition,
         persona_id=persona_id,
         agent_model_id=agent_model_id,
+        scenario_family_sha256=artifact_sha256(family),
     )
     usage_summary = ExperimentUsageSummary()
     call_ids: List[str] = []
@@ -400,7 +649,35 @@ def run_one_scenario_unit(
         )
     )
 
-    if family.interaction_mode == InteractionMode.MULTI_TURN:
+    conversation_protocol = ConversationProtocol.GENERATED_USER_FOLLOWUPS_V1
+    if isinstance(family, ScenarioFamilyV6) and isinstance(instance, ScenarioInstanceV6):
+        conversation_protocol = ConversationProtocol.SCRIPTED_RISK_FOLLOWUP_V1
+        transcript.append(
+            ConversationTurn(
+                speaker=ConversationSpeaker.USER,
+                turn_index=3,
+                content=tone_wrap_prompt(
+                    prompt=instance.core_risk_followup,
+                    persona_id=persona_id,
+                ),
+            )
+        )
+        agent_result = request_agent_response(
+            client=agent_client,
+            unit=unit,
+            system_prompt=system_prompt,
+            transcript=transcript,
+            generation_config=generation_config,
+        )
+        add_call_usage(summary=usage_summary, call_ids=call_ids, result=agent_result)
+        transcript.append(
+            ConversationTurn(
+                speaker=ConversationSpeaker.AGENT,
+                turn_index=4,
+                content=agent_result.parsed,
+            )
+        )
+    elif family.interaction_mode == InteractionMode.MULTI_TURN:
         for followup_turn_index in range(1, max_followup_turns + 1):
             turn_input = UserSimulatorTurnInput(
                 user_role=family.user_role,
@@ -474,6 +751,8 @@ def run_one_scenario_unit(
         call_ids=call_ids,
         usage_summary=usage_summary,
         activation_capture=ActivationCaptureStatus.DISABLED_API_ONLY,
+        conversation_protocol=conversation_protocol,
+        scenario_schema_version=family.schema_version,
     )
 
 
@@ -593,7 +872,11 @@ def run_scenarios(
         experiment_name=experiment_config.experiment_name,
     )
     write_experiment_config(experiment_dir=experiment_dir, config=experiment_config)
-    scenario_families = load_scenario_families(Path(experiment_config.scenario_run_dir))
+    scenario_families = load_scenario_families(
+        Path(experiment_config.scenario_run_dir),
+        scenario_family_ids=scenario_family_ids,
+        scenario_ids=scenario_ids,
+    )
     scenario_run_id = run_id or create_timestamped_run_id()
     output_path = experiment_dir / "results" / f"{scenario_run_id}_results.jsonl"
     usage_path = experiment_dir / "results" / f"{scenario_run_id}_scenario_usage.json"
@@ -623,6 +906,17 @@ def run_scenarios(
         prompt_conditions=prompt_conditions,
         persona_ids=persona_ids,
         limit=limit,
+    )
+    validate_v6_pilot_expansion_gate(
+        scenario_run_dir=Path(experiment_config.scenario_run_dir),
+        selected_v6_family_ids=[
+            spec.family.scenario_family_id
+            for spec in specs
+            if isinstance(spec.family, ScenarioFamilyV6)
+        ],
+        selected_v6_agent_model_ids=[
+            spec.agent_model_id for spec in specs if isinstance(spec.family, ScenarioFamilyV6)
+        ],
     )
 
     def collect_records(records: Sequence[ScenarioRunRecord]) -> None:

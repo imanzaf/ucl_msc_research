@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-07-15T21:59:06",
+  "decision_type": "methodology",
+  "author": "codex",
+  "content": "Report V6 initial omission, persistent omission, repair, specificity loss, understatement, false claims, and control-disclosure diagnostics separately, with the equal-weight composite labelled exploratory rather than primary, because a single aggregate score would obscure which communication failure changed.",
+  "source": "user_prompt",
+  "content_hash": "0181da5e2c3d143bebc2982cc00379f762bd9e61eb4ad674a14a0608484481e6"
+}

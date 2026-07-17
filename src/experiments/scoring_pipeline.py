@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from loguru import logger
 
 from src.data_models.experiments import (
+    ConversationProtocol,
     ExperimentConfig,
     ExperimentStage,
     ExperimentUsageSummary,
@@ -18,8 +20,16 @@ from src.data_models.experiments import (
     ScenarioRunRecord,
     ScoredRunRecord,
 )
-from src.data_models.scenarios import ScenarioFamily, ScenarioInstance
+from src.data_models.scenario_review import artifact_sha256
+from src.data_models.scenarios import ScenarioInstance
+from src.data_models.scenarios_v6 import (
+    DisclosureCheckpoint,
+    ScenarioFamilyArtifact,
+    ScenarioInstanceArtifact,
+    ScenarioInstanceV6,
+)
 from src.data_models.scoring import (
+    DirectFactDisclosureAssessment,
     DisclaimerWashingCheck,
     FactContradictionCheck,
     FactUnitMatching,
@@ -46,6 +56,10 @@ from src.prompts.output_processing.response_fact_extraction import (
     RESPONSE_FACT_EXTRACTION_INSTRUCTIONS,
     RESPONSE_FACT_EXTRACTION_TEMPLATE,
 )
+from src.prompts.scoring.direct_fact_disclosure_assessment import (
+    DIRECT_FACT_DISCLOSURE_ASSESSMENT_INSTRUCTIONS,
+    DIRECT_FACT_DISCLOSURE_ASSESSMENT_TEMPLATE,
+)
 from src.prompts.scoring.disclaimer_washing_check import (
     DISCLAIMER_WASHING_CHECK_INSTRUCTIONS,
     DISCLAIMER_WASHING_CHECK_TEMPLATE,
@@ -54,16 +68,33 @@ from src.prompts.scoring.fact_contradiction_check import (
     FACT_CONTRADICTION_CHECK_INSTRUCTIONS,
     FACT_CONTRADICTION_CHECK_TEMPLATE,
 )
-from src.scoring.metrics import calculate_response_metrics, calculate_user_harm_metrics
+from src.scoring.metrics import (
+    calculate_response_metrics,
+    calculate_user_harm_metrics,
+    calculate_v6_response_metrics,
+    validate_direct_disclosure_alignment,
+)
 
 SCORING_PROMPT_VERSION = "post_run_scoring_v1"
 
 
+@dataclass(frozen=True)
+class DirectAssessmentCallResult:
+    """Store the accepted direct assessment and all alignment-attempt records."""
+
+    attempts: List[LLMCallResult[DirectFactDisclosureAssessment]]
+
+    @property
+    def parsed(self) -> DirectFactDisclosureAssessment:
+        """Return the final alignment-valid direct assessment."""
+        return self.attempts[-1].parsed
+
+
 def index_scenario_instances(
-    families: List[ScenarioFamily],
-) -> Dict[Tuple[str, str], Tuple[ScenarioFamily, ScenarioInstance]]:
+    families: List[ScenarioFamilyArtifact],
+) -> Dict[Tuple[str, str], Tuple[ScenarioFamilyArtifact, ScenarioInstanceArtifact]]:
     """Index scenario instances by family id and scenario id."""
-    index: Dict[Tuple[str, str], Tuple[ScenarioFamily, ScenarioInstance]] = {}
+    index: Dict[Tuple[str, str], Tuple[ScenarioFamilyArtifact, ScenarioInstanceArtifact]] = {}
     for family in families:
         for instance in family.scenario_instances:
             index[(family.scenario_family_id, instance.scenario_id)] = (family, instance)
@@ -75,7 +106,7 @@ def render_conversation(record: ScenarioRunRecord) -> str:
     return UserSimulatorPromptTemplate().render_conversation(record.transcript)
 
 
-def render_fact_units(instance: ScenarioInstance) -> str:
+def render_fact_units(instance: ScenarioInstanceArtifact) -> str:
     """Render hidden ground-truth fact units as scoring-only JSON."""
     return json.dumps(
         [fact_unit.model_dump(mode="json") for fact_unit in instance.fact_units],
@@ -104,7 +135,7 @@ def scoring_messages(instructions: str, prompt: str) -> List[Dict[str, str]]:
 def add_call_usage(
     summary: ExperimentUsageSummary,
     call_ids: List[str],
-    result: LLMCallResult,
+    result: LLMCallResult[Any],
 ) -> None:
     """Accumulate one scoring LLM call into a usage summary."""
     summary.add_call(usage=result.record.usage, cache_hit=result.record.cache_hit)
@@ -146,7 +177,7 @@ def request_extraction(
 def request_matching(
     client: OpenRouterStructuredClient,
     record: ScenarioRunRecord,
-    instance: ScenarioInstance,
+    instance: ScenarioInstanceArtifact,
     extraction: ResponseFactExtraction,
     scoring_model: str,
     generation_config: GenerationConfig,
@@ -172,7 +203,7 @@ def request_matching(
 def request_contradiction_check(
     client: OpenRouterStructuredClient,
     record: ScenarioRunRecord,
-    instance: ScenarioInstance,
+    instance: ScenarioInstanceArtifact,
     extraction: ResponseFactExtraction,
     scoring_model: str,
     generation_config: GenerationConfig,
@@ -219,12 +250,85 @@ def request_disclaimer_washing_check(
     )
 
 
+def v6_checkpoint_responses(record: ScenarioRunRecord) -> Dict[DisclosureCheckpoint, str]:
+    """Return the two agent responses required by the V6 scripted protocol."""
+    if record.conversation_protocol != ConversationProtocol.SCRIPTED_RISK_FOLLOWUP_V1:
+        raise ValueError("V6 direct scoring requires the scripted risk-follow-up protocol")
+    agent_responses = [turn.content for turn in record.transcript if turn.speaker.value == "agent"]
+    if len(agent_responses) != 2:
+        raise ValueError("V6 direct scoring requires exactly two agent responses")
+    return {
+        DisclosureCheckpoint.INITIAL_RESPONSE: agent_responses[0],
+        DisclosureCheckpoint.AFTER_RISK_FOLLOWUP: agent_responses[1],
+    }
+
+
+def request_direct_disclosure_assessment(
+    client: OpenRouterStructuredClient,
+    record: ScenarioRunRecord,
+    instance: ScenarioInstanceV6,
+    scoring_model: str,
+    generation_config: GenerationConfig,
+) -> DirectAssessmentCallResult:
+    """Request complete V6 fact-by-checkpoint disclosure judgments."""
+    checkpoint_responses = v6_checkpoint_responses(record)
+    prompt = DIRECT_FACT_DISCLOSURE_ASSESSMENT_TEMPLATE.format(
+        fact_units=render_fact_units(instance),
+        initial_agent_response=checkpoint_responses[DisclosureCheckpoint.INITIAL_RESPONSE],
+        followup_agent_response=checkpoint_responses[DisclosureCheckpoint.AFTER_RISK_FOLLOWUP],
+    )
+    base_messages = scoring_messages(DIRECT_FACT_DISCLOSURE_ASSESSMENT_INSTRUCTIONS, prompt)
+    attempts: List[LLMCallResult[DirectFactDisclosureAssessment]] = []
+    alignment_error: Optional[ValueError] = None
+    for attempt_index in range(getattr(client, "max_retries", 0) + 1):
+        messages = list(base_messages)
+        if alignment_error is not None:
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "Your previous structured assessment failed deterministic alignment: "
+                        f"{alignment_error}. Return complete judgments with verbatim evidence."
+                    ),
+                }
+            )
+        result = client.complete_structured(
+            stage=ExperimentStage.DIRECT_FACT_DISCLOSURE_ASSESSMENT,
+            model_id=scoring_model,
+            messages=messages,
+            output_model=DirectFactDisclosureAssessment,
+            generation_config=generation_config,
+            prompt_version=(
+                "direct_fact_disclosure_assessment_v1"
+                if attempt_index == 0
+                else f"direct_fact_disclosure_assessment_v1_retry_{attempt_index + 1}"
+            ),
+            metadata=metadata_for_score(
+                record.run_unit,
+                ExperimentStage.DIRECT_FACT_DISCLOSURE_ASSESSMENT,
+            ),
+        )
+        attempts.append(result)
+        try:
+            validate_direct_disclosure_alignment(
+                assessment=result.parsed,
+                fact_units=instance.fact_units,
+                checkpoint_responses=checkpoint_responses,
+            )
+            return DirectAssessmentCallResult(attempts=attempts)
+        except ValueError as exc:
+            alignment_error = exc
+    raise ValueError(
+        "direct disclosure alignment failed after configured retries"
+    ) from alignment_error
+
+
 def score_one_run(
     client: OpenRouterStructuredClient,
     experiment_name: str,
     scoring_run_id: str,
     scenario_record: ScenarioRunRecord,
-    instance: ScenarioInstance,
+    instance: ScenarioInstanceArtifact,
     scoring_model: str,
     generation_config: GenerationConfig,
 ) -> ScoredRunRecord:
@@ -260,23 +364,45 @@ def score_one_run(
     )
     add_call_usage(usage_summary, call_ids, contradiction_result)
 
-    disclaimer_result = request_disclaimer_washing_check(
-        client=client,
-        record=scenario_record,
-        instance=instance,
-        extraction=extraction_result.parsed,
-        scoring_model=scoring_model,
-        generation_config=generation_config,
-    )
-    add_call_usage(usage_summary, call_ids, disclaimer_result)
-
-    response_metrics = calculate_response_metrics(
-        fact_units=instance.fact_units,
-        extraction=extraction_result.parsed,
-        matching=matching_result.parsed,
-        contradiction_check=contradiction_result.parsed,
-        disclaimer_washing_check=disclaimer_result.parsed,
-    )
+    direct_disclosure_assessment = None
+    disclaimer_washing_check = None
+    if isinstance(instance, ScenarioInstanceV6):
+        direct_result = request_direct_disclosure_assessment(
+            client=client,
+            record=scenario_record,
+            instance=instance,
+            scoring_model=scoring_model,
+            generation_config=generation_config,
+        )
+        for direct_attempt in direct_result.attempts:
+            add_call_usage(usage_summary, call_ids, direct_attempt)
+        direct_disclosure_assessment = direct_result.parsed
+        response_metrics = calculate_v6_response_metrics(
+            fact_units=instance.fact_units,
+            disclosure_assessment=direct_result.parsed,
+            checkpoint_responses=v6_checkpoint_responses(scenario_record),
+            extraction=extraction_result.parsed,
+            matching=matching_result.parsed,
+            contradiction_check=contradiction_result.parsed,
+        )
+    else:
+        disclaimer_result = request_disclaimer_washing_check(
+            client=client,
+            record=scenario_record,
+            instance=instance,
+            extraction=extraction_result.parsed,
+            scoring_model=scoring_model,
+            generation_config=generation_config,
+        )
+        add_call_usage(usage_summary, call_ids, disclaimer_result)
+        disclaimer_washing_check = disclaimer_result.parsed
+        response_metrics = calculate_response_metrics(
+            fact_units=instance.fact_units,
+            extraction=extraction_result.parsed,
+            matching=matching_result.parsed,
+            contradiction_check=contradiction_result.parsed,
+            disclaimer_washing_check=disclaimer_result.parsed,
+        )
     user_harm_metrics = calculate_user_harm_metrics(
         outcome=scenario_record.user_simulator_outcome,
         possible_user_actions=instance.possible_user_actions,
@@ -287,10 +413,12 @@ def score_one_run(
         experiment_name=experiment_name,
         scoring_run_id=scoring_run_id,
         run_unit=scenario_record.run_unit,
+        scenario_schema_version=scenario_record.scenario_schema_version,
         extraction=extraction_result.parsed,
         matching=matching_result.parsed,
         contradiction_check=contradiction_result.parsed,
-        disclaimer_washing_check=disclaimer_result.parsed,
+        disclaimer_washing_check=disclaimer_washing_check,
+        direct_disclosure_assessment=direct_disclosure_assessment,
         response_metrics=response_metrics,
         user_harm_metrics=user_harm_metrics,
         call_ids=call_ids,
@@ -324,15 +452,54 @@ def write_usage_summary(path: Path, summary: ExperimentUsageSummary) -> None:
 
 def build_scoring_specs(
     scenario_records: Sequence[ScenarioRunRecord],
-    scenario_index: Dict[Tuple[str, str], Tuple[ScenarioFamily, ScenarioInstance]],
+    scenario_index: Dict[
+        Tuple[str, str],
+        Tuple[ScenarioFamilyArtifact, ScenarioInstanceArtifact],
+    ],
     skip_ids: Iterable[str],
     run_unit_ids: Optional[Sequence[str]] = None,
     limit: Optional[int] = None,
-) -> List[Tuple[ScenarioRunRecord, ScenarioInstance]]:
+) -> List[Tuple[ScenarioRunRecord, ScenarioInstanceArtifact]]:
     """Select scenario-run records for scoring after filters, resume skips, and limit."""
+    filtered_records = filter_scenario_run_records(
+        scenario_records=scenario_records,
+        skip_ids=skip_ids,
+        run_unit_ids=run_unit_ids,
+        limit=limit,
+    )
+    selected_specs: List[Tuple[ScenarioRunRecord, ScenarioInstanceArtifact]] = []
+    for scenario_record in filtered_records:
+        unit_id = scenario_record.run_unit.run_unit_id
+        key = (
+            scenario_record.run_unit.scenario_family_id,
+            scenario_record.run_unit.scenario_id,
+        )
+        if key not in scenario_index:
+            raise ValueError(f"scenario artifact missing for run unit {unit_id}")
+        family, instance = scenario_index[key]
+        expected_family_sha256 = artifact_sha256(family)
+        if (
+            scenario_record.run_unit.scenario_family_sha256 is not None
+            and scenario_record.run_unit.scenario_family_sha256 != expected_family_sha256
+        ):
+            raise ValueError(
+                f"scenario artifact hash mismatch for run unit {unit_id}; "
+                "use the exact reviewed family that produced the transcript"
+            )
+        selected_specs.append((scenario_record, instance))
+    return selected_specs
+
+
+def filter_scenario_run_records(
+    scenario_records: Sequence[ScenarioRunRecord],
+    skip_ids: Iterable[str],
+    run_unit_ids: Optional[Sequence[str]] = None,
+    limit: Optional[int] = None,
+) -> List[ScenarioRunRecord]:
+    """Apply run-unit, resume, and limit filters before loading scenario artifacts."""
     allowed_run_unit_ids = set(run_unit_ids) if run_unit_ids else None
     skipped_unit_ids = set(skip_ids)
-    selected_specs: List[Tuple[ScenarioRunRecord, ScenarioInstance]] = []
+    selected_records: List[ScenarioRunRecord] = []
     for scenario_record in scenario_records:
         unit_id = scenario_record.run_unit.run_unit_id
         if allowed_run_unit_ids is not None and unit_id not in allowed_run_unit_ids:
@@ -340,24 +507,17 @@ def build_scoring_specs(
         if unit_id in skipped_unit_ids:
             logger.info("Skipping previously scored run unit {}", unit_id)
             continue
-        if limit is not None and len(selected_specs) >= limit:
+        if limit is not None and len(selected_records) >= limit:
             break
-        key = (
-            scenario_record.run_unit.scenario_family_id,
-            scenario_record.run_unit.scenario_id,
-        )
-        if key not in scenario_index:
-            raise ValueError(f"scenario artifact missing for run unit {unit_id}")
-        _, instance = scenario_index[key]
-        selected_specs.append((scenario_record, instance))
-    return selected_specs
+        selected_records.append(scenario_record)
+    return selected_records
 
 
 def score_selected_spec(
     client: OpenRouterStructuredClient,
     experiment_config: ExperimentConfig,
     scoring_run_id: str,
-    spec: Tuple[ScenarioRunRecord, ScenarioInstance],
+    spec: Tuple[ScenarioRunRecord, ScenarioInstanceArtifact],
 ) -> ScoredRunRecord:
     """Score one selected scenario-run record."""
     scenario_record, instance = spec
@@ -377,7 +537,7 @@ def score_specs_concurrently(
     client: OpenRouterStructuredClient,
     experiment_config: ExperimentConfig,
     scoring_run_id: str,
-    specs: Sequence[Tuple[ScenarioRunRecord, ScenarioInstance]],
+    specs: Sequence[Tuple[ScenarioRunRecord, ScenarioInstanceArtifact]],
     collect_record: Callable[[ScoredRunRecord], None],
 ) -> None:
     """Score selected records with a bounded worker pool."""
@@ -416,15 +576,30 @@ def score_scenario_runs(
         experiment_name=experiment_config.experiment_name,
     )
     write_experiment_config(experiment_dir=experiment_dir, config=experiment_config)
-    scenario_index = index_scenario_instances(
-        load_scenario_families(Path(experiment_config.scenario_run_dir))
-    )
     scenario_records = load_scenario_run_records(experiment_dir)
     if not scenario_records:
         raise ValueError(f"no scenario-run records found under {experiment_dir / 'results'}")
-
     skip_ids = (
         set(existing_scored_run_unit_ids(experiment_dir)) if experiment_config.resume else set()
+    )
+    filtered_records = filter_scenario_run_records(
+        scenario_records=scenario_records,
+        skip_ids=skip_ids,
+        run_unit_ids=run_unit_ids,
+        limit=limit,
+    )
+    selected_family_ids = sorted(
+        {record.run_unit.scenario_family_id for record in filtered_records}
+    )
+    scenario_index = (
+        index_scenario_instances(
+            load_scenario_families(
+                Path(experiment_config.scenario_run_dir),
+                scenario_family_ids=selected_family_ids,
+            )
+        )
+        if selected_family_ids
+        else {}
     )
     run_id = scoring_run_id or create_timestamped_run_id()
     output_path = experiment_dir / "results" / f"{run_id}_scoring_results.jsonl"
@@ -441,11 +616,9 @@ def score_scenario_runs(
         else ExperimentUsageSummary()
     )
     specs = build_scoring_specs(
-        scenario_records=scenario_records,
+        scenario_records=filtered_records,
         scenario_index=scenario_index,
-        skip_ids=skip_ids,
-        run_unit_ids=run_unit_ids,
-        limit=limit,
+        skip_ids=[],
     )
 
     def collect_record(record: ScoredRunRecord) -> None:

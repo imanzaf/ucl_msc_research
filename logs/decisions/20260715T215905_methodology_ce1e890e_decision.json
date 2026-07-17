@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-07-15T21:59:05",
+  "decision_type": "methodology",
+  "author": "codex",
+  "content": "Require every V6 family to pass a predeclared semantic rubric covering materiality, direct source support, fact independence, neutral wording, salience matching, prompt and persona leakage, finance realism, self-contained answerability, replication equivalence, and task distinctness, because structural schema validation alone cannot detect semantic confounds.",
+  "source": "user_prompt",
+  "content_hash": "ce1e890e888a424315f88e985df8ee2b06cdfb4bff6f5befe6e5e40726f29928"
+}

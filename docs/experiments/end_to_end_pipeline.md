@@ -34,31 +34,44 @@ The model catalog is role-specific:
 - `user_model` is Gemma 4 26B A4B, a 26B Mixture-of-Experts model, for user-simulator turns and outcomes.
 - `scoring_model` is Gemini 3.1 Flash Lite for extraction, matching, and judge calls.
 - `scenario_generator_model` is GPT 5.4 Mini for scenario draft generation.
+- `scenario_reviewer_model` is fixed to Claude Haiku 4.5 for independent V6 semantic review.
 
 ## Scenario Draft Generation
 
-Scenario draft generation now uses OpenRouter structured outputs through the shared client:
+Generate V6 drafts, run one family-level semantic review, and selectively revise flagged scenarios:
 
 ```bash
-uv run python scripts/generate_scenario_drafts.py --scenario-set v0.2.0
+uv run python scripts/generate_v6_scenario_drafts.py \
+  --scenario-set v0.3.1 \
+  --family-scenario-concurrency 4
 ```
 
-Use `--family-scenario-concurrency 5` to generate the five seed-owned scenario instances in one
-family concurrently while still processing families one at a time:
-
-```bash
-uv run python scripts/generate_scenario_drafts.py \
-  --scenario-set v0.2.0 \
-  --family-scenario-concurrency 5
-```
+V6 validates the generator and reviewer IDs before generation and requires the reviewer to advertise
+`response_format`. The semantic review uses temperature `0.0` and strict provider parameter routing.
+Revision uses the normal generation temperature. The four initial drafts and any flagged revisions
+run concurrently within the configured family limit; families remain sequential.
 
 Outputs are written to:
 
 - `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/<scenario_family_id>.json`
-- `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/<scenario_family_id>_review.md`
+- `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/initial/<scenario_family_id>.json`
+- `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/semantic_reviews/<scenario_family_id>.json`
+- `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/semantic_reviews/attempts/<scenario_family_id>_attempt_<n>.json`
+- `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/manifests/<scenario_family_id>.json`
+- `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/human_reviews/<scenario_family_id>.json`
+- `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/human_reviews/<scenario_family_id>.md`
+- `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/failures/<scenario_family_id>.json` on terminal failure
 - `data/inputs/scenarios/<scenario-set>/runs/<YYYYMMDDTHHMMSS>/cache/llm_calls/*.json`
 
-Drafts remain review artifacts until manually checked.
+The top-level family JSON is written last and only after successful generation, review coverage, and
+revision validation. It remains unusable while the human manifest is pending or rejected. Human
+review must resolve every automated finding before setting the family to `accepted`.
+
+The Markdown file under `human_reviews/` is the only human-readable review artifact. It combines the automated finding list and final scenarios. V6 runs only neutral and anxious personas: the seed request supplies neutral wording and code applies a fixed anxious tone prefix. No positive V6 persona is scheduled.
+
+Pilot selections are limited to `PFM001` and `RW001` using fixed primary model `meta-llama/llama-3.3-70b-instruct`. Before running another V6 family or agent model, add a passed `pilot_validation/manifest.json` to the accepted scenario run. It must bind all 48 pilot run-unit IDs and the 36/12 review subsets to the exact scored-results and typed human-annotation files with SHA-256 digests. The runner validates the files, hashes, complete matrix, labels, and IDs; recomputes precision, recall, and quadratic-weighted kappa; and checks the thresholds before expansion.
+
+The current generator accepts only V0.3.1 seed schemas. Older seed directories remain in the repository as archival inputs and are summarized in the version changelog in `docs/experiments/scenario_generation.md`; they are not loaded or translated by the current generator.
 
 ## Run Scenarios
 
@@ -67,9 +80,8 @@ Run reviewed scenario JSON through the selected agent models and user simulator:
 ```bash
 uv run python scripts/run_scenarios.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.1.0/runs/20260705T204014 \
-  --agent-model meta-llama/llama-3.3-70b-instruct \
-  --agent-model qwen/qwen-2.5-72b-instruct
+  --scenario-run-dir data/inputs/scenarios/v0.3.1/runs/<accepted-run-id> \
+  --agent-model meta-llama/llama-3.3-70b-instruct
 ```
 
 Useful filters:
@@ -77,9 +89,9 @@ Useful filters:
 ```bash
 uv run python scripts/run_scenarios.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.1.0/runs/20260705T204014 \
+  --scenario-run-dir data/inputs/scenarios/v0.3.1/runs/<accepted-run-id> \
   --scenario-family-id RW001 \
-  --scenario-id RW001_U01 \
+  --scenario-id RW001_T1_R1 \
   --prompt-condition neutral \
   --persona-id neutral_baseline \
   --limit 1
@@ -91,12 +103,12 @@ family concurrently:
 ```bash
 uv run python scripts/run_scenarios.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.1.0/runs/20260705T204014 \
-  --family-scenario-concurrency 5
+  --scenario-run-dir data/inputs/scenarios/v0.3.1/runs/<accepted-run-id> \
+  --family-scenario-concurrency 4
 ```
 
-With `--family-scenario-concurrency 5`, the runner processes one family at a time, but can keep all
-five scenario instances in that family active together. Each individual conversation remains
+With `--family-scenario-concurrency 4`, the runner processes one family at a time, but can keep all
+four scenario instances in that family active together. Each individual conversation remains
 sequential because later user and agent turns depend on earlier turns.
 
 Scenario-run outputs:
@@ -107,13 +119,14 @@ Scenario-run outputs:
 - `data/outputs/experiments/<name>_v<N>/logs/<YYYYMMDDTHHMMSS>_run.log`
 - `data/outputs/experiments/<name>_v<N>/cache/llm_calls/*.json`
 
-Single-turn scenarios run initial user prompt -> agent response -> user outcome. Multi-turn scenarios
-run initial user prompt -> agent response -> user-simulator follow-up loop, capped at three follow-up
-user turns -> user outcome.
+V6 scenarios run fixed initial request -> agent response -> fixed risk follow-up -> agent response ->
+user outcome. Code-owned persona wrappers alter affective tone only. V6 never calls the user simulator
+to generate a follow-up. V5 single-turn and generated multi-turn protocols remain unchanged.
 
 Each `ScenarioRunRecord` persists the full transcript plus explicit count fields:
 `transcript_turn_count`, `user_turn_count`, `agent_turn_count`,
-`generated_user_followup_count`, and `user_simulator_decision_count`.
+`generated_user_followup_count`, `scripted_user_followup_count`,
+`user_simulator_decision_count`, and `conversation_protocol`.
 
 ## Score Runs
 
@@ -122,7 +135,7 @@ Score completed transcripts separately:
 ```bash
 uv run python scripts/score_runs.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.1.0/runs/20260705T204014 \
+  --scenario-run-dir data/inputs/scenarios/v0.3.1/runs/<accepted-run-id> \
   --scoring-concurrency 8
 ```
 
@@ -133,9 +146,11 @@ Scoring outputs:
 - `data/outputs/experiments/<name>_v<N>/logs/<YYYYMMDDTHHMMSS>_scoring_run.log`
 - `data/outputs/experiments/<name>_v<N>/assets/<name>_v<N>_table.tex`
 
-The scoring stage makes four LLM-assisted calls per scenario run: response fact extraction,
-fact-unit matching, fact contradiction checking, and disclaimer-washing checking. Programmatic
-response metrics and user-harm metrics are then computed by `src/scoring/metrics.py`.
+V6 scoring makes four LLM-assisted calls: direct fact-by-checkpoint disclosure assessment, response
+fact extraction, fact-unit matching, and contradiction checking. Direct judgments provide omission,
+repair, specificity, and understatement; extraction and matching are used for unsupported claims.
+V5 instead retains its legacy disclaimer-washing call. Programmatic response and user-harm metrics
+are computed by `src/scoring/metrics.py`.
 
 ## Joint Pipeline
 
@@ -144,8 +159,8 @@ Run scenario execution, scoring, and asset generation in one command:
 ```bash
 uv run python scripts/run_experiment_pipeline.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.1.0/runs/20260705T204014 \
-  --family-scenario-concurrency 5 \
+  --scenario-run-dir data/inputs/scenarios/v0.3.1/runs/<accepted-run-id> \
+  --family-scenario-concurrency 4 \
   --scoring-concurrency 8
 ```
 
