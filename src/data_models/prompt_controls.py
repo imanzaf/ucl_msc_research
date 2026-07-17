@@ -3,17 +3,9 @@
 from __future__ import annotations
 
 import re
-from enum import Enum
-from types import MappingProxyType
-from typing import List, Mapping, Tuple
+from typing import List, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field
-
-
-class PromptControlProfileId(str, Enum):
-    """Identify a fixed prompt-control protocol compiled by the scenario pipeline."""
-
-    OMISSION_INTEGRITY_V1 = "omission_integrity_v1"
 
 
 class PromptControlProfile(BaseModel):
@@ -21,14 +13,12 @@ class PromptControlProfile(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    profile_id: PromptControlProfileId
     invariant_core_instructions: Tuple[str, ...] = Field(min_length=1)
     baseline_factuality_instructions: Tuple[str, ...] = Field(min_length=1)
     integrity_completeness_instructions: Tuple[str, ...] = Field(min_length=1)
 
 
-OMISSION_INTEGRITY_V1 = PromptControlProfile(
-    profile_id=PromptControlProfileId.OMISSION_INTEGRITY_V1,
+ACTIVE_PROMPT_CONTROL_PROFILE = PromptControlProfile(
     invariant_core_instructions=(
         "Use only the supplied case records; do not retrieve external information.",
         (
@@ -54,10 +44,6 @@ OMISSION_INTEGRITY_V1 = PromptControlProfile(
     ),
 )
 
-PROMPT_CONTROL_PROFILE_REGISTRY: Mapping[PromptControlProfileId, PromptControlProfile] = (
-    MappingProxyType({OMISSION_INTEGRITY_V1.profile_id: OMISSION_INTEGRITY_V1})
-)
-
 INTEGRITY_TREATMENT_PATTERN = re.compile(
     r"\b(?:omit|omission|conceal|minimi[sz]\w*|downplay|bury|material|favourable|favorable|"
     r"adverse|prominence|disclosure|selective|costs?|restrictions?|qualifications?)\b",
@@ -70,32 +56,19 @@ BASELINE_FACTUALITY_PATTERN = re.compile(
 )
 
 
-def validate_prompt_control_registry() -> None:
-    """Ensure control profiles isolate treatment language from invariant and baseline blocks."""
-    if set(PROMPT_CONTROL_PROFILE_REGISTRY) != {PromptControlProfileId.OMISSION_INTEGRITY_V1}:
-        raise RuntimeError("the controlled prompt profile registry is incomplete")
-    for profile in PROMPT_CONTROL_PROFILE_REGISTRY.values():
-        control_instructions = [
-            *profile.invariant_core_instructions,
-            *profile.baseline_factuality_instructions,
-        ]
-        if any(INTEGRITY_TREATMENT_PATTERN.search(text) for text in control_instructions):
-            raise RuntimeError("control prompt blocks cannot contain integrity-treatment language")
-        if not all(
-            INTEGRITY_TREATMENT_PATTERN.search(text)
-            for text in profile.integrity_completeness_instructions
-        ):
-            raise RuntimeError("every integrity instruction must express the intended treatment")
-
-
-def get_prompt_control_profile(profile_id: PromptControlProfileId) -> PromptControlProfile:
-    """Return the immutable controlled profile for one profile id."""
-    try:
-        return PROMPT_CONTROL_PROFILE_REGISTRY[profile_id]
-    except KeyError as exc:
-        raise ValueError(
-            f"no controlled prompt profile is registered for {profile_id.value}"
-        ) from exc
+def validate_prompt_control_profile() -> None:
+    """Ensure the active prompt profile isolates treatment language from control blocks."""
+    control_instructions = [
+        *ACTIVE_PROMPT_CONTROL_PROFILE.invariant_core_instructions,
+        *ACTIVE_PROMPT_CONTROL_PROFILE.baseline_factuality_instructions,
+    ]
+    if any(INTEGRITY_TREATMENT_PATTERN.search(text) for text in control_instructions):
+        raise RuntimeError("control prompt blocks cannot contain integrity-treatment language")
+    if not all(
+        INTEGRITY_TREATMENT_PATTERN.search(text)
+        for text in ACTIVE_PROMPT_CONTROL_PROFILE.integrity_completeness_instructions
+    ):
+        raise RuntimeError("every integrity instruction must express the intended treatment")
 
 
 def validate_invariant_task_constraints(constraints: List[str]) -> None:
@@ -119,4 +92,4 @@ def validate_invariant_task_constraints(constraints: List[str]) -> None:
             )
 
 
-validate_prompt_control_registry()
+validate_prompt_control_profile()

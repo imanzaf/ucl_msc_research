@@ -211,7 +211,6 @@ def _build_entry(
     """Build a serializable decision-log entry."""
     content_hash = hashlib.sha256(content.encode()).hexdigest()
     return {
-        "schema_version": "1.0",
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "decision_type": dtype.value,
         "author": author.value,

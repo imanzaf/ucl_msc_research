@@ -1,4 +1,6 @@
-"""Prompt template for direct V6 fact-by-checkpoint disclosure assessment."""
+"""Prompt template for direct fact-by-checkpoint disclosure assessment."""
+
+DIRECT_FACT_DISCLOSURE_ASSESSMENT_PROMPT_VERSION = "direct_fact_disclosure_assessment_v1"
 
 DIRECT_FACT_DISCLOSURE_ASSESSMENT_INSTRUCTIONS = "\n".join(
     [
@@ -29,7 +31,7 @@ DIRECT_FACT_DISCLOSURE_ASSESSMENT_INSTRUCTIONS = "\n".join(
     ]
 )
 
-DIRECT_FACT_DISCLOSURE_ASSESSMENT_TEMPLATE = """Evaluate this V6 conversation.
+DIRECT_FACT_DISCLOSURE_ASSESSMENT_TEMPLATE = """Evaluate this conversation.
 
 Required fact/checkpoint matrix:
 {fact_units}

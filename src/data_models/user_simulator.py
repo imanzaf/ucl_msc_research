@@ -1,18 +1,15 @@
-"""Pydantic models and prompt rendering for V4 user-simulator interactions."""
+"""Pydantic models and prompt rendering for user-simulator interactions."""
 
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.data_models.scenarios import UserAction, UserBelief
 from src.data_models.user_personas import UserPersona
-from src.prompts.user_simulator.next_turn import NEXT_TURN_TEMPLATE
 from src.prompts.user_simulator.outcome import OUTCOME_TEMPLATE
-
-MAX_USER_SIMULATOR_FOLLOWUP_TURNS = 3
 
 
 class ConversationSpeaker(str, Enum):
@@ -116,101 +113,11 @@ def visible_beliefs_from_user_beliefs(beliefs: List[UserBelief]) -> List[Visible
     return [VisibleUserBelief.from_user_belief(belief) for belief in beliefs]
 
 
-class UserSimulatorTurnInput(BaseModel):
-    """Describe one request for the user simulator to produce a follow-up user turn."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    schema_version: str = Field(
-        default="user_simulator_turn_input.v1",
-        description="Schema version for user-simulator turn inputs.",
-    )
-    user_role: str = Field(
-        min_length=1,
-        description="Role assigned to the user-side simulator.",
-    )
-    user_goal: str = Field(
-        min_length=1,
-        description="Scenario-specific goal pursued by the simulated user.",
-    )
-    agent_role: str = Field(
-        min_length=1,
-        description="Role assigned to the agent model.",
-    )
-    persona: UserPersona = Field(
-        description="Reusable persona condition for the simulated user.",
-    )
-    user_facing_context: List[str] = Field(
-        min_length=1,
-        description="Context visible to the user simulator but not directly to the agent.",
-    )
-    conversation_so_far: List[ConversationTurn] = Field(
-        min_length=2,
-        description="Transcript ending with the latest agent response.",
-    )
-    followup_turn_index: int = Field(
-        ge=1,
-        le=MAX_USER_SIMULATOR_FOLLOWUP_TURNS,
-        description="One-based generated user follow-up index for this simulator call.",
-    )
-    max_followup_turns: int = Field(
-        default=MAX_USER_SIMULATOR_FOLLOWUP_TURNS,
-        ge=1,
-        le=MAX_USER_SIMULATOR_FOLLOWUP_TURNS,
-        description="Hard cap on generated user follow-up turns for this conversation.",
-    )
-
-    @model_validator(mode="after")
-    def validate_turn_input(self) -> "UserSimulatorTurnInput":
-        """Ensure the simulator turn request follows the V4 multi-turn protocol."""
-        validate_conversation_turns(self.conversation_so_far)
-        if self.conversation_so_far[-1].speaker != ConversationSpeaker.AGENT:
-            raise ValueError("user-simulator turn input must follow an agent response")
-        if self.followup_turn_index > self.max_followup_turns:
-            raise ValueError("followup_turn_index cannot exceed max_followup_turns")
-        return self
-
-
-class UserSimulatorTurnOutput(BaseModel):
-    """Describe the structured output for one generated follow-up user turn."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    schema_version: str = Field(
-        default="user_simulator_turn_output.v1",
-        description="Schema version for user-simulator turn outputs.",
-    )
-    should_continue: bool = Field(
-        description="Whether the simulated user would reasonably ask another follow-up.",
-    )
-    utterance: Optional[str] = Field(
-        default=None,
-        description="Next user utterance when should_continue is true; omitted when false.",
-    )
-    rationale: str = Field(
-        min_length=1,
-        description="Brief rationale for the continue/stop decision.",
-    )
-
-    @model_validator(mode="after")
-    def validate_turn_output(self) -> "UserSimulatorTurnOutput":
-        """Ensure continuation decisions and utterance content are internally consistent."""
-        if self.should_continue and not (self.utterance and self.utterance.strip()):
-            raise ValueError("utterance is required when should_continue is true")
-        if not self.should_continue and self.utterance is not None:
-            raise ValueError("utterance must be omitted when should_continue is false")
-        return self
-
-
 class UserSimulatorOutcomeInput(BaseModel):
     """Describe the post-conversation action and belief selection request."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = Field(
-        default="user_simulator_outcome_input.v1",
-        description="Schema version for user-simulator outcome inputs.",
-    )
     user_role: str = Field(
         min_length=1,
         description="Role assigned to the user-side simulator.",
@@ -265,10 +172,6 @@ class UserSimulatorOutcome(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = Field(
-        default="user_simulator_outcome.v1",
-        description="Schema version for user-simulator outcomes.",
-    )
     selected_action_id: str = Field(
         min_length=1,
         description="Exactly one selected user action identifier.",
@@ -304,18 +207,10 @@ class UserSimulatorOutcome(BaseModel):
 
 
 class UserSimulatorPromptTemplate(BaseModel):
-    """Render code-owned prompts for user-simulator turn and outcome calls."""
+    """Render code-owned prompts for user-simulator outcome calls."""
 
     model_config = ConfigDict(extra="forbid")
 
-    template_id: str = Field(
-        default="user_simulator_prompt_v1",
-        description="Stable identifier for the user-simulator prompt rendering template.",
-    )
-    next_turn_template: str = Field(
-        default=NEXT_TURN_TEMPLATE,
-        description="Template for next-user-turn simulator calls.",
-    )
     outcome_template: str = Field(
         default=OUTCOME_TEMPLATE,
         description="Template for post-conversation action and belief selection calls.",
@@ -344,9 +239,6 @@ class UserSimulatorPromptTemplate(BaseModel):
             "{user_facing_context}",
             "{conversation}",
         ]
-        for placeholder in shared_placeholders:
-            if placeholder not in self.next_turn_template:
-                raise ValueError(f"next_turn_template must contain {placeholder}")
         for placeholder in shared_placeholders + ["{available_actions}", "{available_beliefs}"]:
             if placeholder not in self.outcome_template:
                 raise ValueError(f"outcome_template must contain {placeholder}")
@@ -407,17 +299,6 @@ class UserSimulatorPromptTemplate(BaseModel):
                 belief=belief.belief,
             )
             for belief in beliefs
-        )
-
-    def render_next_turn_prompt(self, turn_input: UserSimulatorTurnInput) -> str:
-        """Render the prompt for a user-simulator follow-up turn call."""
-        return self.next_turn_template.format(
-            user_role=turn_input.user_role,
-            user_goal=turn_input.user_goal,
-            agent_role=turn_input.agent_role,
-            persona=self.render_persona(turn_input.persona),
-            user_facing_context=self.render_user_facing_context(turn_input.user_facing_context),
-            conversation=self.render_conversation(turn_input.conversation_so_far),
         )
 
     def render_outcome_prompt(self, outcome_input: UserSimulatorOutcomeInput) -> str:

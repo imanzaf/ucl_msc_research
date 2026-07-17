@@ -52,7 +52,7 @@ def test_role_specific_model_fields_are_available() -> None:
     """Verify role-specific model specs are available from the model catalog."""
     catalog = load_model_catalog()
 
-    assert catalog.schema_version.value == "6.0"
+    assert "schema_version" not in catalog.model_dump()
     assert [model.name for model in catalog.agent_models] == [
         "Llama 3.3 70B Instruct",
         "Qwen 2.5 72B Instruct",

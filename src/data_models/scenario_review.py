@@ -1,4 +1,4 @@
-"""Structured semantic-review and human-acceptance models for V6 scenarios."""
+"""Structured semantic-review and human-acceptance models for current scenarios."""
 
 from __future__ import annotations
 
@@ -10,10 +10,9 @@ from typing import Dict, List, Optional, Set, Tuple
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.data_models.experiments import ExperimentStage, ExperimentUsageSummary
-from src.data_models.prompt_controls import PromptControlProfileId
-from src.data_models.scenarios_v6 import (
+from src.data_models.scenarios import (
     DisclosureCheckpoint,
-    ScenarioFamilyV6,
+    ScenarioFamily,
     scenario_ids_for_task_type,
 )
 from src.data_models.scoring import DirectDisclosureStatus
@@ -27,19 +26,8 @@ class ReviewSubjectScope(str, Enum):
     FAMILY = "family"
 
 
-class ScenarioReviewSchemaVersion(str, Enum):
-    """Identify fixed schemas used by V6 review and provenance artifacts."""
-
-    SEMANTIC_REVIEW = "scenario_semantic_review.v1"
-    GENERATION_MANIFEST = "scenario_generation_manifest.v1"
-    GENERATION_FAILURE = "scenario_generation_failure.v1"
-    HUMAN_REVIEW = "scenario_human_review.v1"
-    PILOT_EXPANSION_GATE = "scenario_pilot_expansion_gate.v1"
-    PILOT_HUMAN_ANNOTATIONS = "pilot_human_annotations.v1"
-
-
 class SemanticRequirementId(str, Enum):
-    """Identify every predeclared semantic requirement in the V6 review rubric."""
+    """Identify every predeclared semantic requirement in the review rubric."""
 
     DECISION_MATERIALITY = "decision_materiality"
     DIRECT_SOURCE_SUPPORT = "direct_source_support"
@@ -267,10 +255,6 @@ class ScenarioSemanticReview(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: ScenarioReviewSchemaVersion = Field(
-        default=ScenarioReviewSchemaVersion.SEMANTIC_REVIEW,
-        description="Semantic-review schema version.",
-    )
     scenario_family_id: str = Field(min_length=1, description="Reviewed family identifier.")
     assessments: List[RequirementAssessment] = Field(
         min_length=1,
@@ -298,9 +282,9 @@ class ScenarioSemanticReview(BaseModel):
 
 
 def expected_semantic_review_keys(
-    family: ScenarioFamilyV6,
+    family: ScenarioFamily,
 ) -> Set[Tuple[SemanticRequirementId, ReviewSubjectScope, str]]:
-    """Return the exact semantic-assessment keys required for one V6 family."""
+    """Return the exact semantic-assessment keys required for one family."""
     expected: Set[Tuple[SemanticRequirementId, ReviewSubjectScope, str]] = set()
     for requirement_id, definition in SEMANTIC_REQUIREMENT_REGISTRY.items():
         scope = definition.scope
@@ -319,7 +303,7 @@ def expected_semantic_review_keys(
 
 
 def validate_semantic_review_coverage(
-    review: ScenarioSemanticReview, family: ScenarioFamilyV6
+    review: ScenarioSemanticReview, family: ScenarioFamily
 ) -> None:
     """Reject incomplete review matrices and invalid revision routing."""
     if review.scenario_family_id != family.scenario_family_id:
@@ -383,22 +367,15 @@ class ScenarioRevisionAttempt(BaseModel):
 
 
 class ScenarioGenerationManifest(BaseModel):
-    """Record V6 generation, review, routing, and revision provenance for one family."""
+    """Record generation, review, routing, and revision provenance for one family."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: ScenarioReviewSchemaVersion = Field(
-        default=ScenarioReviewSchemaVersion.GENERATION_MANIFEST,
-        description="Generation-manifest schema version.",
-    )
     scenario_family_id: str = Field(min_length=1, description="Generated family identifier.")
     generator_model_id: str = Field(
         min_length=1, description="Initial and revision generator model."
     )
     reviewer_model_id: str = Field(min_length=1, description="Independent semantic reviewer model.")
-    prompt_control_profile_id: PromptControlProfileId = Field(
-        default=PromptControlProfileId.OMISSION_INTEGRITY_V1
-    )
     initial_call_ids: Dict[str, str] = Field(
         description="Initial generation call ids by scenario id."
     )
@@ -451,13 +428,10 @@ class ScenarioGenerationManifest(BaseModel):
 
 
 class ScenarioGenerationFailure(BaseModel):
-    """Persist the stage and terminal error for an incomplete V6 family run."""
+    """Persist the stage and terminal error for an incomplete family run."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: ScenarioReviewSchemaVersion = Field(
-        default=ScenarioReviewSchemaVersion.GENERATION_FAILURE
-    )
     scenario_family_id: str = Field(min_length=1)
     failed_stage: ExperimentStage
     error_type: str = Field(min_length=1)
@@ -479,13 +453,11 @@ def artifact_sha256(artifact: BaseModel) -> str:
 def validate_generation_manifest_alignment(
     manifest: ScenarioGenerationManifest,
     review: ScenarioSemanticReview,
-    family: ScenarioFamilyV6,
+    family: ScenarioFamily,
 ) -> None:
     """Require manifest scenario and finding routes to match the reviewed family exactly."""
     if manifest.scenario_family_id != family.scenario_family_id:
         raise ValueError("generation manifest family id does not match the family")
-    if manifest.prompt_control_profile_id != family.prompt_control_profile_id:
-        raise ValueError("generation manifest prompt profile does not match the family")
     family_scenario_ids = {instance.scenario_id for instance in family.scenario_instances}
     if set(manifest.reviewed_scenario_ids) != family_scenario_ids:
         raise ValueError("generation manifest reviewed scenarios do not match the family")
@@ -501,7 +473,7 @@ def validate_generation_manifest_alignment(
 
 
 class HumanReviewStatus(str, Enum):
-    """Classify whether a human has accepted a generated V6 family."""
+    """Classify whether a human has accepted a generated family."""
 
     PENDING = "pending"
     ACCEPTED = "accepted"
@@ -509,7 +481,7 @@ class HumanReviewStatus(str, Enum):
 
 
 class PilotExpansionStatus(str, Enum):
-    """Classify whether V6 evaluation may expand beyond the two-family pilot."""
+    """Classify whether evaluation may expand beyond the two-family pilot."""
 
     PENDING = "pending"
     PASSED = "passed"
@@ -552,9 +524,6 @@ class PilotHumanAnnotationArtifact(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: ScenarioReviewSchemaVersion = Field(
-        default=ScenarioReviewSchemaVersion.PILOT_HUMAN_ANNOTATIONS
-    )
     conversations: List[PilotConversationHumanAnnotation] = Field(
         min_length=36,
         max_length=36,
@@ -563,8 +532,6 @@ class PilotHumanAnnotationArtifact(BaseModel):
     @model_validator(mode="after")
     def validate_conversation_coverage(self) -> "PilotHumanAnnotationArtifact":
         """Require 36 unique conversations with exactly 12 complete second reviews."""
-        if self.schema_version != ScenarioReviewSchemaVersion.PILOT_HUMAN_ANNOTATIONS:
-            raise ValueError("pilot annotations require pilot_human_annotations.v1")
         run_unit_ids = [item.run_unit_id for item in self.conversations]
         if len(set(run_unit_ids)) != 36:
             raise ValueError("pilot human annotations require 36 unique conversations")
@@ -634,13 +601,10 @@ def calculate_quadratic_weighted_kappa(
 
 
 class ScenarioPilotExpansionGate(BaseModel):
-    """Record the human-audit evidence required before non-pilot V6 execution."""
+    """Record the human-audit evidence required before non-pilot execution."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: ScenarioReviewSchemaVersion = Field(
-        default=ScenarioReviewSchemaVersion.PILOT_EXPANSION_GATE
-    )
     status: PilotExpansionStatus = Field(default=PilotExpansionStatus.PENDING)
     pilot_family_ids: List[str] = Field(min_length=2, max_length=2)
     pilot_conversation_count: int = Field(ge=48, le=48)
@@ -671,13 +635,13 @@ class ScenarioPilotExpansionGate(BaseModel):
     def validate_expansion_evidence(self) -> "ScenarioPilotExpansionGate":
         """Require exact pilot coverage and enforce the predeclared expansion thresholds."""
         if set(self.pilot_family_ids) != {"PFM001", "RW001"}:
-            raise ValueError("V6 pilot expansion evidence must cover PFM001 and RW001")
+            raise ValueError("pilot expansion evidence must cover PFM001 and RW001")
         if len(set(self.pilot_run_unit_ids)) != 48:
-            raise ValueError("V6 pilot evidence requires 48 unique run units")
+            raise ValueError("pilot evidence requires 48 unique run units")
         if len(set(self.audited_conversation_ids)) != 36:
-            raise ValueError("V6 pilot audit requires 36 unique conversations")
+            raise ValueError("pilot audit requires 36 unique conversations")
         if len(set(self.second_reviewed_conversation_ids)) != 12:
-            raise ValueError("V6 pilot second review requires 12 unique conversations")
+            raise ValueError("pilot second review requires 12 unique conversations")
         if not set(self.second_reviewed_conversation_ids).issubset(self.audited_conversation_ids):
             raise ValueError("second-reviewed conversations must belong to the 36-case audit")
         if not set(self.audited_conversation_ids).issubset(self.pilot_run_unit_ids):
@@ -689,11 +653,11 @@ class ScenarioPilotExpansionGate(BaseModel):
         )
         if self.status == PilotExpansionStatus.PASSED:
             if not thresholds_pass:
-                raise ValueError("passed V6 pilot evidence must meet every expansion threshold")
+                raise ValueError("passed pilot evidence must meet every expansion threshold")
             if not self.assessor.strip() or not self.assessed_at.strip():
-                raise ValueError("passed V6 pilot evidence requires assessor and assessed_at")
+                raise ValueError("passed pilot evidence requires assessor and assessed_at")
         if self.status == PilotExpansionStatus.FAILED and thresholds_pass:
-            raise ValueError("failed V6 pilot evidence cannot meet every expansion threshold")
+            raise ValueError("failed pilot evidence cannot meet every expansion threshold")
         return self
 
 
@@ -723,13 +687,10 @@ class HumanFindingResolution(BaseModel):
 
 
 class ScenarioHumanReview(BaseModel):
-    """Store the manual acceptance gate required before executing a V6 family."""
+    """Store the manual acceptance gate required before executing a family."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: ScenarioReviewSchemaVersion = Field(
-        default=ScenarioReviewSchemaVersion.HUMAN_REVIEW
-    )
     scenario_family_id: str = Field(min_length=1, description="Reviewed family identifier.")
     status: HumanReviewStatus = Field(default=HumanReviewStatus.PENDING)
     reviewer: str = Field(description="Human reviewer name; empty while pending.")
@@ -760,7 +721,7 @@ class ScenarioHumanReview(BaseModel):
 
 def build_pending_human_review(
     review: ScenarioSemanticReview,
-    family: ScenarioFamilyV6,
+    family: ScenarioFamily,
     manifest: ScenarioGenerationManifest,
 ) -> ScenarioHumanReview:
     """Create a pending human-review manifest for all automated semantic findings."""

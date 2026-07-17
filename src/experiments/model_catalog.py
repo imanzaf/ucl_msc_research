@@ -14,7 +14,7 @@ from configs.api_settings import APISettings, OpenRouterCredentialRole
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL_CATALOG_PATH = REPO_ROOT / "configs" / "models.json"
-V6_SCENARIO_REVIEWER_MODEL_ID = "anthropic/claude-haiku-4.5"
+SCENARIO_REVIEWER_MODEL_ID = "anthropic/claude-haiku-4.5"
 
 
 class ModelPriority(str, Enum):
@@ -22,12 +22,6 @@ class ModelPriority(str, Enum):
 
     PRIMARY = "primary"
     SECONDARY = "secondary"
-
-
-class ModelCatalogSchemaVersion(str, Enum):
-    """Identify the canonical experiment model-catalog schema."""
-
-    V6 = "6.0"
 
 
 class ExperimentModelSpec(BaseModel):
@@ -69,9 +63,6 @@ class ExperimentModelCatalog(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: ModelCatalogSchemaVersion = Field(
-        description="Catalog schema version.",
-    )
     description: str = Field(
         min_length=1,
         description="Human-readable catalog description.",
@@ -84,25 +75,25 @@ class ExperimentModelCatalog(BaseModel):
         description="Model used for user-simulator turns and outcomes.",
     )
     scoring_model: ExperimentModelSpec = Field(
-        description="Model used for scoring extraction and judge calls.",
+        description="Model used for scoring judge calls.",
     )
     scenario_generator_model: ExperimentModelSpec = Field(
         description="Model used for scenario draft generation.",
     )
     scenario_reviewer_model: ExperimentModelSpec = Field(
-        description="Independent model used for V6 semantic scenario review.",
+        description="Independent model used for semantic scenario review.",
     )
 
     @model_validator(mode="after")
     def validate_unique_agent_model_ids(self) -> "ExperimentModelCatalog":
-        """Ensure agent ids are unique and the V6 reviewer remains fixed and independent."""
+        """Ensure agent ids are unique and the reviewer remains fixed and independent."""
         model_ids = [model.model_id for model in self.agent_models]
         if len(set(model_ids)) != len(model_ids):
             raise ValueError("agent model_id values must be unique")
-        if self.scenario_reviewer_model.model_id != V6_SCENARIO_REVIEWER_MODEL_ID:
-            raise ValueError(f"V6 scenario reviewer must be {V6_SCENARIO_REVIEWER_MODEL_ID}")
+        if self.scenario_reviewer_model.model_id != SCENARIO_REVIEWER_MODEL_ID:
+            raise ValueError(f"scenario reviewer must be {SCENARIO_REVIEWER_MODEL_ID}")
         if self.scenario_reviewer_model.model_id == self.scenario_generator_model.model_id:
-            raise ValueError("V6 scenario reviewer must differ from the scenario generator")
+            raise ValueError("scenario reviewer must differ from the scenario generator")
         return self
 
 
@@ -118,7 +109,7 @@ def default_scenario_generator_model_id(path: Path = DEFAULT_MODEL_CATALOG_PATH)
 
 
 def default_scenario_reviewer_model_id(path: Path = DEFAULT_MODEL_CATALOG_PATH) -> str:
-    """Return the fixed V6 semantic-reviewer model slug."""
+    """Return the fixed semantic-reviewer model slug."""
     return load_model_catalog(path).scenario_reviewer_model.model_id
 
 

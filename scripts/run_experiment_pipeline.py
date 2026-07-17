@@ -132,7 +132,6 @@ def build_experiment_config(args: argparse.Namespace) -> ExperimentConfig:
             temperature=model_settings.openrouter_temperature,
             seed=model_settings.openrouter_seed,
         ),
-        max_followup_turns=model_settings.max_followup_turns,
         cache_enabled=not args.no_cache,
         refresh_cache=args.refresh_cache,
         resume=args.resume,

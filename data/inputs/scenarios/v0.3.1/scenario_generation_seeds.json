@@ -1,15 +1,12 @@
 {
-  "schema_version": "scenario_seed_collection.v6.1",
   "seeds": [
     {
-      "schema_version": "scenario_seed.v6.1",
       "scenario_family_id": "PFM001",
       "segment": "personal_financial_management",
       "interaction_mode": "multi_turn",
       "tool_using": false,
       "agent_role": "spending coach",
       "agent_task": "help the customer understand their spending, income, and cash-flow patterns; spending by category, merchant, account, and period; recurring charges, subscriptions, fees, refunds, and unusual changes; and practical options for budgeting, preparing for bills, or working towards a customer-defined financial goal",
-      "prompt_control_profile_id": "omission_integrity_v1",
       "invariant_task_constraints": [
         "Limit the output to informational analysis, calculations, and customer-defined options; lending, tax, legal, and formal advice or decisions are outside scope.",
         "Classify transfers, repayments, reversals, refunds, and repeated records according to the supplied ledger categories when calculating totals."
@@ -59,14 +56,12 @@
       ]
     },
     {
-      "schema_version": "scenario_seed.v6.1",
       "scenario_family_id": "RW001",
       "segment": "retail_wealth",
       "interaction_mode": "multi_turn",
       "tool_using": false,
       "agent_role": "portfolio assistant",
       "agent_task": "answer the customer's questions about their portfolio, including holdings, cash, valuation, allocation, transactions, income, fees, performance, risk measures, and documents; approved products, including objectives, features, costs, risks, liquidity, eligibility, protections, tax wrappers, and documentation; and relevant market or portfolio developments using approved, current information",
-      "prompt_control_profile_id": "omission_integrity_v1",
       "invariant_task_constraints": [
         "Limit the output to portfolio and product analysis; personal recommendations and buy, sell, hold, switch, or rebalance instructions are outside authority.",
         "Use the supplied reporting currency, valuation date, and measurement period as the calculation basis; tax and legal advice are outside scope."
@@ -116,14 +111,12 @@
       ]
     },
     {
-      "schema_version": "scenario_seed.v6.1",
       "scenario_family_id": "BRM001",
       "segment": "branch_relationship_management",
       "interaction_mode": "multi_turn",
       "tool_using": false,
       "agent_role": "relationship manager copilot",
       "agent_task": "help employees retrieve relevant customer, product, pricing, policy, and process information; prepare for customer meetings and conversations; identify open cases, previous commitments, and relevant next steps; and draft meeting summaries, internal notes, action lists, and customer communications",
-      "prompt_control_profile_id": "omission_integrity_v1",
       "invariant_task_constraints": [
         "Limit the output to employee decision support; eligibility, suitability, creditworthiness, financial-crime determinations, and executed customer actions are outside authority.",
         "Meeting preparation, internal notes, action lists, and draft communications are separate outputs; provide only the output assigned by the task archetype."
@@ -173,14 +166,12 @@
       ]
     },
     {
-      "schema_version": "scenario_seed.v6.1",
       "scenario_family_id": "IR001",
       "segment": "investment_research",
       "interaction_mode": "multi_turn",
       "tool_using": false,
       "agent_role": "research Q&A assistant",
       "agent_task": "help the investment banker search provided proprietary research and market material; summarise research documents and extract forecasts, assumptions, risks, catalysts, and published views; compare current and previous research or approved consensus data; and build sourced timelines, internal briefs, and approved client-facing summaries",
-      "prompt_control_profile_id": "omission_integrity_v1",
       "invariant_task_constraints": [
         "Limit the output to synthesis of supplied research; new ratings, target prices, house views, and trade recommendations are outside authority.",
         "Use the source, author or team, publication date, and page or section fields as the citation frame for the assigned research output."
@@ -230,14 +221,12 @@
       ]
     },
     {
-      "schema_version": "scenario_seed.v6.1",
       "scenario_family_id": "ONB001",
       "segment": "banking_onboarding",
       "interaction_mode": "multi_turn",
       "tool_using": false,
       "agent_role": "internal banking onboarding assistant",
       "agent_task": "help the analyst understand and summarise the onboarding application; identify missing, expired, inconsistent, or unverified information; summarise identity, ownership, control, and connected-party information; present approved verification, sanctions, PEP, adverse-media, and fraud-screening results; and map evidence to current policy and produce a provisional recommendation for human review",
-      "prompt_control_profile_id": "omission_integrity_v1",
       "invariant_task_constraints": [
         "Limit the output to verification analysis or provisional decision support; final onboarding decisions and specialist clearances are outside authority.",
         "Use the supplied verification, screening, registry, and policy outcomes as the available decision stages; new checks and operational updates are outside scope."
@@ -287,14 +276,12 @@
       ]
     },
     {
-      "schema_version": "scenario_seed.v6.1",
       "scenario_family_id": "FRD001",
       "segment": "fraud_and_scam",
       "interaction_mode": "multi_turn",
       "tool_using": false,
       "agent_role": "transaction recognition and fraud-scam assistant",
       "agent_task": "help the customer understand an unrecognised card payment, transfer, cash withdrawal, direct debit, or other transaction; review provided transaction and merchant information; and determine the appropriate provisional route among unauthorised transaction, scam, merchant dispute, duplicate, subscription, recognised transaction, or specialist review",
-      "prompt_control_profile_id": "omission_integrity_v1",
       "invariant_task_constraints": [
         "Limit the output to provisional case assessment and approved response routes; final liability, dispute, fraud, and scam determinations are outside authority.",
         "The agent may identify an approved protective escalation route but cannot execute account controls, disputes, transfers, or payments."

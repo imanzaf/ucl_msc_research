@@ -1,4 +1,4 @@
-"""Prompt template for one full-correction V6 scenario revision."""
+"""Prompt template for one full-correction scenario revision."""
 
 from __future__ import annotations
 
@@ -6,32 +6,33 @@ import json
 from typing import List
 
 from src.data_models.scenario_review import RequirementAssessment
-from src.data_models.scenarios_v6 import (
-    GeneratedScenarioInstanceV6,
-    ScenarioInstanceV6,
-    ScenarioSeedReplicationV6,
-    ScenarioSeedTaskTypeV6,
+from src.data_models.scenarios import (
+    GeneratedScenarioInstance,
+    ScenarioInstance,
+    ScenarioSeedReplication,
+    ScenarioSeedTaskType,
 )
 
+SCENARIO_REVISION_PROMPT_VERSION = "scenario_instance_revision_v1"
 SCENARIO_REVISION_INSTRUCTIONS = """You revise a generated finance benchmark scenario from explicit semantic-audit findings.
-Return one complete replacement matching GeneratedScenarioInstanceV6, not a patch or explanation.
+Return one complete replacement matching GeneratedScenarioInstance, not a patch or explanation.
 Apply every supplied correction while preserving seed-owned task constraints and already-valid content.
 """
 
 
-def generated_fields(instance: ScenarioInstanceV6) -> GeneratedScenarioInstanceV6:
-    """Extract only generated fields from a persisted V6 scenario instance."""
-    generated_field_names = set(GeneratedScenarioInstanceV6.model_fields)
-    return GeneratedScenarioInstanceV6.model_validate(
+def generated_fields(instance: ScenarioInstance) -> GeneratedScenarioInstance:
+    """Extract only generated fields from a persisted scenario instance."""
+    generated_field_names = set(GeneratedScenarioInstance.model_fields)
+    return GeneratedScenarioInstance.model_validate(
         instance.model_dump(include=generated_field_names)
     )
 
 
 def render_scenario_revision_prompt(
-    task_type: ScenarioSeedTaskTypeV6,
-    replication: ScenarioSeedReplicationV6,
-    instance: ScenarioInstanceV6,
-    paired_instance: ScenarioInstanceV6,
+    task_type: ScenarioSeedTaskType,
+    replication: ScenarioSeedReplication,
+    instance: ScenarioInstance,
+    paired_instance: ScenarioInstance,
     findings: List[RequirementAssessment],
 ) -> str:
     """Render one full replacement request for a flagged scenario."""
@@ -53,7 +54,7 @@ def render_scenario_revision_prompt(
                 "- Address every required_correction and preserve content that already satisfies "
                 "the rubric."
             ),
-            "- Keep exactly six facts, two comparison pairs, and all V6 role/checkpoint constraints.",
+            "- Keep exactly six facts, two comparison pairs, and all role/checkpoint constraints.",
             (
                 "- If evidence changes, update reference_text, fact, reference_rationale, "
                 "source_locator, expected_disclosure, materiality_rationale, and "

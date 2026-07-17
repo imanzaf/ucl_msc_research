@@ -39,13 +39,6 @@ class ModelSettings(BaseSettings):
         validation_alias="OPENROUTER_SEED",
         description="Default deterministic seed passed to OpenRouter when supported.",
     )
-    max_followup_turns: int = Field(
-        default=3,
-        ge=1,
-        le=3,
-        validation_alias="MAX_USER_SIMULATOR_FOLLOWUP_TURNS",
-        description="Maximum generated user follow-up turns in multi-turn runs.",
-    )
 
 
 @lru_cache(maxsize=1)

@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 from src.data_models.experiments import ScoredRunRecord
-from src.data_models.scoring import ResponseMetricBreakdownV6
 from src.experiments.io import read_jsonl_models, result_paths
 
 
@@ -63,42 +62,33 @@ def summarize_by_model_prompt_and_persona(
             record.run_unit.persona_id.value,
         )
         grouped[key]["unsupported_or_false"].append(record.response_metrics.false_claim_score)
-        if isinstance(record.response_metrics, ResponseMetricBreakdownV6):
-            grouped[key]["initial_omission"].append(
-                record.response_metrics.initial_primary_omission_score
-            )
-            grouped[key]["persistent_omission"].append(
-                record.response_metrics.persistent_primary_omission_score
-            )
-            if record.response_metrics.repair_rate is not None:
-                grouped[key]["repair"].append(record.response_metrics.repair_rate)
-            grouped[key]["initial_understatement"].append(
-                record.response_metrics.initial_understatement_rate
-            )
-            grouped[key]["post_understatement"].append(
-                record.response_metrics.post_followup_understatement_rate
-            )
-            grouped[key]["specificity_loss"].append(
-                record.response_metrics.initial_primary_specificity_loss_score
-            )
-            grouped[key]["favorable_disclosure"].append(
-                record.response_metrics.favorable_control_disclosure_rate
-            )
-            grouped[key]["neutral_disclosure"].append(
-                record.response_metrics.neutral_control_disclosure_rate
-            )
-            grouped[key]["unsupported_fact_rate"].append(
-                record.response_metrics.unsupported_fact_rate
-            )
-            grouped[key]["contradiction"].append(record.response_metrics.contradiction_score)
-            grouped[key]["exploratory_composite"].append(
-                record.response_metrics.exploratory_equal_weight_composite
-            )
-        else:
-            grouped[key]["deception"].append(
-                record.response_metrics.materiality_weighted_deception_score
-            )
-            grouped[key]["adverse_omission"].append(record.response_metrics.adverse_omission_score)
+        grouped[key]["initial_omission"].append(
+            record.response_metrics.initial_primary_omission_score
+        )
+        grouped[key]["persistent_omission"].append(
+            record.response_metrics.persistent_primary_omission_score
+        )
+        if record.response_metrics.repair_rate is not None:
+            grouped[key]["repair"].append(record.response_metrics.repair_rate)
+        grouped[key]["initial_understatement"].append(
+            record.response_metrics.initial_understatement_rate
+        )
+        grouped[key]["post_understatement"].append(
+            record.response_metrics.post_followup_understatement_rate
+        )
+        grouped[key]["specificity_loss"].append(
+            record.response_metrics.initial_primary_specificity_loss_score
+        )
+        grouped[key]["favorable_disclosure"].append(
+            record.response_metrics.favorable_control_disclosure_rate
+        )
+        grouped[key]["neutral_disclosure"].append(
+            record.response_metrics.neutral_control_disclosure_rate
+        )
+        grouped[key]["false_claim_count"].append(float(record.response_metrics.false_claim_count))
+        grouped[key]["exploratory_composite"].append(
+            record.response_metrics.exploratory_equal_weight_composite
+        )
         if record.user_harm_metrics is not None:
             grouped[key]["harmful_action"].append(
                 1.0 if record.user_harm_metrics.harmful_action_selected else 0.0
@@ -118,52 +108,15 @@ def summarize_by_model_prompt_and_persona(
 
 def render_latex_summary_table(experiment_name: str, records: List[ScoredRunRecord]) -> str:
     """Render a stable LaTeX tabular summary for scored experiment outputs."""
-    metric_types = {type(record.response_metrics) for record in records}
-    if len(metric_types) > 1:
-        raise ValueError("paper assets cannot combine V5 and V6 response metric records")
     summary = summarize_by_model_prompt_and_persona(records)
-    uses_v6_metrics = bool(records) and isinstance(
-        records[0].response_metrics,
-        ResponseMetricBreakdownV6,
-    )
-    if uses_v6_metrics:
-        return render_v6_latex_summary_table(experiment_name=experiment_name, summary=summary)
-    rows = []
-    for (model_id, prompt_condition, persona_id), metrics in sorted(summary.items()):
-        rows.append(
-            " & ".join(
-                [
-                    escape_latex(model_id),
-                    escape_latex(prompt_condition),
-                    escape_latex(persona_id),
-                    format_float(metrics.get("deception", 0.0)),
-                    format_float(metrics.get("adverse_omission", 0.0)),
-                    format_float(metrics.get("unsupported_or_false", 0.0)),
-                    format_float(metrics.get("harmful_action", 0.0)),
-                ]
-            )
-            + r" \\"
-        )
-    body = "\n".join(rows) if rows else r"\multicolumn{7}{l}{No scored records available.} \\"
-    return "\n".join(
-        [
-            r"\begin{tabular}{lllrrrr}",
-            r"\toprule",
-            r"Model & Prompt & Persona & Deception & Omission & Unsupported/false & Harmful action \\",
-            r"\midrule",
-            body,
-            r"\bottomrule",
-            r"\end{tabular}",
-            f"% Generated from {escape_latex(experiment_name)} scored outputs.",
-        ]
-    )
+    return render_current_latex_summary_table(experiment_name=experiment_name, summary=summary)
 
 
-def render_v6_latex_summary_table(
+def render_current_latex_summary_table(
     experiment_name: str,
     summary: Dict[Tuple[str, str, str], Dict[str, float]],
 ) -> str:
-    """Render V6 headline, control, and false-claim metrics without collapsing persona."""
+    """Render headline, control, and false-claim metrics without collapsing persona."""
     headline_rows = []
     diagnostic_rows = []
     user_outcome_rows = []
@@ -194,9 +147,8 @@ def render_v6_latex_summary_table(
                 + [
                     format_float(metrics.get("favorable_disclosure", 0.0)),
                     format_float(metrics.get("neutral_disclosure", 0.0)),
-                    format_float(metrics.get("unsupported_fact_rate", 0.0)),
-                    format_float(metrics.get("contradiction", 0.0)),
                     format_float(metrics.get("unsupported_or_false", 0.0)),
+                    format_float(metrics.get("false_claim_count", 0.0)),
                 ]
             )
             + r" \\"
@@ -220,7 +172,7 @@ def render_v6_latex_summary_table(
     diagnostic_body = (
         "\n".join(diagnostic_rows)
         if diagnostic_rows
-        else r"\multicolumn{8}{l}{No scored records available.} \\"
+        else r"\multicolumn{7}{l}{No scored records available.} \\"
     )
     user_outcome_body = (
         "\n".join(user_outcome_rows)
@@ -241,9 +193,9 @@ def render_v6_latex_summary_table(
             r"\bottomrule",
             r"\end{tabular}",
             "",
-            r"\begin{tabular}{lllrrrrr}",
+            r"\begin{tabular}{lllrrrr}",
             r"\toprule",
-            r"Model & Prompt & Persona & Favorable disclose. & Neutral disclose. & Unsupported fact & Contradiction & False claim \\",
+            r"Model & Prompt & Persona & Favorable disclose. & Neutral disclose. & False claim & False claim count \\",
             r"\midrule",
             diagnostic_body,
             r"\bottomrule",
@@ -259,7 +211,7 @@ def render_v6_latex_summary_table(
             user_outcome_body,
             r"\bottomrule",
             r"\end{tabular}",
-            f"% Generated from {escape_latex(experiment_name)} V6 scored outputs.",
+            f"% Generated from {escape_latex(experiment_name)} scored outputs.",
         ]
     )
 

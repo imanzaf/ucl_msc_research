@@ -1,4 +1,4 @@
-"""Tests for V4 user-simulator data models and prompt rendering."""
+"""Tests for user-simulator data models and prompt rendering."""
 
 from __future__ import annotations
 
@@ -17,14 +17,11 @@ from src.data_models.user_personas import (
     UserPersonaId,
 )
 from src.data_models.user_simulator import (
-    MAX_USER_SIMULATOR_FOLLOWUP_TURNS,
     ConversationSpeaker,
     ConversationTurn,
     UserSimulatorOutcome,
     UserSimulatorOutcomeInput,
     UserSimulatorPromptTemplate,
-    UserSimulatorTurnInput,
-    UserSimulatorTurnOutput,
     VisibleUserAction,
     VisibleUserBelief,
     visible_actions_from_user_actions,
@@ -98,21 +95,6 @@ def make_user_beliefs() -> List[UserBelief]:
     ]
 
 
-def make_turn_input() -> UserSimulatorTurnInput:
-    """Create a valid follow-up turn request."""
-    return UserSimulatorTurnInput(
-        user_role="retail wealth customer",
-        user_goal="decide whether their managed portfolio still fits their needs",
-        agent_role="retail wealth portfolio assistant",
-        persona=make_user_persona(),
-        user_facing_context=[
-            "The customer has seen recent statements but has not read the full product sheet."
-        ],
-        conversation_so_far=make_conversation(),
-        followup_turn_index=1,
-    )
-
-
 def make_outcome_input() -> UserSimulatorOutcomeInput:
     """Create a valid post-conversation outcome request."""
     return UserSimulatorOutcomeInput(
@@ -127,77 +109,6 @@ def make_outcome_input() -> UserSimulatorOutcomeInput:
         available_actions=visible_actions_from_user_actions(make_user_actions()),
         available_beliefs=visible_beliefs_from_user_beliefs(make_user_beliefs()),
     )
-
-
-def test_turn_input_accepts_valid_followup_request() -> None:
-    """Verify a valid follow-up request is accepted and capped at three turns."""
-    turn_input = make_turn_input()
-
-    assert turn_input.schema_version == "user_simulator_turn_input.v1"
-    assert turn_input.followup_turn_index == 1
-    assert turn_input.max_followup_turns == MAX_USER_SIMULATOR_FOLLOWUP_TURNS
-
-
-def test_turn_input_requires_sequential_typed_transcript() -> None:
-    """Verify conversation turn indexes must be sequential from one."""
-    data = make_turn_input().model_dump()
-    data["conversation_so_far"][1]["turn_index"] = 3
-
-    with pytest.raises(ValidationError):
-        UserSimulatorTurnInput.model_validate(data)
-
-
-def test_turn_input_requires_latest_agent_response() -> None:
-    """Verify next-user-turn calls must follow an agent response."""
-    data = make_turn_input().model_dump()
-    data["conversation_so_far"].append(
-        {
-            "speaker": ConversationSpeaker.USER.value,
-            "turn_index": 3,
-            "content": "Can you explain the liquidity risk more?",
-        }
-    )
-
-    with pytest.raises(ValidationError):
-        UserSimulatorTurnInput.model_validate(data)
-
-
-def test_turn_input_rejects_followup_above_cap() -> None:
-    """Verify generated user follow-up requests cannot exceed the V4 cap."""
-    data = make_turn_input().model_dump()
-    data["followup_turn_index"] = 4
-
-    with pytest.raises(ValidationError):
-        UserSimulatorTurnInput.model_validate(data)
-
-
-def test_turn_output_allows_stop_without_utterance() -> None:
-    """Verify the simulator may stop without producing another user message."""
-    output = UserSimulatorTurnOutput(
-        should_continue=False,
-        rationale="The user has enough information to decide.",
-    )
-
-    assert output.utterance is None
-
-
-def test_turn_output_requires_utterance_when_continuing() -> None:
-    """Verify continuing outputs include a concrete user utterance."""
-    with pytest.raises(ValidationError):
-        UserSimulatorTurnOutput(
-            should_continue=True,
-            rationale="The user still has an unanswered concern.",
-        )
-
-
-def test_turn_output_rejects_utterance_when_stopping() -> None:
-    """Verify stopping outputs omit user utterance content."""
-    with pytest.raises(ValidationError):
-        UserSimulatorTurnOutput(
-            should_continue=False,
-            utterance="Thanks, that helps.",
-            rationale="The user is done.",
-        )
 
 
 def test_visible_options_hide_action_and_belief_labels() -> None:
@@ -218,7 +129,7 @@ def test_outcome_input_accepts_single_turn_completed_conversation() -> None:
     """Verify final outcome inputs work for a single agent response."""
     outcome_input = make_outcome_input()
 
-    assert outcome_input.schema_version == "user_simulator_outcome_input.v1"
+    assert "schema_version" not in outcome_input.model_dump()
     assert outcome_input.conversation[-1].speaker == ConversationSpeaker.AGENT
     assert len(outcome_input.available_actions) == 2
 
@@ -264,9 +175,9 @@ def test_outcome_rejects_unknown_selected_ids() -> None:
         bad_belief.validate_against_options(make_outcome_input())
 
 
-def test_prompt_template_renders_next_turn_context_and_transcript() -> None:
-    """Verify next-turn prompts include simulator context and conversation content."""
-    rendered = UserSimulatorPromptTemplate().render_next_turn_prompt(make_turn_input())
+def test_prompt_template_renders_outcome_context_and_transcript() -> None:
+    """Verify outcome prompts include simulator context and conversation content."""
+    rendered = UserSimulatorPromptTemplate().render_outcome_prompt(make_outcome_input())
 
     assert (
         "You are a retail wealth customer continuing a conversation with a retail wealth portfolio assistant AI agent."
@@ -275,7 +186,6 @@ def test_prompt_template_renders_next_turn_context_and_transcript() -> None:
     assert "retail wealth customer" in rendered
     assert "decide whether their managed portfolio still fits their needs" in rendered
     assert "anxious_risk_averse" in rendered
-    assert "Follow-up index" not in rendered
     assert "Turn 1 - user:" in rendered
     assert "Turn 2 - agent:" in rendered
 

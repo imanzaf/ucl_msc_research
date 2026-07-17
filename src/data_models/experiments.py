@@ -3,19 +3,15 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src.data_models.scenarios import InteractionMode, PromptCondition, ScenarioSchemaVersion
+from src.data_models.scenarios import InteractionMode, PromptCondition
 from src.data_models.scoring import (
     DirectFactDisclosureAssessment,
-    DisclaimerWashingCheck,
-    FactContradictionCheck,
-    FactUnitMatching,
-    ResponseFactExtraction,
+    FalseClaimAssessment,
     ResponseMetricBreakdown,
-    ResponseMetricBreakdownV6,
     UserHarmMetricBreakdown,
 )
 from src.data_models.user_personas import UserPersonaId
@@ -23,7 +19,6 @@ from src.data_models.user_simulator import (
     ConversationSpeaker,
     ConversationTurn,
     UserSimulatorOutcome,
-    UserSimulatorTurnOutput,
     validate_conversation_turns,
 )
 
@@ -35,13 +30,9 @@ class ExperimentStage(str, Enum):
     SCENARIO_SEMANTIC_REVIEW = "scenario_semantic_review"
     SCENARIO_REVISION = "scenario_revision"
     AGENT_RESPONSE = "agent_response"
-    USER_SIMULATOR_TURN = "user_simulator_turn"
     USER_SIMULATOR_OUTCOME = "user_simulator_outcome"
-    RESPONSE_FACT_EXTRACTION = "response_fact_extraction"
-    FACT_UNIT_MATCHING = "fact_unit_matching"
-    FACT_CONTRADICTION_CHECK = "fact_contradiction_check"
-    DISCLAIMER_WASHING_CHECK = "disclaimer_washing_check"
     DIRECT_FACT_DISCLOSURE_ASSESSMENT = "direct_fact_disclosure_assessment"
+    FALSE_CLAIM_ASSESSMENT = "false_claim_assessment"
 
 
 class ActivationCaptureStatus(str, Enum):
@@ -51,20 +42,9 @@ class ActivationCaptureStatus(str, Enum):
 
 
 class ConversationProtocol(str, Enum):
-    """Identify whether user follow-ups are generated or fixed by the scenario design."""
+    """Identify the conversation-turn protocol used by the scenario design."""
 
-    GENERATED_USER_FOLLOWUPS_V1 = "generated_user_followups_v1"
-    SCRIPTED_RISK_FOLLOWUP_V1 = "scripted_risk_followup_v1"
-
-
-class ExperimentRecordSchemaVersion(str, Enum):
-    """Identify persisted conversation and scoring record schemas."""
-
-    SCENARIO_RUN_V1 = "scenario_run_record.v1"
-    SCENARIO_RUN_V2 = "scenario_run_record.v2"
-    SCORED_RUN_V1 = "scored_run_record.v1"
-    SCORED_RUN_V2 = "scored_run_record.v2"
-    LLM_CALL_FAILURE_V1 = "llm_call_failure_record.v1"
+    SCRIPTED_RISK_FOLLOWUP = "scripted_risk_followup"
 
 
 class LLMCallUsage(BaseModel):
@@ -72,25 +52,11 @@ class LLMCallUsage(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = Field(
-        default="llm_call_usage.v1",
-        description="Schema version for per-call usage records.",
-    )
-    prompt_tokens: int = Field(
-        default=0,
-        ge=0,
-        description="Prompt tokens reported by OpenRouter.",
-    )
+    prompt_tokens: int = Field(default=0, ge=0, description="Prompt tokens reported by OpenRouter.")
     completion_tokens: int = Field(
-        default=0,
-        ge=0,
-        description="Completion tokens reported by OpenRouter.",
+        default=0, ge=0, description="Completion tokens reported by OpenRouter."
     )
-    total_tokens: int = Field(
-        default=0,
-        ge=0,
-        description="Total tokens reported by OpenRouter.",
-    )
+    total_tokens: int = Field(default=0, ge=0, description="Total tokens reported by OpenRouter.")
     reasoning_tokens: int = Field(
         default=0,
         ge=0,
@@ -107,9 +73,7 @@ class LLMCallUsage(BaseModel):
         description="Provider-side cache-write tokens reported by OpenRouter.",
     )
     cost_credits: float = Field(
-        default=0.0,
-        ge=0.0,
-        description="OpenRouter account credits charged for the call.",
+        default=0.0, ge=0.0, description="OpenRouter account credits charged for the call."
     )
     upstream_inference_cost: Optional[float] = Field(
         default=None,
@@ -123,59 +87,33 @@ class ExperimentUsageSummary(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = Field(
-        default="experiment_usage_summary.v1",
-        description="Schema version for aggregate usage records.",
-    )
-    api_call_count: int = Field(
-        default=0,
-        ge=0,
-        description="Number of non-cached API calls made.",
-    )
+    api_call_count: int = Field(default=0, ge=0, description="Number of non-cached API calls made.")
     local_cache_hit_count: int = Field(
-        default=0,
-        ge=0,
-        description="Number of calls served from the local experiment cache.",
+        default=0, ge=0, description="Number of calls served from the local experiment cache."
     )
     prompt_tokens: int = Field(
-        default=0,
-        ge=0,
-        description="Total prompt tokens, including cached call usage for audit context.",
+        default=0, ge=0, description="Total prompt tokens, including cached call usage."
     )
     completion_tokens: int = Field(
-        default=0,
-        ge=0,
-        description="Total completion tokens, including cached call usage for audit context.",
+        default=0, ge=0, description="Total completion tokens, including cached call usage."
     )
     total_tokens: int = Field(
-        default=0,
-        ge=0,
-        description="Total tokens, including cached call usage for audit context.",
+        default=0, ge=0, description="Total tokens, including cached call usage."
     )
     reasoning_tokens: int = Field(
-        default=0,
-        ge=0,
-        description="Total reasoning tokens reported by OpenRouter.",
+        default=0, ge=0, description="Total reasoning tokens reported by OpenRouter."
     )
     cached_prompt_tokens: int = Field(
-        default=0,
-        ge=0,
-        description="Total provider-side cached prompt tokens reported by OpenRouter.",
+        default=0, ge=0, description="Total provider-side cached prompt tokens."
     )
     cache_write_tokens: int = Field(
-        default=0,
-        ge=0,
-        description="Total provider-side cache-write tokens reported by OpenRouter.",
+        default=0, ge=0, description="Total provider-side cache-write tokens."
     )
     cost_credits: float = Field(
-        default=0.0,
-        ge=0.0,
-        description="Total OpenRouter cost associated with the stored calls.",
+        default=0.0, ge=0.0, description="Total OpenRouter cost associated with stored calls."
     )
     actual_cost_credits: float = Field(
-        default=0.0,
-        ge=0.0,
-        description="OpenRouter cost incurred by this run, excluding local cache hits.",
+        default=0.0, ge=0.0, description="OpenRouter cost excluding local cache hits."
     )
 
     def add_call(self, usage: LLMCallUsage, cache_hit: bool) -> None:
@@ -212,20 +150,12 @@ class GenerationConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    temperature: float = Field(
-        default=0.0,
-        ge=0.0,
-        le=2.0,
-        description="Sampling temperature.",
-    )
+    temperature: float = Field(default=0.0, ge=0.0, le=2.0, description="Sampling temperature.")
     seed: Optional[int] = Field(
-        default=None,
-        description="Optional deterministic seed passed to OpenRouter when supported.",
+        default=None, description="Optional deterministic seed passed to OpenRouter when supported."
     )
     max_tokens: Optional[int] = Field(
-        default=None,
-        ge=1,
-        description="Optional maximum completion token cap.",
+        default=None, ge=1, description="Optional maximum completion token cap."
     )
 
     def to_request_params(self) -> Dict[str, Any]:
@@ -243,63 +173,39 @@ class LLMCallRecord(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = Field(
-        default="llm_call_record.v1",
-        description="Schema version for cached LLM call records.",
-    )
-    call_id: str = Field(
-        min_length=1,
-        description="Stable id for the call within this experiment.",
-    )
-    stage: ExperimentStage = Field(
-        description="Pipeline stage that made the call.",
-    )
-    model_id: str = Field(
-        min_length=1,
-        description="Requested model id or slug.",
-    )
+    call_id: str = Field(min_length=1, description="Stable id for the call within this experiment.")
+    stage: ExperimentStage = Field(description="Pipeline stage that made the call.")
+    model_id: str = Field(min_length=1, description="Requested model id or slug.")
     resolved_model_id: str = Field(
-        default="",
-        description="Model id returned by the provider, when available.",
+        default="", description="Model id returned by the provider, when available."
     )
     generation_id: str = Field(
-        default="",
-        description="OpenRouter generation id returned by the API.",
+        default="", description="OpenRouter generation id returned by the API."
     )
     cache_key: str = Field(
-        min_length=1,
-        description="SHA-256 cache key for the normalized request.",
+        min_length=1, description="SHA-256 cache key for the normalized request."
     )
     cache_hit: bool = Field(
-        default=False,
-        description="Whether this call was served from the local experiment cache.",
+        default=False, description="Whether this call was served from local cache."
     )
     created_at: str = Field(
-        min_length=1,
-        description="UTC timestamp when the call record was created.",
+        min_length=1, description="UTC timestamp when the call record was created."
     )
     prompt_version: str = Field(
-        min_length=1,
-        description="Prompt/template version included in the cache key.",
+        min_length=1, description="Prompt/template version included in the cache key."
     )
     request_payload: Dict[str, Any] = Field(
-        description="Normalized request payload sent to OpenRouter.",
+        description="Normalized request payload sent to OpenRouter."
     )
     response_payload: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Raw provider response payload.",
+        default_factory=dict, description="Raw provider response payload."
     )
     parsed_output: Optional[Dict[str, Any]] = Field(
-        default=None,
-        description="Parsed structured output, when the call requested one.",
+        default=None, description="Parsed structured output, when present."
     )
-    text_output: Optional[str] = Field(
-        default=None,
-        description="Text output, when the call requested free text.",
-    )
+    text_output: Optional[str] = Field(default=None, description="Text output, when present.")
     usage: LLMCallUsage = Field(
-        default_factory=LLMCallUsage,
-        description="OpenRouter usage information for the call.",
+        default_factory=LLMCallUsage, description="OpenRouter usage information for the call."
     )
 
 
@@ -319,9 +225,6 @@ class LLMCallFailureRecord(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: ExperimentRecordSchemaVersion = Field(
-        default=ExperimentRecordSchemaVersion.LLM_CALL_FAILURE_V1
-    )
     failure_id: str = Field(min_length=1)
     stage: ExperimentStage
     model_id: str = Field(min_length=1)
@@ -337,26 +240,15 @@ class RunUnitIdentity(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    scenario_family_id: str = Field(
-        min_length=1,
-        description="Scenario family id.",
-    )
-    scenario_id: str = Field(
-        min_length=1,
-        description="Scenario instance id.",
-    )
+    scenario_family_id: str = Field(min_length=1, description="Scenario family id.")
+    scenario_id: str = Field(min_length=1, description="Scenario instance id.")
     interaction_mode: InteractionMode = Field(
-        description="Single-turn or multi-turn scenario mode.",
+        description="Single-turn or multi-turn scenario mode."
     )
-    prompt_condition: PromptCondition = Field(
-        description="Agent prompt condition.",
-    )
-    persona_id: UserPersonaId = Field(
-        description="Reusable user persona id.",
-    )
+    prompt_condition: PromptCondition = Field(description="Agent prompt condition.")
+    persona_id: UserPersonaId = Field(description="Reusable user persona id.")
     agent_model_id: str = Field(
-        min_length=1,
-        description="OpenRouter model slug for the agent under test.",
+        min_length=1, description="OpenRouter model slug for the agent under test."
     )
     scenario_family_sha256: Optional[str] = Field(
         default=None,
@@ -387,70 +279,42 @@ class ExperimentConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = Field(
-        default="experiment_config.v1",
-        description="Schema version for experiment config snapshots.",
-    )
     experiment_name: str = Field(
-        min_length=1,
-        description="Experiment directory name, following <name>_v<N>.",
+        min_length=1, description="Experiment directory name, following <name>_v<N>."
     )
     scenario_run_dir: str = Field(
-        min_length=1,
-        description="Directory containing reviewed scenario-family JSON files.",
+        min_length=1, description="Directory containing reviewed scenario-family JSON files."
     )
     agent_model_ids: List[str] = Field(
-        min_length=1,
-        description="OpenRouter model slugs to run as agents.",
+        min_length=1, description="OpenRouter model slugs to run as agents."
     )
     user_simulator_model: str = Field(
-        min_length=1,
-        description="OpenRouter model slug used for user simulation.",
+        min_length=1, description="OpenRouter model slug used for user simulation."
     )
     scoring_model: str = Field(
-        min_length=1,
-        description="OpenRouter model slug used for scoring calls.",
+        min_length=1, description="OpenRouter model slug used for scoring calls."
     )
     generation_config: GenerationConfig = Field(
-        default_factory=GenerationConfig,
-        description="Default generation parameters.",
-    )
-    max_followup_turns: int = Field(
-        default=3,
-        ge=1,
-        le=3,
-        description="Maximum generated user follow-up turns.",
+        default_factory=GenerationConfig, description="Default generation parameters."
     )
     cache_enabled: bool = Field(
-        default=True,
-        description="Whether local experiment LLM-call caching is enabled.",
+        default=True, description="Whether local experiment LLM-call caching is enabled."
     )
     refresh_cache: bool = Field(
-        default=False,
-        description="Whether cached calls should be refreshed.",
+        default=False, description="Whether cached calls should be refreshed."
     )
     resume: bool = Field(
-        default=False,
-        description="Whether already-produced run units should be skipped.",
+        default=False, description="Whether already-produced run units should be skipped."
     )
     family_scenario_concurrency: int = Field(
-        default=1,
-        ge=1,
-        le=16,
-        description=(
-            "Maximum number of scenario instances to run concurrently within one family; "
-            "families still execute sequentially."
-        ),
+        default=1, ge=1, le=16, description="Maximum concurrent scenario instances per family."
     )
     scoring_concurrency: int = Field(
-        default=1,
-        ge=1,
-        le=32,
-        description="Maximum number of completed scenario-run records to score concurrently.",
+        default=1, ge=1, le=32, description="Maximum completed scenario runs to score concurrently."
     )
     activation_capture: ActivationCaptureStatus = Field(
         default=ActivationCaptureStatus.DISABLED_API_ONLY,
-        description="Activation capture status for this v1 API-only pipeline.",
+        description="Activation capture status for this API-only pipeline.",
     )
 
 
@@ -459,89 +323,42 @@ class ScenarioRunRecord(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: ExperimentRecordSchemaVersion = Field(
-        default=ExperimentRecordSchemaVersion.SCENARIO_RUN_V2,
-        description="Schema version for scenario-run records.",
-    )
     experiment_name: str = Field(
-        min_length=1,
-        description="Experiment name that produced this run.",
+        min_length=1, description="Experiment name that produced this run."
     )
-    run_id: str = Field(
-        min_length=1,
-        description="Timestamped run id for the scenario-run stage.",
-    )
-    scenario_schema_version: ScenarioSchemaVersion = Field(
-        default=ScenarioSchemaVersion.V5,
-        description="Scenario-family schema that defined this run unit.",
-    )
-    run_unit: RunUnitIdentity = Field(
-        description="Scenario/prompt/persona/model identity.",
-    )
+    run_id: str = Field(min_length=1, description="Timestamped run id for the scenario-run stage.")
+    run_unit: RunUnitIdentity = Field(description="Scenario/prompt/persona/model identity.")
     system_prompt: str = Field(
-        min_length=1,
-        description="Agent system prompt rendered for this run.",
+        min_length=1, description="Agent system prompt rendered for this run."
     )
-    initial_user_prompt: str = Field(
-        min_length=1,
-        description="Persona-matched first user prompt.",
-    )
+    initial_user_prompt: str = Field(min_length=1, description="Persona-matched first user prompt.")
     transcript: List[ConversationTurn] = Field(
-        min_length=2,
-        description="Completed user/agent transcript.",
+        min_length=2, description="Completed user/agent transcript."
     )
     transcript_turn_count: int = Field(
-        default=0,
-        ge=0,
-        description="Total number of user and agent turns in the completed transcript.",
+        default=0, ge=0, description="Total turns in the completed transcript."
     )
     user_turn_count: int = Field(
-        default=0,
-        ge=0,
-        description="Number of user turns in the completed transcript, including the initial prompt.",
+        default=0, ge=0, description="Number of user turns in the transcript."
     )
     agent_turn_count: int = Field(
-        default=0,
-        ge=0,
-        description="Number of agent turns in the completed transcript.",
-    )
-    generated_user_followup_count: int = Field(
-        default=0,
-        ge=0,
-        description="Number of user follow-up utterances added after the initial prompt.",
-    )
-    user_simulator_decision_count: int = Field(
-        default=0,
-        ge=0,
-        description="Number of user-simulator next-turn decisions requested.",
-    )
-    user_simulator_turns: List[UserSimulatorTurnOutput] = Field(
-        default_factory=list,
-        description="Structured user-simulator next-turn outputs.",
+        default=0, ge=0, description="Number of agent turns in the transcript."
     )
     user_simulator_outcome: UserSimulatorOutcome = Field(
-        description="Structured post-conversation user outcome.",
+        description="Structured post-conversation user outcome."
     )
     call_ids: List[str] = Field(
-        default_factory=list,
-        description="LLM call ids used to produce this record.",
+        default_factory=list, description="LLM call ids used to produce this record."
     )
-    usage_summary: ExperimentUsageSummary = Field(
-        default_factory=ExperimentUsageSummary,
-        description="Aggregate usage for calls in this record.",
-    )
+    usage_summary: ExperimentUsageSummary = Field(default_factory=ExperimentUsageSummary)
     activation_capture: ActivationCaptureStatus = Field(
-        default=ActivationCaptureStatus.DISABLED_API_ONLY,
-        description="Activation capture status for this run.",
+        default=ActivationCaptureStatus.DISABLED_API_ONLY
     )
     conversation_protocol: ConversationProtocol = Field(
-        default=ConversationProtocol.GENERATED_USER_FOLLOWUPS_V1,
-        description="Conversation-turn protocol used by this scenario run.",
+        default=ConversationProtocol.SCRIPTED_RISK_FOLLOWUP
     )
     scripted_user_followup_count: int = Field(
-        default=0,
-        ge=0,
-        description="Number of code-owned scripted user follow-ups in the transcript.",
+        default=0, ge=0, description="Code-owned scripted follow-ups in the transcript."
     )
 
     @model_validator(mode="after")
@@ -555,42 +372,19 @@ class ScenarioRunRecord(BaseModel):
         agent_turn_count = sum(
             1 for turn in self.transcript if turn.speaker == ConversationSpeaker.AGENT
         )
-        if self.conversation_protocol == ConversationProtocol.SCRIPTED_RISK_FOLLOWUP_V1:
+        if self.conversation_protocol == ConversationProtocol.SCRIPTED_RISK_FOLLOWUP:
             if user_turn_count != 2 or agent_turn_count != 2:
                 raise ValueError(
-                    "scripted V6 conversations require exactly two user and two agent turns"
+                    "scripted conversations require exactly two user and two agent turns"
                 )
-            if self.user_simulator_turns:
-                raise ValueError("scripted V6 conversations must not contain generated user turns")
-            generated_user_followup_count = 0
+            if self.run_unit.scenario_family_sha256 is None:
+                raise ValueError("scripted scenario runs require exact scenario-family provenance")
             scripted_user_followup_count = 1
-        else:
-            generated_user_followup_count = max(0, user_turn_count - 1)
-            scripted_user_followup_count = 0
-        is_v6_scenario = self.scenario_schema_version == ScenarioSchemaVersion.V6
-        is_scripted_protocol = (
-            self.conversation_protocol == ConversationProtocol.SCRIPTED_RISK_FOLLOWUP_V1
-        )
-        if is_v6_scenario != is_scripted_protocol:
-            raise ValueError(
-                "V6 scenarios and scripted conversation protocol must be used together"
-            )
-        if is_v6_scenario and self.run_unit.scenario_family_sha256 is None:
-            raise ValueError("V6 scenario runs require exact scenario-family provenance")
-        user_simulator_decision_count = len(self.user_simulator_turns)
 
         provided_counts = {
             "transcript_turn_count": (self.transcript_turn_count, transcript_turn_count),
             "user_turn_count": (self.user_turn_count, user_turn_count),
             "agent_turn_count": (self.agent_turn_count, agent_turn_count),
-            "generated_user_followup_count": (
-                self.generated_user_followup_count,
-                generated_user_followup_count,
-            ),
-            "user_simulator_decision_count": (
-                self.user_simulator_decision_count,
-                user_simulator_decision_count,
-            ),
             "scripted_user_followup_count": (
                 self.scripted_user_followup_count,
                 scripted_user_followup_count,
@@ -603,83 +397,41 @@ class ScenarioRunRecord(BaseModel):
         self.transcript_turn_count = transcript_turn_count
         self.user_turn_count = user_turn_count
         self.agent_turn_count = agent_turn_count
-        self.generated_user_followup_count = generated_user_followup_count
-        self.user_simulator_decision_count = user_simulator_decision_count
         self.scripted_user_followup_count = scripted_user_followup_count
         return self
 
 
 class ScoredRunRecord(BaseModel):
-    """Persist scoring intermediates and metrics for one scenario run."""
+    """Persist scoring judgments and metrics for one scenario run."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: ExperimentRecordSchemaVersion = Field(
-        default=ExperimentRecordSchemaVersion.SCORED_RUN_V2,
-        description="Schema version for scored run records.",
-    )
     experiment_name: str = Field(
-        min_length=1,
-        description="Experiment name that produced this score.",
+        min_length=1, description="Experiment name that produced this score."
     )
     scoring_run_id: str = Field(
-        min_length=1,
-        description="Timestamped run id for the scoring stage.",
+        min_length=1, description="Timestamped run id for the scoring stage."
     )
-    run_unit: RunUnitIdentity = Field(
-        description="Scenario/prompt/persona/model identity.",
+    run_unit: RunUnitIdentity = Field(description="Scenario/prompt/persona/model identity.")
+    direct_disclosure_assessment: DirectFactDisclosureAssessment = Field(
+        description="Direct fact-level disclosure assessment."
     )
-    scenario_schema_version: ScenarioSchemaVersion = Field(
-        default=ScenarioSchemaVersion.V5,
-        description="Scenario-family schema whose transcript was scored.",
+    false_claim_assessment: FalseClaimAssessment = Field(
+        description="Single-pass false-claim judge output."
     )
-    extraction: ResponseFactExtraction = Field(
-        description="LLM-extracted agent facts.",
-    )
-    matching: FactUnitMatching = Field(
-        description="LLM fact-to-ground-truth matching output.",
-    )
-    contradiction_check: FactContradictionCheck = Field(
-        description="Binary contradiction check.",
-    )
-    disclaimer_washing_check: Optional[DisclaimerWashingCheck] = Field(
-        default=None,
-        description="Binary disclaimer-washing check for legacy V5 scoring.",
-    )
-    direct_disclosure_assessment: Optional[DirectFactDisclosureAssessment] = Field(
-        default=None,
-        description="Direct fact-level disclosure assessment for V6 scoring.",
-    )
-    response_metrics: Union[ResponseMetricBreakdown, ResponseMetricBreakdownV6] = Field(
-        description="Programmatic response metrics.",
-    )
+    response_metrics: ResponseMetricBreakdown = Field(description="Programmatic response metrics.")
     user_harm_metrics: Optional[UserHarmMetricBreakdown] = Field(
         default=None,
         description="Programmatic user-harm metrics when outcome data is available.",
     )
     call_ids: List[str] = Field(
-        default_factory=list,
-        description="LLM call ids used to produce this score.",
+        default_factory=list, description="LLM call ids used to produce this score."
     )
-    usage_summary: ExperimentUsageSummary = Field(
-        default_factory=ExperimentUsageSummary,
-        description="Aggregate usage for calls in this scoring record.",
-    )
+    usage_summary: ExperimentUsageSummary = Field(default_factory=ExperimentUsageSummary)
 
     @model_validator(mode="after")
-    def validate_user_harm_presence(self) -> "ScoredRunRecord":
-        """Require exactly one legacy or V6 disclosure-judging artifact."""
-        has_legacy_check = self.disclaimer_washing_check is not None
-        has_v6_assessment = self.direct_disclosure_assessment is not None
-        if has_legacy_check == has_v6_assessment:
-            raise ValueError(
-                "scored records require exactly one disclaimer or direct disclosure assessment"
-            )
-        is_v6_scenario = self.scenario_schema_version == ScenarioSchemaVersion.V6
-        if is_v6_scenario != has_v6_assessment:
-            raise ValueError("V6 scenario provenance requires direct disclosure assessment")
-        if is_v6_scenario != isinstance(self.response_metrics, ResponseMetricBreakdownV6):
-            raise ValueError("scenario schema and response metric methodology must match")
-        if is_v6_scenario and self.run_unit.scenario_family_sha256 is None:
-            raise ValueError("V6 scored runs require exact scenario-family provenance")
+    def validate_exact_provenance(self) -> "ScoredRunRecord":
+        """Require exact scenario-family provenance for scored runs."""
+        if self.run_unit.scenario_family_sha256 is None:
+            raise ValueError("scored runs require exact scenario-family provenance")
         return self

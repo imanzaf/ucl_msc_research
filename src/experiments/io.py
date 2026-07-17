@@ -21,8 +21,7 @@ from src.data_models.scenario_review import (
     validate_generation_manifest_alignment,
     validate_semantic_review_coverage,
 )
-from src.data_models.scenarios import ScenarioFamily, ScenarioSchemaVersion
-from src.data_models.scenarios_v6 import ScenarioFamilyArtifact, ScenarioFamilyV6
+from src.data_models.scenarios import ScenarioFamily
 
 ExperimentRecordT = TypeVar("ExperimentRecordT", bound=BaseModel)
 
@@ -107,8 +106,8 @@ def scenario_json_paths(scenario_run_dir: Path) -> List[Path]:
     )
 
 
-def validate_v6_human_acceptance(scenario_run_dir: Path, family: ScenarioFamilyV6) -> None:
-    """Require an accepted human manifest covering every automated V6 finding."""
+def validate_human_acceptance(scenario_run_dir: Path, family: ScenarioFamily) -> None:
+    """Require an accepted human manifest covering every automated finding."""
     human_review_path = scenario_run_dir / "human_reviews" / f"{family.scenario_family_id}.json"
     semantic_review_path = (
         scenario_run_dir / "semantic_reviews" / f"{family.scenario_family_id}.json"
@@ -119,7 +118,7 @@ def validate_v6_human_acceptance(scenario_run_dir: Path, family: ScenarioFamilyV
         or not semantic_review_path.exists()
         or not generation_manifest_path.exists()
     ):
-        raise ValueError(f"V6 family {family.scenario_family_id} lacks required review manifests")
+        raise ValueError(f"family {family.scenario_family_id} lacks required review manifests")
 
     human_review = ScenarioHumanReview.model_validate_json(
         human_review_path.read_text(encoding="utf-8")
@@ -131,9 +130,9 @@ def validate_v6_human_acceptance(scenario_run_dir: Path, family: ScenarioFamilyV
         generation_manifest_path.read_text(encoding="utf-8")
     )
     if human_review.scenario_family_id != family.scenario_family_id:
-        raise ValueError("V6 human-review family id does not match the scenario family")
+        raise ValueError("human-review family id does not match the scenario family")
     if semantic_review.scenario_family_id != family.scenario_family_id:
-        raise ValueError("V6 semantic-review family id does not match the scenario family")
+        raise ValueError("semantic-review family id does not match the scenario family")
     validate_semantic_review_coverage(review=semantic_review, family=family)
     validate_generation_manifest_alignment(
         manifest=generation_manifest,
@@ -147,10 +146,10 @@ def validate_v6_human_acceptance(scenario_run_dir: Path, family: ScenarioFamilyV
     }
     for field_name, expected_hash in expected_hashes.items():
         if getattr(human_review, field_name) != expected_hash:
-            raise ValueError(f"V6 human review hash does not match {field_name}")
+            raise ValueError(f"human review hash does not match {field_name}")
     if human_review.status != HumanReviewStatus.ACCEPTED:
         raise ValueError(
-            f"V6 family {family.scenario_family_id} is not human-accepted: {human_review.status.value}"
+            f"family {family.scenario_family_id} is not human-accepted: {human_review.status.value}"
         )
 
     automated_finding_ids = {
@@ -160,15 +159,15 @@ def validate_v6_human_acceptance(scenario_run_dir: Path, family: ScenarioFamilyV
         resolution.finding_id: resolution.status for resolution in human_review.finding_resolutions
     }
     if set(human_resolutions) != automated_finding_ids:
-        raise ValueError("V6 human review must cover exactly every automated semantic finding")
+        raise ValueError("human review must cover exactly every automated semantic finding")
     if any(
         status != HumanFindingResolutionStatus.RESOLVED for status in human_resolutions.values()
     ):
-        raise ValueError("V6 accepted families require every automated finding to be resolved")
+        raise ValueError("accepted families require every automated finding to be resolved")
 
 
 def scenario_family_matches_filters(
-    family: ScenarioFamilyArtifact,
+    family: ScenarioFamily,
     scenario_family_ids: Optional[Sequence[str]],
     scenario_ids: Optional[Sequence[str]],
 ) -> bool:
@@ -185,32 +184,20 @@ def load_scenario_families(
     scenario_run_dir: Path,
     scenario_family_ids: Optional[Sequence[str]] = None,
     scenario_ids: Optional[Sequence[str]] = None,
-) -> List[ScenarioFamilyArtifact]:
-    """Load selected scenario families and enforce their V6 human-acceptance gates."""
+) -> List[ScenarioFamily]:
+    """Load selected scenario families and enforce their human-acceptance gates."""
     paths = scenario_json_paths(scenario_run_dir)
     if not paths:
         raise ValueError(f"no scenario JSON files found in {scenario_run_dir}")
-    families: List[ScenarioFamilyArtifact] = []
+    families: List[ScenarioFamily] = []
     for path in paths:
-        raw_json = path.read_text(encoding="utf-8")
-        schema_version = json.loads(raw_json).get("schema_version")
-        if schema_version == ScenarioSchemaVersion.V6.value:
-            family = ScenarioFamilyV6.model_validate_json(raw_json)
-            if not scenario_family_matches_filters(
-                family=family,
-                scenario_family_ids=scenario_family_ids,
-                scenario_ids=scenario_ids,
-            ):
-                continue
-            validate_v6_human_acceptance(scenario_run_dir=scenario_run_dir, family=family)
-            families.append(family)
-            continue
-        family = ScenarioFamily.model_validate_json(raw_json)
+        family = ScenarioFamily.model_validate_json(path.read_text(encoding="utf-8"))
         if scenario_family_matches_filters(
             family=family,
             scenario_family_ids=scenario_family_ids,
             scenario_ids=scenario_ids,
         ):
+            validate_human_acceptance(scenario_run_dir=scenario_run_dir, family=family)
             families.append(family)
     if not families:
         raise ValueError("no scenario families matched the selected filters")

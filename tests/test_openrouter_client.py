@@ -14,8 +14,7 @@ from src.data_models.experiments import (
     LLMCallFailureRecord,
 )
 from src.data_models.scenarios import GeneratedScenarioInstance
-from src.data_models.scoring import FactUnitMatching
-from src.data_models.user_simulator import UserSimulatorTurnOutput
+from src.data_models.scoring import FalseClaimAssessment
 from src.llm.cache import LLMCallCache, build_cache_key
 from src.llm.openrouter import OpenRouterStructuredClient, openrouter_response_format
 
@@ -72,7 +71,11 @@ def make_response(content: str) -> Dict[str, Any]:
 def test_structured_call_parses_usage_and_response_format(tmp_path) -> None:
     """Verify structured calls include JSON schema response_format and parse usage."""
     fake_client = FakeClient(
-        [make_response('{"should_continue": false, "rationale": "Enough detail."}')]
+        [
+            make_response(
+                '{"has_false_claim": false, "false_claims": [], "assessment_summary": "No false claims."}'
+            )
+        ]
     )
     client = OpenRouterStructuredClient(
         client=fake_client,
@@ -81,15 +84,15 @@ def test_structured_call_parses_usage_and_response_format(tmp_path) -> None:
     )
 
     result = client.complete_structured(
-        stage=ExperimentStage.USER_SIMULATOR_TURN,
+        stage=ExperimentStage.FALSE_CLAIM_ASSESSMENT,
         model_id="openai/gpt-5.5",
-        messages=[{"role": "user", "content": "Continue?"}],
-        output_model=UserSimulatorTurnOutput,
+        messages=[{"role": "user", "content": "Assess claims."}],
+        output_model=FalseClaimAssessment,
         generation_config=GenerationConfig(),
         prompt_version="test_prompt_v1",
     )
 
-    assert result.parsed.should_continue is False
+    assert result.parsed.has_false_claim is False
     assert result.record.usage.total_tokens == 15
     assert result.record.usage.reasoning_tokens == 2
     assert fake_client.completions.calls[0]["response_format"]["type"] == "json_schema"
@@ -98,7 +101,11 @@ def test_structured_call_parses_usage_and_response_format(tmp_path) -> None:
 def test_strict_structured_routing_is_cached_with_provider_requirement(tmp_path: Path) -> None:
     """Verify reviewer-style strict routing participates in cache identity and reuse."""
     fake_client = FakeClient(
-        [make_response('{"should_continue": false, "rationale": "Enough detail."}')]
+        [
+            make_response(
+                '{"has_false_claim": false, "false_claims": [], "assessment_summary": "No false claims."}'
+            )
+        ]
     )
     client = OpenRouterStructuredClient(
         client=fake_client,
@@ -109,7 +116,7 @@ def test_strict_structured_routing_is_cached_with_provider_requirement(tmp_path:
         "stage": ExperimentStage.SCENARIO_SEMANTIC_REVIEW,
         "model_id": "anthropic/claude-haiku-4.5",
         "messages": [{"role": "user", "content": "Audit"}],
-        "output_model": UserSimulatorTurnOutput,
+        "output_model": FalseClaimAssessment,
         "generation_config": GenerationConfig(temperature=0.0),
         "prompt_version": "scenario_semantic_review_v1",
         "require_supported_parameters": True,
@@ -154,7 +161,9 @@ def test_structured_call_retries_after_invalid_json(tmp_path) -> None:
     fake_client = FakeClient(
         [
             make_response("not valid json"),
-            make_response('{"should_continue": false, "rationale": "Valid retry."}'),
+            make_response(
+                '{"has_false_claim": false, "false_claims": [], "assessment_summary": "Valid retry."}'
+            ),
         ]
     )
     client = OpenRouterStructuredClient(
@@ -164,15 +173,15 @@ def test_structured_call_retries_after_invalid_json(tmp_path) -> None:
     )
 
     result = client.complete_structured(
-        stage=ExperimentStage.USER_SIMULATOR_TURN,
+        stage=ExperimentStage.FALSE_CLAIM_ASSESSMENT,
         model_id="openai/gpt-5.5",
-        messages=[{"role": "user", "content": "Continue?"}],
-        output_model=UserSimulatorTurnOutput,
+        messages=[{"role": "user", "content": "Assess claims."}],
+        output_model=FalseClaimAssessment,
         generation_config=GenerationConfig(),
         prompt_version="retry_prompt_v1",
     )
 
-    assert result.parsed.rationale == "Valid retry."
+    assert result.parsed.assessment_summary == "Valid retry."
     assert len(fake_client.completions.calls) == 2
 
 
@@ -190,7 +199,7 @@ def test_terminal_structured_failure_preserves_raw_attempt(tmp_path: Path) -> No
             stage=ExperimentStage.SCENARIO_SEMANTIC_REVIEW,
             model_id="anthropic/claude-haiku-4.5",
             messages=[{"role": "user", "content": "Audit"}],
-            output_model=UserSimulatorTurnOutput,
+            output_model=FalseClaimAssessment,
             generation_config=GenerationConfig(temperature=0.0),
             prompt_version="scenario_semantic_review_v1",
             require_supported_parameters=True,
@@ -218,7 +227,7 @@ def test_repeated_terminal_failures_preserve_separate_records(tmp_path: Path) ->
         "stage": ExperimentStage.SCENARIO_SEMANTIC_REVIEW,
         "model_id": "anthropic/claude-haiku-4.5",
         "messages": [{"role": "user", "content": "Audit"}],
-        "output_model": UserSimulatorTurnOutput,
+        "output_model": FalseClaimAssessment,
         "generation_config": GenerationConfig(temperature=0.0),
         "prompt_version": "scenario_semantic_review_v1",
         "require_supported_parameters": True,
@@ -249,22 +258,18 @@ def test_response_format_requires_every_nested_property() -> None:
     assert "$ref" not in fact_unit_schema["properties"]["polarity"]
 
 
-def test_fact_matching_response_format_uses_fixed_marker_records() -> None:
-    """Verify matched specificity markers do not compile to a dynamic-map schema."""
-    response_format = openrouter_response_format(FactUnitMatching)
+def test_false_claim_response_format_uses_strict_claim_records() -> None:
+    """Verify false-claim assessment compiles to strict structured output."""
+    response_format = openrouter_response_format(FalseClaimAssessment)
     schema = response_format["json_schema"]["schema"]
-    fact_match_schema = schema["$defs"]["FactUnitMatch"]
-    marker_schema = schema["$defs"]["MatchedSpecificityMarkers"]
+    false_claim_schema = schema["$defs"]["FalseClaim"]
 
-    assert set(fact_match_schema["required"]) == set(fact_match_schema["properties"])
-    assert "default" not in fact_match_schema["properties"]["support_status"]
-    assert fact_match_schema["properties"]["matched_specificity_markers"]["type"] == "array"
-    assert (
-        fact_match_schema["properties"]["matched_specificity_markers"]["items"]["$ref"]
-        == "#/$defs/MatchedSpecificityMarkers"
-    )
-    assert set(marker_schema["required"]) == set(marker_schema["properties"])
-    assert marker_schema["additionalProperties"] is False
+    assert set(schema["required"]) == set(schema["properties"])
+    assert "default" not in schema["properties"]["false_claims"]
+    assert schema["properties"]["false_claims"]["type"] == "array"
+    assert schema["properties"]["false_claims"]["items"]["$ref"] == "#/$defs/FalseClaim"
+    assert set(false_claim_schema["required"]) == set(false_claim_schema["properties"])
+    assert false_claim_schema["additionalProperties"] is False
 
 
 def test_session_id_is_nested_in_supported_metadata(tmp_path) -> None:

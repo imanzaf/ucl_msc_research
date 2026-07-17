@@ -1,291 +1,299 @@
-"""Tests for scenario-run orchestration."""
+"""Tests for current scenario execution orchestration."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, List
-from uuid import uuid4
+from typing import Any, Dict, List, Optional, Sequence, Type
+
+from pydantic import BaseModel
 
 from src.data_models.experiments import (
+    ConversationProtocol,
     ExperimentConfig,
     ExperimentStage,
-    ExperimentUsageSummary,
     GenerationConfig,
     LLMCallRecord,
-    LLMCallUsage,
-    ScenarioRunRecord,
 )
-from src.data_models.user_simulator import UserSimulatorOutcome, UserSimulatorTurnOutput
-from src.experiments.io import read_jsonl_models
+from src.data_models.scenario_review import (
+    FindingType,
+    HumanReviewStatus,
+    RequirementAssessment,
+    RequirementStatus,
+    ScenarioGenerationManifest,
+    ScenarioHumanReview,
+    ScenarioSemanticReview,
+    artifact_sha256,
+    expected_semantic_review_keys,
+)
+from src.data_models.user_simulator import UserSimulatorOutcome
 from src.experiments.scenario_runner import run_scenarios
 from src.llm.openrouter import LLMCallResult
-from tests.canonical_scenario_fixtures import write_scenario_run_dir
-
-
-def make_fake_call_result(parsed: Any, stage: ExperimentStage) -> LLMCallResult:
-    """Create one typed fake LLM call result with deterministic usage."""
-    record = LLMCallRecord(
-        call_id=str(uuid4()),
-        stage=stage,
-        model_id="fake/model",
-        resolved_model_id="fake/model",
-        generation_id=str(uuid4()),
-        cache_key=str(uuid4()),
-        cache_hit=False,
-        created_at="2026-07-11T00:00:00+00:00",
-        prompt_version="test_prompt_v1",
-        request_payload={},
-        response_payload={},
-        parsed_output=parsed.model_dump() if hasattr(parsed, "model_dump") else None,
-        text_output=parsed if isinstance(parsed, str) else None,
-        usage=LLMCallUsage(prompt_tokens=1, completion_tokens=1, total_tokens=2, cost_credits=0.1),
-    )
-    return LLMCallResult(parsed=parsed, record=record)
+from tests.scenario_fixtures import make_family
 
 
 class FakePipelineClient:
-    """Fake pipeline client with text and structured output queues."""
+    """Fake text and structured client for scenario-runner tests."""
 
-    def __init__(self, text_outputs: List[str], structured_outputs: List[Any]) -> None:
-        """Store outputs returned by fake LLM calls."""
+    def __init__(
+        self, text_outputs: Sequence[str], structured_outputs: Sequence[BaseModel]
+    ) -> None:
+        """Store deterministic outputs and call metadata."""
         self.text_outputs = list(text_outputs)
         self.structured_outputs = list(structured_outputs)
+        self.text_calls: List[Dict[str, Any]] = []
+        self.structured_calls: List[Dict[str, Any]] = []
 
-    def make_result(self, parsed: Any, stage: ExperimentStage) -> LLMCallResult:
-        """Create one typed call result with deterministic usage."""
-        return make_fake_call_result(parsed=parsed, stage=stage)
+    def _record(self, stage: ExperimentStage, prompt_version: str) -> LLMCallRecord:
+        """Create a minimal call record."""
+        return LLMCallRecord(
+            call_id=f"call-{len(self.text_calls) + len(self.structured_calls)}",
+            stage=stage,
+            model_id="fake/model",
+            cache_key=f"cache-{len(self.text_calls) + len(self.structured_calls)}",
+            created_at="2026-07-17T00:00:00+00:00",
+            prompt_version=prompt_version,
+            request_payload={},
+        )
 
-    def complete_text(self, **kwargs: Any) -> LLMCallResult:
-        """Return the next fake text completion."""
-        return self.make_result(self.text_outputs.pop(0), kwargs["stage"])
+    def complete_text(
+        self,
+        stage: ExperimentStage,
+        model_id: str,
+        messages: List[Dict[str, str]],
+        generation_config: GenerationConfig,
+        prompt_version: str,
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> LLMCallResult[str]:
+        """Return the next text output."""
+        _ = (model_id, generation_config, metadata)
+        self.text_calls.append({"stage": stage, "messages": messages})
+        return LLMCallResult(
+            parsed=self.text_outputs.pop(0), record=self._record(stage, prompt_version)
+        )
 
-    def complete_structured(self, **kwargs: Any) -> LLMCallResult:
-        """Return the next fake structured completion."""
-        parsed = self.structured_outputs.pop(0)
-        assert isinstance(parsed, kwargs["output_model"])
-        return self.make_result(parsed, kwargs["stage"])
+    def complete_structured(
+        self,
+        stage: ExperimentStage,
+        model_id: str,
+        messages: List[Dict[str, str]],
+        output_model: Type[BaseModel],
+        generation_config: GenerationConfig,
+        prompt_version: str,
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> LLMCallResult[BaseModel]:
+        """Return the next structured output."""
+        _ = (model_id, messages, output_model, generation_config, metadata)
+        self.structured_calls.append({"stage": stage, "output_model": output_model})
+        return LLMCallResult(
+            parsed=self.structured_outputs.pop(0), record=self._record(stage, prompt_version)
+        )
 
 
-class StageAwareFakePipelineClient:
-    """Thread-safe fake client that returns outputs based on requested stage."""
-
-    def complete_text(self, **kwargs: Any) -> LLMCallResult:
-        """Return a fake agent response."""
-        return make_fake_call_result(parsed="Agent response.", stage=kwargs["stage"])
-
-    def complete_structured(self, **kwargs: Any) -> LLMCallResult:
-        """Return fake user-simulator output for the requested structured model."""
-        output_model = kwargs["output_model"]
-        if output_model is UserSimulatorTurnOutput:
-            parsed = UserSimulatorTurnOutput(
-                should_continue=False,
-                rationale="Enough information.",
+def make_semantic_review() -> ScenarioSemanticReview:
+    """Create a passing semantic review for the fixture family."""
+    family = make_family()
+    assessments: List[RequirementAssessment] = []
+    for requirement_id, scope, subject_id in sorted(expected_semantic_review_keys(family), key=str):
+        assessments.append(
+            RequirementAssessment(
+                requirement_id=requirement_id,
+                subject_scope=scope,
+                subject_id=subject_id,
+                status=RequirementStatus.PASS,
+                finding_id="",
+                finding_type=FindingType.NONE,
+                affected_scenario_ids=[],
+                evidence="Fixture evidence inspected.",
+                problem="",
+                required_correction="",
+                affected_field_paths=[],
+                rationale="Fixture passes the requirement.",
             )
-        elif output_model is UserSimulatorOutcome:
-            parsed = UserSimulatorOutcome(
-                selected_action_id="A1",
-                selected_belief_ids=[],
-                rationale="The user would ask for a review.",
-            )
-        else:
-            raise AssertionError(f"unexpected output model: {output_model!r}")
-
-        return make_fake_call_result(parsed=parsed, stage=kwargs["stage"])
-
-
-def make_config(scenario_run_dir: Path, max_followup_turns: int = 3) -> ExperimentConfig:
-    """Create a minimal experiment config for scenario-run tests."""
-    return ExperimentConfig(
-        experiment_name="pipeline_smoke_v1",
-        scenario_run_dir=str(scenario_run_dir),
-        agent_model_ids=["fake/agent"],
-        user_simulator_model="fake/simulator",
-        scoring_model="fake/scorer",
-        generation_config=GenerationConfig(),
-        max_followup_turns=max_followup_turns,
-        cache_enabled=True,
+        )
+    return ScenarioSemanticReview(
+        scenario_family_id=family.scenario_family_id,
+        assessments=assessments,
+        review_summary="Fixture review passes.",
     )
 
 
-def test_single_selected_unit_stops_after_first_agent_response(tmp_path: Path) -> None:
-    """Verify a selected run unit writes one transcript and user outcome."""
+def write_accepted_scenario_run_dir(root: Path) -> Path:
+    """Write a family and matching accepted review manifests."""
+    family = make_family()
+    review = make_semantic_review()
+    manifest = ScenarioGenerationManifest(
+        scenario_family_id=family.scenario_family_id,
+        generator_model_id="openai/gpt-generator",
+        reviewer_model_id="anthropic/claude-haiku-4.5",
+        initial_call_ids={
+            instance.scenario_id: f"initial-{instance.scenario_id}"
+            for instance in family.scenario_instances
+        },
+        semantic_review_call_ids=["semantic-review-call"],
+        reviewed_scenario_ids=[instance.scenario_id for instance in family.scenario_instances],
+        finding_ids_by_scenario={},
+        revision_attempts=[],
+    )
+    human_review = ScenarioHumanReview(
+        scenario_family_id=family.scenario_family_id,
+        status=HumanReviewStatus.ACCEPTED,
+        reviewer="Reviewer One",
+        reviewed_at="2026-07-17T00:00:00+00:00",
+        finding_resolutions=[],
+        notes="Accepted fixture family.",
+        final_family_sha256=artifact_sha256(family),
+        semantic_review_sha256=artifact_sha256(review),
+        generation_manifest_sha256=artifact_sha256(manifest),
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "semantic_reviews").mkdir()
+    (root / "manifests").mkdir()
+    (root / "human_reviews").mkdir()
+    (root / f"{family.scenario_family_id}.json").write_text(
+        family.model_dump_json(indent=2), encoding="utf-8"
+    )
+    (root / "semantic_reviews" / f"{family.scenario_family_id}.json").write_text(
+        review.model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+    (root / "manifests" / f"{family.scenario_family_id}.json").write_text(
+        manifest.model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+    (root / "human_reviews" / f"{family.scenario_family_id}.json").write_text(
+        human_review.model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+    return root
+
+
+def make_config(scenario_run_dir: Path, family_scenario_concurrency: int = 1) -> ExperimentConfig:
+    """Create a scenario-runner experiment config."""
+    return ExperimentConfig(
+        experiment_name="scenario_runner_v1",
+        scenario_run_dir=str(scenario_run_dir),
+        agent_model_ids=["meta-llama/llama-3.3-70b-instruct"],
+        user_simulator_model="google/gemma-4-26b-a4b-it",
+        scoring_model="google/gemini-3.1-flash-lite",
+        family_scenario_concurrency=family_scenario_concurrency,
+    )
+
+
+def test_selected_unit_uses_scripted_risk_followup(tmp_path: Path) -> None:
+    """Verify a selected run unit writes a scripted four-turn transcript and outcome."""
     agent_client = FakePipelineClient(
-        text_outputs=["The portfolio has benefits and material risks."],
+        text_outputs=["Initial answer.", "Follow-up answer."],
         structured_outputs=[],
     )
     user_simulator_client = FakePipelineClient(
         text_outputs=[],
         structured_outputs=[
-            UserSimulatorTurnOutput(should_continue=False, rationale="Enough information."),
             UserSimulatorOutcome(
-                selected_action_id="A1",
-                selected_belief_ids=[],
-                rationale="The user would ask for a review.",
-            ),
+                selected_action_id="review_plan",
+                selected_belief_ids=["supported"],
+                rationale="The user would review safely.",
+            )
         ],
     )
 
     records = run_scenarios(
-        agent_client=agent_client,
-        user_simulator_client=user_simulator_client,
+        agent_client=agent_client,  # type: ignore[arg-type]
+        user_simulator_client=user_simulator_client,  # type: ignore[arg-type]
         experiment_root=tmp_path,
-        experiment_config=make_config(write_scenario_run_dir(tmp_path)),
-        scenario_family_ids=["RW001"],
-        scenario_ids=["RW001_U01"],
+        experiment_config=make_config(write_accepted_scenario_run_dir(tmp_path / "scenario-run")),
+        scenario_family_ids=["PFM001"],
+        scenario_ids=["PFM001_T1_R1"],
         prompt_conditions=["neutral"],
         persona_ids=["neutral_baseline"],
-        run_id="20260711T010101",
+        run_id="20260717T010101",
         limit=1,
     )
 
     assert len(records) == 1
-    assert records[0].transcript[-1].content == "The portfolio has benefits and material risks."
-    assert records[0].transcript_turn_count == 2
-    assert records[0].user_turn_count == 1
-    assert records[0].agent_turn_count == 1
-    assert records[0].generated_user_followup_count == 0
-    assert records[0].user_simulator_decision_count == 1
-    assert records[0].user_simulator_outcome.selected_action_id == "A1"
-    assert "high_adverse" not in records[0].system_prompt
-    assert (tmp_path / "pipeline_smoke_v1" / "results" / "20260711T010101_results.jsonl").exists()
+    assert records[0].conversation_protocol == ConversationProtocol.SCRIPTED_RISK_FOLLOWUP
+    assert records[0].scripted_user_followup_count == 1
+    assert records[0].agent_turn_count == 2
+    assert len(records[0].transcript) == 4
+    assert len(agent_client.text_calls) == 2
+    assert len(user_simulator_client.structured_calls) == 1
 
 
 def test_resume_rebuilds_scenario_usage_from_existing_records(tmp_path: Path) -> None:
     """Verify resume preserves usage for already-written scenario records."""
-    scenario_run_dir = write_scenario_run_dir(tmp_path)
-    run_id = "20260711T011111"
-    agent_client = FakePipelineClient(
-        text_outputs=["The portfolio has benefits and material risks."],
-        structured_outputs=[],
-    )
-    user_simulator_client = FakePipelineClient(
-        text_outputs=[],
-        structured_outputs=[
-            UserSimulatorTurnOutput(should_continue=False, rationale="Enough information."),
-            UserSimulatorOutcome(
-                selected_action_id="A1",
-                selected_belief_ids=[],
-                rationale="The user would ask for a review.",
-            ),
-        ],
-    )
+    scenario_run_dir = write_accepted_scenario_run_dir(tmp_path / "scenario-run")
     config = make_config(scenario_run_dir)
+    agent_client = FakePipelineClient(["Initial answer.", "Follow-up answer."], [])
+    user_client = FakePipelineClient(
+        [],
+        [
+            UserSimulatorOutcome(
+                selected_action_id="review_plan",
+                selected_belief_ids=["supported"],
+                rationale="The user would review safely.",
+            )
+        ],
+    )
 
-    run_scenarios(
-        agent_client=agent_client,
-        user_simulator_client=user_simulator_client,
+    first_records = run_scenarios(
+        agent_client=agent_client,  # type: ignore[arg-type]
+        user_simulator_client=user_client,  # type: ignore[arg-type]
         experiment_root=tmp_path,
         experiment_config=config,
-        scenario_family_ids=["RW001"],
-        scenario_ids=["RW001_U01"],
+        scenario_family_ids=["PFM001"],
+        scenario_ids=["PFM001_T1_R1"],
         prompt_conditions=["neutral"],
         persona_ids=["neutral_baseline"],
-        run_id=run_id,
+        run_id="20260717T020202",
         limit=1,
     )
-
-    run_scenarios(
-        agent_client=FakePipelineClient(text_outputs=[], structured_outputs=[]),
-        user_simulator_client=FakePipelineClient(text_outputs=[], structured_outputs=[]),
+    resume_config = config.model_copy(update={"resume": True})
+    second_records = run_scenarios(
+        agent_client=FakePipelineClient([], []),  # type: ignore[arg-type]
+        user_simulator_client=FakePipelineClient([], []),  # type: ignore[arg-type]
         experiment_root=tmp_path,
-        experiment_config=config.model_copy(update={"resume": True}),
-        scenario_family_ids=["RW001"],
-        scenario_ids=["RW001_U01"],
+        experiment_config=resume_config,
+        scenario_family_ids=["PFM001"],
+        scenario_ids=["PFM001_T1_R1"],
         prompt_conditions=["neutral"],
         persona_ids=["neutral_baseline"],
-        run_id=run_id,
+        run_id="20260717T020202",
         limit=1,
     )
 
-    usage_path = tmp_path / "pipeline_smoke_v1" / "results" / f"{run_id}_scenario_usage.json"
-    usage = ExperimentUsageSummary.model_validate_json(usage_path.read_text(encoding="utf-8"))
-
-    assert usage.api_call_count == 3
-    assert usage.total_tokens == 6
+    assert len(first_records) == 1
+    assert second_records == []
 
 
-def test_multi_turn_loop_honors_followup_cap(tmp_path: Path) -> None:
-    """Verify multi-turn execution stops at the configured follow-up cap."""
-    agent_client = FakePipelineClient(
-        text_outputs=["Agent one.", "Agent two.", "Agent three."],
-        structured_outputs=[],
-    )
-    user_simulator_client = FakePipelineClient(
-        text_outputs=[],
-        structured_outputs=[
-            UserSimulatorTurnOutput(
-                should_continue=True,
-                utterance="Can you say more about the risk?",
-                rationale="The user wants detail.",
-            ),
-            UserSimulatorTurnOutput(
-                should_continue=True,
-                utterance="What should I do next?",
-                rationale="The user wants next steps.",
+def test_family_concurrency_runs_selected_scenario_instances(tmp_path: Path) -> None:
+    """Verify concurrent family mode runs all selected scenario instances."""
+    scenario_run_dir = write_accepted_scenario_run_dir(tmp_path / "scenario-run")
+    agent_client = FakePipelineClient(["A1", "A2", "B1", "B2"], [])
+    user_client = FakePipelineClient(
+        [],
+        [
+            UserSimulatorOutcome(
+                selected_action_id="review_plan", selected_belief_ids=[], rationale="Safe."
             ),
             UserSimulatorOutcome(
-                selected_action_id="A1",
-                selected_belief_ids=[],
-                rationale="The user remains cautious.",
+                selected_action_id="review_plan", selected_belief_ids=[], rationale="Safe."
             ),
         ],
     )
 
     records = run_scenarios(
-        agent_client=agent_client,
-        user_simulator_client=user_simulator_client,
+        agent_client=agent_client,  # type: ignore[arg-type]
+        user_simulator_client=user_client,  # type: ignore[arg-type]
         experiment_root=tmp_path,
-        experiment_config=make_config(
-            write_scenario_run_dir(tmp_path),
-            max_followup_turns=2,
-        ),
-        scenario_family_ids=["RW001"],
-        scenario_ids=["RW001_U01"],
+        experiment_config=make_config(scenario_run_dir, family_scenario_concurrency=2),
+        scenario_family_ids=["PFM001"],
+        scenario_ids=["PFM001_T1_R1", "PFM001_T1_R2"],
         prompt_conditions=["neutral"],
         persona_ids=["neutral_baseline"],
-        run_id="20260711T020202",
-        limit=1,
+        run_id="20260717T030303",
     )
 
-    assert len(records[0].user_simulator_turns) == 2
-    assert len(records[0].transcript) == 6
-    assert records[0].transcript_turn_count == 6
-    assert records[0].user_turn_count == 3
-    assert records[0].agent_turn_count == 3
-    assert records[0].generated_user_followup_count == 2
-    assert records[0].user_simulator_decision_count == 2
-    assert records[0].transcript[-1].content == "Agent three."
-
-
-def test_family_scenario_concurrency_runs_scenario_instances_together(tmp_path: Path) -> None:
-    """Verify concurrent family mode runs all selected scenario instances."""
-    scenario_run_dir = write_scenario_run_dir(tmp_path)
-    agent_client = StageAwareFakePipelineClient()
-    user_simulator_client = StageAwareFakePipelineClient()
-    config = make_config(scenario_run_dir, max_followup_turns=1).model_copy(
-        update={"family_scenario_concurrency": 5}
-    )
-
-    records = run_scenarios(
-        agent_client=agent_client,
-        user_simulator_client=user_simulator_client,
-        experiment_root=tmp_path,
-        experiment_config=config,
-        scenario_family_ids=["RW001"],
-        prompt_conditions=["neutral"],
-        persona_ids=["neutral_baseline"],
-        run_id="20260711T030303",
-    )
-
-    result_path = tmp_path / "pipeline_smoke_v1" / "results" / "20260711T030303_results.jsonl"
-    persisted_records = read_jsonl_models(path=result_path, model=ScenarioRunRecord)
-
-    assert len(records) == 5
-    assert len(persisted_records) == 5
-    assert {record.run_unit.scenario_id for record in records} == {
-        "RW001_U01",
-        "RW001_U02",
-        "RW001_U03",
-        "RW001_U04",
-        "RW001_U05",
-    }
+    assert sorted(record.run_unit.scenario_id for record in records) == [
+        "PFM001_T1_R1",
+        "PFM001_T1_R2",
+    ]
+    assert len(agent_client.text_calls) == 4

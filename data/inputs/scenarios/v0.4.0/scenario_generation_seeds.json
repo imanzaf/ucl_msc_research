@@ -1,0 +1,340 @@
+{
+  "seeds": [
+    {
+      "scenario_family_id": "PFM001",
+      "segment": "personal_financial_management",
+      "interaction_mode": "multi_turn",
+      "tool_using": false,
+      "agent_role": "",
+      "agent_task": "",
+      "prompt_control_profile_id": "omission_integrity_v1",
+      "invariant_task_constraints": [
+        "",
+        ""
+      ],
+      "user_role": "",
+      "task_types": [
+        {
+          "task_type_id": "T1",
+          "task_archetype": "",
+          "reference_format": "",
+          "user_goal": "",
+          "core_initial_request": "",
+          "core_risk_followup": "",
+          "replications": [
+            {
+              "scenario_id": "PFM001_T1_R1",
+              "replication_id": "R1",
+              "variation_brief": ""
+            },
+            {
+              "scenario_id": "PFM001_T1_R2",
+              "replication_id": "R2",
+              "variation_brief": ""
+            }
+          ]
+        },
+        {
+          "task_type_id": "T2",
+          "task_archetype": "",
+          "reference_format": "",
+          "user_goal": "",
+          "core_initial_request": "",
+          "core_risk_followup": "",
+          "replications": [
+            {
+              "scenario_id": "PFM001_T2_R1",
+              "replication_id": "R1",
+              "variation_brief": ""
+            },
+            {
+              "scenario_id": "PFM001_T2_R2",
+              "replication_id": "R2",
+              "variation_brief": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_family_id": "RW001",
+      "segment": "retail_wealth",
+      "interaction_mode": "multi_turn",
+      "tool_using": false,
+      "agent_role": "",
+      "agent_task": "",
+      "prompt_control_profile_id": "omission_integrity_v1",
+      "invariant_task_constraints": [
+        "",
+        ""
+      ],
+      "user_role": "",
+      "task_types": [
+        {
+          "task_type_id": "T1",
+          "task_archetype": "",
+          "reference_format": "",
+          "user_goal": "",
+          "core_initial_request": "",
+          "core_risk_followup": "",
+          "replications": [
+            {
+              "scenario_id": "RW001_T1_R1",
+              "replication_id": "R1",
+              "variation_brief": ""
+            },
+            {
+              "scenario_id": "RW001_T1_R2",
+              "replication_id": "R2",
+              "variation_brief": ""
+            }
+          ]
+        },
+        {
+          "task_type_id": "T2",
+          "task_archetype": "",
+          "reference_format": "",
+          "user_goal": "",
+          "core_initial_request": "",
+          "core_risk_followup": "",
+          "replications": [
+            {
+              "scenario_id": "RW001_T2_R1",
+              "replication_id": "R1",
+              "variation_brief": ""
+            },
+            {
+              "scenario_id": "RW001_T2_R2",
+              "replication_id": "R2",
+              "variation_brief": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_family_id": "BRM001",
+      "segment": "branch_relationship_management",
+      "interaction_mode": "multi_turn",
+      "tool_using": false,
+      "agent_role": "",
+      "agent_task": "",
+      "prompt_control_profile_id": "omission_integrity_v1",
+      "invariant_task_constraints": [
+        "",
+        ""
+      ],
+      "user_role": "",
+      "task_types": [
+        {
+          "task_type_id": "T1",
+          "task_archetype": "",
+          "reference_format": "",
+          "user_goal": "",
+          "core_initial_request": "",
+          "core_risk_followup": "",
+          "replications": [
+            {
+              "scenario_id": "BRM001_T1_R1",
+              "replication_id": "R1",
+              "variation_brief": ""
+            },
+            {
+              "scenario_id": "BRM001_T1_R2",
+              "replication_id": "R2",
+              "variation_brief": ""
+            }
+          ]
+        },
+        {
+          "task_type_id": "T2",
+          "task_archetype": "",
+          "reference_format": "",
+          "user_goal": "",
+          "core_initial_request": "",
+          "core_risk_followup": "",
+          "replications": [
+            {
+              "scenario_id": "BRM001_T2_R1",
+              "replication_id": "R1",
+              "variation_brief": ""
+            },
+            {
+              "scenario_id": "BRM001_T2_R2",
+              "replication_id": "R2",
+              "variation_brief": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_family_id": "IR001",
+      "segment": "investment_research",
+      "interaction_mode": "multi_turn",
+      "tool_using": false,
+      "agent_role": "",
+      "agent_task": "",
+      "prompt_control_profile_id": "omission_integrity_v1",
+      "invariant_task_constraints": [
+        "",
+        ""
+      ],
+      "user_role": "",
+      "task_types": [
+        {
+          "task_type_id": "T1",
+          "task_archetype": "",
+          "reference_format": "",
+          "user_goal": "",
+          "core_initial_request": "",
+          "core_risk_followup": "",
+          "replications": [
+            {
+              "scenario_id": "IR001_T1_R1",
+              "replication_id": "R1",
+              "variation_brief": ""
+            },
+            {
+              "scenario_id": "IR001_T1_R2",
+              "replication_id": "R2",
+              "variation_brief": ""
+            }
+          ]
+        },
+        {
+          "task_type_id": "T2",
+          "task_archetype": "",
+          "reference_format": "",
+          "user_goal": "",
+          "core_initial_request": "",
+          "core_risk_followup": "",
+          "replications": [
+            {
+              "scenario_id": "IR001_T2_R1",
+              "replication_id": "R1",
+              "variation_brief": ""
+            },
+            {
+              "scenario_id": "IR001_T2_R2",
+              "replication_id": "R2",
+              "variation_brief": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_family_id": "ONB001",
+      "segment": "banking_onboarding",
+      "interaction_mode": "multi_turn",
+      "tool_using": false,
+      "agent_role": "",
+      "agent_task": "",
+      "prompt_control_profile_id": "omission_integrity_v1",
+      "invariant_task_constraints": [
+        "",
+        ""
+      ],
+      "user_role": "",
+      "task_types": [
+        {
+          "task_type_id": "T1",
+          "task_archetype": "",
+          "reference_format": "",
+          "user_goal": "",
+          "core_initial_request": "",
+          "core_risk_followup": "",
+          "replications": [
+            {
+              "scenario_id": "ONB001_T1_R1",
+              "replication_id": "R1",
+              "variation_brief": ""
+            },
+            {
+              "scenario_id": "ONB001_T1_R2",
+              "replication_id": "R2",
+              "variation_brief": ""
+            }
+          ]
+        },
+        {
+          "task_type_id": "T2",
+          "task_archetype": "",
+          "reference_format": "",
+          "user_goal": "",
+          "core_initial_request": "",
+          "core_risk_followup": "",
+          "replications": [
+            {
+              "scenario_id": "ONB001_T2_R1",
+              "replication_id": "R1",
+              "variation_brief": ""
+            },
+            {
+              "scenario_id": "ONB001_T2_R2",
+              "replication_id": "R2",
+              "variation_brief": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_family_id": "FRD001",
+      "segment": "fraud_and_scam",
+      "interaction_mode": "multi_turn",
+      "tool_using": false,
+      "agent_role": "",
+      "agent_task": "",
+      "prompt_control_profile_id": "omission_integrity_v1",
+      "invariant_task_constraints": [
+        "",
+        ""
+      ],
+      "user_role": "",
+      "task_types": [
+        {
+          "task_type_id": "T1",
+          "task_archetype": "",
+          "reference_format": "",
+          "user_goal": "",
+          "core_initial_request": "",
+          "core_risk_followup": "",
+          "replications": [
+            {
+              "scenario_id": "FRD001_T1_R1",
+              "replication_id": "R1",
+              "variation_brief": ""
+            },
+            {
+              "scenario_id": "FRD001_T1_R2",
+              "replication_id": "R2",
+              "variation_brief": ""
+            }
+          ]
+        },
+        {
+          "task_type_id": "T2",
+          "task_archetype": "",
+          "reference_format": "",
+          "user_goal": "",
+          "core_initial_request": "",
+          "core_risk_followup": "",
+          "replications": [
+            {
+              "scenario_id": "FRD001_T2_R1",
+              "replication_id": "R1",
+              "variation_brief": ""
+            },
+            {
+              "scenario_id": "FRD001_T2_R2",
+              "replication_id": "R2",
+              "variation_brief": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

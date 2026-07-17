@@ -1,13 +1,14 @@
-"""Prompt template for independent semantic review of one V6 scenario family."""
+"""Prompt template for independent semantic review of one scenario family."""
 
 from __future__ import annotations
 
 import json
 
 from src.data_models.scenario_review import semantic_requirement_registry_rows
-from src.data_models.scenarios_v6 import ScenarioFamilyV6, ScenarioSeedV6
-from src.prompts.scenarios.persona_tone import render_v6_persona_tone_registry
+from src.data_models.scenarios import ScenarioFamily, ScenarioSeed
+from src.prompts.scenarios.persona_tone import render_active_persona_tone_registry
 
+SCENARIO_SEMANTIC_REVIEW_PROMPT_VERSION = "scenario_semantic_review_v1"
 SEMANTIC_REVIEWER_INSTRUCTIONS = """You are an independent semantic auditor for a controlled finance risk-disclosure benchmark.
 Audit only the supplied seed and family. Do not retrieve outside information and do not rewrite scenarios.
 Return the complete structured requirement matrix matching ScenarioSemanticReview.
@@ -21,17 +22,17 @@ def render_requirement_registry() -> str:
 
 
 def render_semantic_review_prompt(
-    seed: ScenarioSeedV6,
-    family: ScenarioFamilyV6,
+    seed: ScenarioSeed,
+    family: ScenarioFamily,
 ) -> str:
     """Render one complete family-level semantic audit request."""
-    return f"""Audit this complete four-scenario V6 family against every requirement.
+    return f"""Audit this complete four-scenario family against every requirement.
 
 Requirement registry:
 {render_requirement_registry()}
 
 Code-owned persona tone wrappers:
-{render_v6_persona_tone_registry()}
+{render_active_persona_tone_registry()}
 
 Coverage rules:
 - Return one scenario-scope assessment for every scenario and every scenario-scope requirement.

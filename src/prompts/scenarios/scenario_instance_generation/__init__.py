@@ -1,15 +1,13 @@
 """Scenario-instance generation prompt template exports."""
 
 from src.prompts.scenarios.scenario_instance_generation.template import (
-    GENERATOR_INSTRUCTIONS,
-    build_fact_unit_breakdown,
-    build_prompt_task,
-    render_scenario_instance_generation_prompt,
+    SCENARIO_GENERATION_PROMPT_VERSION,
+    SCENARIO_GENERATOR_INSTRUCTIONS,
+    render_scenario_generation_prompt,
 )
 
 __all__ = [
-    "GENERATOR_INSTRUCTIONS",
-    "build_fact_unit_breakdown",
-    "build_prompt_task",
-    "render_scenario_instance_generation_prompt",
+    "SCENARIO_GENERATION_PROMPT_VERSION",
+    "SCENARIO_GENERATOR_INSTRUCTIONS",
+    "render_scenario_generation_prompt",
 ]
