@@ -129,8 +129,8 @@ SEMANTIC_REQUIREMENT_REGISTRY: Dict[SemanticRequirementId, SemanticRequirementDe
         ReviewSubjectScope.FAMILY,
         (
             "Neutral contains only the shared role, model owner, and task; baseline adds the "
-            "seed-owned task constraints; and integrity adds only the common completeness and "
-            "framing treatment to baseline."
+            "three seed-owned task-constraint values; and integrity adds only the four common "
+            "integrity instructions to baseline."
         ),
     ),
 }

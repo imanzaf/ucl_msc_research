@@ -16,11 +16,11 @@ Repo containing code and paper for UCL IFT final MSc dissertation.
 
 ## Scenario design
 
-The current V0.3.1 design lives in `src/data_models/scenarios.py`,
+The current V0.4.0 design lives in `src/data_models/scenarios.py`,
 `src/data_models/prompt_controls.py`, and `src/data_models/scenario_review.py`. Each scenario family has two finance task
 archetypes with two matched replications each. Every scenario contains two primary adverse facts,
 two paired favorable controls, and two neutral controls, plus exact source locators and evaluation
-checkpoints. The current generator accepts only the unversioned seed model from V0.3.1.
+checkpoints. The current generator accepts only the unversioned seed model from V0.4.0.
 Older seed directories remain committed as historical snapshots, but the current code does not
 load or translate their schemas.
 
@@ -28,7 +28,7 @@ Intermediate scenario-family drafts can be generated with:
 
 ```bash
 uv run python scripts/generate_scenario_drafts.py \
-  --scenario-set v0.3.1 \
+  --scenario-set v0.4.0 \
   --family-scenario-concurrency 4
 ```
 
@@ -43,9 +43,11 @@ The initial `PFM001` and `RW001` pilot uses fixed primary model `meta-llama/llam
 
 ### Scenario changelog
 
-- `v0.3.1` is the sole supported generation protocol. It uses two production task constraints per seed,
-  one shared integrity-instruction block, semantic family review, selective full-scenario revision,
-  and mandatory human acceptance. Neutral prompts contain only the model owner, agent role, and task.
+- `v0.4.0` is the sole supported generation protocol. It uses three named production task constraints per seed,
+  renders only their values, and adds four code-owned integrity instructions only to the integrity condition.
+  Neutral prompts contain only the model owner, agent role, and task.
+- `v0.3.1` is retained under `data/inputs/scenarios/v0.3.1/` for provenance. It used an unstructured
+  list of two task constraints and is intentionally rejected by the current generator.
 - `v0.3.0` is retained under `data/inputs/scenarios/v0.3.0/` for provenance. It used family-specific
   task and integrity prose and is intentionally rejected by the current generator.
 - Earlier seed sets, including `v0.2.0`, remain in `data/inputs/scenarios/` as archival research
@@ -58,7 +60,7 @@ Reviewed scenario artifacts can be run and scored with:
 ```bash
 uv run python scripts/run_experiment_pipeline.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.3.1/runs/<accepted-run-id> \
+  --scenario-run-dir data/inputs/scenarios/v0.4.0/runs/<accepted-run-id> \
   --family-scenario-concurrency 4 \
   --scoring-concurrency 8
 ```

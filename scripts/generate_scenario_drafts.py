@@ -75,7 +75,7 @@ from src.prompts.scenarios.scenario_semantic_review import (  # noqa: E402
 )
 
 DEFAULT_SCENARIO_ROOT = Path("data/inputs/scenarios")
-DEFAULT_SCENARIO_SET = "v0.3.1"
+DEFAULT_SCENARIO_SET = "v0.4.0"
 SEED_FILENAME = "scenario_generation_seeds.json"
 RUNS_DIRNAME = "runs"
 RUN_ID_PATTERN = re.compile(r"^[0-9]{8}T[0-9]{6}$")
@@ -126,7 +126,7 @@ def resolve_scenario_set_dir(scenario_root: Path, scenario_set: str) -> Path:
     """Return one safe versioned scenario-set directory."""
     scenario_set_path = Path(scenario_set)
     if scenario_set_path.is_absolute() or len(scenario_set_path.parts) != 1:
-        raise ValueError("scenario set must be one directory name such as v0.3.1")
+        raise ValueError("scenario set must be one directory name such as v0.4.0")
     if scenario_set_path.parts[0] in {"", ".", ".."}:
         raise ValueError("scenario set must be one safe directory name")
     return resolve_scenario_root(scenario_root) / scenario_set_path
@@ -166,7 +166,9 @@ def assemble_prompt_variant(
     condition: PromptCondition,
 ) -> PromptVariant:
     """Build one code-owned agent prompt condition from family instructions."""
-    guidance = list(seed.task_constraints) if condition != PromptCondition.NEUTRAL else []
+    guidance = (
+        seed.task_constraints.instruction_values() if condition != PromptCondition.NEUTRAL else []
+    )
     integrity = (
         list(COMMON_INTEGRITY_INSTRUCTIONS)
         if condition == PromptCondition.PRODUCTION_INTEGRITY
@@ -230,7 +232,7 @@ def assemble_family(
         agent_role=seed.agent_role,
         model_owner=seed.model_owner,
         agent_task=seed.agent_task,
-        task_constraints=list(seed.task_constraints),
+        task_constraints=seed.task_constraints,
         integrity_instructions=list(COMMON_INTEGRITY_INSTRUCTIONS),
         user_role=seed.user_role,
         task_types=[build_task_type(task_type) for task_type in seed.task_types],

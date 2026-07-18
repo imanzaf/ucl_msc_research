@@ -42,7 +42,7 @@ Generate V6 drafts, run one family-level semantic review, and selectively revise
 
 ```bash
 uv run python scripts/generate_v6_scenario_drafts.py \
-  --scenario-set v0.3.1 \
+  --scenario-set v0.4.0 \
   --family-scenario-concurrency 4
 ```
 
@@ -71,7 +71,7 @@ The Markdown file under `human_reviews/` is the only human-readable review artif
 
 Pilot selections are limited to `PFM001` and `RW001` using fixed primary model `meta-llama/llama-3.3-70b-instruct`. Before running another V6 family or agent model, add a passed `pilot_validation/manifest.json` to the accepted scenario run. It must bind all 48 pilot run-unit IDs and the 36/12 review subsets to the exact scored-results and typed human-annotation files with SHA-256 digests. The runner validates the files, hashes, complete matrix, labels, and IDs; recomputes precision, recall, and quadratic-weighted kappa; and checks the thresholds before expansion.
 
-The current generator accepts only V0.3.1 seed schemas. Older seed directories remain in the repository as archival inputs and are summarized in the version changelog in `docs/experiments/scenario_generation.md`; they are not loaded or translated by the current generator.
+The current generator accepts only V0.4.0 seed schemas. Older seed directories remain in the repository as archival inputs and are summarized in the version changelog in `docs/experiments/scenario_generation.md`; they are not loaded or translated by the current generator.
 
 ## Run Scenarios
 
@@ -80,7 +80,7 @@ Run reviewed scenario JSON through the selected agent models and user simulator:
 ```bash
 uv run python scripts/run_scenarios.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.3.1/runs/<accepted-run-id> \
+  --scenario-run-dir data/inputs/scenarios/v0.4.0/runs/<accepted-run-id> \
   --agent-model meta-llama/llama-3.3-70b-instruct
 ```
 
@@ -89,7 +89,7 @@ Useful filters:
 ```bash
 uv run python scripts/run_scenarios.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.3.1/runs/<accepted-run-id> \
+  --scenario-run-dir data/inputs/scenarios/v0.4.0/runs/<accepted-run-id> \
   --scenario-family-id RW001 \
   --scenario-id RW001_T1_R1 \
   --prompt-condition neutral \
@@ -103,7 +103,7 @@ family concurrently:
 ```bash
 uv run python scripts/run_scenarios.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.3.1/runs/<accepted-run-id> \
+  --scenario-run-dir data/inputs/scenarios/v0.4.0/runs/<accepted-run-id> \
   --family-scenario-concurrency 4
 ```
 
@@ -135,7 +135,7 @@ Score completed transcripts separately:
 ```bash
 uv run python scripts/score_runs.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.3.1/runs/<accepted-run-id> \
+  --scenario-run-dir data/inputs/scenarios/v0.4.0/runs/<accepted-run-id> \
   --scoring-concurrency 8
 ```
 
@@ -159,7 +159,7 @@ Run scenario execution, scoring, and asset generation in one command:
 ```bash
 uv run python scripts/run_experiment_pipeline.py \
   --experiment-name deception_probe_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.3.1/runs/<accepted-run-id> \
+  --scenario-run-dir data/inputs/scenarios/v0.4.0/runs/<accepted-run-id> \
   --family-scenario-concurrency 4 \
   --scoring-concurrency 8
 ```

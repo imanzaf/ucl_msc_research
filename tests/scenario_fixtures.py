@@ -28,7 +28,7 @@ from src.data_models.scoring import (
     FramingDirection,
 )
 
-SEED_PATH = Path("data/inputs/scenarios/v0.3.1/scenario_generation_seeds.json")
+SEED_PATH = Path("data/inputs/scenarios/v0.4.0/scenario_generation_seeds.json")
 
 
 def load_test_seed(family_id: str = "PFM001") -> ScenarioSeed:

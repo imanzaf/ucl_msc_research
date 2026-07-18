@@ -8,7 +8,10 @@ from typing import Annotated, Dict, List, Set
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
-from src.data_models.prompt_controls import COMMON_INTEGRITY_INSTRUCTIONS, validate_task_constraints
+from src.data_models.prompt_controls import (
+    COMMON_INTEGRITY_INSTRUCTIONS,
+    validate_task_constraint_instructions,
+)
 from src.prompts.scenarios.agent_source_reference import SYSTEM_TEMPLATE
 
 
@@ -29,7 +32,7 @@ class FinanceSegment(str, Enum):
     BRANCH_RELATIONSHIP_MANAGEMENT = "branch_relationship_management"
     INVESTMENT_RESEARCH = "investment_research"
     BANKING_ONBOARDING = "banking_onboarding"
-    FRAUD_AND_SCAM = "fraud_and_scam"
+    COMPLAINTS_HANDLING = "complaints_handling"
 
 
 class InteractionMode(str, Enum):
@@ -92,9 +95,9 @@ class ScenarioTaskArchetype(str, Enum):
     RESEARCH_COMPARISON = "research_comparison"
     CLIENT_FACING_RESEARCH_BRIEF = "client_facing_research_brief"
     IDENTITY_OWNERSHIP_VERIFICATION = "identity_ownership_verification"
-    PROVISIONAL_ONBOARDING_RECOMMENDATION = "provisional_onboarding_recommendation"
-    UNFAMILIAR_CHARGE_INVESTIGATION = "unfamiliar_charge_investigation"
-    PAYMENT_SCAM_ASSESSMENT = "payment_scam_assessment"
+    ONBOARDING_ASSESSMENT = "onboarding_assessment"
+    COMPLAINT_CASE_INVESTIGATION = "complaint_case_investigation"
+    COMPLAINT_POLICY_OUTCOME_ASSESSMENT = "complaint_policy_outcome_assessment"
 
 
 class ScenarioReferenceFormat(str, Enum):
@@ -110,8 +113,8 @@ class ScenarioReferenceFormat(str, Enum):
     CLIENT_RESEARCH_PACKET = "client_research_packet"
     ONBOARDING_VERIFICATION_RECORD = "onboarding_verification_record"
     ONBOARDING_RISK_CASE = "onboarding_risk_case"
-    TRANSACTION_RECOGNITION_CASE = "transaction_recognition_case"
-    PAYMENT_SCAM_CASE = "payment_scam_case"
+    COMPLAINT_CASE_RECORD = "complaint_case_record"
+    COMPLAINT_EVIDENCE_AND_POLICY_PACKET = "complaint_evidence_and_policy_packet"
 
 
 class FactEvaluationRole(str, Enum):
@@ -595,6 +598,39 @@ class ScenarioSeedTaskType(BaseModel):
         return self
 
 
+class TaskConstraints(BaseModel):
+    """Store the three named production task-control instructions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    evidence_and_method_basis: str = Field(
+        min_length=1,
+        description="Information sources and methods used as the basis for the response.",
+    )
+    authority_and_action_limits: str = Field(
+        min_length=1,
+        description="Advice, decisions, or actions outside the agent's authority.",
+    )
+    output_type_and_response_scope: str = Field(
+        min_length=1,
+        description="Requested output type, concision, and response boundaries.",
+    )
+
+    @model_validator(mode="after")
+    def validate_instructions(self) -> "TaskConstraints":
+        """Prevent task controls from introducing factuality or integrity treatments."""
+        validate_task_constraint_instructions(self.instruction_values())
+        return self
+
+    def instruction_values(self) -> List[str]:
+        """Return task instructions in their canonical prompt-rendering order."""
+        return [
+            self.evidence_and_method_basis,
+            self.authority_and_action_limits,
+            self.output_type_and_response_scope,
+        ]
+
+
 class ScenarioSeed(BaseModel):
     """Describe seed-owned inputs shared by the current four-scenario protocol."""
 
@@ -607,10 +643,8 @@ class ScenarioSeed(BaseModel):
     agent_role: str = Field(min_length=1, description="Role assigned to the agent model.")
     model_owner: str = Field(min_length=1, description="Organization operating the agent model.")
     agent_task: str = Field(min_length=1, description="Task assigned to the agent model.")
-    task_constraints: List[str] = Field(
-        min_length=2,
-        max_length=2,
-        description="Domain and authority constraints included in both production conditions.",
+    task_constraints: TaskConstraints = Field(
+        description="Structured task controls included in both production conditions."
     )
     user_role: str = Field(min_length=1, description="Role represented by the simulated user.")
     task_types: List[ScenarioSeedTaskType] = Field(
@@ -622,7 +656,6 @@ class ScenarioSeed(BaseModel):
     @model_validator(mode="after")
     def validate_seed(self) -> "ScenarioSeed":
         """Require unique task identifiers, scenario identifiers, and valid task constraints."""
-        validate_task_constraints(self.task_constraints)
         task_ids = [task_type.task_type_id for task_type in self.task_types]
         if len(set(task_ids)) != 2:
             raise ValueError("task_type_id values must be unique")
@@ -664,10 +697,8 @@ class ScenarioFamily(BaseModel):
     agent_role: str = Field(min_length=1, description="Role assigned to the agent model.")
     model_owner: str = Field(min_length=1, description="Organization operating the agent model.")
     agent_task: str = Field(min_length=1, description="Task assigned to the agent model.")
-    task_constraints: List[str] = Field(
-        min_length=2,
-        max_length=2,
-        description="Domain and authority constraints shared by both production conditions.",
+    task_constraints: TaskConstraints = Field(
+        description="Structured task controls shared by both production conditions."
     )
     integrity_instructions: List[str] = Field(
         min_length=1, description="Integrity-condition guidance."
@@ -721,15 +752,15 @@ class ScenarioFamily(BaseModel):
         neutral = variants[PromptCondition.NEUTRAL].system_prompt
         baseline = variants[PromptCondition.PRODUCTION_BASELINE].system_prompt
         integrity = variants[PromptCondition.PRODUCTION_INTEGRITY].system_prompt
-        validate_task_constraints(self.task_constraints)
+        task_instructions = self.task_constraints.instruction_values()
         if self.integrity_instructions != list(COMMON_INTEGRITY_INSTRUCTIONS):
             raise ValueError("controlled integrity instructions must match the common block")
         if neutral.guidance or neutral.integrity_instructions:
             raise ValueError("neutral prompt does not match its controlled guidance")
-        if baseline.guidance != self.task_constraints or baseline.integrity_instructions:
+        if baseline.guidance != task_instructions or baseline.integrity_instructions:
             raise ValueError("baseline prompt does not match its controlled guidance")
         if (
-            integrity.guidance != self.task_constraints
+            integrity.guidance != task_instructions
             or integrity.integrity_instructions != self.integrity_instructions
         ):
             raise ValueError("integrity prompt does not match its controlled guidance")
@@ -806,7 +837,7 @@ class ScenarioFamily(BaseModel):
                 self.agent_role,
                 self.model_owner,
                 self.agent_task,
-                *self.task_constraints,
+                *self.task_constraints.instruction_values(),
                 *self.integrity_instructions,
                 *(task.core_initial_request for task in self.task_types),
                 *(task.core_risk_followup for task in self.task_types),

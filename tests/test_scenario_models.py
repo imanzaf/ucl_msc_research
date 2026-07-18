@@ -15,6 +15,7 @@ from src.data_models.scenarios import (
     ScenarioFamily,
     ScenarioSeed,
     ScenarioSeedCollection,
+    TaskConstraints,
 )
 from tests.scenario_fixtures import (
     SEED_PATH,
@@ -31,6 +32,21 @@ def test_seed_file_has_no_payload_schema_versions() -> None:
     assert "schema_version" not in payload
     assert all("schema_version" not in seed for seed in payload["seeds"])
     assert ScenarioSeedCollection.model_validate(payload).seeds
+
+
+def test_current_seed_file_contains_all_six_families() -> None:
+    """Verify the active scenario set contains the declared six-family coverage."""
+    payload = json.loads(SEED_PATH.read_text(encoding="utf-8"))
+    collection = ScenarioSeedCollection.model_validate(payload)
+
+    assert {seed.scenario_family_id for seed in collection.seeds} == {
+        "PFM001",
+        "RW001",
+        "BRM001",
+        "IR001",
+        "ONB001",
+        "CMP001",
+    }
 
 
 def test_current_family_accepts_valid_generated_artifact() -> None:
@@ -50,17 +66,23 @@ def test_current_family_accepts_valid_generated_artifact() -> None:
 def test_prompt_conditions_add_only_their_declared_controls() -> None:
     """Verify neutral, baseline, and integrity prompts have exact nested guidance."""
     family = make_family()
+    assert set(TaskConstraints.model_fields) == {
+        "evidence_and_method_basis",
+        "authority_and_action_limits",
+        "output_type_and_response_scope",
+    }
     variants = {variant.condition: variant.system_prompt for variant in family.prompt_variants}
     neutral = variants[PromptCondition.NEUTRAL]
     baseline = variants[PromptCondition.PRODUCTION_BASELINE]
     integrity = variants[PromptCondition.PRODUCTION_INTEGRITY]
+    task_instructions = family.task_constraints.instruction_values()
 
     assert neutral.model_owner == "retail bank"
     assert neutral.guidance == []
     assert neutral.integrity_instructions == []
-    assert baseline.guidance == family.task_constraints
+    assert baseline.guidance == task_instructions
     assert baseline.integrity_instructions == []
-    assert integrity.guidance == family.task_constraints
+    assert integrity.guidance == task_instructions
     assert integrity.integrity_instructions == list(COMMON_INTEGRITY_INSTRUCTIONS)
 
     neutral_prompt = family.prompt_template.render_system_prompt(neutral, "Case record")
@@ -70,6 +92,9 @@ def test_prompt_conditions_add_only_their_declared_controls() -> None:
         "Context information:\n"
         "Case record"
     )
+    baseline_prompt = family.prompt_template.render_system_prompt(baseline, "Case record")
+    assert all(instruction in baseline_prompt for instruction in task_instructions)
+    assert all(label not in baseline_prompt for label in TaskConstraints.model_fields)
 
 
 def test_generated_instance_excludes_code_owned_fields() -> None:
@@ -120,14 +145,21 @@ def test_seed_rejects_payload_schema_version() -> None:
 
 @pytest.mark.parametrize(
     "constraint",
-    ["Do not invent or alter facts.", "Do not mislead the user."],
+    [
+        *COMMON_INTEGRITY_INSTRUCTIONS,
+        COMMON_INTEGRITY_INSTRUCTIONS[0].rstrip("."),
+        f"Please {COMMON_INTEGRITY_INSTRUCTIONS[1]}",
+        "Do not invent or alter facts.",
+        "Do not mislead the user.",
+        "Do not leave out important caveats.",
+    ],
 )
 def test_seed_rejects_treatment_language_in_task_constraints(constraint: str) -> None:
     """Verify production task constraints cannot introduce hidden prompt treatments."""
     seed_payload = ScenarioSeed.model_validate(
         json.loads(SEED_PATH.read_text(encoding="utf-8"))["seeds"][0]
     ).model_dump()
-    seed_payload["task_constraints"][0] = constraint
+    seed_payload["task_constraints"]["evidence_and_method_basis"] = constraint
 
     with pytest.raises(ValidationError):
         ScenarioSeed.model_validate(seed_payload)

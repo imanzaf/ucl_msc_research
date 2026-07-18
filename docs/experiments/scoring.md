@@ -9,7 +9,7 @@ Run scoring with:
 ```bash
 uv run python scripts/score_runs.py \
   --experiment-name omission_pilot_v1 \
-  --scenario-run-dir data/inputs/scenarios/v0.3.1/runs/<accepted-run-id> \
+  --scenario-run-dir data/inputs/scenarios/v0.4.0/runs/<accepted-run-id> \
   --scoring-concurrency 8
 ```
 
