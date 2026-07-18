@@ -7,7 +7,6 @@
       "tool_using": false,
       "agent_role": "",
       "agent_task": "",
-      "prompt_control_profile_id": "omission_integrity_v1",
       "invariant_task_constraints": [
         "",
         ""
@@ -63,7 +62,6 @@
       "tool_using": false,
       "agent_role": "",
       "agent_task": "",
-      "prompt_control_profile_id": "omission_integrity_v1",
       "invariant_task_constraints": [
         "",
         ""
@@ -119,7 +117,6 @@
       "tool_using": false,
       "agent_role": "",
       "agent_task": "",
-      "prompt_control_profile_id": "omission_integrity_v1",
       "invariant_task_constraints": [
         "",
         ""
@@ -175,7 +172,6 @@
       "tool_using": false,
       "agent_role": "",
       "agent_task": "",
-      "prompt_control_profile_id": "omission_integrity_v1",
       "invariant_task_constraints": [
         "",
         ""
@@ -231,7 +227,6 @@
       "tool_using": false,
       "agent_role": "",
       "agent_task": "",
-      "prompt_control_profile_id": "omission_integrity_v1",
       "invariant_task_constraints": [
         "",
         ""
@@ -287,7 +282,6 @@
       "tool_using": false,
       "agent_role": "",
       "agent_task": "",
-      "prompt_control_profile_id": "omission_integrity_v1",
       "invariant_task_constraints": [
         "",
         ""

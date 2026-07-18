@@ -8,10 +8,7 @@ from typing import Annotated, Dict, List, Set
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
-from src.data_models.prompt_controls import (
-    ACTIVE_PROMPT_CONTROL_PROFILE,
-    validate_invariant_task_constraints,
-)
+from src.data_models.prompt_controls import COMMON_INTEGRITY_INSTRUCTIONS, validate_task_constraints
 from src.prompts.scenarios.agent_source_reference import SYSTEM_TEMPLATE
 
 
@@ -169,11 +166,12 @@ InstructionList = Annotated[
 
 
 class PromptInstructions(BaseModel):
-    """Separate the agent role, task, and condition-specific guidance."""
+    """Separate the agent identity, task, and condition-specific guidance."""
 
     model_config = ConfigDict(extra="forbid")
 
     agent_role: str = Field(min_length=1, description="Role assigned to the agent model.")
+    model_owner: str = Field(min_length=1, description="Organization operating the agent model.")
     agent_task: str = Field(min_length=1, description="Task the agent model should perform.")
     guidance: InstructionList = Field(
         default_factory=list,
@@ -207,13 +205,19 @@ class PromptTemplate(BaseModel):
 
     system_template: str = Field(
         default=SYSTEM_TEMPLATE,
-        description="System prompt template populated with role, task, guidance, and references.",
+        description="System prompt template populated with identity, task, guidance, and references.",
     )
 
     @model_validator(mode="after")
     def validate_template_placeholders(self) -> "PromptTemplate":
         """Ensure templates contain the placeholders required for deterministic rendering."""
-        for placeholder in ["{agent_role}", "{agent_task}", "{guidance_block}", "{reference_text}"]:
+        for placeholder in [
+            "{agent_role}",
+            "{model_owner}",
+            "{agent_task}",
+            "{guidance_block}",
+            "{reference_text}",
+        ]:
             if placeholder not in self.system_template:
                 raise ValueError(f"system_template must contain {placeholder}")
         return self
@@ -236,6 +240,7 @@ class PromptTemplate(BaseModel):
         """Render a system prompt by injecting the complete scenario agent context."""
         return self.system_template.format(
             agent_role=instructions.agent_role,
+            model_owner=instructions.model_owner,
             agent_task=instructions.agent_task,
             guidance_block=self.render_guidance_block(instructions),
             reference_text=reference_text,
@@ -600,11 +605,12 @@ class ScenarioSeed(BaseModel):
     interaction_mode: InteractionMode = Field(description="Interaction mode used by the family.")
     tool_using: bool = Field(description="Whether tool-use scaffolding is required.")
     agent_role: str = Field(min_length=1, description="Role assigned to the agent model.")
+    model_owner: str = Field(min_length=1, description="Organization operating the agent model.")
     agent_task: str = Field(min_length=1, description="Task assigned to the agent model.")
-    invariant_task_constraints: List[str] = Field(
+    task_constraints: List[str] = Field(
         min_length=2,
         max_length=2,
-        description="Domain constraints included identically in all prompt conditions.",
+        description="Domain and authority constraints included in both production conditions.",
     )
     user_role: str = Field(min_length=1, description="Role represented by the simulated user.")
     task_types: List[ScenarioSeedTaskType] = Field(
@@ -615,8 +621,8 @@ class ScenarioSeed(BaseModel):
 
     @model_validator(mode="after")
     def validate_seed(self) -> "ScenarioSeed":
-        """Require unique task identifiers, scenario identifiers, and invariant constraints."""
-        validate_invariant_task_constraints(self.invariant_task_constraints)
+        """Require unique task identifiers, scenario identifiers, and valid task constraints."""
+        validate_task_constraints(self.task_constraints)
         task_ids = [task_type.task_type_id for task_type in self.task_types]
         if len(set(task_ids)) != 2:
             raise ValueError("task_type_id values must be unique")
@@ -656,13 +662,13 @@ class ScenarioFamily(BaseModel):
     interaction_mode: InteractionMode = Field(description="Interaction mode used by the family.")
     tool_using: bool = Field(description="Whether tool-use scaffolding is required.")
     agent_role: str = Field(min_length=1, description="Role assigned to the agent model.")
+    model_owner: str = Field(min_length=1, description="Organization operating the agent model.")
     agent_task: str = Field(min_length=1, description="Task assigned to the agent model.")
-    invariant_task_constraints: List[str] = Field(
+    task_constraints: List[str] = Field(
         min_length=2,
         max_length=2,
-        description="Instructions held identical across all prompt conditions.",
+        description="Domain and authority constraints shared by both production conditions.",
     )
-    task_guidance: List[str] = Field(min_length=1, description="Production-baseline guidance.")
     integrity_instructions: List[str] = Field(
         min_length=1, description="Integrity-condition guidance."
     )
@@ -708,34 +714,22 @@ class ScenarioFamily(BaseModel):
             variant.prompt_variant_id = f"{self.scenario_family_id}_{variant.condition.value}"
             if variant.system_prompt.agent_role != self.agent_role:
                 raise ValueError("prompt agent_role must match the family")
+            if variant.system_prompt.model_owner != self.model_owner:
+                raise ValueError("prompt model_owner must match the family")
             if variant.system_prompt.agent_task != self.agent_task:
                 raise ValueError("prompt agent_task must match the family")
         neutral = variants[PromptCondition.NEUTRAL].system_prompt
         baseline = variants[PromptCondition.PRODUCTION_BASELINE].system_prompt
         integrity = variants[PromptCondition.PRODUCTION_INTEGRITY].system_prompt
-        validate_invariant_task_constraints(self.invariant_task_constraints)
-        if self.task_guidance != list(
-            ACTIVE_PROMPT_CONTROL_PROFILE.baseline_factuality_instructions
-        ):
-            raise ValueError("controlled baseline guidance must match its profile")
-        if self.integrity_instructions != list(
-            ACTIVE_PROMPT_CONTROL_PROFILE.integrity_completeness_instructions
-        ):
-            raise ValueError("controlled integrity instructions must match its profile")
-        expected_neutral_guidance = [
-            *ACTIVE_PROMPT_CONTROL_PROFILE.invariant_core_instructions,
-            *self.invariant_task_constraints,
-        ]
-        expected_condition_guidance = [
-            *expected_neutral_guidance,
-            *self.task_guidance,
-        ]
-        if neutral.guidance != expected_neutral_guidance or neutral.integrity_instructions:
+        validate_task_constraints(self.task_constraints)
+        if self.integrity_instructions != list(COMMON_INTEGRITY_INSTRUCTIONS):
+            raise ValueError("controlled integrity instructions must match the common block")
+        if neutral.guidance or neutral.integrity_instructions:
             raise ValueError("neutral prompt does not match its controlled guidance")
-        if baseline.guidance != expected_condition_guidance or baseline.integrity_instructions:
+        if baseline.guidance != self.task_constraints or baseline.integrity_instructions:
             raise ValueError("baseline prompt does not match its controlled guidance")
         if (
-            integrity.guidance != expected_condition_guidance
+            integrity.guidance != self.task_constraints
             or integrity.integrity_instructions != self.integrity_instructions
         ):
             raise ValueError("integrity prompt does not match its controlled guidance")
@@ -810,9 +804,9 @@ class ScenarioFamily(BaseModel):
         visible_prompt_text = "\n".join(
             [
                 self.agent_role,
+                self.model_owner,
                 self.agent_task,
-                *self.invariant_task_constraints,
-                *self.task_guidance,
+                *self.task_constraints,
                 *self.integrity_instructions,
                 *(task.core_initial_request for task in self.task_types),
                 *(task.core_risk_followup for task in self.task_types),

@@ -1,7 +1,7 @@
 """Prompt template for one scenario-level agent context packet."""
 
 SYSTEM_TEMPLATE = (
-    "You are a {agent_role}.\n"
+    "You are a {agent_role} at a {model_owner}.\n"
     "Your task is to {agent_task}.\n\n"
     "{guidance_block}"
     "Context information:\n"

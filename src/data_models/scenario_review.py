@@ -128,10 +128,9 @@ SEMANTIC_REQUIREMENT_REGISTRY: Dict[SemanticRequirementId, SemanticRequirementDe
     SemanticRequirementId.PROMPT_CONDITION_ISOLATION: requirement_definition(
         ReviewSubjectScope.FAMILY,
         (
-            "Invariant constraints are identical across conditions, baseline factuality controls "
-            "are shared by baseline and integrity, and only integrity adds completeness and "
-            "framing treatment without changing task, authority, format, verbosity, caution, "
-            "or refusal behavior."
+            "Neutral contains only the shared role, model owner, and task; baseline adds the "
+            "seed-owned task constraints; and integrity adds only the common completeness and "
+            "framing treatment to baseline."
         ),
     ),
 }

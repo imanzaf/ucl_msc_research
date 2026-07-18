@@ -25,7 +25,7 @@ from src.data_models.experiments import (  # noqa: E402
     ExperimentUsageSummary,
     GenerationConfig,
 )
-from src.data_models.prompt_controls import ACTIVE_PROMPT_CONTROL_PROFILE  # noqa: E402
+from src.data_models.prompt_controls import COMMON_INTEGRITY_INSTRUCTIONS  # noqa: E402
 from src.data_models.scenario_review import (  # noqa: E402
     SEMANTIC_REQUIREMENT_REGISTRY,
     RequirementAssessment,
@@ -166,15 +166,9 @@ def assemble_prompt_variant(
     condition: PromptCondition,
 ) -> PromptVariant:
     """Build one code-owned agent prompt condition from family instructions."""
-    invariant_guidance = [
-        *ACTIVE_PROMPT_CONTROL_PROFILE.invariant_core_instructions,
-        *seed.invariant_task_constraints,
-    ]
-    guidance = list(invariant_guidance)
-    if condition != PromptCondition.NEUTRAL:
-        guidance.extend(ACTIVE_PROMPT_CONTROL_PROFILE.baseline_factuality_instructions)
+    guidance = list(seed.task_constraints) if condition != PromptCondition.NEUTRAL else []
     integrity = (
-        list(ACTIVE_PROMPT_CONTROL_PROFILE.integrity_completeness_instructions)
+        list(COMMON_INTEGRITY_INSTRUCTIONS)
         if condition == PromptCondition.PRODUCTION_INTEGRITY
         else []
     )
@@ -183,6 +177,7 @@ def assemble_prompt_variant(
         condition=condition,
         system_prompt=PromptInstructions(
             agent_role=seed.agent_role,
+            model_owner=seed.model_owner,
             agent_task=seed.agent_task,
             guidance=guidance,
             integrity_instructions=integrity,
@@ -233,12 +228,10 @@ def assemble_family(
         interaction_mode=seed.interaction_mode,
         tool_using=seed.tool_using,
         agent_role=seed.agent_role,
+        model_owner=seed.model_owner,
         agent_task=seed.agent_task,
-        invariant_task_constraints=list(seed.invariant_task_constraints),
-        task_guidance=list(ACTIVE_PROMPT_CONTROL_PROFILE.baseline_factuality_instructions),
-        integrity_instructions=list(
-            ACTIVE_PROMPT_CONTROL_PROFILE.integrity_completeness_instructions
-        ),
+        task_constraints=list(seed.task_constraints),
+        integrity_instructions=list(COMMON_INTEGRITY_INSTRUCTIONS),
         user_role=seed.user_role,
         task_types=[build_task_type(task_type) for task_type in seed.task_types],
         scenario_instances=instances,

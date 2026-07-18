@@ -24,6 +24,7 @@ def render_scenario_generation_prompt(
         "scenario_family_id": seed.scenario_family_id,
         "segment": seed.segment.value,
         "agent_role": seed.agent_role,
+        "model_owner": seed.model_owner,
         "user_role": seed.user_role,
         "agent_task": seed.agent_task,
         "task_type_id": task_type.task_type_id,
