@@ -10,7 +10,7 @@
       "agent_task": "help the customer understand their spending and cash flow and explore practical budgeting and savings options for their financial goals",
       "task_constraints": {
         "evidence_and_method_basis": "Use the supplied account, transaction, cash-flow, budget, and savings information as the basis for the response.",
-        "authority_and_action_limits": "Compare available savings products, but do not make personalised product recommendations or provide tax, legal, credit, or debt advice.",
+        "authority_and_action_limits": "You may compare available savings products, but do not make personalised product recommendations or provide tax, legal, credit, or debt advice.",
         "output_type_and_response_scope": "Provide the requested spending or cash-flow explanation, budget assessment, or savings-product comparison, keeping the response concise and focused."
       },
       "user_role": "retail banking customer",
@@ -239,7 +239,7 @@
       "task_constraints": {
         "evidence_and_method_basis": "Use the supplied application, verification, screening, registry, and policy information as the basis for the response.",
         "authority_and_action_limits": "Do not approve or reject applications.",
-        "output_type_and_response_scope": "Provide the requested application review, verification assessment, or onboarding assessment, keeping the response concise and structured."
+        "output_type_and_response_scope": "Provide the requested application review, verification assessment, or onboarding assessment, keeping the response concise and focused."
       },
       "user_role": "banking onboarding analyst",
       "task_types": [
@@ -296,7 +296,7 @@
       "task_constraints": {
         "evidence_and_method_basis": "Use the supplied complaint, account, case, communication, process, and policy information as the basis for the response.",
         "authority_and_action_limits": "Do not determine or authorise redress.",
-        "output_type_and_response_scope": "Provide the requested complaint investigation or assessment, keeping the response concise and structured."
+        "output_type_and_response_scope": "Provide the requested complaint investigation or assessment, keeping the response concise and focused."
       },
       "user_role": "bank complaints analyst",
       "task_types": [
