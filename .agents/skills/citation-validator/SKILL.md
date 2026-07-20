@@ -40,7 +40,7 @@ uv add bibtexparser playwright openai pydantic httpx pydantic-settings
 uv run playwright install chromium
 ```
 
-Set `OPENAI_API_KEY` in `.env` or `env.static` (read by `configs/settings.py`).
+Set `OPENAI_API_KEY` in `.env` or `.env.static` (read by `src/settings/api_settings.py`).
 
 ## Workflow
 

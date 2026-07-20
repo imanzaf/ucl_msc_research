@@ -3,19 +3,18 @@
 Launch only on localhost:
 
 ```bash
-uv run streamlit run scripts/review_app.py --server.address 127.0.0.1
+uv run risk-comm review launch --server-address 127.0.0.1
 ```
 
-The six pages are scenario initial review, scenario delayed repeat, scenario resolution, conversation initial annotation, conversation delayed repeat, and conversation resolution. `src/review_app.py` contains no API client and exposes no generation, experiment, or scoring action.
+The four pages are scenario review, conversation initial annotation, conversation delayed repeat, and conversation resolution. `src/review_app.py` contains no API client and exposes no generation, experiment, or scoring action.
 
-Scenario inputs are hash-valid candidates under `data/outputs/scenario_generation/v0.5.1/`; only after initial/repeat/resolution review and minimal-response approval are they published into `data/inputs/scenarios/v0.5.1/accepted/`. Condition-blind conversation inputs come from `data/outputs/review/scoring_inputs/`. Records are atomically persisted as strict JSONL under `data/outputs/review/records/`; there is no database.
+Scenario inputs are hash-valid candidates under `data/outputs/scenario_generation/v0.5.1/`; only after one researcher review and minimal-response approval are they published into `data/inputs/scenarios/v0.5.1/accepted/`. Condition-blind conversation inputs come from `data/outputs/review/scoring_inputs/`. Records are atomically persisted as strict JSONL under `data/outputs/review/records/`; there is no database.
 
-Repeat records are unavailable until 14 elapsed days. Conversation repeats receive a new opaque identifier and a deterministic non-identical fact order. Repeat pages return the source artifact only and do not load or display previous decisions, notes, or labels. Resolution pages are the only workflows that may show both completed passes.
+Conversation-repeat records are unavailable until 14 elapsed days. Conversation repeats receive a new opaque identifier and a deterministic non-identical fact order. The repeat page returns the source artifact only and does not load or display previous decisions, notes, or labels. The conversation-resolution page is the only workflow that may show both completed passes.
 
 Required samples are:
 
 - all 50 scenarios initially reviewed;
-- delayed repeat review of all 10 C1 calibration scenarios and all 40 R1-R4 evaluation scenarios after 14 days;
 - at least 80 calibration conversations for rubric/judge development;
 - 160 locked evaluation conversations, four per evaluation scenario;
 - at least 40 delayed evaluation repeats.
@@ -23,7 +22,7 @@ Required samples are:
 Create the condition-blind local inputs and frozen sample manifest from a complete transcript file:
 
 ```bash
-uv run python scripts/build_annotation_sample.py \
+uv run risk-comm scoring sample-annotations \
   --stage evaluation \
   --transcripts data/outputs/experiments/risk_comm_v1/results/<timestamp>_results.jsonl \
   --accepted-root data/inputs/scenarios/v0.5.1/accepted \
@@ -38,7 +37,7 @@ Use `--stage calibration` with the complete 240-conversation calibration transcr
 After annotation and condition-blind automated scoring, calculate rather than hand-enter the hard gates:
 
 ```bash
-uv run python scripts/build_scoring_validation_report.py \
+uv run risk-comm scoring validate \
   --annotation-sample-manifest data/outputs/experiments/risk_comm_v1/checkpoints/evaluation_annotation_sample_manifest.json \
   --annotations data/outputs/review/records/conversation_annotations.jsonl \
   --scored-bundles data/outputs/experiments/risk_comm_v1/results/scoring/scored_conversations.jsonl \
@@ -55,7 +54,7 @@ The failed-actions file is a strict `1.0.0` JSON object with an `actions` mappin
 After the final evaluation annotations close, build the human-reference sensitivity rows:
 
 ```bash
-uv run python scripts/build_human_reference_analysis_inputs.py \
+uv run risk-comm scoring build-human-reference \
   --annotation-sample-manifest data/outputs/experiments/risk_comm_v1/checkpoints/evaluation_annotation_sample_manifest.json \
   --annotations data/outputs/review/records/conversation_annotations.jsonl \
   --transcripts data/outputs/experiments/risk_comm_v1/results/<timestamp>_results.jsonl \

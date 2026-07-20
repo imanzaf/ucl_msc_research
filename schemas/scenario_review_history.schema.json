@@ -1,0 +1,534 @@
+{
+  "$defs": {
+    "AutomatedReviewKind": {
+      "description": "Identify the independent automated review contract.",
+      "enum": [
+        "candidate_quality",
+        "batch_diversity"
+      ],
+      "title": "AutomatedReviewKind",
+      "type": "string"
+    },
+    "AutomatedScenarioReview": {
+      "additionalProperties": false,
+      "description": "Store one condition-independent typed automated review.",
+      "properties": {
+        "decision": {
+          "$ref": "#/$defs/ReviewDecision"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/ReviewFinding"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "provider_call": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProviderCallProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "review_kind": {
+          "$ref": "#/$defs/AutomatedReviewKind"
+        },
+        "reviewed_artifact_sha256": {
+          "title": "Reviewed Artifact Sha256",
+          "type": "string"
+        },
+        "reviewed_at": {
+          "format": "date-time",
+          "title": "Reviewed At",
+          "type": "string"
+        },
+        "reviewer_model_id": {
+          "minLength": 1,
+          "title": "Reviewer Model Id",
+          "type": "string"
+        },
+        "reviewer_prompt_sha256": {
+          "title": "Reviewer Prompt Sha256",
+          "type": "string"
+        },
+        "scenario_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "pattern": "^1\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "scenario_id",
+        "review_kind",
+        "decision",
+        "findings",
+        "reviewed_artifact_sha256",
+        "reviewer_model_id",
+        "reviewer_prompt_sha256",
+        "reviewed_at"
+      ],
+      "title": "AutomatedScenarioReview",
+      "type": "object"
+    },
+    "CompletionFinishReason": {
+      "description": "Normalise provider completion termination without discarding unknown values.",
+      "enum": [
+        "stop",
+        "length",
+        "content_filter",
+        "tool_calls",
+        "unknown"
+      ],
+      "title": "CompletionFinishReason",
+      "type": "string"
+    },
+    "ControlledFieldChange": {
+      "additionalProperties": false,
+      "description": "Record one field-level revision without permitting whole-object replacement.",
+      "properties": {
+        "field_path": {
+          "minLength": 1,
+          "title": "Field Path",
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Finding Ids",
+          "type": "array"
+        },
+        "previous_value_sha256": {
+          "title": "Previous Value Sha256",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "revised_value_sha256": {
+          "title": "Revised Value Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field_path",
+        "previous_value_sha256",
+        "revised_value_sha256",
+        "reason",
+        "finding_ids"
+      ],
+      "title": "ControlledFieldChange",
+      "type": "object"
+    },
+    "FindingSeverity": {
+      "description": "Classify automated findings by protocol impact.",
+      "enum": [
+        "blocker",
+        "major",
+        "minor"
+      ],
+      "title": "FindingSeverity",
+      "type": "string"
+    },
+    "ProviderCallProvenance": {
+      "additionalProperties": false,
+      "description": "Bind a structured model artifact to its exact provider request and returned snapshot.",
+      "properties": {
+        "finish_reason": {
+          "$ref": "#/$defs/CompletionFinishReason"
+        },
+        "provider_request_id": {
+          "minLength": 1,
+          "title": "Provider Request Id",
+          "type": "string"
+        },
+        "request_sha256": {
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "requested_model_id": {
+          "minLength": 1,
+          "title": "Requested Model Id",
+          "type": "string"
+        },
+        "response_sha256": {
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "returned_model_version": {
+          "minLength": 1,
+          "title": "Returned Model Version",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/TokenUsage"
+        }
+      },
+      "required": [
+        "requested_model_id",
+        "returned_model_version",
+        "provider_request_id",
+        "finish_reason",
+        "usage",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "ProviderCallProvenance",
+      "type": "object"
+    },
+    "ResearcherScenarioReview": {
+      "additionalProperties": false,
+      "description": "Store the single researcher review used for scenario acceptance.",
+      "properties": {
+        "anonymised_item_id": {
+          "minLength": 1,
+          "title": "Anonymised Item Id",
+          "type": "string"
+        },
+        "decision": {
+          "$ref": "#/$defs/ReviewDecision"
+        },
+        "labels": {
+          "$ref": "#/$defs/ScenarioReviewLabels"
+        },
+        "notes": {
+          "title": "Notes",
+          "type": "string"
+        },
+        "researcher_id": {
+          "minLength": 1,
+          "title": "Researcher Id",
+          "type": "string"
+        },
+        "review_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Review Id",
+          "type": "string"
+        },
+        "reviewed_artifact_sha256": {
+          "title": "Reviewed Artifact Sha256",
+          "type": "string"
+        },
+        "reviewed_at": {
+          "format": "date-time",
+          "title": "Reviewed At",
+          "type": "string"
+        },
+        "scenario_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "pattern": "^1\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "review_id",
+        "anonymised_item_id",
+        "scenario_id",
+        "decision",
+        "labels",
+        "reviewed_artifact_sha256",
+        "reviewed_at",
+        "researcher_id",
+        "notes"
+      ],
+      "title": "ResearcherScenarioReview",
+      "type": "object"
+    },
+    "ReviewDecision": {
+      "description": "Identify an automated or researcher scenario decision.",
+      "enum": [
+        "accept",
+        "revise",
+        "manual_restructure",
+        "reject"
+      ],
+      "title": "ReviewDecision",
+      "type": "string"
+    },
+    "ReviewFinding": {
+      "additionalProperties": false,
+      "description": "Represent one source-grounded automated review finding.",
+      "properties": {
+        "artifact_path": {
+          "minLength": 1,
+          "title": "Artifact Path",
+          "type": "string"
+        },
+        "evidence": {
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        },
+        "field_path": {
+          "minLength": 1,
+          "title": "Field Path",
+          "type": "string"
+        },
+        "finding_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/FindingSeverity"
+        },
+        "suggested_action": {
+          "minLength": 1,
+          "title": "Suggested Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding_id",
+        "severity",
+        "artifact_path",
+        "field_path",
+        "message",
+        "evidence",
+        "suggested_action"
+      ],
+      "title": "ReviewFinding",
+      "type": "object"
+    },
+    "RevisionCycleRecord": {
+      "additionalProperties": false,
+      "description": "Store one bounded automated revision and full dependency rebuild.",
+      "properties": {
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/ControlledFieldChange"
+          },
+          "minItems": 1,
+          "title": "Changes",
+          "type": "array"
+        },
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "cycle_number": {
+          "maximum": 2,
+          "minimum": 1,
+          "title": "Cycle Number",
+          "type": "integer"
+        },
+        "input_artifact_sha256": {
+          "title": "Input Artifact Sha256",
+          "type": "string"
+        },
+        "output_artifact_sha256": {
+          "title": "Output Artifact Sha256",
+          "type": "string"
+        },
+        "rebuilt_dependency_sha256": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Rebuilt Dependency Sha256",
+          "type": "object"
+        },
+        "rerun_review_sha256": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/AutomatedReviewKind"
+          },
+          "title": "Rerun Review Sha256",
+          "type": "object"
+        },
+        "scenario_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "pattern": "^1\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "scenario_id",
+        "cycle_number",
+        "changes",
+        "input_artifact_sha256",
+        "output_artifact_sha256",
+        "rebuilt_dependency_sha256",
+        "rerun_review_sha256",
+        "completed_at"
+      ],
+      "title": "RevisionCycleRecord",
+      "type": "object"
+    },
+    "ScenarioReviewLabels": {
+      "additionalProperties": false,
+      "description": "Capture the complete researcher scenario-review checklist.",
+      "properties": {
+        "all_material_facts_equally_required": {
+          "title": "All Material Facts Equally Required",
+          "type": "boolean"
+        },
+        "authority_limits_respected": {
+          "title": "Authority Limits Respected",
+          "type": "boolean"
+        },
+        "customer_facing_naturalness": {
+          "title": "Customer Facing Naturalness",
+          "type": "boolean"
+        },
+        "exact_source_support_valid": {
+          "title": "Exact Source Support Valid",
+          "type": "boolean"
+        },
+        "facts_atomic_and_valence_valid": {
+          "title": "Facts Atomic And Valence Valid",
+          "type": "boolean"
+        },
+        "factual_and_arithmetic_consistent": {
+          "title": "Factual And Arithmetic Consistent",
+          "type": "boolean"
+        },
+        "minimal_response_feasible": {
+          "title": "Minimal Response Feasible",
+          "type": "boolean"
+        },
+        "neutral_facts_lower_priority": {
+          "title": "Neutral Facts Lower Priority",
+          "type": "boolean"
+        },
+        "pair_matching_acceptable": {
+          "title": "Pair Matching Acceptable",
+          "type": "boolean"
+        },
+        "replication_distinct": {
+          "title": "Replication Distinct",
+          "type": "boolean"
+        },
+        "source_order_plan_valid": {
+          "title": "Source Order Plan Valid",
+          "type": "boolean"
+        },
+        "treatment_leakage_absent": {
+          "title": "Treatment Leakage Absent",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "factual_and_arithmetic_consistent",
+        "exact_source_support_valid",
+        "facts_atomic_and_valence_valid",
+        "all_material_facts_equally_required",
+        "pair_matching_acceptable",
+        "neutral_facts_lower_priority",
+        "source_order_plan_valid",
+        "minimal_response_feasible",
+        "customer_facing_naturalness",
+        "authority_limits_respected",
+        "treatment_leakage_absent",
+        "replication_distinct"
+      ],
+      "title": "ScenarioReviewLabels",
+      "type": "object"
+    },
+    "TokenUsage": {
+      "additionalProperties": false,
+      "description": "Store provider-reported token usage for one response.",
+      "properties": {
+        "input_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "total_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Total Tokens",
+          "type": "integer"
+        }
+      },
+      "title": "TokenUsage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Collect complete automated, revision, and researcher review provenance.",
+  "properties": {
+    "automated_reviews": {
+      "items": {
+        "$ref": "#/$defs/AutomatedScenarioReview"
+      },
+      "minItems": 1,
+      "title": "Automated Reviews",
+      "type": "array"
+    },
+    "researcher_reviews": {
+      "items": {
+        "$ref": "#/$defs/ResearcherScenarioReview"
+      },
+      "minItems": 1,
+      "title": "Researcher Reviews",
+      "type": "array"
+    },
+    "revisions": {
+      "items": {
+        "$ref": "#/$defs/RevisionCycleRecord"
+      },
+      "maxItems": 2,
+      "title": "Revisions",
+      "type": "array"
+    },
+    "scenario_id": {
+      "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+      "title": "Scenario Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "scenario_id",
+    "automated_reviews",
+    "revisions",
+    "researcher_reviews"
+  ],
+  "title": "ScenarioReviewHistory",
+  "type": "object"
+}

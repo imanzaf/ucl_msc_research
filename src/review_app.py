@@ -22,11 +22,9 @@ from src.storage import append_model_jsonl_validated, read_model_json, read_mode
 
 
 class ReviewPage(str, Enum):
-    """Identify the six review workflows exposed by the local application."""
+    """Identify the review workflows exposed by the local application."""
 
     SCENARIO_INITIAL = "Scenario review"
-    SCENARIO_REPEAT = "Scenario repeat review"
-    SCENARIO_RESOLUTION = "Scenario resolution"
     CONVERSATION_INITIAL = "Conversation annotation"
     CONVERSATION_REPEAT = "Conversation repeat annotation"
     CONVERSATION_RESOLUTION = "Conversation resolution"
@@ -128,7 +126,7 @@ class ReviewStore:
         return sample
 
     def save_scenario_review(self, review: ResearcherScenarioReview) -> None:
-        """Validate workflow linkage and append one review under an interprocess lock."""
+        """Validate and append the scenario's single researcher review under a lock."""
         candidate = self._candidate(review.scenario_id)
         if review.reviewed_artifact_sha256 != candidate.candidate_sha256:
             raise ValueError("scenario review does not bind the selected candidate hash")
@@ -136,43 +134,11 @@ class ReviewStore:
             raise ValueError("scenario review timestamp cannot be in the future")
 
         def validate(existing: List[ResearcherScenarioReview], new: ResearcherScenarioReview) -> None:
-            """Validate scenario uniqueness, repeat washout, and resolution links while locked."""
+            """Require one immutable researcher review per scenario."""
             if any(record.review_id == new.review_id for record in existing):
                 raise ValueError(f"duplicate scenario review id: {new.review_id}")
-            if new.review_pass == ReviewPass.INITIAL:
-                if any(
-                    record.review_pass == ReviewPass.INITIAL and record.scenario_id == new.scenario_id and record.researcher_id == new.researcher_id
-                    for record in existing
-                ):
-                    raise ValueError("an initial scenario review already exists for this researcher/item")
-                return
-            initial = next((record for record in existing if record.review_id == new.initial_review_id), None)
-            if initial is None or initial.review_pass != ReviewPass.INITIAL:
-                raise ValueError("linked initial scenario review does not exist")
-            if initial.scenario_id != new.scenario_id or initial.researcher_id != new.researcher_id:
-                raise ValueError("linked scenario reviews must share item and researcher")
-            if new.review_pass == ReviewPass.REPEAT:
-                if not repeat_washout_elapsed(initial.reviewed_at, new.reviewed_at):
-                    raise ValueError("scenario repeat review is blocked until the 14-day washout has elapsed")
-                if any(record.review_pass == ReviewPass.REPEAT and record.initial_review_id == initial.review_id for record in existing):
-                    raise ValueError("the initial scenario review already has a repeat")
-                return
-            repeated = next((record for record in existing if record.review_id == new.repeat_review_id), None)
-            if repeated is None or repeated.review_pass != ReviewPass.REPEAT or repeated.initial_review_id != initial.review_id:
-                raise ValueError("scenario resolution must bind a valid initial/repeat pair")
-            if repeated.scenario_id != new.scenario_id or repeated.researcher_id != new.researcher_id:
-                raise ValueError("scenario resolution pair must share item and researcher")
-            if repeated.reviewed_at > new.reviewed_at:
-                raise ValueError("scenario resolution cannot predate the repeat review")
-            if initial.decision == repeated.decision and initial.labels == repeated.labels:
-                raise ValueError("scenario resolution is permitted only for a disagreement")
-            if any(
-                record.review_pass == ReviewPass.RESOLUTION
-                and record.initial_review_id == initial.review_id
-                and record.repeat_review_id == repeated.review_id
-                for record in existing
-            ):
-                raise ValueError("the scenario review pair is already resolved")
+            if any(record.scenario_id == new.scenario_id for record in existing):
+                raise ValueError("a researcher scenario review already exists for this item")
 
         append_model_jsonl_validated(self.scenario_reviews_path, review, validate)
 
@@ -254,18 +220,6 @@ class ReviewStore:
             raise ValueError("approved minimal response does not cover every required fact/detail")
         write_model_json_atomic(self.output_root / "approved_minimal_responses" / f"{response.scenario_id}.json", response)
 
-    def eligible_scenario_repeats(self, now: datetime) -> List[Tuple[str, str]]:
-        """Return initial scenario reviews whose fourteen-day washout has elapsed."""
-        reviews = self.scenario_reviews()
-        repeated_prior_ids = {review.initial_review_id for review in reviews if review.review_pass == ReviewPass.REPEAT}
-        return [
-            (review.scenario_id, review.review_id)
-            for review in reviews
-            if review.review_pass == ReviewPass.INITIAL
-            and review.review_id not in repeated_prior_ids
-            and repeat_washout_elapsed(review.reviewed_at, now)
-        ]
-
     def eligible_conversation_repeats(self, now: datetime) -> List[Tuple[str, str]]:
         """Return initial annotations whose fourteen-day washout has elapsed."""
         annotations = self.conversation_annotations()
@@ -280,17 +234,6 @@ class ReviewStore:
             and annotation.annotation_id not in repeated_prior_ids
             and repeat_washout_elapsed(annotation.submitted_at, now)
         ]
-
-    def scenario_repeat_context(self, prior_review_id: str, now: datetime) -> CandidateScenario:
-        """Return a repeat scenario without exposing any prior labels or notes."""
-        prior = next((review for review in self.scenario_reviews() if review.review_id == prior_review_id), None)
-        if prior is None:
-            raise ValueError("unknown prior scenario review")
-        if prior.review_pass != ReviewPass.INITIAL:
-            raise ValueError("scenario repeat context must be requested from an initial review")
-        if not repeat_washout_elapsed(prior.reviewed_at, now):
-            raise ValueError("scenario repeat review is blocked until the 14-day washout has elapsed")
-        return self._candidate(prior.scenario_id)
 
     def conversation_repeat_context(self, prior_annotation_id: str, now: datetime) -> ConditionBlindScoringInput:
         """Return a newly anonymised and fact-reshuffled repeat without prior labels."""
@@ -314,20 +257,6 @@ class ReviewStore:
     def _build_repeat_scoring_input(self, initial: ConversationAnnotation) -> ConditionBlindScoringInput:
         """Derive a deterministic new opaque id and non-identical fact order for a repeat."""
         return build_repeat_scoring_input(self._scoring_input(initial.blind_conversation_id), initial.annotation_id)
-
-    def unresolved_scenario_pairs(self) -> List[Tuple[str, str, str]]:
-        """Return disagreeing initial/repeat scenario pairs that lack a resolution."""
-        reviews = self.scenario_reviews()
-        resolved = {(item.initial_review_id, item.repeat_review_id) for item in reviews if item.review_pass == ReviewPass.RESOLUTION}
-        initial_by_id = {item.review_id: item for item in reviews if item.review_pass == ReviewPass.INITIAL}
-        return [
-            (repeat.scenario_id, initial.review_id, repeat.review_id)
-            for repeat in reviews
-            if repeat.review_pass == ReviewPass.REPEAT
-            and (initial := initial_by_id.get(repeat.initial_review_id or "")) is not None
-            and (initial.decision != repeat.decision or initial.labels != repeat.labels)
-            and (initial.review_id, repeat.review_id) not in resolved
-        ]
 
     def unresolved_annotation_pairs(self) -> List[Tuple[str, str, str]]:
         """Return disagreeing initial/repeat annotation pairs that lack a resolution."""
@@ -420,16 +349,16 @@ def _record_payload_from_text(raw_json: str) -> Dict[str, Any]:
 
 
 def _render_source(st: Any, scenario: CandidateScenario) -> None:
-    """Display both source orders and feasibility evidence for scenario review."""
+    """Display the canonical source and hidden validation metadata for scenario review."""
     st.subheader(scenario.scenario_id)
     st.markdown(scenario.source_order_a.rendered_text)
-    with st.expander("Source order B"):
-        st.markdown(scenario.source_order_b.rendered_text)
     with st.expander("Facts and minimal complete response"):
         st.json(
             {
                 "material_facts": [fact.model_dump(mode="json") for fact in scenario.material_facts],
                 "neutral_facts": [fact.model_dump(mode="json") for fact in scenario.neutral_facts],
+                "numeric_registry": scenario.numeric_registry.model_dump(mode="json"),
+                "source_order_plan": scenario.source_order_plan.model_dump(mode="json"),
                 "minimal_complete_response": scenario.minimal_complete_response.model_dump(mode="json"),
             }
         )
@@ -468,104 +397,51 @@ def _submit_json_record(
 
 
 def run_streamlit_app(store: ReviewStore) -> None:
-    """Render the local-only six-page review application without execution controls."""
+    """Render the local-only review application without execution controls."""
     import streamlit as st
 
-    st.set_page_config(page_title="V9 local review", layout="wide")
-    st.title("V9 local review and annotation")
+    st.set_page_config(page_title="Local review", layout="wide")
+    st.title("Local review and annotation")
     st.caption("Review only: no API, generation, experiment execution, or automated scoring controls.")
     page = ReviewPage(st.sidebar.selectbox("Page", [item.value for item in ReviewPage]))
     now = datetime.now(timezone.utc)
-    if page in {ReviewPage.SCENARIO_INITIAL, ReviewPage.SCENARIO_REPEAT, ReviewPage.SCENARIO_RESOLUTION}:
+    if page == ReviewPage.SCENARIO_INITIAL:
         scenarios = store.list_candidates()
         if not scenarios:
             st.info("No generated candidates are available for review.")
             return
-        if page == ReviewPage.SCENARIO_INITIAL:
-            reviewed_ids = {review.scenario_id for review in store.scenario_reviews() if review.review_pass == ReviewPass.INITIAL}
-            pending = [scenario for scenario in scenarios if scenario.scenario_id not in reviewed_ids]
-            if not pending:
-                st.info("All candidate scenarios have an initial review.")
-                return
-            scenario = st.selectbox("Scenario", pending, format_func=lambda item: item.scenario_id)
-            _render_source(st, scenario)
-            _submit_json_record(
-                st,
-                "scenario_initial",
-                ResearcherScenarioReview,
-                store.save_scenario_review,
-                {
-                    "schema_version": "1.0.0",
-                    "scenario_id": scenario.scenario_id,
-                    "review_pass": ReviewPass.INITIAL,
-                    "reviewed_artifact_sha256": scenario.candidate_sha256,
-                    "reviewed_at": now,
-                    "initial_review_id": None,
-                    "repeat_review_id": None,
-                    "resolution_reason": None,
-                },
-            )
-            _submit_json_record(
-                st,
-                "scenario_minimal_response",
-                MinimalCompleteResponse,
-                store.save_approved_minimal_response,
-                {
-                    "schema_version": "1.0.0",
-                    "scenario_id": scenario.scenario_id,
-                    "approved": True,
-                    "approved_at": now,
-                },
-                label="Minimal complete response approval JSON (content must remain unchanged)",
-            )
-        elif page == ReviewPage.SCENARIO_REPEAT:
-            eligible = store.eligible_scenario_repeats(now)
-            if not eligible:
-                st.info("No scenario repeat is eligible after the 14-day washout.")
-                return
-            scenario_id, prior_id = st.selectbox("Eligible repeat", eligible, format_func=lambda item: item[0])
-            _render_source(st, store.scenario_repeat_context(prior_id, now))
-            candidate = store.scenario_repeat_context(prior_id, now)
-            _submit_json_record(
-                st,
-                f"scenario_repeat_{scenario_id}",
-                ResearcherScenarioReview,
-                store.save_scenario_review,
-                {
-                    "schema_version": "1.0.0",
-                    "scenario_id": scenario_id,
-                    "review_pass": ReviewPass.REPEAT,
-                    "reviewed_artifact_sha256": candidate.candidate_sha256,
-                    "reviewed_at": now,
-                    "initial_review_id": prior_id,
-                    "repeat_review_id": None,
-                    "resolution_reason": None,
-                },
-            )
-        else:
-            unresolved = store.unresolved_scenario_pairs()
-            if not unresolved:
-                st.info("No disagreeing scenario-review pair requires resolution.")
-                return
-            scenario_id, initial_id, repeat_id = st.selectbox("Unresolved pair", unresolved, format_func=lambda item: item[0])
-            pair_records = [review.model_dump(mode="json") for review in store.scenario_reviews() if review.review_id in {initial_id, repeat_id}]
-            st.json(pair_records)
-            candidate = store._candidate(scenario_id)
-            _submit_json_record(
-                st,
-                "scenario_resolution",
-                ResearcherScenarioReview,
-                store.save_scenario_review,
-                {
-                    "schema_version": "1.0.0",
-                    "scenario_id": scenario_id,
-                    "review_pass": ReviewPass.RESOLUTION,
-                    "reviewed_artifact_sha256": candidate.candidate_sha256,
-                    "reviewed_at": now,
-                    "initial_review_id": initial_id,
-                    "repeat_review_id": repeat_id,
-                },
-            )
+        reviewed_ids = {review.scenario_id for review in store.scenario_reviews()}
+        pending = [scenario for scenario in scenarios if scenario.scenario_id not in reviewed_ids]
+        if not pending:
+            st.info("All candidate scenarios have a researcher review.")
+            return
+        scenario = st.selectbox("Scenario", pending, format_func=lambda item: item.scenario_id)
+        _render_source(st, scenario)
+        _submit_json_record(
+            st,
+            "scenario_initial",
+            ResearcherScenarioReview,
+            store.save_scenario_review,
+            {
+                "schema_version": "1.0.0",
+                "scenario_id": scenario.scenario_id,
+                "reviewed_artifact_sha256": scenario.candidate_sha256,
+                "reviewed_at": now,
+            },
+        )
+        _submit_json_record(
+            st,
+            "scenario_minimal_response",
+            MinimalCompleteResponse,
+            store.save_approved_minimal_response,
+            {
+                "schema_version": "1.0.0",
+                "scenario_id": scenario.scenario_id,
+                "approved": True,
+                "approved_at": now,
+            },
+            label="Minimal complete response approval JSON (content must remain unchanged)",
+        )
         return
     scoring_inputs = store.list_scoring_inputs()
     if not scoring_inputs:

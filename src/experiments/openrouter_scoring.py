@@ -6,8 +6,6 @@ from typing import Dict, List, TypeVar
 
 from pydantic import BaseModel, Field
 
-from configs.api_settings import OpenRouterCredentialRole, get_api_settings
-from configs.model_settings import get_model_settings
 from src.data_models.common import VersionedImmutableModel, sha256_bytes, utc_now
 from src.data_models.experiments import TokenUsage
 from src.data_models.manifests import EvaluatedModelSnapshot
@@ -23,6 +21,8 @@ from src.data_models.scoring import (
 )
 from src.llm.openrouter import OpenRouterClient, ProviderStructuredResponse
 from src.prompts.scoring_contracts import CLAIM_ASSESSMENT_SYSTEM_PROMPT, FACT_ASSESSMENT_SYSTEM_PROMPT, RESPONSE_COMMUNICATION_SYSTEM_PROMPT
+from src.settings.api_settings import OpenRouterCredentialRole, get_api_settings
+from src.settings.model_settings import get_model_settings
 
 StructuredT = TypeVar("StructuredT", bound=BaseModel)
 

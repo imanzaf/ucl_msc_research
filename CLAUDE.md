@@ -15,8 +15,9 @@ uv run pre-commit run --all-files  # run black + isort + flake8
 
 ```
 .claude/skills/          # project skills (citation-validator, tex-reviewer, academic-author)
-configs/                 # pydantic-settings classes, one file per concern
-scripts/                 # runnable scripts (log_decisions.py)
+src/settings/            # pydantic-settings classes, one file per concern
+src/cli/                 # unified risk-comm CLI and workflow commands
+scripts/                 # non-project repository tooling (hooks, maintenance helpers)
 src/                     # source code for research and experiments
 .env.static              # base config (committed, contains placeholders)
 ```
@@ -24,14 +25,14 @@ src/                     # source code for research and experiments
 ## Environment and config
 
 - Settings load from `.env.static` first, then `.env` — `.env` wins on conflicts
-- Never read `os.environ` directly; use `get_<desc>_settings()` from `configs/`
+- Never read `os.environ` directly; use `get_<desc>_settings()` from `src/settings/`
 - Python version is pinned to 3.11 via `.python-version`
 
 ## Code conventions
 
 - Pydantic v2 (`BaseModel`, `Field`, `model_validator`) for all structured data crossing boundaries
 - `str, Enum` for any field with a fixed set of string values — never bare `str` with a comment
-- `BaseSettings` subclasses go in `configs/`, one class per concern, each with an `@lru_cache` getter
+- `BaseSettings` subclasses go in `src/settings/`, one class per concern, each with an `@lru_cache` getter
 - Structured outputs saved as JSONL (records) or JSON (configs/summaries); include `schema_version`
 - Line length: 150 (black + isort + flake8 all configured to match)
 
@@ -107,7 +108,7 @@ Experiment output directories live under `data/outputs/experiments/`; keep this 
 ## Documentation
 
 - Keep `README.md` current whenever the project structure, key features, or research direction changes — it is the first entry point for anyone reading the repo
-- Document every experiment runner or evaluation procedure in its own file under `docs/` (e.g. `docs/experiments/deception_eval.md`); include the exact `uv run ...` command to run it, all relevant config and output paths, and direct file references (e.g. `src/models/detector.py`, `configs/experiment_settings.py`)
+- Document every experiment runner or evaluation procedure in its own file under `docs/` (e.g. `docs/experiments/deception_eval.md`); include the exact `uv run risk-comm ...` command to run it, all relevant config and output paths, and direct file references (e.g. `src/models/detector.py`, `src/settings/experiment_settings.py`)
 - Reference source files and scripts by path within docs so they stay navigable as the codebase grows
 
 ## Dissertation writing rules

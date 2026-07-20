@@ -1,4 +1,4 @@
-"""Calculate the five preregistered scenario-paired V9 contrasts."""
+"""Calculate the five preregistered scenario-paired contrasts."""
 
 from __future__ import annotations
 

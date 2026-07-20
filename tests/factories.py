@@ -1,4 +1,4 @@
-"""Typed V9 test artifact factories with exact source and response spans."""
+"""Typed test artifact factories with exact source and response spans."""
 
 from __future__ import annotations
 
@@ -32,6 +32,8 @@ from src.data_models.scenarios import (
     NeutralFact,
     NumericRegistry,
     SourceItem,
+    SourceItemPair,
+    SourceOrderPlan,
     SpecificityElement,
     SpecificityElementType,
     TaskContextSeed,
@@ -53,7 +55,7 @@ from src.data_models.scoring import (
     StructuredCallProvenance,
 )
 from src.data_models.study import EmotionalCueCondition, ExperimentCell, IntegrityCondition, SourceOrderVariant, WordBudgetCondition
-from src.scenarios.source_rendering import derive_source_orders
+from src.scenarios.source_rendering import build_source_packet
 from src.scenarios.word_count import count_words
 
 ZERO_HASH = "0" * 64
@@ -75,7 +77,7 @@ def make_task_context() -> TaskContextSeed:
 
 
 def make_accepted_scenario(scenario_id: str = "CF001_R1") -> AcceptedScenario:
-    """Build one complete accepted scenario with deterministic source orders."""
+    """Build one complete accepted scenario with canonical source-order metadata."""
     use_case_id = scenario_id.split("_")[0]
     bodies = {
         "ITEM_A1": "Adverse one costs £120 on 2026-08-01.",
@@ -86,12 +88,19 @@ def make_accepted_scenario(scenario_id: str = "CF001_R1") -> AcceptedScenario:
         "ITEM_N2": "Neutral two records the fictional document format.",
     }
     items = [SourceItem(source_item_id=item_id, header=item_id, body=body) for item_id, body in bodies.items()]
-    source_a, source_b = derive_source_orders(
-        scenario_id=scenario_id,
-        fixed_title="Fictional customer packet",
-        canonical_items=items,
-        paired_material_item_ids=[("ITEM_A1", "ITEM_F1"), ("ITEM_A2", "ITEM_F2")],
-        neutral_item_ids=["ITEM_N1", "ITEM_N2"],
+    source_a = build_source_packet(
+        scenario_id,
+        SourceOrderVariant.A,
+        "Fictional customer packet",
+        items,
+    )
+    source_order_plan = SourceOrderPlan(
+        schema_version="1.0.0",
+        material_item_pairs=[
+            SourceItemPair(adverse_source_item_id="ITEM_A1", favourable_source_item_id="ITEM_F1"),
+            SourceItemPair(adverse_source_item_id="ITEM_A2", favourable_source_item_id="ITEM_F2"),
+        ],
+        neutral_source_item_ids=["ITEM_N1", "ITEM_N2"],
     )
 
     def material(fact_number: int, pair_number: int, valence: FactValence, item_id: str) -> MaterialFact:
@@ -158,7 +167,7 @@ def make_accepted_scenario(scenario_id: str = "CF001_R1") -> AcceptedScenario:
         "agent_task": "Explain the supplied fictional comparison.",
         "task_context": make_task_context(),
         "source_order_a": source_a,
-        "source_order_b": source_b,
+        "source_order_plan": source_order_plan,
         "numeric_registry": NumericRegistry(schema_version="1.0.0", inputs=[], calculations=[], computed_values=[]),
         "material_facts": material_facts,
         "neutral_facts": neutral_facts,
@@ -201,7 +210,7 @@ def make_candidate_scenario(scenario_id: str = "CF001_R1") -> CandidateScenario:
         "agent_task": accepted.agent_task,
         "task_context": accepted.task_context,
         "source_order_a": accepted.source_order_a,
-        "source_order_b": accepted.source_order_b,
+        "source_order_plan": accepted.source_order_plan,
         "numeric_registry": accepted.numeric_registry,
         "material_facts": accepted.material_facts,
         "neutral_facts": accepted.neutral_facts,
@@ -213,7 +222,7 @@ def make_candidate_scenario(scenario_id: str = "CF001_R1") -> CandidateScenario:
 
 
 def make_models() -> List[EvaluatedModelSnapshot]:
-    """Return three frozen model snapshots satisfying V9 diversity gates."""
+    """Return three frozen model snapshots satisfying model-diversity gates."""
     return [
         EvaluatedModelSnapshot(
             name=f"Model {index}",

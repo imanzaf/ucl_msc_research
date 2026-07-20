@@ -21,7 +21,7 @@ Do not build or run the main plan until accepted scenario, word-budget, prompt-r
 Freeze exact scoring-judge versions, then construct the calibration/main experiment manifests:
 
 ```bash
-uv run python scripts/build_scoring_execution_manifest.py \
+uv run risk-comm scoring build-manifest \
   --evaluated-model-manifest <evaluated_model_manifest.json> \
   --judge-snapshot <judge_snapshot.json> \
   --fact-order-seed 7 --max-retries 2 \
@@ -29,7 +29,7 @@ uv run python scripts/build_scoring_execution_manifest.py \
   --frozen-by <researcher_id> \
   --output <scoring_execution_manifest.json>
 
-uv run python scripts/build_experiment_manifests.py \
+uv run risk-comm experiment build-manifests \
   --accepted-scenario-manifest <accepted_scenario_manifest.json> \
   --evaluated-model-manifest <evaluated_model_manifest.json> \
   --prompt-review-manifest <prompt_review_manifest.json> \
@@ -45,7 +45,7 @@ uv run python scripts/build_experiment_manifests.py \
 Build the exact plan:
 
 ```bash
-uv run python scripts/build_run_plan.py \
+uv run risk-comm experiment build-plan \
   --experiment-manifest <experiment_manifest.json> \
   --accepted-scenario-manifest <accepted_scenario_manifest.json> \
   --evaluated-model-manifest <evaluated_model_manifest.json> \
@@ -56,12 +56,12 @@ uv run python scripts/build_run_plan.py \
   --output data/outputs/experiments/risk_comm_v1/checkpoints/run_plan.jsonl
 ```
 
-The builder writes the full immutable config before the plan, refuses any count other than 1,920 conversations/3,840 responses, and validates byte-level factor isolation in every eight-cell block.
+The builder writes the full immutable config before the plan, refuses any count other than 960 conversations/1,920 responses, requires canonical source order A, and validates byte-level factor isolation in every eight-cell block.
 
 Build the preregistration manifest before the dry run; it points only backward to frozen calibration inputs, the exact config/plan, effects, power report, retry policy, analysis commit/plan, and deviation policy:
 
 ```bash
-uv run python scripts/build_preregistration_manifest.py \
+uv run risk-comm experiment preregister \
   --experiment-manifest data/outputs/experiments/risk_comm_v1/checkpoints/experiment_manifest.json \
   --experiment-config data/outputs/experiments/risk_comm_v1/config.json \
   --run-plan data/outputs/experiments/risk_comm_v1/checkpoints/run_plan.jsonl \
@@ -72,8 +72,8 @@ uv run python scripts/build_preregistration_manifest.py \
   --calibration-annotation-sample-manifest data/outputs/experiments/risk_comm_calibration_v1/checkpoints/calibration_annotation_sample_manifest.json \
   --power-report data/outputs/experiments/risk_comm_v1/checkpoints/power_simulation_report.json \
   --smallest-effect-manifest data/outputs/experiments/risk_comm_v1/checkpoints/smallest_effect_manifest.json \
-  --analysis-plan docs/research-plan/RESEARCH_PLAN_V9.md \
-  --protocol-deviation-policy docs/research-plan/RESEARCH_PLAN_V9.md \
+  --analysis-plan docs/research-plan/RESEARCH_PLAN.md \
+  --protocol-deviation-policy docs/research-plan/RESEARCH_PLAN.md \
   --frozen-by <researcher_id> \
   --output data/outputs/experiments/risk_comm_v1/checkpoints/preregistration_manifest.json
 ```
@@ -81,7 +81,7 @@ uv run python scripts/build_preregistration_manifest.py \
 Create the dry-run report using a strict `1.0.0` pricing JSON whose `models` object is keyed by exact model ID and supplies nonnegative `input_per_million_usd` and `output_per_million_usd` values:
 
 ```bash
-uv run python scripts/create_dry_run_report.py \
+uv run risk-comm experiment dry-run \
   --run-plan data/outputs/experiments/risk_comm_v1/checkpoints/run_plan.jsonl \
   --config data/outputs/experiments/risk_comm_v1/config.json \
   --pricing <pricing.json> \
@@ -91,7 +91,7 @@ uv run python scripts/create_dry_run_report.py \
 Create an explicit `PaidExecutionApproval` record bound to that report hash and a researcher-chosen maximum cost:
 
 ```bash
-uv run python scripts/create_paid_execution_approval.py \
+uv run risk-comm experiment approve \
   --dry-run-report data/outputs/experiments/risk_comm_v1/checkpoints/dry_run_report.json \
   --approved-maximum-cost-usd <maximum> \
   --approved-by <researcher_id> \
@@ -101,12 +101,12 @@ uv run python scripts/create_paid_execution_approval.py \
 
 The runner rejects a missing, false, mismatched, or under-budgeted approval.
 
-After execution, finalise even an empty deviation register with `scripts/finalise_protocol_deviations.py`; this later record binds backward to the frozen preregistration rather than creating a circular or impossible preregistration dependency.
+After execution, finalise even an empty deviation register with `risk-comm experiment finalize-deviations`; this later record binds backward to the frozen preregistration rather than creating a circular or impossible preregistration dependency.
 
 ## Main execution
 
 ```bash
-uv run python scripts/run_reviewed_experiment.py \
+uv run risk-comm experiment run \
   --run-plan data/outputs/experiments/risk_comm_v1/checkpoints/run_plan.jsonl \
   --config data/outputs/experiments/risk_comm_v1/config.json \
   --experiment-manifest data/outputs/experiments/risk_comm_v1/checkpoints/experiment_manifest.json \
@@ -125,12 +125,12 @@ uv run python scripts/run_reviewed_experiment.py \
 
 Before any call, the runner deterministically rebuilds the supplied plan from the frozen accepted scenarios, exact model snapshots, budgets, active prompts, and seed. Each outcome is persisted immediately. Resume skips existing terminal run-unit IDs. Every retry uses the same request hash. The fixed follow-up is cue-free and identical across all cells. Exhausted calls remain terminal missing outcomes with reasons; they are never silently replaced.
 
-After all 1,920 terminal records exist, generate the three self-hashed completion/version/token summaries:
+After all 960 terminal records exist, generate the three self-hashed completion/version/token summaries:
 
 ```bash
-uv run python scripts/summarise_experiment.py \
+uv run risk-comm experiment summarize \
   --transcripts data/outputs/experiments/risk_comm_v1/results/<timestamp>_results.jsonl \
   --output data/outputs/experiments/risk_comm_v1/results/model_summaries.jsonl
 ```
 
-Scoring, annotation, gates, analysis, and assets are documented in `docs/experiments/scoring_v9.md`, `docs/experiments/review_and_annotation.md`, and `docs/experiments/analysis_v9.md`.
+Scoring, annotation, gates, analysis, and assets are documented in `docs/experiments/scoring.md`, `docs/experiments/review_and_annotation.md`, and `docs/experiments/analysis.md`.

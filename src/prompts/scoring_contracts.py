@@ -1,4 +1,4 @@
-"""Condition-blind instructions for the three independent V9 scoring contracts."""
+"""Condition-blind instructions for the three independent scoring contracts."""
 
 from src.data_models.common import artifact_sha256
 

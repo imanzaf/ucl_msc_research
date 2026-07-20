@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run python scripts/log_decisions.py --author user --scope high-level"
+            "command": "uv run python scripts/hooks/log_decisions.py --author user --scope high-level"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run python scripts/log_decisions.py --author codex --scope high-level"
+            "command": "uv run python scripts/hooks/log_decisions.py --author codex --scope high-level"
           }
         ]
       }

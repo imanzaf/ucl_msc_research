@@ -1,4 +1,4 @@
-"""Small OpenRouter adapter for exact V9 text requests and structured scoring."""
+"""Small OpenRouter adapter for exact text requests and structured scoring."""
 
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ from openai import OpenAI
 from openai.lib._pydantic import to_strict_json_schema
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from configs.api_settings import APISettings, OpenRouterCredentialRole
-from configs.model_settings import ModelSettings
 from src.data_models.common import VersionedImmutableModel, artifact_sha256, canonical_json_bytes, sha256_bytes, utc_now, validate_sha256
 from src.data_models.experiments import CompletionFinishReason, provider_request_sha256
+from src.settings.api_settings import APISettings, OpenRouterCredentialRole
+from src.settings.model_settings import ModelSettings
 from src.storage import atomic_write_bytes
 
 StructuredT = TypeVar("StructuredT", bound=BaseModel)

@@ -1,4 +1,4 @@
-"""Shared immutable boundary-model primitives for the V9 protocol."""
+"""Shared immutable boundary-model primitives for the protocol."""
 
 from __future__ import annotations
 

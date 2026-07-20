@@ -1,4 +1,4 @@
-"""Frozen manifests that gate V9 calibration, execution, scoring, and analysis."""
+"""Frozen manifests that gate calibration, execution, scoring, and analysis."""
 
 from __future__ import annotations
 
@@ -641,7 +641,7 @@ class AnnotationSampleManifest(VersionedImmutableModel):
 
 
 class PreregistrationManifest(VersionedImmutableModel):
-    """Freeze every V9 preregistration input and protocol decision by hash."""
+    """Freeze every preregistration input and protocol decision by hash."""
 
     schema_version: str = Field(pattern=r"^1\.0\.0$")
     experiment_manifest_sha256: str
@@ -759,7 +759,6 @@ class PowerVarianceComponents(ImmutableModel):
     use_case_standard_deviation: Decimal = Field(ge=0)
     scenario_standard_deviation: Decimal = Field(ge=0)
     model_standard_deviation: Decimal = Field(ge=0)
-    source_order_standard_deviation: Decimal = Field(ge=0)
     scoring_error_standard_deviation: Decimal = Field(ge=0)
 
     @model_validator(mode="after")
@@ -827,7 +826,7 @@ class PowerSimulationReport(VersionedImmutableModel):
     alpha: Decimal = Field(gt=0, lt=1)
     random_seed: int
     power: Dict[str, Decimal] = Field(min_length=5, max_length=5)
-    sensitivity_power: Dict[str, Dict[str, Decimal]] = Field(min_length=3)
+    sensitivity_power: Dict[str, Dict[str, Decimal]] = Field(min_length=2, max_length=2)
     generated_at: datetime
     report_sha256: str
 
@@ -843,9 +842,9 @@ class PowerSimulationReport(VersionedImmutableModel):
         expected = {"H1", "H2a", "H2b", "M1", "M2"}
         if set(self.power) != expected or any(not Decimal("0") <= value <= Decimal("1") for value in self.power.values()):
             raise ValueError("power report must contain five probabilities in [0, 1]")
-        required_sensitivities = {"high_model_heterogeneity", "high_scoring_error", "single_source_order"}
+        required_sensitivities = {"high_model_heterogeneity", "high_scoring_error"}
         if set(self.sensitivity_power) != required_sensitivities:
-            raise ValueError("power report lacks a required heterogeneity, scoring-error, or source-order sensitivity")
+            raise ValueError("power report lacks a required heterogeneity or scoring-error sensitivity")
         if any(set(values) != expected for values in self.sensitivity_power.values()):
             raise ValueError("every power sensitivity must cover all five estimands")
         if any(not Decimal("0") <= value <= Decimal("1") for values in self.sensitivity_power.values() for value in values.values()):
@@ -864,8 +863,8 @@ class DryRunCostReport(VersionedImmutableModel):
     run_plan_sha256: str
     experiment_config_sha256: str
     pricing_file_sha256: str
-    conversations: int = Field(default=1920)
-    agent_responses: int = Field(default=3840)
+    conversations: int = Field(default=960)
+    agent_responses: int = Field(default=1920)
     maximum_attempts_including_retries: int = Field(gt=0)
     estimated_input_tokens: int = Field(ge=0)
     estimated_output_tokens: int = Field(ge=0)
@@ -885,9 +884,9 @@ class DryRunCostReport(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_counts_and_costs(self) -> "DryRunCostReport":
-        """Require the exact V9 design and conservative worst-case totals."""
-        if self.conversations != 1920 or self.agent_responses != 3840:
-            raise ValueError("dry-run report must bind exactly 1,920 conversations and 3,840 responses")
+        """Require the exact design and conservative worst-case totals."""
+        if self.conversations != 960 or self.agent_responses != 1920:
+            raise ValueError("dry-run report must bind exactly 960 conversations and 1,920 responses")
         if self.worst_case_input_tokens < self.estimated_input_tokens or self.worst_case_output_tokens < self.estimated_output_tokens:
             raise ValueError("worst-case token totals cannot be smaller than base estimates")
         if self.worst_case_cost_usd < self.estimated_cost_usd:

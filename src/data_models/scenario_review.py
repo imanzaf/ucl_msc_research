@@ -4,23 +4,30 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from pydantic import Field, field_validator, model_validator
 
 from src.data_models.common import ImmutableModel, VersionedImmutableModel, artifact_sha256, validate_sha256
 from src.data_models.experiments import ProviderCallProvenance
 
-MAX_AUTOMATED_REVISION_CYCLES = 3
+MAX_AUTOMATED_REVISION_CYCLES = 2
 REPEAT_WASHOUT_DAYS = 14
 
 
 class AutomatedReviewKind(str, Enum):
     """Identify the independent automated review contract."""
 
-    CONSTRUCT = "construct"
-    FINANCE_ARITHMETIC = "finance_arithmetic"
+    CANDIDATE_QUALITY = "candidate_quality"
     BATCH_DIVERSITY = "batch_diversity"
+
+
+def required_automated_review_kinds(scenario_id: str) -> Set[AutomatedReviewKind]:
+    """Return the automated reviews required for a calibration or evaluation scenario."""
+    required = {AutomatedReviewKind.CANDIDATE_QUALITY}
+    if not scenario_id.endswith("_C1"):
+        required.add(AutomatedReviewKind.BATCH_DIVERSITY)
+    return required
 
 
 class ReviewDecision(str, Enum):
@@ -146,17 +153,17 @@ class RevisionCycleRecord(VersionedImmutableModel):
         return value
 
     @model_validator(mode="after")
-    def validate_all_reviews_rerun(self) -> "RevisionCycleRecord":
-        """Require all three independent review contracts after every revision."""
-        if set(self.rerun_review_sha256) != set(AutomatedReviewKind):
-            raise ValueError("every revision cycle must rerun all automated review kinds")
+    def validate_required_reviews_rerun(self) -> "RevisionCycleRecord":
+        """Require every stage-relevant automated review after a revision."""
+        if set(self.rerun_review_sha256) != required_automated_review_kinds(self.scenario_id):
+            raise ValueError("every revision cycle must rerun the stage-relevant automated reviews")
         expected_dependencies = {
-            "blueprint",
             "numeric_registry",
             "source_order_a",
-            "source_order_b",
+            "source_order_plan",
             "material_facts",
             "neutral_facts",
+            "fact_pairs",
             "minimal_complete_response",
         }
         if set(self.rebuilt_dependency_sha256) != expected_dependencies:
@@ -173,7 +180,7 @@ class ScenarioReviewLabels(ImmutableModel):
     all_material_facts_equally_required: bool
     pair_matching_acceptable: bool
     neutral_facts_lower_priority: bool
-    source_orders_equivalent: bool
+    source_order_plan_valid: bool
     minimal_response_feasible: bool
     customer_facing_naturalness: bool
     authority_limits_respected: bool
@@ -186,22 +193,18 @@ class ScenarioReviewLabels(ImmutableModel):
 
 
 class ResearcherScenarioReview(VersionedImmutableModel):
-    """Store a blinded initial, repeat, or resolution scenario review."""
+    """Store the single researcher review used for scenario acceptance."""
 
     schema_version: str = Field(pattern=r"^1\.0\.0$")
     review_id: str = Field(pattern=r"^[A-Z0-9_]+$")
     anonymised_item_id: str = Field(min_length=1)
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
-    review_pass: ReviewPass
     decision: ReviewDecision
     labels: ScenarioReviewLabels
     reviewed_artifact_sha256: str
     reviewed_at: datetime
     researcher_id: str = Field(min_length=1)
     notes: str
-    initial_review_id: Optional[str] = Field(default=None, pattern=r"^[A-Z0-9_]+$")
-    repeat_review_id: Optional[str] = Field(default=None, pattern=r"^[A-Z0-9_]+$")
-    resolution_reason: Optional[str] = Field(default=None, min_length=1)
 
     @field_validator("reviewed_artifact_sha256")
     @classmethod
@@ -210,18 +213,8 @@ class ResearcherScenarioReview(VersionedImmutableModel):
         return validate_sha256(value)
 
     @model_validator(mode="after")
-    def validate_review_pass(self) -> "ResearcherScenarioReview":
-        """Enforce pass-specific linkage and acceptance checklist rules."""
-        if self.review_pass == ReviewPass.INITIAL and (self.initial_review_id is not None or self.repeat_review_id is not None):
-            raise ValueError("initial reviews cannot link to another review")
-        if self.review_pass == ReviewPass.REPEAT and (self.initial_review_id is None or self.repeat_review_id is not None):
-            raise ValueError("repeat reviews require only the linked initial review id")
-        if self.review_pass == ReviewPass.RESOLUTION and (
-            self.initial_review_id is None or self.repeat_review_id is None or self.resolution_reason is None
-        ):
-            raise ValueError("resolution reviews require linked initial/repeat ids and a reason")
-        if self.review_pass != ReviewPass.RESOLUTION and self.resolution_reason is not None:
-            raise ValueError("only resolution reviews may include a resolution reason")
+    def validate_acceptance_checklist(self) -> "ResearcherScenarioReview":
+        """Require every checklist label to pass when the researcher accepts a scenario."""
         if self.decision == ReviewDecision.ACCEPT and not self.labels.all_pass():
             raise ValueError("accepted scenario reviews require every checklist item to pass")
         return self
@@ -232,23 +225,19 @@ class ScenarioReviewHistory(VersionedImmutableModel):
 
     schema_version: str = Field(pattern=r"^1\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
-    automated_reviews: List[AutomatedScenarioReview] = Field(min_length=3)
+    automated_reviews: List[AutomatedScenarioReview] = Field(min_length=1)
     revisions: List[RevisionCycleRecord] = Field(max_length=MAX_AUTOMATED_REVISION_CYCLES)
     researcher_reviews: List[ResearcherScenarioReview] = Field(min_length=1)
 
     @model_validator(mode="after")
     def validate_review_history(self) -> "ScenarioReviewHistory":
-        """Require complete review batches and a sequential, hash-linked revision history."""
-        if len(self.automated_reviews) % len(AutomatedReviewKind) != 0:
-            raise ValueError("automated review history must contain complete three-contract batches")
-        for start in range(0, len(self.automated_reviews), len(AutomatedReviewKind)):
-            batch = self.automated_reviews[start : start + len(AutomatedReviewKind)]
-            if set(review.review_kind for review in batch) != set(AutomatedReviewKind):
-                raise ValueError("each automated review batch must contain all three review kinds")
-            if len({review.reviewed_artifact_sha256 for review in batch}) != 1:
-                raise ValueError("one automated review batch cannot span multiple candidate hashes")
-        if set(review.review_kind for review in self.automated_reviews[-3:]) != set(AutomatedReviewKind):
-            raise ValueError("review history must end with all three automated review kinds")
+        """Require stage-relevant reviews and a sequential, hash-linked revision history."""
+        required_kinds = required_automated_review_kinds(self.scenario_id)
+        observed_kinds = {review.review_kind for review in self.automated_reviews}
+        if not required_kinds.issubset(observed_kinds):
+            raise ValueError("automated review history is missing a stage-relevant review kind")
+        if not observed_kinds.issubset(required_kinds):
+            raise ValueError("automated review history contains a review kind that is not used at this stage")
         scenario_ids = {
             *{review.scenario_id for review in self.automated_reviews},
             *{revision.scenario_id for revision in self.revisions},

@@ -1,4 +1,4 @@
-"""Pure separate-outcome V9 metrics with scenario/fact-aware denominators."""
+"""Pure separate-outcome metrics with scenario/fact-aware denominators."""
 
 from __future__ import annotations
 
@@ -193,7 +193,7 @@ def compute_conversation_metrics(
     checkpoint: EvaluationCheckpoint,
     prompt_factor_isolation_valid: bool,
 ) -> ConversationMetrics:
-    """Compute all separate V9 outcomes at one checkpoint without a composite."""
+    """Compute all separate outcomes at one checkpoint without a composite."""
     judgments = judgments_at_checkpoint(fact_result, checkpoint)
     transitions = repair_transitions(fact_result, [fact.fact_id for fact in scenario.material_facts])
     evaluated_agent_turns = [

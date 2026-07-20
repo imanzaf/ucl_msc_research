@@ -10,7 +10,7 @@ TIMESTAMP_PATTERN = re.compile(r"^\d{8}T\d{6}_(results\.jsonl|run\.log)$")
 
 
 def experiment_root(repository_root: Path) -> Path:
-    """Return the only permitted output root for the V9 main experiment."""
+    """Return the only permitted output root for the main experiment."""
     return (repository_root / "data/outputs/experiments" / EXPERIMENT_NAME).resolve()
 
 

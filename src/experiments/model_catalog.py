@@ -1,4 +1,4 @@
-"""Strict draft/frozen model catalog with V9 family and independence gates."""
+"""Strict draft/frozen model catalog with family and independence gates."""
 
 from __future__ import annotations
 
@@ -10,12 +10,11 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
 import httpx
 from pydantic import Field, model_validator
 
-from configs.api_settings import APISettings, OpenRouterCredentialRole
 from src.data_models.common import ImmutableModel, VersionedImmutableModel
 from src.data_models.manifests import FreezeStatus, ModelWeightType
+from src.settings.api_settings import APISettings, OpenRouterCredentialRole
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_MODEL_CATALOG_PATH = REPO_ROOT / "configs" / "models.json"
+DEFAULT_MODEL_CATALOG_PATH = Path(__file__).resolve().parents[1] / "settings" / "models.json"
 
 
 class ModelPriority(str, Enum):

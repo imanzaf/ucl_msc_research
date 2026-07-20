@@ -5,7 +5,7 @@ design <- expand.grid(
   use_case_id = sprintf("CF%03d", 1:10),
   replication = 1:2,
   model_id = c("m1", "m2", "m3"),
-  source_order = c("A", "B"),
+  source_order = "A",
   word_budget = c("ample", "tight"),
   emotional_cue = c("neutral", "worried"),
   integrity = c("absent", "targeted"),

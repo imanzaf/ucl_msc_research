@@ -1,4 +1,4 @@
-"""Preregistered model, use-case, source-order, and quality-filter sensitivities."""
+"""Preregistered model, use-case, and quality-filter sensitivities."""
 
 from __future__ import annotations
 
@@ -107,11 +107,6 @@ def estimate_sensitivities_with_messages(
         add(
             f"leave_use_case_out={use_case_id}",
             partial(estimate_confirmatory_contrasts, frame.loc[frame["use_case_id"] != use_case_id]),
-        )
-    for source_order in sorted(frame["source_order"].unique()):
-        add(
-            f"source_order={source_order}",
-            partial(estimate_confirmatory_contrasts, frame.loc[frame["source_order"] == source_order]),
         )
     add("budget_compliant_only", partial(estimate_confirmatory_contrasts, frame.loc[frame["budget_compliant"]]))
     add("refusals_excluded", partial(estimate_confirmatory_contrasts, frame.loc[~frame["refusal"]]))

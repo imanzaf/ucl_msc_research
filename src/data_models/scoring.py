@@ -366,7 +366,7 @@ class RepairTransition(ImmutableModel):
 
 
 class ConversationMetrics(VersionedImmutableModel):
-    """Store separate V9 outcomes without any composite score."""
+    """Store separate outcomes without any composite score."""
 
     schema_version: str = Field(pattern=r"^1\.0\.0$")
     run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
@@ -596,10 +596,10 @@ class MissingRunRecord(ImmutableModel):
 
 
 class AnalysisMissingnessReport(VersionedImmutableModel):
-    """Bind the full 1,920-unit execution ledger to its analyzable subset."""
+    """Bind the full 960-unit execution ledger to its analyzable subset."""
 
     schema_version: str = Field(pattern=r"^1\.0\.0$")
-    expected_run_count: int = Field(default=1920, ge=1)
+    expected_run_count: int = Field(default=960, ge=1)
     completed_run_count: int = Field(ge=0)
     failed_run_count: int = Field(ge=0)
     manually_resolved_count: int = Field(ge=0)

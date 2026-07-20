@@ -1,4 +1,4 @@
-"""Frozen Unicode-aware word counting for all V9 protocol paths."""
+"""Frozen Unicode-aware word counting for all protocol paths."""
 
 from __future__ import annotations
 

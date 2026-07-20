@@ -1,4 +1,4 @@
-"""Calibration-based power simulation for the repeated, use-case-clustered V9 design."""
+"""Calibration-based power simulation for the repeated, use-case-clustered design."""
 
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ class VarianceComponents:
     use_case_standard_deviation: float
     scenario_standard_deviation: float
     model_standard_deviation: float
-    source_order_standard_deviation: float
     scoring_error_standard_deviation: float
 
     def validate(self) -> None:
@@ -27,7 +26,6 @@ class VarianceComponents:
             self.use_case_standard_deviation,
             self.scenario_standard_deviation,
             self.model_standard_deviation,
-            self.source_order_standard_deviation,
             self.scoring_error_standard_deviation,
         ]
         if any(value < 0 for value in values) or not any(value > 0 for value in values):
@@ -39,21 +37,19 @@ def simulate_repeated_design_p_values(
     components: VarianceComponents,
     simulations: int,
     seed: int,
-    source_orders: int = 2,
 ) -> np.ndarray:
-    """Simulate clustered use-case tests after averaging repeated models and source orders."""
+    """Simulate clustered use-case tests after averaging repeated scenarios and models."""
     components.validate()
-    if simulations < 1 or source_orders not in {1, 2}:
-        raise ValueError("power simulation requires positive draws and one or two source orders")
+    if simulations < 1:
+        raise ValueError("power simulation requires positive draws")
     generator = np.random.default_rng(seed)
-    shape = (simulations, 10, 4, 3, source_orders)
-    use_case_effect = generator.normal(0, components.use_case_standard_deviation, size=(simulations, 10, 1, 1, 1))
-    scenario_effect = generator.normal(0, components.scenario_standard_deviation, size=(simulations, 10, 4, 1, 1))
-    model_effect = generator.normal(0, components.model_standard_deviation, size=(simulations, 1, 1, 3, 1))
-    source_order_effect = generator.normal(0, components.source_order_standard_deviation, size=(simulations, 1, 1, 1, source_orders))
+    shape = (simulations, 10, 4, 3)
+    use_case_effect = generator.normal(0, components.use_case_standard_deviation, size=(simulations, 10, 1, 1))
+    scenario_effect = generator.normal(0, components.scenario_standard_deviation, size=(simulations, 10, 4, 1))
+    model_effect = generator.normal(0, components.model_standard_deviation, size=(simulations, 1, 1, 3))
     scoring_error = generator.normal(0, components.scoring_error_standard_deviation, size=shape)
-    repeated_effects = effect + use_case_effect + scenario_effect + model_effect + source_order_effect + scoring_error
-    use_case_means = repeated_effects.mean(axis=(2, 3, 4))
+    repeated_effects = effect + use_case_effect + scenario_effect + model_effect + scoring_error
+    use_case_means = repeated_effects.mean(axis=(2, 3))
     standard_errors = use_case_means.std(axis=1, ddof=1) / np.sqrt(10)
     statistics = np.divide(use_case_means.mean(axis=1), standard_errors, out=np.zeros(simulations), where=standard_errors > 0)
     return 2 * stats.t.sf(np.abs(statistics), df=9)
@@ -76,7 +72,6 @@ def simulate_holm_corrected_power(
     simulations: int = 5_000,
     alpha: float = 0.05,
     seed: int = 7,
-    source_orders: int = 2,
 ) -> Dict[str, float]:
     """Estimate per-hypothesis rejection probability under the five-test Holm family."""
     if set(effects) != CONFIRMATORY_NAMES or set(components) != CONFIRMATORY_NAMES:
@@ -85,10 +80,7 @@ def simulate_holm_corrected_power(
         raise ValueError("power alpha must lie strictly between zero and one")
     names = sorted(CONFIRMATORY_NAMES)
     p_values = np.column_stack(
-        [
-            simulate_repeated_design_p_values(effects[name], components[name], simulations, seed + index, source_orders)
-            for index, name in enumerate(names)
-        ]
+        [simulate_repeated_design_p_values(effects[name], components[name], simulations, seed + index) for index, name in enumerate(names)]
     )
     rejected = _holm_rejections(p_values, alpha)
     return {name: float(rejected[:, index].mean()) for index, name in enumerate(names)}

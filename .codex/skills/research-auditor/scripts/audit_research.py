@@ -25,7 +25,7 @@ from typing import Dict, List, Optional
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from configs import get_api_settings
+from src.settings import get_api_settings
 
 settings = get_api_settings()
 

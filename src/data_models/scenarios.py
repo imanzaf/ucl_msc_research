@@ -211,71 +211,6 @@ class NumericRegistry(VersionedImmutableModel):
         return self
 
 
-class FactBlueprint(ImmutableModel):
-    """Describe a material fact before rendering its supporting source item."""
-
-    fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_F[1-4]$")
-    pair_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_P[12]$")
-    valence: FactValence
-    proposition_template: str = Field(min_length=1)
-    materiality_rationale: str = Field(min_length=1)
-    numeric_value_ids: List[str] = Field(default_factory=list)
-    intended_source_section: str = Field(min_length=1)
-
-
-class NeutralFactBlueprint(ImmutableModel):
-    """Describe a lower-priority neutral fact before source rendering."""
-
-    fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_N[1-2]$")
-    proposition_template: str = Field(min_length=1)
-    neutral_status_rationale: str = Field(min_length=1)
-    numeric_value_ids: List[str] = Field(default_factory=list)
-    intended_source_section: str = Field(min_length=1)
-
-
-class ScenarioBlueprint(VersionedImmutableModel):
-    """Represent the typed output of the blueprint-generation stage."""
-
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
-    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
-    use_case_id: str = Field(pattern=r"^CF\d{3}$")
-    study_stage: ScenarioStage
-    fictional_entities: List[str] = Field(min_length=1)
-    time_period: str = Field(min_length=1)
-    customer_decision_context: str = Field(min_length=1)
-    variation_summary: str = Field(min_length=1)
-    material_facts: List[FactBlueprint] = Field(min_length=4, max_length=4)
-    neutral_facts: List[NeutralFactBlueprint] = Field(min_length=2, max_length=2)
-    numeric_inputs: List[NumericInput]
-    numeric_calculations: List[NumericCalculation]
-    source_section_order: List[str] = Field(min_length=1)
-    provenance: ArtifactProvenance
-
-    @model_validator(mode="after")
-    def validate_fact_design(self) -> "ScenarioBlueprint":
-        """Require two facts per valence, one adverse and favourable fact per pair."""
-        if self.use_case_id != self.scenario_id.split("_")[0]:
-            raise ValueError("blueprint use_case_id must match scenario_id")
-        if self.study_stage == ScenarioStage.CALIBRATION and not self.scenario_id.endswith("_C1"):
-            raise ValueError("calibration blueprints require a C1 scenario id")
-        if self.study_stage == ScenarioStage.EVALUATION and "_R" not in self.scenario_id:
-            raise ValueError("evaluation blueprints require an R1-R4 scenario id")
-        valences = [fact.valence for fact in self.material_facts]
-        if valences.count(FactValence.ADVERSE) != 2 or valences.count(FactValence.FAVOURABLE) != 2:
-            raise ValueError("blueprint must contain exactly two adverse and two favourable facts")
-        expected_pair_ids = {f"{self.scenario_id}_P1", f"{self.scenario_id}_P2"}
-        if {fact.pair_id for fact in self.material_facts} != expected_pair_ids:
-            raise ValueError("blueprint must contain its exact P1 and P2 pair ids")
-        for pair_id in expected_pair_ids:
-            pair_facts = [fact for fact in self.material_facts if fact.pair_id == pair_id]
-            if {fact.valence for fact in pair_facts} != {FactValence.ADVERSE, FactValence.FAVOURABLE}:
-                raise ValueError("each pair must contain one adverse and one favourable fact")
-        fact_ids = {fact.fact_id for fact in self.material_facts} | {fact.fact_id for fact in self.neutral_facts}
-        if len(fact_ids) != 6 or any(not fact_id.startswith(f"{self.scenario_id}_") for fact_id in fact_ids):
-            raise ValueError("all blueprint fact ids must be unique and scenario-scoped")
-        return self
-
-
 class SourceItem(ImmutableModel):
     """Represent one stable item in the evaluated model's visible packet."""
 
@@ -283,6 +218,33 @@ class SourceItem(ImmutableModel):
     header: str = Field(min_length=1)
     body: str = Field(min_length=1)
     numeric_value_ids: List[str] = Field(default_factory=list)
+
+
+class SourceItemPair(ImmutableModel):
+    """Identify one adverse/favourable source-item pair for a later order study."""
+
+    adverse_source_item_id: str = Field(pattern=r"^[A-Z0-9_]+$")
+    favourable_source_item_id: str = Field(pattern=r"^[A-Z0-9_]+$")
+
+
+class SourceOrderPlan(VersionedImmutableModel):
+    """Store hidden metadata needed to derive a secondary source-order variant later."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    material_item_pairs: List[SourceItemPair] = Field(min_length=2, max_length=2)
+    neutral_source_item_ids: List[str] = Field(min_length=2, max_length=2)
+
+    @model_validator(mode="after")
+    def validate_unique_identifiers(self) -> "SourceOrderPlan":
+        """Require two disjoint material pairs and two distinct neutral items."""
+        material_ids = [item_id for pair in self.material_item_pairs for item_id in (pair.adverse_source_item_id, pair.favourable_source_item_id)]
+        if len(material_ids) != len(set(material_ids)):
+            raise ValueError("source-order material item pairs must be disjoint")
+        if len(set(self.neutral_source_item_ids)) != 2:
+            raise ValueError("source-order plan requires two distinct neutral items")
+        if set(material_ids) & set(self.neutral_source_item_ids):
+            raise ValueError("source-order material and neutral items must be disjoint")
+        return self
 
 
 class SourcePacket(VersionedImmutableModel):
@@ -362,7 +324,7 @@ class MaterialFact(ImmutableModel):
 
     @model_validator(mode="after")
     def validate_materiality(self) -> "MaterialFact":
-        """Enforce V9's equal required-status and materiality threshold."""
+        """Enforce the protocol's equal required-status and materiality threshold."""
         if not self.required_in_complete_response:
             raise ValueError("every material fact must be required in a complete response")
         if self.materiality_rating < 3:
@@ -435,7 +397,7 @@ class CandidateScenario(VersionedImmutableModel):
     agent_task: str = Field(min_length=1)
     task_context: TaskContextSeed
     source_order_a: SourcePacket
-    source_order_b: SourcePacket
+    source_order_plan: SourceOrderPlan
     numeric_registry: NumericRegistry
     material_facts: List[MaterialFact] = Field(min_length=4, max_length=4)
     neutral_facts: List[NeutralFact] = Field(min_length=2, max_length=2)
@@ -473,7 +435,7 @@ class AcceptedScenario(VersionedImmutableModel):
     agent_task: str = Field(min_length=1)
     task_context: TaskContextSeed
     source_order_a: SourcePacket
-    source_order_b: SourcePacket
+    source_order_plan: SourceOrderPlan
     numeric_registry: NumericRegistry
     material_facts: List[MaterialFact] = Field(min_length=4, max_length=4)
     neutral_facts: List[NeutralFact] = Field(min_length=2, max_length=2)
@@ -511,24 +473,24 @@ def _validate_scenario_content(scenario: Union[CandidateScenario, AcceptedScenar
     expected_stage = infer_scenario_stage(scenario.scenario_id)
     if scenario.study_stage != expected_stage:
         raise ValueError("scenario stage must be derived from scenario_id")
-    if (
-        scenario.source_order_a.scenario_id != scenario.scenario_id
-        or scenario.source_order_b.scenario_id != scenario.scenario_id
-        or scenario.minimal_complete_response.scenario_id != scenario.scenario_id
-    ):
+    if scenario.source_order_a.scenario_id != scenario.scenario_id or scenario.minimal_complete_response.scenario_id != scenario.scenario_id:
         raise ValueError("scenario components must share scenario_id")
-    if scenario.source_order_a.source_order != SourceOrderVariant.A or scenario.source_order_b.source_order != SourceOrderVariant.B:
-        raise ValueError("scenario requires source orders A and B")
-    if scenario.source_order_a.fixed_title != scenario.source_order_b.fixed_title:
-        raise ValueError("source orders must preserve the fixed title")
-    order_a_ids = [item.source_item_id for item in scenario.source_order_a.items]
-    order_b_ids = [item.source_item_id for item in scenario.source_order_b.items]
-    if order_a_ids == order_b_ids:
-        raise ValueError("source order B must reorder source items")
+    if scenario.source_order_a.source_order != SourceOrderVariant.A:
+        raise ValueError("scenario requires canonical source order A")
     items_a = {item.source_item_id: item for item in scenario.source_order_a.items}
-    items_b = {item.source_item_id: item.model_dump(mode="json") for item in scenario.source_order_b.items}
-    if {item_id: item.model_dump(mode="json") for item_id, item in items_a.items()} != items_b:
-        raise ValueError("source orders must contain identical item/value multisets")
+    planned_item_ids = {
+        item_id
+        for pair in scenario.source_order_plan.material_item_pairs
+        for item_id in (pair.adverse_source_item_id, pair.favourable_source_item_id)
+    } | set(scenario.source_order_plan.neutral_source_item_ids)
+    if not planned_item_ids.issubset(items_a):
+        raise ValueError("source-order plan references an unknown canonical source item")
+    registered_value_ids = {value.value_id for value in scenario.numeric_registry.inputs} | {
+        value.value_id for value in scenario.numeric_registry.computed_values
+    }
+    referenced_value_ids = {value_id for item in scenario.source_order_a.items for value_id in item.numeric_value_ids}
+    if referenced_value_ids != registered_value_ids:
+        raise ValueError("canonical source numeric references must exactly cover the numeric registry")
     expected_prefix = f"{scenario.scenario_id}_"
     material_ids = [fact.fact_id for fact in scenario.material_facts]
     neutral_ids = [fact.fact_id for fact in scenario.neutral_facts]

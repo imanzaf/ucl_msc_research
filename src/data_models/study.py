@@ -1,4 +1,4 @@
-"""Immutable experimental factors and V9 prompt constants."""
+"""Immutable experimental factors and prompt constants."""
 
 from __future__ import annotations
 

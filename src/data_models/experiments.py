@@ -14,10 +14,10 @@ from src.scenarios.word_count import count_words
 
 EVALUATION_SCENARIO_COUNT = 40
 EVALUATED_MODEL_COUNT = 3
-SOURCE_ORDER_COUNT = 2
+SOURCE_ORDER_COUNT = 1
 CELL_COUNT = 8
-EXPECTED_CONVERSATION_COUNT = 1920
-EXPECTED_AGENT_RESPONSE_COUNT = 3840
+EXPECTED_CONVERSATION_COUNT = 960
+EXPECTED_AGENT_RESPONSE_COUNT = 1920
 
 
 def provider_request_sha256(messages: List[Dict[str, str]], model_id: str, temperature: float, max_tokens: int, seed: int) -> str:
@@ -83,7 +83,7 @@ class RetryPolicy(ImmutableModel):
         if any(delay < 0 for delay in self.backoff_seconds):
             raise ValueError("retry delays cannot be negative")
         if not self.reuse_identical_prompt_bytes:
-            raise ValueError("V9 retries must reuse identical prompt bytes")
+            raise ValueError("retries must reuse identical prompt bytes")
         return self
 
 
@@ -112,12 +112,12 @@ class ExperimentConfig(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_target_counts(self) -> "ExperimentConfig":
-        """Refuse any config whose declared target does not equal the V9 design."""
+        """Refuse any config whose declared target does not equal the active design."""
         expected_conversations = self.scenario_count * self.evaluated_model_count * self.source_order_count * self.cell_count
         if expected_conversations != self.expected_conversation_count or expected_conversations != EXPECTED_CONVERSATION_COUNT:
-            raise ValueError("risk_comm_v1 must contain exactly 1,920 conversations")
+            raise ValueError("risk_comm_v1 must contain exactly 960 conversations")
         if self.expected_agent_response_count != expected_conversations * 2:
-            raise ValueError("risk_comm_v1 must contain exactly 3,840 agent responses")
+            raise ValueError("risk_comm_v1 must contain exactly 1,920 agent responses")
         return self
 
 

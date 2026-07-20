@@ -9,15 +9,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
 
-from src.data_models.annotations import repeat_washout_elapsed
 from src.data_models.common import artifact_sha256, validate_model_self_hash
 from src.data_models.scenario_review import (
-    AutomatedReviewKind,
     ResearcherScenarioReview,
     ReviewDecision,
-    ReviewPass,
     ScenarioAcceptanceRecord,
     ScenarioReviewHistory,
+    required_automated_review_kinds,
 )
 from src.data_models.scenarios import AcceptedScenario, CandidateScenario, MinimalCompleteResponse
 from src.storage import write_model_json_atomic
@@ -33,41 +31,17 @@ def validate_accepted_scenario_hash(accepted: AcceptedScenario) -> None:
     validate_model_self_hash(accepted, "artifact_sha256")
 
 
-def _validated_final_researcher_review(
+def _validated_researcher_review(
     reviews: List[ResearcherScenarioReview],
     candidate: CandidateScenario,
 ) -> ResearcherScenarioReview:
-    """Validate the initial-repeat-resolution sequence and return its final decision."""
-    initial = [review for review in reviews if review.review_pass == ReviewPass.INITIAL]
-    repeated = [review for review in reviews if review.review_pass == ReviewPass.REPEAT]
-    resolutions = [review for review in reviews if review.review_pass == ReviewPass.RESOLUTION]
-    if len(initial) != 1 or len(repeated) != 1 or len(resolutions) > 1:
-        raise ValueError("acceptance requires exactly one initial and one delayed-repeat review, plus at most one resolution")
-    first = initial[0]
-    second = repeated[0]
-    if second.initial_review_id != first.review_id:
-        raise ValueError("repeat review does not link to the initial review")
-    if not repeat_washout_elapsed(first.reviewed_at, second.reviewed_at):
-        raise ValueError("repeat scenario review did not satisfy the 14-day washout")
-    if first.researcher_id != second.researcher_id:
-        raise ValueError("initial and repeat reviews must use the same researcher")
-    disagreement = first.decision != second.decision or first.labels != second.labels
-    if disagreement and len(resolutions) != 1:
-        raise ValueError("disagreeing scenario reviews require one resolution record")
-    if not disagreement and resolutions:
-        raise ValueError("resolution is permitted only when initial and repeat reviews disagree")
-    final_review = second
-    if resolutions:
-        resolution = resolutions[0]
-        if resolution.initial_review_id != first.review_id or resolution.repeat_review_id != second.review_id:
-            raise ValueError("resolution does not bind the reviewed initial/repeat pair")
-        if resolution.reviewed_at < second.reviewed_at:
-            raise ValueError("scenario resolution cannot predate the repeat review")
-        final_review = resolution
-    for review in reviews:
-        if review.scenario_id != candidate.scenario_id or review.reviewed_artifact_sha256 != candidate.candidate_sha256:
-            raise ValueError("researcher review does not bind the accepted candidate")
-    return final_review
+    """Require exactly one researcher review bound to the candidate proposed for acceptance."""
+    if len(reviews) != 1:
+        raise ValueError("acceptance requires exactly one researcher scenario review")
+    review = reviews[0]
+    if review.scenario_id != candidate.scenario_id or review.reviewed_artifact_sha256 != candidate.candidate_sha256:
+        raise ValueError("researcher review does not bind the accepted candidate")
+    return review
 
 
 def build_accepted_scenario(
@@ -87,16 +61,17 @@ def build_accepted_scenario(
             raise ValueError("final revision output does not match the candidate proposed for acceptance")
     elif any(review.reviewed_artifact_sha256 != candidate.candidate_sha256 for review in review_history.automated_reviews):
         raise ValueError("unrevised review history contains a review of a different candidate")
-    final_automated = review_history.automated_reviews[-3:]
-    if set(review.review_kind for review in final_automated) != set(AutomatedReviewKind):
-        raise ValueError("acceptance requires all three final automated review kinds")
-    if any(review.decision != ReviewDecision.ACCEPT for review in final_automated):
+    required_review_kinds = required_automated_review_kinds(candidate.scenario_id)
+    final_automated = {
+        review.review_kind: review for review in review_history.automated_reviews if review.reviewed_artifact_sha256 == candidate.candidate_sha256
+    }
+    if set(final_automated) != required_review_kinds:
+        raise ValueError("acceptance requires every stage-relevant automated review of the final candidate")
+    if any(review.decision != ReviewDecision.ACCEPT for review in final_automated.values()):
         raise ValueError("acceptance requires every final automated review to pass")
-    if any(review.reviewed_artifact_sha256 != candidate.candidate_sha256 for review in final_automated):
-        raise ValueError("final automated reviews do not bind the accepted candidate")
-    final_researcher_review = _validated_final_researcher_review(review_history.researcher_reviews, candidate)
-    if final_researcher_review.decision != ReviewDecision.ACCEPT:
-        raise ValueError("acceptance requires an accepted final researcher decision")
+    researcher_review = _validated_researcher_review(review_history.researcher_reviews, candidate)
+    if researcher_review.decision != ReviewDecision.ACCEPT:
+        raise ValueError("acceptance requires an accepted researcher decision")
     if not approved_minimal_response.approved or approved_minimal_response.scenario_id != candidate.scenario_id:
         raise ValueError("acceptance requires a researcher-approved minimal response for the candidate")
     approval_fields = {"approved", "approved_at", "approved_by"}
@@ -126,7 +101,7 @@ def build_accepted_scenario(
         "agent_task": candidate.agent_task,
         "task_context": candidate.task_context,
         "source_order_a": candidate.source_order_a,
-        "source_order_b": candidate.source_order_b,
+        "source_order_plan": candidate.source_order_plan,
         "numeric_registry": candidate.numeric_registry,
         "material_facts": candidate.material_facts,
         "neutral_facts": candidate.neutral_facts,

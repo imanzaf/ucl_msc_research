@@ -1,0 +1,132 @@
+{
+  "additionalProperties": false,
+  "description": "Report exact call counts and conservative token/cost estimates before paid execution.",
+  "properties": {
+    "agent_responses": {
+      "default": 1920,
+      "title": "Agent Responses",
+      "type": "integer"
+    },
+    "conversations": {
+      "default": 960,
+      "title": "Conversations",
+      "type": "integer"
+    },
+    "estimated_cost_usd": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Estimated Cost Usd"
+    },
+    "estimated_input_tokens": {
+      "minimum": 0,
+      "title": "Estimated Input Tokens",
+      "type": "integer"
+    },
+    "estimated_output_tokens": {
+      "minimum": 0,
+      "title": "Estimated Output Tokens",
+      "type": "integer"
+    },
+    "experiment_config_sha256": {
+      "title": "Experiment Config Sha256",
+      "type": "string"
+    },
+    "experiment_name": {
+      "pattern": "^risk_comm_v1$",
+      "title": "Experiment Name",
+      "type": "string"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "maximum_attempts_including_retries": {
+      "exclusiveMinimum": 0,
+      "title": "Maximum Attempts Including Retries",
+      "type": "integer"
+    },
+    "pricing_assumptions": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "type": "string"
+          }
+        ]
+      },
+      "title": "Pricing Assumptions",
+      "type": "object"
+    },
+    "pricing_file_sha256": {
+      "title": "Pricing File Sha256",
+      "type": "string"
+    },
+    "report_sha256": {
+      "title": "Report Sha256",
+      "type": "string"
+    },
+    "run_plan_sha256": {
+      "title": "Run Plan Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "worst_case_cost_usd": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Worst Case Cost Usd"
+    },
+    "worst_case_input_tokens": {
+      "minimum": 0,
+      "title": "Worst Case Input Tokens",
+      "type": "integer"
+    },
+    "worst_case_output_tokens": {
+      "minimum": 0,
+      "title": "Worst Case Output Tokens",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "experiment_name",
+    "run_plan_sha256",
+    "experiment_config_sha256",
+    "pricing_file_sha256",
+    "maximum_attempts_including_retries",
+    "estimated_input_tokens",
+    "estimated_output_tokens",
+    "estimated_cost_usd",
+    "worst_case_input_tokens",
+    "worst_case_output_tokens",
+    "worst_case_cost_usd",
+    "pricing_assumptions",
+    "generated_at",
+    "report_sha256"
+  ],
+  "title": "DryRunCostReport",
+  "type": "object"
+}

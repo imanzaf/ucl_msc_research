@@ -1,11 +1,11 @@
-"""Render one source packet and derive an information-equivalent order variant."""
+"""Render canonical sources and derive an optional secondary order variant."""
 
 from __future__ import annotations
 
 from typing import Dict, List, Sequence, Tuple
 
 from src.data_models.common import sha256_bytes
-from src.data_models.scenarios import EvidenceSpan, SourceItem, SourcePacket
+from src.data_models.scenarios import EvidenceSpan, SourceItem, SourceItemPair, SourceOrderPlan, SourcePacket
 from src.data_models.study import SourceOrderVariant
 
 
@@ -41,17 +41,30 @@ def derive_source_orders(
     paired_material_item_ids: List[Tuple[str, str]],
     neutral_item_ids: List[str],
 ) -> Tuple[SourcePacket, SourcePacket]:
-    """Swap material-pair positions and neutral order while preserving item/value multisets."""
+    """Build the canonical packet and optional secondary packet from hidden order metadata."""
+    plan = SourceOrderPlan(
+        schema_version="1.0.0",
+        material_item_pairs=[
+            SourceItemPair(adverse_source_item_id=adverse_id, favourable_source_item_id=favourable_id)
+            for adverse_id, favourable_id in paired_material_item_ids
+        ],
+        neutral_source_item_ids=neutral_item_ids,
+    )
+    canonical = build_source_packet(scenario_id, SourceOrderVariant.A, fixed_title, canonical_items)
+    return canonical, derive_secondary_source_order(canonical, plan)
+
+
+def derive_secondary_source_order(canonical: SourcePacket, plan: SourceOrderPlan) -> SourcePacket:
+    """Derive source order B on demand while preserving the canonical item/value multiset."""
+    if canonical.source_order != SourceOrderVariant.A:
+        raise ValueError("secondary source order must be derived from canonical order A")
+    canonical_items = canonical.items
     item_ids = [item.source_item_id for item in canonical_items]
     if len(item_ids) != len(set(item_ids)):
         raise ValueError("canonical source item ids must be unique")
+    paired_material_item_ids = [(pair.adverse_source_item_id, pair.favourable_source_item_id) for pair in plan.material_item_pairs]
+    neutral_item_ids = plan.neutral_source_item_ids
     material_ids = [item_id for pair in paired_material_item_ids for item_id in pair]
-    if len(paired_material_item_ids) != 2 or len(material_ids) != 4 or len(material_ids) != len(set(material_ids)):
-        raise ValueError("source-order control requires two disjoint material-item pairs")
-    if len(neutral_item_ids) != 2 or len(neutral_item_ids) != len(set(neutral_item_ids)):
-        raise ValueError("source-order control requires exactly two distinct neutral items")
-    if set(material_ids) & set(neutral_item_ids):
-        raise ValueError("material and neutral source-order controls must be disjoint")
     controlled_ids = set(material_ids) | set(neutral_item_ids)
     if not controlled_ids.issubset(item_ids):
         raise ValueError("source-order control references an unknown source item")
@@ -65,10 +78,7 @@ def derive_source_orders(
     reordered_items = [item_by_id[replacement.get(item_id, item_id)] for item_id in item_ids]
     if [item.source_item_id for item in reordered_items] == item_ids:
         raise ValueError("source order B must differ from source order A")
-    return (
-        build_source_packet(scenario_id, SourceOrderVariant.A, fixed_title, canonical_items),
-        build_source_packet(scenario_id, SourceOrderVariant.B, fixed_title, reordered_items),
-    )
+    return build_source_packet(canonical.scenario_id, SourceOrderVariant.B, canonical.fixed_title, reordered_items)
 
 
 def validate_evidence_span(span: EvidenceSpan, item_by_id: Dict[str, SourceItem]) -> None:

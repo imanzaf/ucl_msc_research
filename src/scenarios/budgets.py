@@ -1,4 +1,4 @@
-"""Deterministic V9 tight- and ample-word-budget gates."""
+"""Deterministic tight- and ample-word-budget gates."""
 
 from __future__ import annotations
 

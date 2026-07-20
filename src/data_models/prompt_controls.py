@@ -1,4 +1,4 @@
-"""Byte-level factor-isolation checks for compiled V9 prompts."""
+"""Byte-level factor-isolation checks for compiled experiment prompts."""
 
 from __future__ import annotations
 

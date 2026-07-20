@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from scripts import log_decisions
+from scripts.hooks import log_decisions
 
 
 def test_extract_decisions_ignores_inline_markers_and_code_fenced_templates() -> None:

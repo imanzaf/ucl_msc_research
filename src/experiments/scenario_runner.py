@@ -1,4 +1,4 @@
-"""Build, validate, randomise, resume, and execute all V9 experiment cells."""
+"""Build, validate, randomise, resume, and execute all experiment cells."""
 
 from __future__ import annotations
 
@@ -30,13 +30,13 @@ from src.data_models.prompt_controls import group_run_units_by_block, validate_p
 from src.data_models.scenarios import AcceptedScenario
 from src.data_models.study import AMPLE_WORD_LIMIT, SourceOrderVariant, WordBudgetCondition, all_experiment_cells
 from src.llm.openrouter import ProviderTextResponse
-from src.prompts.v9 import compile_experiment_prompt
+from src.prompts.experiment import compile_experiment_prompt
 from src.scenarios.word_count import count_words
 from src.storage import append_model_jsonl_atomic
 
 
 class TextCompletionProvider(Protocol):
-    """Define the one-attempt provider interface required by the V9 runner."""
+    """Define the one-attempt provider interface required by the experiment runner."""
 
     def complete_text(
         self,
@@ -75,58 +75,54 @@ def build_run_plan(
     randomisation_seed: int,
     created_at: datetime,
 ) -> List[RunUnit]:
-    """Construct and randomise eight immutable cells per scenario–model–order block."""
+    """Construct and randomise eight canonical-order cells per scenario–model block."""
     tight_limits = _tight_limit_by_use_case(budget_manifest)
     run_units: List[RunUnit] = []
     for scenario in sorted(scenarios, key=lambda item: item.scenario_id):
         if scenario.use_case_id not in tight_limits:
             raise ValueError(f"missing frozen tight limit for {scenario.use_case_id}")
-        packets = {
-            SourceOrderVariant.A: scenario.source_order_a,
-            SourceOrderVariant.B: scenario.source_order_b,
-        }
         for model in sorted(models, key=lambda item: item.model_id):
-            for source_order in SourceOrderVariant:
-                packet = packets[source_order]
-                block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id, source_order.value)
-                block_randomisation_seed = _block_seed(randomisation_seed, block_id)
-                cells = all_experiment_cells()
-                random.Random(block_randomisation_seed).shuffle(cells)
-                block_units: List[RunUnit] = []
-                for position, cell in enumerate(cells):
-                    assigned_limit = AMPLE_WORD_LIMIT if cell.word_budget == WordBudgetCondition.AMPLE else tight_limits[scenario.use_case_id]
-                    initial_messages, follow_up, initial_hash, follow_up_hash = compile_experiment_prompt(
-                        scenario=scenario,
-                        source_packet=packet,
+            source_order = SourceOrderVariant.A
+            packet = scenario.source_order_a
+            block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id, source_order.value)
+            block_randomisation_seed = _block_seed(randomisation_seed, block_id)
+            cells = all_experiment_cells()
+            random.Random(block_randomisation_seed).shuffle(cells)
+            block_units: List[RunUnit] = []
+            for position, cell in enumerate(cells):
+                assigned_limit = AMPLE_WORD_LIMIT if cell.word_budget == WordBudgetCondition.AMPLE else tight_limits[scenario.use_case_id]
+                initial_messages, follow_up, initial_hash, follow_up_hash = compile_experiment_prompt(
+                    scenario=scenario,
+                    source_packet=packet,
+                    cell=cell,
+                    assigned_word_limit=assigned_limit,
+                )
+                block_units.append(
+                    RunUnit(
+                        schema_version="1.0.0",
+                        run_unit_id=_short_identifier("RUN", block_id, cell.cell_id),
+                        block_id=block_id,
+                        scenario_id=scenario.scenario_id,
+                        use_case_id=scenario.use_case_id,
+                        model_id=model.model_id,
+                        expected_model_version=model.returned_model_version,
+                        model_snapshot_sha256=artifact_sha256(model),
+                        source_order=source_order,
                         cell=cell,
                         assigned_word_limit=assigned_limit,
+                        global_randomisation_seed=randomisation_seed,
+                        block_randomisation_seed=block_randomisation_seed,
+                        randomised_position=position,
+                        source_packet_sha256=packet.rendered_sha256,
+                        initial_request_messages=initial_messages,
+                        initial_request_sha256=initial_hash,
+                        follow_up_message=follow_up,
+                        follow_up_sha256=follow_up_hash,
+                        created_at=created_at,
                     )
-                    block_units.append(
-                        RunUnit(
-                            schema_version="1.0.0",
-                            run_unit_id=_short_identifier("RUN", block_id, cell.cell_id),
-                            block_id=block_id,
-                            scenario_id=scenario.scenario_id,
-                            use_case_id=scenario.use_case_id,
-                            model_id=model.model_id,
-                            expected_model_version=model.returned_model_version,
-                            model_snapshot_sha256=artifact_sha256(model),
-                            source_order=source_order,
-                            cell=cell,
-                            assigned_word_limit=assigned_limit,
-                            global_randomisation_seed=randomisation_seed,
-                            block_randomisation_seed=block_randomisation_seed,
-                            randomised_position=position,
-                            source_packet_sha256=packet.rendered_sha256,
-                            initial_request_messages=initial_messages,
-                            initial_request_sha256=initial_hash,
-                            follow_up_message=follow_up,
-                            follow_up_sha256=follow_up_hash,
-                            created_at=created_at,
-                        )
-                    )
-                validate_prompt_factor_isolation(block_units)
-                run_units.extend(sorted(block_units, key=lambda item: item.randomised_position))
+                )
+            validate_prompt_factor_isolation(block_units)
+            run_units.extend(sorted(block_units, key=lambda item: item.randomised_position))
     if len(run_units) != EXPECTED_CONVERSATION_COUNT:
         raise ValueError(f"risk_comm_v1 requires exactly {EXPECTED_CONVERSATION_COUNT} run units; built {len(run_units)}")
     if len({run_unit.run_unit_id for run_unit in run_units}) != len(run_units):
@@ -258,16 +254,18 @@ def validate_complete_run_plan(run_units: Iterable[RunUnit], global_randomisatio
     """Recompute IDs, hashes, dimensions, seeds, positions, and eight-cell isolation for the complete plan."""
     units = list(run_units)
     if len(units) != EXPECTED_CONVERSATION_COUNT:
-        raise ValueError("complete run plan must contain exactly 1,920 conversations")
+        raise ValueError("complete run plan must contain exactly 960 conversations")
     grouped = group_run_units_by_block(units)
     if len(grouped) != EXPECTED_CONVERSATION_COUNT // 8:
-        raise ValueError("complete run plan must contain exactly 240 eight-cell blocks")
+        raise ValueError("complete run plan must contain exactly 120 eight-cell blocks")
     if len({unit.run_unit_id for unit in units}) != len(units):
         raise ValueError("complete run plan contains duplicate run-unit IDs")
     scenario_ids = {unit.scenario_id for unit in units}
     model_ids = {unit.model_id for unit in units}
     if len(scenario_ids) != 40 or len(model_ids) != 3:
         raise ValueError("complete run plan requires exactly 40 scenarios and three evaluated models")
+    if {unit.source_order for unit in units} != {SourceOrderVariant.A}:
+        raise ValueError("complete run plan requires canonical source order A only")
     expected_scenario_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 5)}
     if scenario_ids != expected_scenario_ids:
         raise ValueError("complete run plan scenario IDs must be CF001-CF010 R1-R4")

@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Draft candidate catalog. Freeze exact returned model snapshots before any model-generated calibration; this draft is intentionally blocked from execution.",
+  "freeze_status": "draft",
+  "evaluated_models": [
+    {
+      "name": "Llama 3.3 70B Instruct",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "family": "llama",
+      "provider": "Meta",
+      "provider_url": "https://openrouter.ai/meta-llama/llama-3.3-70b-instruct",
+      "access": "openrouter",
+      "weight_type": "open",
+      "priority": "primary"
+    },
+    {
+      "name": "Qwen 2.5 72B Instruct",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "family": "qwen",
+      "provider": "Alibaba Cloud",
+      "provider_url": "https://openrouter.ai/qwen/qwen-2.5-72b-instruct",
+      "access": "openrouter",
+      "weight_type": "open",
+      "priority": "secondary"
+    },
+    {
+      "name": "GPT 5.4 Mini",
+      "model_id": "openai/gpt-5.4-mini",
+      "family": "gpt",
+      "provider": "OpenAI",
+      "provider_url": "https://openrouter.ai/openai/gpt-5.4-mini",
+      "access": "openrouter",
+      "weight_type": "closed",
+      "priority": "secondary"
+    }
+  ],
+  "scoring_models": [
+    {
+      "name": "Gemini 3.1 Flash Lite",
+      "model_id": "google/gemini-3.1-flash-lite",
+      "family": "gemini",
+      "provider": "Google",
+      "provider_url": "https://openrouter.ai/google/gemini-3.1-flash-lite",
+      "access": "openrouter",
+      "weight_type": "closed",
+      "priority": "secondary"
+    }
+  ],
+  "scenario_generator_model": {
+    "name": "GPT 5.4 Mini",
+    "model_id": "openai/gpt-5.4-mini",
+    "family": "gpt",
+    "provider": "OpenAI",
+    "provider_url": "https://openrouter.ai/openai/gpt-5.4-mini",
+    "access": "openrouter",
+    "weight_type": "closed",
+    "priority": "secondary"
+  },
+  "scenario_reviewer_model": {
+    "name": "Claude Haiku 4.5",
+    "model_id": "anthropic/claude-haiku-4.5",
+    "family": "claude",
+    "provider": "Anthropic",
+    "provider_url": "https://openrouter.ai/anthropic/claude-haiku-4.5",
+    "access": "openrouter",
+    "weight_type": "closed",
+    "priority": "secondary"
+  }
+}
