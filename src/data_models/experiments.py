@@ -1,437 +1,414 @@
-"""Pydantic models for end-to-end experiment run artifacts."""
+"""Strict run-unit, transcript, retry, usage, and model-summary boundaries."""
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
-from src.data_models.scenarios import InteractionMode, PromptCondition
-from src.data_models.scoring import (
-    DirectFactDisclosureAssessment,
-    FalseClaimAssessment,
-    ResponseMetricBreakdown,
-    UserHarmMetricBreakdown,
-)
-from src.data_models.user_personas import UserPersonaId
-from src.data_models.user_simulator import (
-    ConversationSpeaker,
-    ConversationTurn,
-    UserSimulatorOutcome,
-    validate_conversation_turns,
-)
+from src.data_models.common import ImmutableModel, StrictModel, VersionedImmutableModel, artifact_sha256, sha256_bytes, validate_sha256
+from src.data_models.study import ExperimentCell, SourceOrderVariant
+from src.scenarios.word_count import count_words
+
+EVALUATION_SCENARIO_COUNT = 40
+EVALUATED_MODEL_COUNT = 3
+SOURCE_ORDER_COUNT = 2
+CELL_COUNT = 8
+EXPECTED_CONVERSATION_COUNT = 1920
+EXPECTED_AGENT_RESPONSE_COUNT = 3840
 
 
-class ExperimentStage(str, Enum):
-    """Classify which pipeline stage produced an LLM call or artifact."""
-
-    SCENARIO_GENERATION = "scenario_generation"
-    SCENARIO_SEMANTIC_REVIEW = "scenario_semantic_review"
-    SCENARIO_REVISION = "scenario_revision"
-    AGENT_RESPONSE = "agent_response"
-    USER_SIMULATOR_OUTCOME = "user_simulator_outcome"
-    DIRECT_FACT_DISCLOSURE_ASSESSMENT = "direct_fact_disclosure_assessment"
-    FALSE_CLAIM_ASSESSMENT = "false_claim_assessment"
-
-
-class ActivationCaptureStatus(str, Enum):
-    """Classify whether activation capture is enabled for an experiment."""
-
-    DISABLED_API_ONLY = "disabled_api_only"
-
-
-class ConversationProtocol(str, Enum):
-    """Identify the conversation-turn protocol used by the scenario design."""
-
-    SCRIPTED_RISK_FOLLOWUP = "scripted_risk_followup"
-
-
-class LLMCallUsage(BaseModel):
-    """Store token and cost usage returned by OpenRouter for one call."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    prompt_tokens: int = Field(default=0, ge=0, description="Prompt tokens reported by OpenRouter.")
-    completion_tokens: int = Field(
-        default=0, ge=0, description="Completion tokens reported by OpenRouter."
-    )
-    total_tokens: int = Field(default=0, ge=0, description="Total tokens reported by OpenRouter.")
-    reasoning_tokens: int = Field(
-        default=0,
-        ge=0,
-        description="Reasoning tokens reported by OpenRouter when available.",
-    )
-    cached_prompt_tokens: int = Field(
-        default=0,
-        ge=0,
-        description="Provider-side cached prompt tokens reported by OpenRouter.",
-    )
-    cache_write_tokens: int = Field(
-        default=0,
-        ge=0,
-        description="Provider-side cache-write tokens reported by OpenRouter.",
-    )
-    cost_credits: float = Field(
-        default=0.0, ge=0.0, description="OpenRouter account credits charged for the call."
-    )
-    upstream_inference_cost: Optional[float] = Field(
-        default=None,
-        ge=0.0,
-        description="Upstream provider cost when OpenRouter reports it.",
+def provider_request_sha256(messages: List[Dict[str, str]], model_id: str, temperature: float, max_tokens: int, seed: int) -> str:
+    """Hash every exact field sent for one text completion request."""
+    return artifact_sha256(
+        {
+            "model": model_id,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "seed": seed,
+        }
     )
 
 
-class ExperimentUsageSummary(BaseModel):
-    """Aggregate token, cost, and cache usage for a stage, run, or experiment."""
+class MessageRole(str, Enum):
+    """Identify a persisted transcript message role."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    api_call_count: int = Field(default=0, ge=0, description="Number of non-cached API calls made.")
-    local_cache_hit_count: int = Field(
-        default=0, ge=0, description="Number of calls served from the local experiment cache."
-    )
-    prompt_tokens: int = Field(
-        default=0, ge=0, description="Total prompt tokens, including cached call usage."
-    )
-    completion_tokens: int = Field(
-        default=0, ge=0, description="Total completion tokens, including cached call usage."
-    )
-    total_tokens: int = Field(
-        default=0, ge=0, description="Total tokens, including cached call usage."
-    )
-    reasoning_tokens: int = Field(
-        default=0, ge=0, description="Total reasoning tokens reported by OpenRouter."
-    )
-    cached_prompt_tokens: int = Field(
-        default=0, ge=0, description="Total provider-side cached prompt tokens."
-    )
-    cache_write_tokens: int = Field(
-        default=0, ge=0, description="Total provider-side cache-write tokens."
-    )
-    cost_credits: float = Field(
-        default=0.0, ge=0.0, description="Total OpenRouter cost associated with stored calls."
-    )
-    actual_cost_credits: float = Field(
-        default=0.0, ge=0.0, description="OpenRouter cost excluding local cache hits."
-    )
-
-    def add_call(self, usage: LLMCallUsage, cache_hit: bool) -> None:
-        """Add one call's usage to the aggregate summary."""
-        if cache_hit:
-            self.local_cache_hit_count += 1
-        else:
-            self.api_call_count += 1
-            self.actual_cost_credits += usage.cost_credits
-        self.prompt_tokens += usage.prompt_tokens
-        self.completion_tokens += usage.completion_tokens
-        self.total_tokens += usage.total_tokens
-        self.reasoning_tokens += usage.reasoning_tokens
-        self.cached_prompt_tokens += usage.cached_prompt_tokens
-        self.cache_write_tokens += usage.cache_write_tokens
-        self.cost_credits += usage.cost_credits
-
-    def merge(self, other: "ExperimentUsageSummary") -> None:
-        """Add another usage summary into this summary."""
-        self.api_call_count += other.api_call_count
-        self.local_cache_hit_count += other.local_cache_hit_count
-        self.prompt_tokens += other.prompt_tokens
-        self.completion_tokens += other.completion_tokens
-        self.total_tokens += other.total_tokens
-        self.reasoning_tokens += other.reasoning_tokens
-        self.cached_prompt_tokens += other.cached_prompt_tokens
-        self.cache_write_tokens += other.cache_write_tokens
-        self.cost_credits += other.cost_credits
-        self.actual_cost_credits += other.actual_cost_credits
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
 
 
-class GenerationConfig(BaseModel):
-    """Store generation parameters that affect cache identity and reproducibility."""
+class RunOutcomeStatus(str, Enum):
+    """Identify the terminal state of one immutable run unit."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    temperature: float = Field(default=0.0, ge=0.0, le=2.0, description="Sampling temperature.")
-    seed: Optional[int] = Field(
-        default=None, description="Optional deterministic seed passed to OpenRouter when supported."
-    )
-    max_tokens: Optional[int] = Field(
-        default=None, ge=1, description="Optional maximum completion token cap."
-    )
-
-    def to_request_params(self) -> Dict[str, Any]:
-        """Return non-null parameters suitable for an OpenRouter request."""
-        params: Dict[str, Any] = {"temperature": self.temperature}
-        if self.seed is not None:
-            params["seed"] = self.seed
-        if self.max_tokens is not None:
-            params["max_tokens"] = self.max_tokens
-        return params
+    COMPLETED = "completed"
+    FAILED = "failed"
+    MISSING = "missing"
 
 
-class LLMCallRecord(BaseModel):
-    """Persist raw and parsed information for one OpenRouter call."""
+class FailureReason(str, Enum):
+    """Classify run failures without deleting their assigned unit."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    call_id: str = Field(min_length=1, description="Stable id for the call within this experiment.")
-    stage: ExperimentStage = Field(description="Pipeline stage that made the call.")
-    model_id: str = Field(min_length=1, description="Requested model id or slug.")
-    resolved_model_id: str = Field(
-        default="", description="Model id returned by the provider, when available."
-    )
-    generation_id: str = Field(
-        default="", description="OpenRouter generation id returned by the API."
-    )
-    cache_key: str = Field(
-        min_length=1, description="SHA-256 cache key for the normalized request."
-    )
-    cache_hit: bool = Field(
-        default=False, description="Whether this call was served from local cache."
-    )
-    created_at: str = Field(
-        min_length=1, description="UTC timestamp when the call record was created."
-    )
-    prompt_version: str = Field(
-        min_length=1, description="Prompt/template version included in the cache key."
-    )
-    request_payload: Dict[str, Any] = Field(
-        description="Normalized request payload sent to OpenRouter."
-    )
-    response_payload: Dict[str, Any] = Field(
-        default_factory=dict, description="Raw provider response payload."
-    )
-    parsed_output: Optional[Dict[str, Any]] = Field(
-        default=None, description="Parsed structured output, when present."
-    )
-    text_output: Optional[str] = Field(default=None, description="Text output, when present.")
-    usage: LLMCallUsage = Field(
-        default_factory=LLMCallUsage, description="OpenRouter usage information for the call."
-    )
+    PROVIDER_ERROR = "provider_error"
+    TIMEOUT = "timeout"
+    INVALID_RESPONSE = "invalid_response"
+    RETRIES_EXHAUSTED = "retries_exhausted"
 
 
-class LLMCallFailureAttempt(BaseModel):
-    """Persist one failed API or structured-parse attempt for audit."""
+class CompletionFinishReason(str, Enum):
+    """Normalise provider completion termination without discarding unknown values."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    attempt: int = Field(ge=1)
-    error_type: str = Field(min_length=1)
-    error_message: str = Field(min_length=1)
-    response_payload: Dict[str, Any] = Field(default_factory=dict)
-
-
-class LLMCallFailureRecord(BaseModel):
-    """Persist all exhausted attempts for one uncached OpenRouter call."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    failure_id: str = Field(min_length=1)
-    stage: ExperimentStage
-    model_id: str = Field(min_length=1)
-    cache_key: str = Field(min_length=1)
-    created_at: str = Field(min_length=1)
-    prompt_version: str = Field(min_length=1)
-    request_payload: Dict[str, Any]
-    attempts: List[LLMCallFailureAttempt] = Field(min_length=1)
+    STOP = "stop"
+    LENGTH = "length"
+    CONTENT_FILTER = "content_filter"
+    TOOL_CALLS = "tool_calls"
+    UNKNOWN = "unknown"
 
 
-class RunUnitIdentity(BaseModel):
-    """Identify one scenario instance, prompt condition, persona, and model run."""
+class RetryPolicy(ImmutableModel):
+    """Freeze retry count and backoff while prohibiting prompt mutation."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    scenario_family_id: str = Field(min_length=1, description="Scenario family id.")
-    scenario_id: str = Field(min_length=1, description="Scenario instance id.")
-    interaction_mode: InteractionMode = Field(
-        description="Single-turn or multi-turn scenario mode."
-    )
-    prompt_condition: PromptCondition = Field(description="Agent prompt condition.")
-    persona_id: UserPersonaId = Field(description="Reusable user persona id.")
-    agent_model_id: str = Field(
-        min_length=1, description="OpenRouter model slug for the agent under test."
-    )
-    scenario_family_sha256: Optional[str] = Field(
-        default=None,
-        min_length=64,
-        max_length=64,
-        pattern=r"^[0-9a-f]{64}$",
-        description="Digest of the exact scenario family used for this run.",
-    )
-
-    @property
-    def run_unit_id(self) -> str:
-        """Return a stable compact id for this unit of execution."""
-        parts = [self.scenario_family_id, self.scenario_id]
-        if self.scenario_family_sha256 is not None:
-            parts.append(self.scenario_family_sha256)
-        parts.extend(
-            [
-                self.prompt_condition.value,
-                self.persona_id.value,
-                self.agent_model_id.replace("/", "_"),
-            ]
-        )
-        return "__".join(parts)
-
-
-class ExperimentConfig(BaseModel):
-    """Persist the complete configuration snapshot for an experiment directory."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    experiment_name: str = Field(
-        min_length=1, description="Experiment directory name, following <name>_v<N>."
-    )
-    scenario_run_dir: str = Field(
-        min_length=1, description="Directory containing reviewed scenario-family JSON files."
-    )
-    agent_model_ids: List[str] = Field(
-        min_length=1, description="OpenRouter model slugs to run as agents."
-    )
-    user_simulator_model: str = Field(
-        min_length=1, description="OpenRouter model slug used for user simulation."
-    )
-    scoring_model: str = Field(
-        min_length=1, description="OpenRouter model slug used for scoring calls."
-    )
-    generation_config: GenerationConfig = Field(
-        default_factory=GenerationConfig, description="Default generation parameters."
-    )
-    cache_enabled: bool = Field(
-        default=True, description="Whether local experiment LLM-call caching is enabled."
-    )
-    refresh_cache: bool = Field(
-        default=False, description="Whether cached calls should be refreshed."
-    )
-    resume: bool = Field(
-        default=False, description="Whether already-produced run units should be skipped."
-    )
-    family_scenario_concurrency: int = Field(
-        default=1, ge=1, le=16, description="Maximum concurrent scenario instances per family."
-    )
-    scoring_concurrency: int = Field(
-        default=1, ge=1, le=32, description="Maximum completed scenario runs to score concurrently."
-    )
-    activation_capture: ActivationCaptureStatus = Field(
-        default=ActivationCaptureStatus.DISABLED_API_ONLY,
-        description="Activation capture status for this API-only pipeline.",
-    )
-
-
-class ScenarioRunRecord(BaseModel):
-    """Persist the completed transcript and outcome for one run unit."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    experiment_name: str = Field(
-        min_length=1, description="Experiment name that produced this run."
-    )
-    run_id: str = Field(min_length=1, description="Timestamped run id for the scenario-run stage.")
-    run_unit: RunUnitIdentity = Field(description="Scenario/prompt/persona/model identity.")
-    system_prompt: str = Field(
-        min_length=1, description="Agent system prompt rendered for this run."
-    )
-    initial_user_prompt: str = Field(min_length=1, description="Persona-matched first user prompt.")
-    transcript: List[ConversationTurn] = Field(
-        min_length=2, description="Completed user/agent transcript."
-    )
-    transcript_turn_count: int = Field(
-        default=0, ge=0, description="Total turns in the completed transcript."
-    )
-    user_turn_count: int = Field(
-        default=0, ge=0, description="Number of user turns in the transcript."
-    )
-    agent_turn_count: int = Field(
-        default=0, ge=0, description="Number of agent turns in the transcript."
-    )
-    user_simulator_outcome: UserSimulatorOutcome = Field(
-        description="Structured post-conversation user outcome."
-    )
-    call_ids: List[str] = Field(
-        default_factory=list, description="LLM call ids used to produce this record."
-    )
-    usage_summary: ExperimentUsageSummary = Field(default_factory=ExperimentUsageSummary)
-    activation_capture: ActivationCaptureStatus = Field(
-        default=ActivationCaptureStatus.DISABLED_API_ONLY
-    )
-    conversation_protocol: ConversationProtocol = Field(
-        default=ConversationProtocol.SCRIPTED_RISK_FOLLOWUP
-    )
-    scripted_user_followup_count: int = Field(
-        default=0, ge=0, description="Code-owned scripted follow-ups in the transcript."
-    )
+    max_retries: int = Field(ge=0)
+    backoff_seconds: List[float]
+    reuse_identical_prompt_bytes: bool = Field(default=True)
 
     @model_validator(mode="after")
-    def validate_turn_counts(self) -> "ScenarioRunRecord":
-        """Ensure persisted turn-count fields agree with the completed transcript."""
-        validate_conversation_turns(self.transcript)
-        transcript_turn_count = len(self.transcript)
-        user_turn_count = sum(
-            1 for turn in self.transcript if turn.speaker == ConversationSpeaker.USER
-        )
-        agent_turn_count = sum(
-            1 for turn in self.transcript if turn.speaker == ConversationSpeaker.AGENT
-        )
-        if self.conversation_protocol == ConversationProtocol.SCRIPTED_RISK_FOLLOWUP:
-            if user_turn_count != 2 or agent_turn_count != 2:
-                raise ValueError(
-                    "scripted conversations require exactly two user and two agent turns"
-                )
-            if self.run_unit.scenario_family_sha256 is None:
-                raise ValueError("scripted scenario runs require exact scenario-family provenance")
-            scripted_user_followup_count = 1
-
-        provided_counts = {
-            "transcript_turn_count": (self.transcript_turn_count, transcript_turn_count),
-            "user_turn_count": (self.user_turn_count, user_turn_count),
-            "agent_turn_count": (self.agent_turn_count, agent_turn_count),
-            "scripted_user_followup_count": (
-                self.scripted_user_followup_count,
-                scripted_user_followup_count,
-            ),
-        }
-        for field_name, (provided_count, expected_count) in provided_counts.items():
-            if provided_count not in {0, expected_count}:
-                raise ValueError(f"{field_name} must equal {expected_count}")
-
-        self.transcript_turn_count = transcript_turn_count
-        self.user_turn_count = user_turn_count
-        self.agent_turn_count = agent_turn_count
-        self.scripted_user_followup_count = scripted_user_followup_count
+    def validate_backoff(self) -> "RetryPolicy":
+        """Require one nonnegative delay per retry and immutable prompt bytes."""
+        if len(self.backoff_seconds) != self.max_retries:
+            raise ValueError("retry backoff length must equal max_retries")
+        if any(delay < 0 for delay in self.backoff_seconds):
+            raise ValueError("retry delays cannot be negative")
+        if not self.reuse_identical_prompt_bytes:
+            raise ValueError("V9 retries must reuse identical prompt bytes")
         return self
 
 
-class ScoredRunRecord(BaseModel):
-    """Persist scoring judgments and metrics for one scenario run."""
+class ExperimentConfig(VersionedImmutableModel):
+    """Snapshot the risk_comm_v1 execution contract before a run starts."""
 
-    model_config = ConfigDict(extra="forbid")
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    experiment_name: str = Field(pattern=r"^risk_comm_v1$")
+    experiment_manifest_sha256: str
+    scenario_count: int = Field(default=EVALUATION_SCENARIO_COUNT)
+    evaluated_model_count: int = Field(default=EVALUATED_MODEL_COUNT)
+    source_order_count: int = Field(default=SOURCE_ORDER_COUNT)
+    cell_count: int = Field(default=CELL_COUNT)
+    expected_conversation_count: int = Field(default=EXPECTED_CONVERSATION_COUNT)
+    expected_agent_response_count: int = Field(default=EXPECTED_AGENT_RESPONSE_COUNT)
+    temperature: float = Field(default=0.0, ge=0.0, le=0.0)
+    randomisation_seed: int
+    retry_policy: RetryPolicy
+    created_at: datetime
 
-    experiment_name: str = Field(
-        min_length=1, description="Experiment name that produced this score."
-    )
-    scoring_run_id: str = Field(
-        min_length=1, description="Timestamped run id for the scoring stage."
-    )
-    run_unit: RunUnitIdentity = Field(description="Scenario/prompt/persona/model identity.")
-    direct_disclosure_assessment: DirectFactDisclosureAssessment = Field(
-        description="Direct fact-level disclosure assessment."
-    )
-    false_claim_assessment: FalseClaimAssessment = Field(
-        description="Single-pass false-claim judge output."
-    )
-    response_metrics: ResponseMetricBreakdown = Field(description="Programmatic response metrics.")
-    user_harm_metrics: Optional[UserHarmMetricBreakdown] = Field(
-        default=None,
-        description="Programmatic user-harm metrics when outcome data is available.",
-    )
-    call_ids: List[str] = Field(
-        default_factory=list, description="LLM call ids used to produce this score."
-    )
-    usage_summary: ExperimentUsageSummary = Field(default_factory=ExperimentUsageSummary)
+    @field_validator("experiment_manifest_sha256")
+    @classmethod
+    def validate_manifest_hash(cls, value: str) -> str:
+        """Validate the experiment-manifest digest."""
+        return validate_sha256(value)
 
     @model_validator(mode="after")
-    def validate_exact_provenance(self) -> "ScoredRunRecord":
-        """Require exact scenario-family provenance for scored runs."""
-        if self.run_unit.scenario_family_sha256 is None:
-            raise ValueError("scored runs require exact scenario-family provenance")
+    def validate_target_counts(self) -> "ExperimentConfig":
+        """Refuse any config whose declared target does not equal the V9 design."""
+        expected_conversations = self.scenario_count * self.evaluated_model_count * self.source_order_count * self.cell_count
+        if expected_conversations != self.expected_conversation_count or expected_conversations != EXPECTED_CONVERSATION_COUNT:
+            raise ValueError("risk_comm_v1 must contain exactly 1,920 conversations")
+        if self.expected_agent_response_count != expected_conversations * 2:
+            raise ValueError("risk_comm_v1 must contain exactly 3,840 agent responses")
+        return self
+
+
+class CalibrationExperimentConfig(VersionedImmutableModel):
+    """Snapshot the 240-conversation canonical-order calibration matrix."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    experiment_name: str = Field(pattern=r"^risk_comm_calibration_v1$")
+    experiment_manifest_sha256: str
+    scenario_count: int = Field(default=10, ge=10, le=10)
+    evaluated_model_count: int = Field(default=3, ge=3, le=3)
+    source_order_count: int = Field(default=1, ge=1, le=1)
+    cell_count: int = Field(default=8, ge=8, le=8)
+    expected_conversation_count: int = Field(default=240, ge=240, le=240)
+    expected_agent_response_count: int = Field(default=480, ge=480, le=480)
+    temperature: float = Field(default=0.0, ge=0.0, le=0.0)
+    randomisation_seed: int
+    retry_policy: RetryPolicy
+    created_at: datetime
+
+    @field_validator("experiment_manifest_sha256")
+    @classmethod
+    def validate_manifest_hash(cls, value: str) -> str:
+        """Validate the frozen experiment-manifest digest."""
+        return validate_sha256(value)
+
+
+class PromptMessage(ImmutableModel):
+    """Store one exact message in a provider request."""
+
+    role: MessageRole
+    content: str = Field(min_length=1)
+
+
+class RunUnit(VersionedImmutableModel):
+    """Represent one randomised immutable scenario–model–order–cell assignment."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
+    block_id: str = Field(pattern=r"^BLOCK_[A-F0-9]{16}$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
+    use_case_id: str = Field(pattern=r"^CF\d{3}$")
+    model_id: str = Field(min_length=1)
+    expected_model_version: str = Field(min_length=1)
+    model_snapshot_sha256: str
+    source_order: SourceOrderVariant
+    cell: ExperimentCell
+    assigned_word_limit: int = Field(ge=80, le=240)
+    global_randomisation_seed: int
+    block_randomisation_seed: int
+    randomised_position: int = Field(ge=0, le=7)
+    source_packet_sha256: str
+    initial_request_messages: List[PromptMessage] = Field(min_length=2)
+    initial_request_sha256: str
+    follow_up_message: PromptMessage
+    follow_up_sha256: str
+    created_at: datetime
+
+    @field_validator("model_snapshot_sha256", "source_packet_sha256", "initial_request_sha256", "follow_up_sha256")
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate source and prompt digests."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_message_roles(self) -> "RunUnit":
+        """Require aligned IDs, exact prompt hashes, and valid user-message roles."""
+        if self.use_case_id != self.scenario_id.split("_")[0]:
+            raise ValueError("run unit use_case_id must match scenario_id")
+        if self.follow_up_message.role != MessageRole.USER:
+            raise ValueError("follow-up message must have user role")
+        if not any(message.role == MessageRole.USER for message in self.initial_request_messages):
+            raise ValueError("initial request requires a user message")
+        initial_bytes = b"\n".join(f"{message.role.value}\0{message.content}".encode("utf-8") for message in self.initial_request_messages)
+        follow_up_bytes = f"{self.follow_up_message.role.value}\0{self.follow_up_message.content}".encode("utf-8")
+        if self.initial_request_sha256 != sha256_bytes(initial_bytes) or self.follow_up_sha256 != sha256_bytes(follow_up_bytes):
+            raise ValueError("run unit prompt hashes do not match exact message bytes")
+        return self
+
+
+class TokenUsage(ImmutableModel):
+    """Store provider-reported token usage for one response."""
+
+    input_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
+    total_tokens: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_total(self) -> "TokenUsage":
+        """Require total tokens to equal input plus output when supplied."""
+        if self.total_tokens != self.input_tokens + self.output_tokens:
+            raise ValueError("total_tokens must equal input_tokens + output_tokens")
+        return self
+
+
+class ProviderCallProvenance(ImmutableModel):
+    """Bind a structured model artifact to its exact provider request and returned snapshot."""
+
+    requested_model_id: str = Field(min_length=1)
+    returned_model_version: str = Field(min_length=1)
+    provider_request_id: str = Field(min_length=1)
+    finish_reason: CompletionFinishReason
+    usage: TokenUsage
+    request_sha256: str
+    response_sha256: str
+
+    @field_validator("request_sha256", "response_sha256")
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate exact structured request and response digests."""
+        return validate_sha256(value)
+
+
+class ProviderAttempt(ImmutableModel):
+    """Record one provider attempt while proving prompt-byte immutability."""
+
+    attempt_number: int = Field(ge=1)
+    request_sha256: str
+    started_at: datetime
+    completed_at: datetime
+    provider_request_id: Optional[str] = Field(default=None, min_length=1)
+    returned_model_version: Optional[str] = Field(default=None, min_length=1)
+    finish_reason: Optional[CompletionFinishReason] = None
+    response_text: Optional[str] = None
+    response_sha256: Optional[str] = None
+    latency_ms: int = Field(ge=0)
+    usage: Optional[TokenUsage] = None
+    error_type: Optional[str] = Field(default=None, min_length=1)
+    error_message: Optional[str] = Field(default=None, min_length=1)
+
+    @field_validator("request_sha256", "response_sha256")
+    @classmethod
+    def validate_hashes(cls, value: Optional[str]) -> Optional[str]:
+        """Validate request and optional response hashes."""
+        return validate_sha256(value) if value is not None else value
+
+    @model_validator(mode="after")
+    def validate_attempt_outcome(self) -> "ProviderAttempt":
+        """Require exactly a response or error for every provider attempt."""
+        has_response = self.response_text is not None
+        has_error = self.error_type is not None
+        if has_response == has_error:
+            raise ValueError("provider attempt must contain exactly one of response or error")
+        if has_response and (
+            self.response_sha256 is None
+            or self.usage is None
+            or self.returned_model_version is None
+            or self.provider_request_id is None
+            or self.finish_reason is None
+        ):
+            raise ValueError("successful attempts require request id, response hash, usage, finish reason, and returned model version")
+        if has_response and self.response_sha256 != sha256_bytes((self.response_text or "").encode("utf-8")):
+            raise ValueError("provider attempt response hash does not match response text")
+        if self.completed_at < self.started_at:
+            raise ValueError("provider attempt cannot complete before it starts")
+        return self
+
+
+class TranscriptTurn(ImmutableModel):
+    """Store one exact ordered message in a completed conversation."""
+
+    turn_index: int = Field(ge=0, le=3)
+    role: MessageRole
+    content: str = Field(min_length=1)
+    content_sha256: str
+    word_count: int = Field(ge=0)
+
+    @field_validator("content_sha256")
+    @classmethod
+    def validate_content_hash(cls, value: str) -> str:
+        """Validate the turn-content digest."""
+        return validate_sha256(value)
+
+
+class ConversationTranscript(VersionedImmutableModel):
+    """Persist a terminal conversation result immediately after its run unit."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    run_unit: RunUnit
+    outcome_status: RunOutcomeStatus
+    turns: List[TranscriptTurn]
+    initial_attempts: List[ProviderAttempt]
+    follow_up_attempts: List[ProviderAttempt]
+    failure_reason: Optional[FailureReason] = None
+    completed_at: datetime
+    transcript_sha256: str
+
+    @field_validator("transcript_sha256")
+    @classmethod
+    def validate_transcript_hash(cls, value: str) -> str:
+        """Validate the transcript digest."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_transcript_shape(self) -> "ConversationTranscript":
+        """Require four ordered turns for success and immutable request hashes across retries."""
+        initial_request_hashes = {attempt.request_sha256 for attempt in self.initial_attempts}
+        follow_up_request_hashes = {attempt.request_sha256 for attempt in self.follow_up_attempts}
+        if len(initial_request_hashes) > 1:
+            raise ValueError("initial retries must reuse identical request bytes")
+        if len(follow_up_request_hashes) > 1:
+            raise ValueError("follow-up retries must reuse identical request bytes")
+        for attempts in [self.initial_attempts, self.follow_up_attempts]:
+            if attempts and [attempt.attempt_number for attempt in attempts] != list(range(1, len(attempts) + 1)):
+                raise ValueError("provider attempts must be sequential from one")
+            if any(attempt.response_text is not None for attempt in attempts[:-1]):
+                raise ValueError("only the terminal provider attempt may succeed")
+        initial_messages = [{"role": message.role.value, "content": message.content} for message in self.run_unit.initial_request_messages]
+        max_tokens = max(512, self.run_unit.assigned_word_limit * 4)
+        expected_initial_request = provider_request_sha256(
+            initial_messages,
+            self.run_unit.model_id,
+            0.0,
+            max_tokens,
+            self.run_unit.block_randomisation_seed,
+        )
+        if self.initial_attempts and initial_request_hashes != {expected_initial_request}:
+            raise ValueError("initial provider attempts do not bind the frozen run-unit request")
+        if self.outcome_status == RunOutcomeStatus.COMPLETED:
+            if self.failure_reason is not None:
+                raise ValueError("completed transcripts cannot have a failure reason")
+            if [turn.turn_index for turn in self.turns] != [0, 1, 2, 3]:
+                raise ValueError("completed conversations require exactly four ordered turns")
+            if [turn.role for turn in self.turns] != [MessageRole.USER, MessageRole.ASSISTANT, MessageRole.USER, MessageRole.ASSISTANT]:
+                raise ValueError("completed conversations require user/assistant/user/assistant roles")
+            if not self.initial_attempts or not self.follow_up_attempts:
+                raise ValueError("completed conversations require authenticated provider attempts for both responses")
+            if self.initial_attempts[-1].response_text != self.turns[1].content or self.follow_up_attempts[-1].response_text != self.turns[3].content:
+                raise ValueError("assistant transcript turns must equal terminal successful provider responses")
+            initial_user_text = next(message.content for message in self.run_unit.initial_request_messages if message.role == MessageRole.USER)
+            if self.turns[0].content != initial_user_text or self.turns[2].content != self.run_unit.follow_up_message.content:
+                raise ValueError("user transcript turns must equal the frozen initial and follow-up prompts")
+            follow_up_messages = [
+                *initial_messages,
+                {"role": MessageRole.ASSISTANT.value, "content": self.turns[1].content},
+                {"role": self.run_unit.follow_up_message.role.value, "content": self.run_unit.follow_up_message.content},
+            ]
+            expected_follow_up_request = provider_request_sha256(
+                follow_up_messages,
+                self.run_unit.model_id,
+                0.0,
+                max_tokens,
+                self.run_unit.block_randomisation_seed,
+            )
+            if follow_up_request_hashes != {expected_follow_up_request}:
+                raise ValueError("follow-up provider attempts do not bind the frozen conversation request")
+        elif self.failure_reason is None:
+            raise ValueError("failed or missing transcripts require a failure reason")
+        for turn in self.turns:
+            if turn.content_sha256 != sha256_bytes(turn.content.encode("utf-8")) or turn.word_count != count_words(turn.content):
+                raise ValueError("transcript turn hash/count does not match exact content")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"transcript_sha256"}))
+        if self.transcript_sha256 != expected_hash:
+            raise ValueError("transcript_sha256 does not match canonical transcript content")
+        return self
+
+
+class RunProgress(StrictModel):
+    """Track resumable counts without serving as an immutable research artifact."""
+
+    completed_run_unit_ids: List[str]
+    failed_run_unit_ids: List[str]
+    updated_at: datetime
+
+
+class ModelSummary(VersionedImmutableModel):
+    """Summarise completed, missing, and usage counts for one evaluated model."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    model_id: str = Field(min_length=1)
+    expected_conversations: int = Field(gt=0)
+    completed_conversations: int = Field(ge=0)
+    failed_conversations: int = Field(ge=0)
+    missing_conversations: int = Field(ge=0)
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    returned_model_versions: Dict[str, int]
+    summary_sha256: str
+
+    @field_validator("summary_sha256")
+    @classmethod
+    def validate_summary_hash(cls, value: str) -> str:
+        """Validate the model-summary digest."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_counts(self) -> "ModelSummary":
+        """Require terminal counts and a digest matching the canonical summary content."""
+        if self.completed_conversations + self.failed_conversations + self.missing_conversations != self.expected_conversations:
+            raise ValueError("model terminal outcome counts must equal expected_conversations")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"summary_sha256"}))
+        if self.summary_sha256 != expected_hash:
+            raise ValueError("model summary digest does not match canonical content")
         return self

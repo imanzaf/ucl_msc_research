@@ -1,0 +1,99 @@
+{
+  "additionalProperties": false,
+  "description": "Freeze every V9 preregistration input and protocol decision by hash.",
+  "properties": {
+    "accepted_scenario_manifest_sha256": {
+      "title": "Accepted Scenario Manifest Sha256",
+      "type": "string"
+    },
+    "analysis_code_sha256": {
+      "title": "Analysis Code Sha256",
+      "type": "string"
+    },
+    "analysis_commit": {
+      "pattern": "^[a-f0-9]{40}$",
+      "title": "Analysis Commit",
+      "type": "string"
+    },
+    "analysis_plan_sha256": {
+      "title": "Analysis Plan Sha256",
+      "type": "string"
+    },
+    "calibration_annotation_sample_manifest_sha256": {
+      "title": "Calibration Annotation Sample Manifest Sha256",
+      "type": "string"
+    },
+    "experiment_config_sha256": {
+      "title": "Experiment Config Sha256",
+      "type": "string"
+    },
+    "experiment_manifest_sha256": {
+      "title": "Experiment Manifest Sha256",
+      "type": "string"
+    },
+    "frozen_at": {
+      "format": "date-time",
+      "title": "Frozen At",
+      "type": "string"
+    },
+    "frozen_by": {
+      "minLength": 1,
+      "title": "Frozen By",
+      "type": "string"
+    },
+    "manifest_sha256": {
+      "title": "Manifest Sha256",
+      "type": "string"
+    },
+    "power_report_sha256": {
+      "title": "Power Report Sha256",
+      "type": "string"
+    },
+    "protocol_deviation_policy_sha256": {
+      "title": "Protocol Deviation Policy Sha256",
+      "type": "string"
+    },
+    "retry_policy_sha256": {
+      "title": "Retry Policy Sha256",
+      "type": "string"
+    },
+    "run_plan_sha256": {
+      "title": "Run Plan Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "smallest_effects_sha256": {
+      "title": "Smallest Effects Sha256",
+      "type": "string"
+    },
+    "word_budget_manifest_sha256": {
+      "title": "Word Budget Manifest Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "experiment_manifest_sha256",
+    "experiment_config_sha256",
+    "run_plan_sha256",
+    "accepted_scenario_manifest_sha256",
+    "word_budget_manifest_sha256",
+    "calibration_annotation_sample_manifest_sha256",
+    "analysis_commit",
+    "analysis_code_sha256",
+    "power_report_sha256",
+    "smallest_effects_sha256",
+    "retry_policy_sha256",
+    "analysis_plan_sha256",
+    "protocol_deviation_policy_sha256",
+    "frozen_at",
+    "frozen_by",
+    "manifest_sha256"
+  ],
+  "title": "PreregistrationManifest",
+  "type": "object"
+}

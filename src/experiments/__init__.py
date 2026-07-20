@@ -1,6 +1,6 @@
-"""End-to-end experiment orchestration for scenario runs and scoring."""
+"""V9 run planning, execution, scoring, and asset generation."""
 
-from src.experiments.scenario_runner import run_scenarios
-from src.experiments.scoring_pipeline import score_scenario_runs
+from src.experiments.scenario_runner import build_run_plan, execute_run_plan
+from src.experiments.scoring_pipeline import score_conversation
 
-__all__ = ["run_scenarios", "score_scenario_runs"]
+__all__ = ["build_run_plan", "execute_run_plan", "score_conversation"]

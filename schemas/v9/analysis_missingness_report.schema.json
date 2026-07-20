@@ -1,0 +1,167 @@
+{
+  "$defs": {
+    "FailureReason": {
+      "description": "Classify run failures without deleting their assigned unit.",
+      "enum": [
+        "provider_error",
+        "timeout",
+        "invalid_response",
+        "retries_exhausted"
+      ],
+      "title": "FailureReason",
+      "type": "string"
+    },
+    "MissingRunRecord": {
+      "additionalProperties": false,
+      "description": "Describe one preregistered run unit missing after provider retries.",
+      "properties": {
+        "cell_id": {
+          "pattern": "^WB_(AMPLE|TIGHT)__CUE_(NEUTRAL|WORRIED)__INT_(ABSENT|TARGETED)$",
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "failure_reason": {
+          "$ref": "#/$defs/FailureReason"
+        },
+        "model_id": {
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "run_unit_id": {
+          "pattern": "^RUN_[A-F0-9]{16}$",
+          "title": "Run Unit Id",
+          "type": "string"
+        },
+        "scenario_id": {
+          "pattern": "^CF\\d{3}_R[1-4]$",
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "source_order": {
+          "$ref": "#/$defs/SourceOrderVariant"
+        },
+        "terminal_attempt_count": {
+          "minimum": 1,
+          "title": "Terminal Attempt Count",
+          "type": "integer"
+        },
+        "transcript_sha256": {
+          "title": "Transcript Sha256",
+          "type": "string"
+        },
+        "use_case_id": {
+          "pattern": "^CF\\d{3}$",
+          "title": "Use Case Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_unit_id",
+        "scenario_id",
+        "use_case_id",
+        "model_id",
+        "source_order",
+        "cell_id",
+        "failure_reason",
+        "transcript_sha256",
+        "terminal_attempt_count"
+      ],
+      "title": "MissingRunRecord",
+      "type": "object"
+    },
+    "SourceOrderVariant": {
+      "description": "Identify deterministic information-equivalent source order.",
+      "enum": [
+        "A",
+        "B"
+      ],
+      "title": "SourceOrderVariant",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Bind the full 1,920-unit execution ledger to its analyzable subset.",
+  "properties": {
+    "analysis_input_sha256": {
+      "title": "Analysis Input Sha256",
+      "type": "string"
+    },
+    "analysis_row_count": {
+      "minimum": 0,
+      "title": "Analysis Row Count",
+      "type": "integer"
+    },
+    "automated_scored_count": {
+      "minimum": 0,
+      "title": "Automated Scored Count",
+      "type": "integer"
+    },
+    "completed_run_count": {
+      "minimum": 0,
+      "title": "Completed Run Count",
+      "type": "integer"
+    },
+    "expected_run_count": {
+      "default": 1920,
+      "minimum": 1,
+      "title": "Expected Run Count",
+      "type": "integer"
+    },
+    "fact_analysis_input_sha256": {
+      "title": "Fact Analysis Input Sha256",
+      "type": "string"
+    },
+    "failed_run_count": {
+      "minimum": 0,
+      "title": "Failed Run Count",
+      "type": "integer"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "manually_resolved_count": {
+      "minimum": 0,
+      "title": "Manually Resolved Count",
+      "type": "integer"
+    },
+    "missing_runs": {
+      "items": {
+        "$ref": "#/$defs/MissingRunRecord"
+      },
+      "title": "Missing Runs",
+      "type": "array"
+    },
+    "report_sha256": {
+      "title": "Report Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "transcript_ledger_sha256": {
+      "title": "Transcript Ledger Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "completed_run_count",
+    "failed_run_count",
+    "manually_resolved_count",
+    "automated_scored_count",
+    "analysis_row_count",
+    "missing_runs",
+    "transcript_ledger_sha256",
+    "analysis_input_sha256",
+    "fact_analysis_input_sha256",
+    "generated_at",
+    "report_sha256"
+  ],
+  "title": "AnalysisMissingnessReport",
+  "type": "object"
+}

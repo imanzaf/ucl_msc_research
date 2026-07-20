@@ -205,9 +205,7 @@ def _should_log_content(content: str, scope: DecisionScope) -> bool:
     return True
 
 
-def _build_entry(
-    dtype: DecisionType, content: str, source: str, author: AuthorType
-) -> DecisionEntry:
+def _build_entry(dtype: DecisionType, content: str, source: str, author: AuthorType) -> DecisionEntry:
     """Build a serializable decision-log entry."""
     content_hash = hashlib.sha256(content.encode()).hexdigest()
     return {
@@ -274,9 +272,7 @@ def _latest_assistant_text(lines: List[str]) -> Optional[str]:
     return None
 
 
-def _extract_latest_assistant_decisions(
-    lines: List[str], author: AuthorType, scope: DecisionScope
-) -> List[DecisionEntry]:
+def _extract_latest_assistant_decisions(lines: List[str], author: AuthorType, scope: DecisionScope) -> List[DecisionEntry]:
     """Extract decisions from only the most recent assistant response."""
     text = _latest_assistant_text(lines)
     if text is None:
@@ -324,9 +320,7 @@ def main() -> None:
         author = AuthorType(args.author) if args.author else AuthorType.USER
         prompt = event.get("prompt", "")
         if isinstance(prompt, str):
-            candidates = _extract_decisions(
-                prompt, source="user_prompt", author=author, scope=scope
-            )
+            candidates = _extract_decisions(prompt, source="user_prompt", author=author, scope=scope)
 
     elif event_name == "Stop":
         transcript_path = event.get("transcript_path", "")
@@ -341,7 +335,7 @@ def main() -> None:
     for entry in candidates:
         if entry["content_hash"] not in existing:
             _save(entry)
-            existing.add(entry["content_hash"])
+            existing.add(str(entry["content_hash"]))
 
 
 if __name__ == "__main__":

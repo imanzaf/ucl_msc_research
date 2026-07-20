@@ -12,7 +12,6 @@ class OpenRouterCredentialRole(str, Enum):
 
     SCENARIO_GENERATION = "scenario_generation"
     AGENT = "agent"
-    USER_SIMULATOR = "user_simulator"
     SCORING = "scoring"
 
 
@@ -64,11 +63,6 @@ class APISettings(BaseSettings):
         validation_alias="OPENROUTER_API_KEY_AGENT",
         description="OpenRouter API key used for agent response calls.",
     )
-    openrouter_api_key_user_simulator: str = Field(
-        default="",
-        validation_alias="OPENROUTER_API_KEY_USER_SIMULATOR",
-        description="OpenRouter API key used for user-simulator calls.",
-    )
     openrouter_api_key_scoring: str = Field(
         default="",
         validation_alias="OPENROUTER_API_KEY_SCORING",
@@ -93,6 +87,11 @@ class APISettings(BaseSettings):
         default="ucl-msc-research",
         validation_alias="OPENROUTER_APP_TITLE",
         description="Optional OpenRouter attribution app title header.",
+    )
+    paid_api_calls_disabled: bool = Field(
+        default=False,
+        validation_alias="CI_PAID_API_CALLS_DISABLED",
+        description="Fail closed before constructing or using an external paid-call client.",
     )
 
     @field_validator("openai_api_key_citation_validator")
@@ -137,7 +136,6 @@ class APISettings(BaseSettings):
         role_fields = [
             "openrouter_api_key_scenario_generation",
             "openrouter_api_key_agent",
-            "openrouter_api_key_user_simulator",
             "openrouter_api_key_scoring",
         ]
         missing_fields = [field_name for field_name in role_fields if not getattr(self, field_name)]
@@ -145,9 +143,7 @@ class APISettings(BaseSettings):
             return self
         if not self.openrouter_api_key:
             missing_aliases = [field_name.upper() for field_name in missing_fields]
-            raise ValueError(
-                "OpenRouter API keys must be set for these roles: " + ", ".join(missing_aliases)
-            )
+            raise ValueError("OpenRouter API keys must be set for these roles: " + ", ".join(missing_aliases))
         for field_name in missing_fields:
             setattr(self, field_name, self.openrouter_api_key)
         return self
@@ -157,7 +153,6 @@ class APISettings(BaseSettings):
         keys_by_role = {
             OpenRouterCredentialRole.SCENARIO_GENERATION: self.openrouter_api_key_scenario_generation,
             OpenRouterCredentialRole.AGENT: self.openrouter_api_key_agent,
-            OpenRouterCredentialRole.USER_SIMULATOR: self.openrouter_api_key_user_simulator,
             OpenRouterCredentialRole.SCORING: self.openrouter_api_key_scoring,
         }
         return keys_by_role[credential_role]

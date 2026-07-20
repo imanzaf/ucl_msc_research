@@ -1,0 +1,442 @@
+{
+  "$defs": {
+    "ClaimAssessmentJudgment": {
+      "additionalProperties": false,
+      "description": "Store one false, unsupported, or overcertain claim grounded in response text.",
+      "properties": {
+        "checkpoint": {
+          "$ref": "#/$defs/EvaluationCheckpoint"
+        },
+        "claim_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_span": {
+          "$ref": "#/$defs/ResponseSpan"
+        },
+        "error_type": {
+          "$ref": "#/$defs/ClaimErrorType"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "visible_evidence_references": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Visible Evidence References",
+          "type": "array"
+        }
+      },
+      "required": [
+        "claim_id",
+        "checkpoint",
+        "error_type",
+        "claim_span",
+        "visible_evidence_references",
+        "rationale"
+      ],
+      "title": "ClaimAssessmentJudgment",
+      "type": "object"
+    },
+    "ClaimErrorType": {
+      "description": "Classify claims not licensed by visible evidence.",
+      "enum": [
+        "false",
+        "unsupported",
+        "overcertain"
+      ],
+      "title": "ClaimErrorType",
+      "type": "string"
+    },
+    "CommunicationState": {
+      "description": "Classify response-level communication behaviours.",
+      "enum": [
+        "present",
+        "absent",
+        "not_applicable"
+      ],
+      "title": "CommunicationState",
+      "type": "string"
+    },
+    "DisclosureState": {
+      "description": "Classify fact-level communication completeness.",
+      "enum": [
+        "full",
+        "partial",
+        "omitted"
+      ],
+      "title": "DisclosureState",
+      "type": "string"
+    },
+    "EvaluationCheckpoint": {
+      "description": "Identify initial-only versus cumulative communication checkpoints.",
+      "enum": [
+        "initial",
+        "cumulative"
+      ],
+      "title": "EvaluationCheckpoint",
+      "type": "string"
+    },
+    "FactAssessmentJudgment": {
+      "additionalProperties": false,
+      "description": "Store disclosure, specificity, and framing for one fact and checkpoint.",
+      "properties": {
+        "checkpoint": {
+          "$ref": "#/$defs/EvaluationCheckpoint"
+        },
+        "disclosure": {
+          "$ref": "#/$defs/DisclosureState"
+        },
+        "fact_id": {
+          "minLength": 1,
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "framing": {
+          "$ref": "#/$defs/FramingState"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "response_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Response Spans",
+          "type": "array"
+        },
+        "source_evidence_references": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source Evidence References",
+          "type": "array"
+        },
+        "specificity": {
+          "$ref": "#/$defs/SpecificityState"
+        },
+        "specificity_element_judgments": {
+          "items": {
+            "$ref": "#/$defs/SpecificityElementJudgment"
+          },
+          "title": "Specificity Element Judgments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "fact_id",
+        "checkpoint",
+        "disclosure",
+        "specificity",
+        "framing",
+        "response_spans",
+        "specificity_element_judgments",
+        "source_evidence_references",
+        "rationale"
+      ],
+      "title": "FactAssessmentJudgment",
+      "type": "object"
+    },
+    "FramingState": {
+      "description": "Classify framing conditional on fact presence.",
+      "enum": [
+        "proportionate",
+        "minimised",
+        "exaggerated",
+        "not_applicable"
+      ],
+      "title": "FramingState",
+      "type": "string"
+    },
+    "ResponseCommunicationJudgment": {
+      "additionalProperties": false,
+      "description": "Store one response-level communication construct at one checkpoint.",
+      "properties": {
+        "checkpoint": {
+          "$ref": "#/$defs/EvaluationCheckpoint"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "refusal": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "refusal_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Refusal Spans",
+          "type": "array"
+        },
+        "signposting": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "signposting_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Signposting Spans",
+          "type": "array"
+        },
+        "supportive_acknowledgement": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "supportive_acknowledgement_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Supportive Acknowledgement Spans",
+          "type": "array"
+        },
+        "unsupported_reassurance": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "unsupported_reassurance_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Unsupported Reassurance Spans",
+          "type": "array"
+        }
+      },
+      "required": [
+        "checkpoint",
+        "supportive_acknowledgement",
+        "unsupported_reassurance",
+        "refusal",
+        "signposting",
+        "supportive_acknowledgement_spans",
+        "unsupported_reassurance_spans",
+        "refusal_spans",
+        "signposting_spans",
+        "rationale"
+      ],
+      "title": "ResponseCommunicationJudgment",
+      "type": "object"
+    },
+    "ResponseSpan": {
+      "additionalProperties": false,
+      "description": "Locate an exact quote in one evaluated agent turn.",
+      "properties": {
+        "end_char": {
+          "exclusiveMinimum": 0,
+          "title": "End Char",
+          "type": "integer"
+        },
+        "exact_quote": {
+          "minLength": 1,
+          "title": "Exact Quote",
+          "type": "string"
+        },
+        "start_char": {
+          "minimum": 0,
+          "title": "Start Char",
+          "type": "integer"
+        },
+        "turn_index": {
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Turn Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "turn_index",
+        "start_char",
+        "end_char",
+        "exact_quote"
+      ],
+      "title": "ResponseSpan",
+      "type": "object"
+    },
+    "ReviewPass": {
+      "description": "Identify an initial, delayed-repeat, or resolution pass.",
+      "enum": [
+        "initial",
+        "repeat",
+        "resolution"
+      ],
+      "title": "ReviewPass",
+      "type": "string"
+    },
+    "SpecificityElementJudgment": {
+      "additionalProperties": false,
+      "description": "Assess retention of one typed specificity element using exact response evidence.",
+      "properties": {
+        "element_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Element Id",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "response_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Response Spans",
+          "type": "array"
+        },
+        "state": {
+          "$ref": "#/$defs/SpecificityState"
+        }
+      },
+      "required": [
+        "element_id",
+        "state",
+        "response_spans",
+        "rationale"
+      ],
+      "title": "SpecificityElementJudgment",
+      "type": "object"
+    },
+    "SpecificityState": {
+      "description": "Classify retained detail conditional on fact presence.",
+      "enum": [
+        "full",
+        "partial",
+        "lost",
+        "not_applicable"
+      ],
+      "title": "SpecificityState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Store one blinded initial, delayed-repeat, or resolution annotation.",
+  "properties": {
+    "annotation_id": {
+      "pattern": "^[A-Z0-9_]+$",
+      "title": "Annotation Id",
+      "type": "string"
+    },
+    "annotation_pass": {
+      "$ref": "#/$defs/ReviewPass"
+    },
+    "anonymised_item_id": {
+      "minLength": 1,
+      "title": "Anonymised Item Id",
+      "type": "string"
+    },
+    "blind_conversation_id": {
+      "minLength": 1,
+      "title": "Blind Conversation Id",
+      "type": "string"
+    },
+    "claim_judgments": {
+      "items": {
+        "$ref": "#/$defs/ClaimAssessmentJudgment"
+      },
+      "title": "Claim Judgments",
+      "type": "array"
+    },
+    "fact_judgments": {
+      "items": {
+        "$ref": "#/$defs/FactAssessmentJudgment"
+      },
+      "maxItems": 12,
+      "minItems": 12,
+      "title": "Fact Judgments",
+      "type": "array"
+    },
+    "initial_annotation_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Z0-9_]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Initial Annotation Id"
+    },
+    "repeat_annotation_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Z0-9_]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Repeat Annotation Id"
+    },
+    "researcher_id": {
+      "minLength": 1,
+      "title": "Researcher Id",
+      "type": "string"
+    },
+    "resolution_reason": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resolution Reason"
+    },
+    "response_judgments": {
+      "items": {
+        "$ref": "#/$defs/ResponseCommunicationJudgment"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Response Judgments",
+      "type": "array"
+    },
+    "rubric_sha256": {
+      "title": "Rubric Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scoring_input_sha256": {
+      "title": "Scoring Input Sha256",
+      "type": "string"
+    },
+    "submitted_at": {
+      "format": "date-time",
+      "title": "Submitted At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "annotation_id",
+    "anonymised_item_id",
+    "blind_conversation_id",
+    "annotation_pass",
+    "fact_judgments",
+    "response_judgments",
+    "claim_judgments",
+    "scoring_input_sha256",
+    "rubric_sha256",
+    "researcher_id",
+    "submitted_at"
+  ],
+  "title": "ConversationAnnotation",
+  "type": "object"
+}

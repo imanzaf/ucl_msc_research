@@ -1,0 +1,852 @@
+{
+  "$defs": {
+    "ComputedNumericValue": {
+      "additionalProperties": false,
+      "description": "Store a deterministic result and its dependency identifiers.",
+      "properties": {
+        "calculation": {
+          "$ref": "#/$defs/NumericCalculation"
+        },
+        "unit": {
+          "minLength": 1,
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        },
+        "value_id": {
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Value Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value_id",
+        "value",
+        "unit",
+        "calculation"
+      ],
+      "title": "ComputedNumericValue",
+      "type": "object"
+    },
+    "EvidenceSpan": {
+      "additionalProperties": false,
+      "description": "Locate an exact support span within one rendered source item.",
+      "properties": {
+        "end_char": {
+          "exclusiveMinimum": 0,
+          "title": "End Char",
+          "type": "integer"
+        },
+        "exact_text": {
+          "minLength": 1,
+          "title": "Exact Text",
+          "type": "string"
+        },
+        "source_item_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Source Item Id",
+          "type": "string"
+        },
+        "start_char": {
+          "minimum": 0,
+          "title": "Start Char",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_item_id",
+        "start_char",
+        "end_char",
+        "exact_text"
+      ],
+      "title": "EvidenceSpan",
+      "type": "object"
+    },
+    "FactPair": {
+      "additionalProperties": false,
+      "description": "Represent one matched adverse/favourable comparison pair.",
+      "properties": {
+        "adverse_fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]$",
+          "title": "Adverse Fact Id",
+          "type": "string"
+        },
+        "favourable_fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]$",
+          "title": "Favourable Fact Id",
+          "type": "string"
+        },
+        "matching_rationale": {
+          "minLength": 1,
+          "title": "Matching Rationale",
+          "type": "string"
+        },
+        "pair_balance_score": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Pair Balance Score"
+        },
+        "pair_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_P[12]$",
+          "title": "Pair Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pair_id",
+        "adverse_fact_id",
+        "favourable_fact_id",
+        "matching_rationale",
+        "pair_balance_score"
+      ],
+      "title": "FactPair",
+      "type": "object"
+    },
+    "FactValence": {
+      "description": "Identify material-fact valence without encoding it in visible sources.",
+      "enum": [
+        "adverse",
+        "favourable"
+      ],
+      "title": "FactValence",
+      "type": "string"
+    },
+    "MaterialFact": {
+      "additionalProperties": false,
+      "description": "Represent one equally required decision-material fact.",
+      "properties": {
+        "canonical_proposition": {
+          "minLength": 1,
+          "title": "Canonical Proposition",
+          "type": "string"
+        },
+        "fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "materiality_rating": {
+          "maximum": 4,
+          "minimum": 1,
+          "title": "Materiality Rating",
+          "type": "integer"
+        },
+        "materiality_rationale": {
+          "minLength": 1,
+          "title": "Materiality Rationale",
+          "type": "string"
+        },
+        "pair_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_P[12]$",
+          "title": "Pair Id",
+          "type": "string"
+        },
+        "required_in_complete_response": {
+          "title": "Required In Complete Response",
+          "type": "boolean"
+        },
+        "source_support": {
+          "items": {
+            "$ref": "#/$defs/EvidenceSpan"
+          },
+          "minItems": 1,
+          "title": "Source Support",
+          "type": "array"
+        },
+        "specificity_elements": {
+          "items": {
+            "$ref": "#/$defs/SpecificityElement"
+          },
+          "title": "Specificity Elements",
+          "type": "array"
+        },
+        "valence": {
+          "$ref": "#/$defs/FactValence"
+        }
+      },
+      "required": [
+        "fact_id",
+        "pair_id",
+        "valence",
+        "canonical_proposition",
+        "materiality_rationale",
+        "required_in_complete_response",
+        "materiality_rating",
+        "source_support",
+        "specificity_elements"
+      ],
+      "title": "MaterialFact",
+      "type": "object"
+    },
+    "MinimalCompleteResponse": {
+      "additionalProperties": false,
+      "description": "Store the approved facts-only feasibility response and frozen word count.",
+      "properties": {
+        "approved": {
+          "title": "Approved",
+          "type": "boolean"
+        },
+        "approved_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved At"
+        },
+        "approved_by": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved By"
+        },
+        "covered_fact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Covered Fact Ids",
+          "type": "array"
+        },
+        "covered_specificity_element_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Covered Specificity Element Ids",
+          "type": "array"
+        },
+        "scenario_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "pattern": "^1\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "text_sha256": {
+          "title": "Text Sha256",
+          "type": "string"
+        },
+        "word_count": {
+          "exclusiveMinimum": 0,
+          "title": "Word Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema_version",
+        "scenario_id",
+        "text",
+        "word_count",
+        "covered_fact_ids",
+        "covered_specificity_element_ids",
+        "approved",
+        "text_sha256"
+      ],
+      "title": "MinimalCompleteResponse",
+      "type": "object"
+    },
+    "NeutralFact": {
+      "additionalProperties": false,
+      "description": "Represent one lower-priority source-supported neutral fact.",
+      "properties": {
+        "canonical_proposition": {
+          "minLength": 1,
+          "title": "Canonical Proposition",
+          "type": "string"
+        },
+        "fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_N[1-2]$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "neutral_status_rationale": {
+          "minLength": 1,
+          "title": "Neutral Status Rationale",
+          "type": "string"
+        },
+        "source_support": {
+          "items": {
+            "$ref": "#/$defs/EvidenceSpan"
+          },
+          "minItems": 1,
+          "title": "Source Support",
+          "type": "array"
+        }
+      },
+      "required": [
+        "fact_id",
+        "canonical_proposition",
+        "neutral_status_rationale",
+        "source_support"
+      ],
+      "title": "NeutralFact",
+      "type": "object"
+    },
+    "NumericCalculation": {
+      "additionalProperties": false,
+      "description": "Define one deterministic calculation over registered values.",
+      "properties": {
+        "decimal_places": {
+          "default": 2,
+          "maximum": 8,
+          "minimum": 0,
+          "title": "Decimal Places",
+          "type": "integer"
+        },
+        "expected_unit": {
+          "minLength": 1,
+          "title": "Expected Unit",
+          "type": "string"
+        },
+        "operand_value_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Operand Value Ids",
+          "type": "array"
+        },
+        "operation": {
+          "$ref": "#/$defs/NumericOperation"
+        },
+        "output_value_id": {
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Output Value Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output_value_id",
+        "operation",
+        "operand_value_ids",
+        "expected_unit"
+      ],
+      "title": "NumericCalculation",
+      "type": "object"
+    },
+    "NumericInput": {
+      "additionalProperties": false,
+      "description": "Represent one typed input to deterministic arithmetic.",
+      "properties": {
+        "source_note": {
+          "minLength": 1,
+          "title": "Source Note",
+          "type": "string"
+        },
+        "unit": {
+          "minLength": 1,
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        },
+        "value_id": {
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Value Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value_id",
+        "value",
+        "unit",
+        "source_note"
+      ],
+      "title": "NumericInput",
+      "type": "object"
+    },
+    "NumericOperation": {
+      "description": "Identify deterministic arithmetic supported by the numeric engine.",
+      "enum": [
+        "add",
+        "subtract",
+        "multiply",
+        "divide",
+        "percentage_change",
+        "annualised_total"
+      ],
+      "title": "NumericOperation",
+      "type": "string"
+    },
+    "NumericRegistry": {
+      "additionalProperties": false,
+      "description": "Collect raw and computed numeric values for one scenario.",
+      "properties": {
+        "calculations": {
+          "items": {
+            "$ref": "#/$defs/NumericCalculation"
+          },
+          "title": "Calculations",
+          "type": "array"
+        },
+        "computed_values": {
+          "items": {
+            "$ref": "#/$defs/ComputedNumericValue"
+          },
+          "title": "Computed Values",
+          "type": "array"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/NumericInput"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "schema_version": {
+          "pattern": "^1\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "inputs",
+        "calculations",
+        "computed_values"
+      ],
+      "title": "NumericRegistry",
+      "type": "object"
+    },
+    "ScenarioStage": {
+      "description": "Identify calibration versus held-out evaluation scenarios.",
+      "enum": [
+        "calibration",
+        "evaluation"
+      ],
+      "title": "ScenarioStage",
+      "type": "string"
+    },
+    "SourceItem": {
+      "additionalProperties": false,
+      "description": "Represent one stable item in the evaluated model's visible packet.",
+      "properties": {
+        "body": {
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        },
+        "header": {
+          "minLength": 1,
+          "title": "Header",
+          "type": "string"
+        },
+        "numeric_value_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Numeric Value Ids",
+          "type": "array"
+        },
+        "source_item_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Source Item Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_item_id",
+        "header",
+        "body"
+      ],
+      "title": "SourceItem",
+      "type": "object"
+    },
+    "SourceOrderVariant": {
+      "description": "Identify deterministic information-equivalent source order.",
+      "enum": [
+        "A",
+        "B"
+      ],
+      "title": "SourceOrderVariant",
+      "type": "string"
+    },
+    "SourcePacket": {
+      "additionalProperties": false,
+      "description": "Represent one deterministic source-order rendering.",
+      "properties": {
+        "fixed_title": {
+          "minLength": 1,
+          "title": "Fixed Title",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/SourceItem"
+          },
+          "minItems": 6,
+          "title": "Items",
+          "type": "array"
+        },
+        "rendered_sha256": {
+          "title": "Rendered Sha256",
+          "type": "string"
+        },
+        "rendered_text": {
+          "minLength": 1,
+          "title": "Rendered Text",
+          "type": "string"
+        },
+        "scenario_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "pattern": "^1\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_order": {
+          "$ref": "#/$defs/SourceOrderVariant"
+        }
+      },
+      "required": [
+        "schema_version",
+        "scenario_id",
+        "source_order",
+        "fixed_title",
+        "items",
+        "rendered_text",
+        "rendered_sha256"
+      ],
+      "title": "SourcePacket",
+      "type": "object"
+    },
+    "SpecificityElement": {
+      "additionalProperties": false,
+      "description": "Represent one essential or optional fact detail with equivalence rules.",
+      "properties": {
+        "acceptable_paraphrases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Acceptable Paraphrases",
+          "type": "array"
+        },
+        "canonical_value": {
+          "minLength": 1,
+          "title": "Canonical Value",
+          "type": "string"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currency"
+        },
+        "element_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Element Id",
+          "type": "string"
+        },
+        "element_type": {
+          "$ref": "#/$defs/SpecificityElementType"
+        },
+        "essential": {
+          "title": "Essential",
+          "type": "boolean"
+        },
+        "numeric_tolerance": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Numeric Tolerance"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "element_id",
+        "element_type",
+        "canonical_value",
+        "essential"
+      ],
+      "title": "SpecificityElement",
+      "type": "object"
+    },
+    "SpecificityElementType": {
+      "description": "Identify a typed decision-relevant specificity element.",
+      "enum": [
+        "amount",
+        "percentage",
+        "date",
+        "duration",
+        "threshold",
+        "condition",
+        "exception",
+        "comparison"
+      ],
+      "title": "SpecificityElementType",
+      "type": "string"
+    },
+    "TaskContextSeed": {
+      "additionalProperties": false,
+      "description": "Represent researcher-owned task context from the immutable seed.",
+      "properties": {
+        "authority_limits": {
+          "minLength": 1,
+          "title": "Authority Limits",
+          "type": "string"
+        },
+        "core_initial_request": {
+          "minLength": 1,
+          "title": "Core Initial Request",
+          "type": "string"
+        },
+        "customer_goal": {
+          "minLength": 1,
+          "title": "Customer Goal",
+          "type": "string"
+        },
+        "decision_context": {
+          "minLength": 1,
+          "title": "Decision Context",
+          "type": "string"
+        },
+        "evidence_basis": {
+          "minLength": 1,
+          "title": "Evidence Basis",
+          "type": "string"
+        },
+        "reference_format": {
+          "minLength": 1,
+          "title": "Reference Format",
+          "type": "string"
+        },
+        "response_genre": {
+          "minLength": 1,
+          "title": "Response Genre",
+          "type": "string"
+        },
+        "task_archetype": {
+          "minLength": 1,
+          "title": "Task Archetype",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_basis",
+        "authority_limits",
+        "response_genre",
+        "task_archetype",
+        "reference_format",
+        "customer_goal",
+        "core_initial_request",
+        "decision_context"
+      ],
+      "title": "TaskContextSeed",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Represent the only scenario artifact accepted by evaluation loaders.",
+  "properties": {
+    "acceptance_record_sha256": {
+      "title": "Acceptance Record Sha256",
+      "type": "string"
+    },
+    "accepted_at": {
+      "format": "date-time",
+      "title": "Accepted At",
+      "type": "string"
+    },
+    "accepted_by": {
+      "minLength": 1,
+      "title": "Accepted By",
+      "type": "string"
+    },
+    "agent_role": {
+      "minLength": 1,
+      "title": "Agent Role",
+      "type": "string"
+    },
+    "agent_task": {
+      "minLength": 1,
+      "title": "Agent Task",
+      "type": "string"
+    },
+    "artifact_sha256": {
+      "title": "Artifact Sha256",
+      "type": "string"
+    },
+    "artifact_version": {
+      "pattern": "^v[1-9][0-9]*$",
+      "title": "Artifact Version",
+      "type": "string"
+    },
+    "fact_pairs": {
+      "items": {
+        "$ref": "#/$defs/FactPair"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Fact Pairs",
+      "type": "array"
+    },
+    "material_facts": {
+      "items": {
+        "$ref": "#/$defs/MaterialFact"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Material Facts",
+      "type": "array"
+    },
+    "minimal_complete_response": {
+      "$ref": "#/$defs/MinimalCompleteResponse"
+    },
+    "model_owner": {
+      "minLength": 1,
+      "title": "Model Owner",
+      "type": "string"
+    },
+    "neutral_facts": {
+      "items": {
+        "$ref": "#/$defs/NeutralFact"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Neutral Facts",
+      "type": "array"
+    },
+    "numeric_registry": {
+      "$ref": "#/$defs/NumericRegistry"
+    },
+    "review_history_sha256": {
+      "title": "Review History Sha256",
+      "type": "string"
+    },
+    "scenario_id": {
+      "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+      "title": "Scenario Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_order_a": {
+      "$ref": "#/$defs/SourcePacket"
+    },
+    "source_order_b": {
+      "$ref": "#/$defs/SourcePacket"
+    },
+    "study_stage": {
+      "$ref": "#/$defs/ScenarioStage"
+    },
+    "task_context": {
+      "$ref": "#/$defs/TaskContextSeed"
+    },
+    "use_case_id": {
+      "pattern": "^CF\\d{3}$",
+      "title": "Use Case Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_version",
+    "scenario_id",
+    "use_case_id",
+    "study_stage",
+    "agent_role",
+    "model_owner",
+    "agent_task",
+    "task_context",
+    "source_order_a",
+    "source_order_b",
+    "numeric_registry",
+    "material_facts",
+    "neutral_facts",
+    "fact_pairs",
+    "minimal_complete_response",
+    "review_history_sha256",
+    "acceptance_record_sha256",
+    "accepted_at",
+    "accepted_by",
+    "artifact_sha256"
+  ],
+  "title": "AcceptedScenario",
+  "type": "object"
+}

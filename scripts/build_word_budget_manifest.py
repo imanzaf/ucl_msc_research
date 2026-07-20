@@ -1,0 +1,72 @@
+"""Finalize R1-R4 feasibility without changing the previously frozen tight limits."""
+
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timezone
+from pathlib import Path
+
+from src.data_models.common import artifact_sha256, validate_model_self_hash
+from src.data_models.manifests import AcceptedScenarioManifest, FreezeStatus, TightLimitManifest, UseCaseBudget, WordBudgetManifest
+from src.experiments.io import load_all_accepted_scenarios
+from src.scenarios.budgets import validate_evaluation_headroom
+from src.storage import read_model_json, write_model_json_atomic
+
+
+def main() -> None:
+    """Bind accepted R1-R4 responses to immutable C1-derived limits and freeze feasibility."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--accepted-root", type=Path, required=True)
+    parser.add_argument("--accepted-scenario-manifest", type=Path, required=True)
+    parser.add_argument("--tight-limit-manifest", type=Path, required=True)
+    parser.add_argument("--frozen-by", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+
+    accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
+    tight_manifest = read_model_json(args.tight_limit_manifest, TightLimitManifest)
+    validate_model_self_hash(tight_manifest, "manifest_sha256")
+    if tight_manifest.freeze_status != FreezeStatus.FROZEN:
+        raise ValueError("final budget validation requires a previously frozen tight-limit manifest")
+    scenarios = load_all_accepted_scenarios(args.accepted_root, accepted_manifest)
+    scenario_by_id = {scenario.scenario_id: scenario for scenario in scenarios}
+    budgets = []
+    for frozen_budget in tight_manifest.use_case_budgets:
+        calibration = scenario_by_id[frozen_budget.calibration_scenario_id]
+        if calibration.minimal_complete_response.word_count != frozen_budget.calibration_minimal_word_count:
+            raise ValueError("accepted C1 minimal response changed after tight-limit freeze")
+        if artifact_sha256(calibration.minimal_complete_response) != frozen_budget.calibration_minimal_response_sha256:
+            raise ValueError("accepted C1 minimal-response hash changed after tight-limit freeze")
+        evaluations = [scenario_by_id[f"{frozen_budget.use_case_id}_R{replication}"] for replication in range(1, 5)]
+        evaluation_counts = {scenario.scenario_id: scenario.minimal_complete_response.word_count for scenario in evaluations}
+        validate_evaluation_headroom(frozen_budget.tight_word_limit, evaluation_counts)
+        use_case_scenarios = [calibration, *evaluations]
+        budgets.append(
+            UseCaseBudget(
+                use_case_id=frozen_budget.use_case_id,
+                calibration_scenario_id=calibration.scenario_id,
+                calibration_minimal_word_count=frozen_budget.calibration_minimal_word_count,
+                tight_word_limit=frozen_budget.tight_word_limit,
+                evaluation_minimal_word_counts=evaluation_counts,
+                minimal_response_sha256={
+                    scenario.scenario_id: artifact_sha256(scenario.minimal_complete_response) for scenario in use_case_scenarios
+                },
+            )
+        )
+    payload = {
+        "schema_version": "1.0.0",
+        "freeze_status": FreezeStatus.FROZEN,
+        "counter_version": tight_manifest.counter_version,
+        "tight_limit_manifest_sha256": tight_manifest.manifest_sha256,
+        "use_case_budgets": budgets,
+        "ample_pilot": tight_manifest.ample_pilot,
+        "frozen_at": datetime.now(timezone.utc),
+        "frozen_by": args.frozen_by,
+    }
+    manifest = WordBudgetManifest.model_validate({**payload, "manifest_sha256": artifact_sha256(payload)})
+    write_model_json_atomic(args.output, manifest)
+    print(f"Wrote final ten-use-case word-budget feasibility manifest to {args.output}")
+
+
+if __name__ == "__main__":
+    main()

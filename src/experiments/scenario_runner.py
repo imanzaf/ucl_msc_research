@@ -1,823 +1,542 @@
-"""Run reviewed scenario artifacts through agent models and the user simulator."""
+"""Build, validate, randomise, resume, and execute all V9 experiment cells."""
 
 from __future__ import annotations
 
-import hashlib
-import json
-import math
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+import random
+import time
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Protocol, Sequence, Tuple
 
-from loguru import logger
-
+from src.data_models.common import artifact_sha256, canonical_json_bytes, sha256_bytes, utc_now
 from src.data_models.experiments import (
-    ActivationCaptureStatus,
-    ConversationProtocol,
+    EXPECTED_CONVERSATION_COUNT,
+    CalibrationExperimentConfig,
+    ConversationTranscript,
     ExperimentConfig,
-    ExperimentStage,
-    ExperimentUsageSummary,
-    GenerationConfig,
-    RunUnitIdentity,
-    ScenarioRunRecord,
-    ScoredRunRecord,
+    FailureReason,
+    MessageRole,
+    PromptMessage,
+    ProviderAttempt,
+    RetryPolicy,
+    RunOutcomeStatus,
+    RunUnit,
+    TokenUsage,
+    TranscriptTurn,
+    provider_request_sha256,
 )
-from src.data_models.scenario_review import (
-    PilotExpansionStatus,
-    PilotHumanAnnotationArtifact,
-    ScenarioPilotExpansionGate,
-    artifact_sha256,
-    calculate_pilot_omission_precision_recall,
-    calculate_quadratic_weighted_kappa,
-)
-from src.data_models.scenarios import (
-    DisclosureCheckpoint,
-    FactEvaluationRole,
-    PromptCondition,
-    PromptVariant,
-    ScenarioFamily,
-    ScenarioInstance,
-)
-from src.data_models.user_personas import (
-    CommunicationStyle,
-    EmotionIntensity,
-    RiskAppetite,
-    UserEmotion,
-    UserPersona,
-    UserPersonaId,
-)
-from src.data_models.user_simulator import (
-    ConversationSpeaker,
-    ConversationTurn,
-    UserSimulatorOutcome,
-    UserSimulatorOutcomeInput,
-    UserSimulatorPromptTemplate,
-    visible_actions_from_user_actions,
-    visible_beliefs_from_user_beliefs,
-)
-from src.experiments.io import (
-    add_record_usage,
-    append_jsonl,
-    create_timestamped_run_id,
-    load_scenario_families,
-    prepare_experiment_dir,
-    read_jsonl_models,
-    result_paths,
-    summarize_record_usage,
-    write_experiment_config,
-)
-from src.llm.openrouter import LLMCallResult, OpenRouterStructuredClient
-from src.prompts.scenarios.persona_tone import ACTIVE_PERSONA_IDS, ACTIVE_PERSONA_TONE_PREFIXES
-
-SCENARIO_RUN_PROMPT_VERSION = "scenario_run_v1"
-USER_SIMULATOR_PROMPT_VERSION = "user_simulator_prompt_v1"
-PILOT_FAMILY_IDS = {"PFM001", "RW001"}
-PILOT_AGENT_MODEL_ID = "meta-llama/llama-3.3-70b-instruct"
-PILOT_EXPANSION_GATE_PATH = Path("pilot_validation") / "manifest.json"
+from src.data_models.manifests import EvaluatedModelSnapshot, FreezeStatus, WordBudgetManifest
+from src.data_models.prompt_controls import group_run_units_by_block, validate_prompt_factor_isolation
+from src.data_models.scenarios import AcceptedScenario
+from src.data_models.study import AMPLE_WORD_LIMIT, SourceOrderVariant, WordBudgetCondition, all_experiment_cells
+from src.llm.openrouter import ProviderTextResponse
+from src.prompts.v9 import compile_experiment_prompt
+from src.scenarios.word_count import count_words
+from src.storage import append_model_jsonl_atomic
 
 
-@dataclass(frozen=True)
-class ScenarioRunSpec:
-    """Store one selected scenario/prompt/persona/model run unit."""
+class TextCompletionProvider(Protocol):
+    """Define the one-attempt provider interface required by the V9 runner."""
 
-    index: int
-    family: ScenarioFamily
-    instance: ScenarioInstance
-    variant: PromptVariant
-    persona_id: UserPersonaId
-    agent_model_id: str
-
-    @property
-    def unit_id(self) -> str:
-        """Return the stable run-unit id for this selected scenario spec."""
-        return RunUnitIdentity(
-            scenario_family_id=self.family.scenario_family_id,
-            scenario_id=self.instance.scenario_id,
-            interaction_mode=self.family.interaction_mode,
-            prompt_condition=self.variant.condition,
-            persona_id=self.persona_id,
-            agent_model_id=self.agent_model_id,
-            scenario_family_sha256=artifact_sha256(self.family),
-        ).run_unit_id
+    def complete_text(
+        self,
+        model_id: str,
+        messages: List[Dict[str, str]],
+        temperature: float,
+        max_tokens: int,
+        seed: int,
+    ) -> ProviderTextResponse:
+        """Return one provider response or raise an exception."""
+        ...
 
 
-def persona_for_id(persona_id: UserPersonaId) -> UserPersona:
-    """Return the reusable persona object for one persona id."""
-    persona_traits = {
-        UserPersonaId.NEUTRAL_BASELINE: (
-            UserEmotion.NEUTRAL,
-            EmotionIntensity.NEUTRAL,
-            RiskAppetite.BALANCED,
-            CommunicationStyle.BALANCED,
-        ),
-        UserPersonaId.ANXIOUS_RISK_AVERSE: (
-            UserEmotion.ANXIOUS,
-            EmotionIntensity.HIGH,
-            RiskAppetite.RISK_AVERSE,
-            CommunicationStyle.DETAIL_ORIENTED,
-        ),
-        UserPersonaId.POSITIVE_RISK_SEEKING: (
-            UserEmotion.CONFIDENT,
-            EmotionIntensity.HIGH,
-            RiskAppetite.RISK_SEEKING,
-            CommunicationStyle.TRUSTING_DIRECT,
-        ),
-    }
-    emotion, intensity, risk_appetite, communication_style = persona_traits[persona_id]
-    return UserPersona(
-        persona_id=persona_id,
-        emotion=emotion,
-        emotion_intensity=intensity,
-        risk_appetite=risk_appetite,
-        communication_style=communication_style,
-    )
+def _short_identifier(prefix: str, *parts: str) -> str:
+    """Derive a stable uppercase sixteen-hex identifier from canonical parts."""
+    digest = sha256_bytes(canonical_json_bytes(list(parts))).upper()[:16]
+    return f"{prefix}_{digest}"
 
 
-def tone_wrap_prompt(prompt: str, persona_id: UserPersonaId) -> str:
-    """Apply a code-owned affect-only persona wrapper to a fixed request."""
-    return f"{ACTIVE_PERSONA_TONE_PREFIXES[persona_id]}{prompt}"
+def _block_seed(global_seed: int, block_id: str) -> int:
+    """Derive a reproducible per-block integer randomisation seed."""
+    return int(sha256_bytes(f"{global_seed}:{block_id}".encode("utf-8"))[:16], 16)
 
 
-def initial_prompt_for_persona(instance: ScenarioInstance, persona_id: UserPersonaId) -> str:
-    """Return the scenario's first user prompt for a reusable persona."""
-    return tone_wrap_prompt(prompt=instance.core_initial_request, persona_id=persona_id)
+def _tight_limit_by_use_case(manifest: WordBudgetManifest) -> Dict[str, int]:
+    """Return frozen tight limits only after the budget manifest is valid."""
+    if manifest.freeze_status != FreezeStatus.FROZEN or not manifest.ample_pilot.passes():
+        raise ValueError("run planning requires a frozen word-budget manifest and passing ample-limit pilot")
+    return {budget.use_case_id: budget.tight_word_limit for budget in manifest.use_case_budgets}
 
 
-def prompt_variant_by_condition(
-    family: ScenarioFamily, condition: PromptCondition
-) -> PromptVariant:
-    """Return a family's prompt variant for one prompt condition."""
-    for variant in family.prompt_variants:
-        if variant.condition == condition:
-            return variant
-    raise ValueError(f"family {family.scenario_family_id} lacks prompt condition {condition.value}")
-
-
-def filter_allowed(value: str, allowed_values: Optional[Sequence[str]]) -> bool:
-    """Return whether a value passes an optional allow-list filter."""
-    return allowed_values is None or value in allowed_values
-
-
-def iter_run_specs(
-    families: Iterable[ScenarioFamily],
-    agent_model_ids: Sequence[str],
-    scenario_family_ids: Optional[Sequence[str]] = None,
-    scenario_ids: Optional[Sequence[str]] = None,
-    prompt_conditions: Optional[Sequence[str]] = None,
-    persona_ids: Optional[Sequence[str]] = None,
-) -> Iterable[Tuple[ScenarioFamily, ScenarioInstance, PromptVariant, UserPersonaId, str]]:
-    """Yield every scenario/prompt/persona/model combination selected for execution."""
-    allowed_conditions = (
-        {PromptCondition(value) for value in prompt_conditions} if prompt_conditions else None
-    )
-    allowed_personas = {UserPersonaId(value) for value in persona_ids} if persona_ids else None
-    if allowed_personas is not None:
-        unsupported_personas = allowed_personas - set(ACTIVE_PERSONA_IDS)
-        if unsupported_personas:
-            unsupported_values = ", ".join(
-                sorted(persona_id.value for persona_id in unsupported_personas)
-            )
-            raise ValueError(
-                f"current scenarios do not run these persona ids: {unsupported_values}"
-            )
-    for family in families:
-        if not filter_allowed(family.scenario_family_id, scenario_family_ids):
-            continue
-        for instance in family.scenario_instances:
-            if not filter_allowed(instance.scenario_id, scenario_ids):
-                continue
-            for variant in family.prompt_variants:
-                if allowed_conditions is not None and variant.condition not in allowed_conditions:
-                    continue
-                for persona_id in ACTIVE_PERSONA_IDS:
-                    if allowed_personas is not None and persona_id not in allowed_personas:
-                        continue
-                    for agent_model_id in agent_model_ids:
-                        yield family, instance, variant, persona_id, agent_model_id
-
-
-def build_selected_run_specs(
-    families: Iterable[ScenarioFamily],
-    agent_model_ids: Sequence[str],
-    skip_ids: Iterable[str],
-    scenario_family_ids: Optional[Sequence[str]] = None,
-    scenario_ids: Optional[Sequence[str]] = None,
-    prompt_conditions: Optional[Sequence[str]] = None,
-    persona_ids: Optional[Sequence[str]] = None,
-    limit: Optional[int] = None,
-) -> List[ScenarioRunSpec]:
-    """Return selected run specs after filters, resume skips, and an optional limit."""
-    selected_specs: List[ScenarioRunSpec] = []
-    skipped_unit_ids = set(skip_ids)
-    specs = iter_run_specs(
-        families=families,
-        agent_model_ids=agent_model_ids,
-        scenario_family_ids=scenario_family_ids,
-        scenario_ids=scenario_ids,
-        prompt_conditions=prompt_conditions,
-        persona_ids=persona_ids,
-    )
-    for index, (family, instance, variant, persona_id, agent_model_id) in enumerate(specs, start=1):
-        spec = ScenarioRunSpec(
-            index=index,
-            family=family,
-            instance=instance,
-            variant=variant,
-            persona_id=persona_id,
-            agent_model_id=agent_model_id,
-        )
-        if spec.unit_id in skipped_unit_ids:
-            logger.info("Skipping previously completed run unit {}", spec.unit_id)
-            continue
-        if limit is not None and len(selected_specs) >= limit:
-            break
-        selected_specs.append(spec)
-    return selected_specs
-
-
-def resolve_pilot_evidence_path(scenario_run_dir: Path, configured_path: str) -> Path:
-    """Resolve one pilot-evidence path relative to the reviewed scenario run."""
-    path = Path(configured_path)
-    return path if path.is_absolute() else scenario_run_dir / path
-
-
-def sha256_file(path: Path) -> str:
-    """Return the SHA-256 digest of one persisted evidence artifact."""
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def expected_primary_annotation_keys(
-    instance: ScenarioInstance,
-) -> Set[Tuple[str, DisclosureCheckpoint]]:
-    """Return the four primary-fact/checkpoint keys required by the human audit."""
-    return {
-        (fact.fact_unit_id, checkpoint)
-        for fact in instance.fact_units
-        if fact.evaluation_role == FactEvaluationRole.PRIMARY_ADVERSE_TARGET
-        for checkpoint in fact.expected_checkpoints
-    }
-
-
-def recompute_pilot_validation_metrics(
-    pilot_records: List[ScoredRunRecord],
-    pilot_families: List[ScenarioFamily],
-    annotations: PilotHumanAnnotationArtifact,
-    manifest: ScenarioPilotExpansionGate,
-) -> Tuple[float, float, float]:
-    """Align human labels to scored facts and recompute all pilot-validation statistics."""
-    records_by_id = {record.run_unit.run_unit_id: record for record in pilot_records}
-    instances_by_key = {
-        (family.scenario_family_id, instance.scenario_id): instance
-        for family in pilot_families
-        for instance in family.scenario_instances
-    }
-    annotation_ids = {item.run_unit_id for item in annotations.conversations}
-    if annotation_ids != set(manifest.audited_conversation_ids):
-        raise ValueError("pilot annotation conversations do not match the 36-case audit")
-    second_reviewed_ids = {
-        item.run_unit_id
-        for item in annotations.conversations
-        if item.judgments[0].secondary_human_status is not None
-    }
-    if second_reviewed_ids != set(manifest.second_reviewed_conversation_ids):
-        raise ValueError("pilot annotation second reviews do not match the 12-case subset")
-
-    automated_human_pairs = []
-    reviewer_pairs = []
-    for conversation in annotations.conversations:
-        record = records_by_id.get(conversation.run_unit_id)
-        if record is None:
-            raise ValueError("pilot annotation references an unknown scored run unit")
-        instance_key = (record.run_unit.scenario_family_id, record.run_unit.scenario_id)
-        instance = instances_by_key.get(instance_key)
-        if instance is None:
-            raise ValueError("pilot annotation references an unknown accepted scenario")
-        expected_keys = expected_primary_annotation_keys(instance)
-        annotation_keys = {(item.fact_unit_id, item.checkpoint) for item in conversation.judgments}
-        if annotation_keys != expected_keys:
-            raise ValueError("pilot annotation does not cover every primary fact checkpoint")
-        automated_by_key = {
-            (item.fact_unit_id, item.checkpoint): item.disclosure_status
-            for item in record.direct_disclosure_assessment.judgments
+def build_run_plan(
+    scenarios: Sequence[AcceptedScenario],
+    models: Sequence[EvaluatedModelSnapshot],
+    budget_manifest: WordBudgetManifest,
+    randomisation_seed: int,
+    created_at: datetime,
+) -> List[RunUnit]:
+    """Construct and randomise eight immutable cells per scenario–model–order block."""
+    tight_limits = _tight_limit_by_use_case(budget_manifest)
+    run_units: List[RunUnit] = []
+    for scenario in sorted(scenarios, key=lambda item: item.scenario_id):
+        if scenario.use_case_id not in tight_limits:
+            raise ValueError(f"missing frozen tight limit for {scenario.use_case_id}")
+        packets = {
+            SourceOrderVariant.A: scenario.source_order_a,
+            SourceOrderVariant.B: scenario.source_order_b,
         }
-        for item in conversation.judgments:
-            key = (item.fact_unit_id, item.checkpoint)
-            if key not in automated_by_key:
-                raise ValueError("pilot scored assessment lacks a human-audited fact checkpoint")
-            automated_human_pairs.append((automated_by_key[key], item.primary_human_status))
-            if item.secondary_human_status is not None:
-                reviewer_pairs.append((item.primary_human_status, item.secondary_human_status))
-    precision, recall = calculate_pilot_omission_precision_recall(automated_human_pairs)
-    kappa = calculate_quadratic_weighted_kappa(reviewer_pairs)
-    return precision, recall, kappa
+        for model in sorted(models, key=lambda item: item.model_id):
+            for source_order in SourceOrderVariant:
+                packet = packets[source_order]
+                block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id, source_order.value)
+                block_randomisation_seed = _block_seed(randomisation_seed, block_id)
+                cells = all_experiment_cells()
+                random.Random(block_randomisation_seed).shuffle(cells)
+                block_units: List[RunUnit] = []
+                for position, cell in enumerate(cells):
+                    assigned_limit = AMPLE_WORD_LIMIT if cell.word_budget == WordBudgetCondition.AMPLE else tight_limits[scenario.use_case_id]
+                    initial_messages, follow_up, initial_hash, follow_up_hash = compile_experiment_prompt(
+                        scenario=scenario,
+                        source_packet=packet,
+                        cell=cell,
+                        assigned_word_limit=assigned_limit,
+                    )
+                    block_units.append(
+                        RunUnit(
+                            schema_version="1.0.0",
+                            run_unit_id=_short_identifier("RUN", block_id, cell.cell_id),
+                            block_id=block_id,
+                            scenario_id=scenario.scenario_id,
+                            use_case_id=scenario.use_case_id,
+                            model_id=model.model_id,
+                            expected_model_version=model.returned_model_version,
+                            model_snapshot_sha256=artifact_sha256(model),
+                            source_order=source_order,
+                            cell=cell,
+                            assigned_word_limit=assigned_limit,
+                            global_randomisation_seed=randomisation_seed,
+                            block_randomisation_seed=block_randomisation_seed,
+                            randomised_position=position,
+                            source_packet_sha256=packet.rendered_sha256,
+                            initial_request_messages=initial_messages,
+                            initial_request_sha256=initial_hash,
+                            follow_up_message=follow_up,
+                            follow_up_sha256=follow_up_hash,
+                            created_at=created_at,
+                        )
+                    )
+                validate_prompt_factor_isolation(block_units)
+                run_units.extend(sorted(block_units, key=lambda item: item.randomised_position))
+    if len(run_units) != EXPECTED_CONVERSATION_COUNT:
+        raise ValueError(f"risk_comm_v1 requires exactly {EXPECTED_CONVERSATION_COUNT} run units; built {len(run_units)}")
+    if len({run_unit.run_unit_id for run_unit in run_units}) != len(run_units):
+        raise ValueError("run-unit identifiers must be globally unique")
+    return run_units
 
 
-def validate_recomputed_pilot_metrics(
-    manifest: ScenarioPilotExpansionGate,
-    precision: float,
-    recall: float,
-    kappa: float,
+def build_calibration_run_plan(
+    scenarios: Sequence[AcceptedScenario],
+    models: Sequence[EvaluatedModelSnapshot],
+    budget_manifest: WordBudgetManifest,
+    randomisation_seed: int,
+    created_at: datetime,
+) -> List[RunUnit]:
+    """Construct the 240 canonical-order calibration conversations across all eight cells."""
+    tight_limits = _tight_limit_by_use_case(budget_manifest)
+    if len(scenarios) != 10 or any(not scenario.scenario_id.endswith("_C1") for scenario in scenarios):
+        raise ValueError("calibration plan requires exactly the ten accepted C1 scenarios")
+    run_units: List[RunUnit] = []
+    for scenario in sorted(scenarios, key=lambda item: item.scenario_id):
+        for model in sorted(models, key=lambda item: item.model_id):
+            block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id, SourceOrderVariant.A.value)
+            block_randomisation_seed = _block_seed(randomisation_seed, block_id)
+            cells = all_experiment_cells()
+            random.Random(block_randomisation_seed).shuffle(cells)
+            block_units: List[RunUnit] = []
+            for position, cell in enumerate(cells):
+                assigned_limit = AMPLE_WORD_LIMIT if cell.word_budget == WordBudgetCondition.AMPLE else tight_limits[scenario.use_case_id]
+                initial_messages, follow_up, initial_hash, follow_up_hash = compile_experiment_prompt(
+                    scenario, scenario.source_order_a, cell, assigned_limit
+                )
+                block_units.append(
+                    RunUnit(
+                        schema_version="1.0.0",
+                        run_unit_id=_short_identifier("RUN", block_id, cell.cell_id),
+                        block_id=block_id,
+                        scenario_id=scenario.scenario_id,
+                        use_case_id=scenario.use_case_id,
+                        model_id=model.model_id,
+                        expected_model_version=model.returned_model_version,
+                        model_snapshot_sha256=artifact_sha256(model),
+                        source_order=SourceOrderVariant.A,
+                        cell=cell,
+                        assigned_word_limit=assigned_limit,
+                        global_randomisation_seed=randomisation_seed,
+                        block_randomisation_seed=block_randomisation_seed,
+                        randomised_position=position,
+                        source_packet_sha256=scenario.source_order_a.rendered_sha256,
+                        initial_request_messages=initial_messages,
+                        initial_request_sha256=initial_hash,
+                        follow_up_message=follow_up,
+                        follow_up_sha256=follow_up_hash,
+                        created_at=created_at,
+                    )
+                )
+            validate_prompt_factor_isolation(block_units)
+            run_units.extend(sorted(block_units, key=lambda item: item.randomised_position))
+    validate_calibration_run_plan(run_units, randomisation_seed)
+    return run_units
+
+
+def validate_calibration_run_plan(run_units: Iterable[RunUnit], global_randomisation_seed: int | None = None) -> None:
+    """Validate all 30 eight-cell C1/model blocks at canonical source order A."""
+    units = list(run_units)
+    if len(units) != 240:
+        raise ValueError("calibration run plan must contain exactly 240 conversations")
+    grouped = group_run_units_by_block(units)
+    expected_scenarios = {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
+    if {unit.scenario_id for unit in units} != expected_scenarios or len({unit.model_id for unit in units}) != 3:
+        raise ValueError("calibration plan requires ten C1 scenarios and three evaluated models")
+    if {unit.source_order for unit in units} != {SourceOrderVariant.A} or len(grouped) != 30:
+        raise ValueError("calibration plan requires 30 canonical-order eight-cell blocks")
+    stored_seeds = {unit.global_randomisation_seed for unit in units}
+    if len(stored_seeds) != 1:
+        raise ValueError("calibration run units must share one global randomisation seed")
+    stored_seed = next(iter(stored_seeds))
+    if global_randomisation_seed is not None and stored_seed != global_randomisation_seed:
+        raise ValueError("calibration run plan seed differs from its frozen config")
+    if len({unit.run_unit_id for unit in units}) != 240:
+        raise ValueError("calibration run-unit identifiers must be unique")
+    for block_id, block_units in grouped.items():
+        if len(block_units) != 8 or {unit.randomised_position for unit in block_units} != set(range(8)):
+            raise ValueError("every calibration block requires all eight randomised positions")
+        scenario_model = {(unit.scenario_id, unit.model_id) for unit in block_units}
+        if len(scenario_model) != 1:
+            raise ValueError("calibration block must share one scenario and model")
+        scenario_id, model_id = next(iter(scenario_model))
+        expected_block_id = _short_identifier("BLOCK", scenario_id, model_id, SourceOrderVariant.A.value)
+        if block_id != expected_block_id or {unit.block_randomisation_seed for unit in block_units} != {_block_seed(stored_seed, block_id)}:
+            raise ValueError("calibration block id or seed does not derive from its assignment")
+        if len({unit.source_packet_sha256 for unit in block_units}) != 1:
+            raise ValueError("calibration block cells must share one exact source packet")
+        expected_cells = all_experiment_cells()
+        random.Random(_block_seed(stored_seed, block_id)).shuffle(expected_cells)
+        cell_by_position = {unit.randomised_position: unit.cell for unit in block_units}
+        if [cell_by_position[position] for position in range(8)] != expected_cells:
+            raise ValueError("calibration cell order does not reproduce the frozen seeded permutation")
+        for unit in block_units:
+            if unit.run_unit_id != _short_identifier("RUN", block_id, unit.cell.cell_id):
+                raise ValueError("calibration run-unit id does not derive from block and cell")
+        validate_prompt_factor_isolation(block_units)
+
+
+def validate_calibration_plan_against_frozen_inputs(
+    run_units: Iterable[RunUnit],
+    scenarios: Sequence[AcceptedScenario],
+    models: Sequence[EvaluatedModelSnapshot],
+    budget_manifest: WordBudgetManifest,
+    global_randomisation_seed: int,
 ) -> None:
-    """Require assessor-reported pilot statistics to equal deterministic recomputation."""
-    reported_and_computed = [
-        ("omission_precision", manifest.omission_precision, precision),
-        ("omission_recall", manifest.omission_recall, recall),
-        ("weighted_inter_reviewer_kappa", manifest.weighted_inter_reviewer_kappa, kappa),
-    ]
-    for metric_name, reported, computed in reported_and_computed:
-        if not math.isclose(reported, computed, rel_tol=1e-9, abs_tol=1e-9):
-            raise ValueError(f"reported {metric_name} does not match annotation recomputation")
+    """Rebuild the calibration plan from frozen inputs and require exact records."""
+    units = list(run_units)
+    validate_calibration_run_plan(units, global_randomisation_seed)
+    created_at_values = {unit.created_at for unit in units}
+    if len(created_at_values) != 1:
+        raise ValueError("all calibration units must share one plan-creation timestamp")
+    rebuilt = build_calibration_run_plan(
+        scenarios,
+        models,
+        budget_manifest,
+        global_randomisation_seed,
+        next(iter(created_at_values)),
+    )
+    if [unit.model_dump(mode="json") for unit in units] != [unit.model_dump(mode="json") for unit in rebuilt]:
+        raise ValueError("calibration plan is not the exact product of its frozen scenarios, models, budgets, prompts, and seed")
 
 
-def validate_pilot_evidence_artifacts(
-    scenario_run_dir: Path,
-    manifest: ScenarioPilotExpansionGate,
+def validate_complete_run_plan(run_units: Iterable[RunUnit], global_randomisation_seed: int | None = None) -> None:
+    """Recompute IDs, hashes, dimensions, seeds, positions, and eight-cell isolation for the complete plan."""
+    units = list(run_units)
+    if len(units) != EXPECTED_CONVERSATION_COUNT:
+        raise ValueError("complete run plan must contain exactly 1,920 conversations")
+    grouped = group_run_units_by_block(units)
+    if len(grouped) != EXPECTED_CONVERSATION_COUNT // 8:
+        raise ValueError("complete run plan must contain exactly 240 eight-cell blocks")
+    if len({unit.run_unit_id for unit in units}) != len(units):
+        raise ValueError("complete run plan contains duplicate run-unit IDs")
+    scenario_ids = {unit.scenario_id for unit in units}
+    model_ids = {unit.model_id for unit in units}
+    if len(scenario_ids) != 40 or len(model_ids) != 3:
+        raise ValueError("complete run plan requires exactly 40 scenarios and three evaluated models")
+    expected_scenario_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 5)}
+    if scenario_ids != expected_scenario_ids:
+        raise ValueError("complete run plan scenario IDs must be CF001-CF010 R1-R4")
+    stored_global_seeds = {unit.global_randomisation_seed for unit in units}
+    if len(stored_global_seeds) != 1:
+        raise ValueError("all run units must bind one global randomisation seed")
+    stored_global_seed = next(iter(stored_global_seeds))
+    if global_randomisation_seed is not None and stored_global_seed != global_randomisation_seed:
+        raise ValueError("run plan global randomisation seed differs from the frozen config")
+    model_snapshots = {(unit.model_id, unit.expected_model_version, unit.model_snapshot_sha256) for unit in units}
+    if len(model_snapshots) != 3:
+        raise ValueError("each evaluated model must bind one exact snapshot/version")
+    for block_id, block_units in grouped.items():
+        if len(block_units) != 8:
+            raise ValueError("each run-plan block must contain exactly eight units")
+        scenario_model_orders = {(unit.scenario_id, unit.model_id, unit.source_order) for unit in block_units}
+        if len(scenario_model_orders) != 1:
+            raise ValueError("block units must share scenario, model, and source order")
+        scenario_id, model_id, source_order = next(iter(scenario_model_orders))
+        expected_block_id = _short_identifier("BLOCK", scenario_id, model_id, source_order.value)
+        if block_id != expected_block_id:
+            raise ValueError("block ID does not match its immutable assignment")
+        expected_block_seed = _block_seed(stored_global_seed, block_id)
+        if {unit.block_randomisation_seed for unit in block_units} != {expected_block_seed}:
+            raise ValueError("block randomisation seed does not derive from the global seed")
+        if {unit.randomised_position for unit in block_units} != set(range(8)):
+            raise ValueError("block randomised positions must be exactly 0-7")
+        expected_cells = all_experiment_cells()
+        random.Random(expected_block_seed).shuffle(expected_cells)
+        cell_by_position = {unit.randomised_position: unit.cell for unit in block_units}
+        if [cell_by_position[position] for position in range(8)] != expected_cells:
+            raise ValueError("block cell order does not reproduce the frozen seeded permutation")
+        if len({unit.source_packet_sha256 for unit in block_units}) != 1:
+            raise ValueError("all cells in a block must use one exact source packet")
+        for unit in block_units:
+            if unit.run_unit_id != _short_identifier("RUN", block_id, unit.cell.cell_id):
+                raise ValueError("run-unit ID does not derive from block and cell")
+        validate_prompt_factor_isolation(block_units)
+
+
+def validate_run_plan_against_frozen_inputs(
+    run_units: Iterable[RunUnit],
+    scenarios: Sequence[AcceptedScenario],
+    models: Sequence[EvaluatedModelSnapshot],
+    budget_manifest: WordBudgetManifest,
+    global_randomisation_seed: int,
 ) -> None:
-    """Bind a passed pilot gate to exact result and human-annotation artifacts."""
-    pilot_results_path = resolve_pilot_evidence_path(scenario_run_dir, manifest.pilot_results_path)
-    annotations_path = resolve_pilot_evidence_path(
-        scenario_run_dir, manifest.human_annotations_path
+    """Rebuild a main run plan from frozen inputs and require byte-equivalent records."""
+    units = list(run_units)
+    validate_complete_run_plan(units, global_randomisation_seed)
+    created_at_values = {unit.created_at for unit in units}
+    if len(created_at_values) != 1:
+        raise ValueError("all run units must share the one frozen plan-creation timestamp")
+    rebuilt = build_run_plan(
+        scenarios=scenarios,
+        models=models,
+        budget_manifest=budget_manifest,
+        randomisation_seed=global_randomisation_seed,
+        created_at=next(iter(created_at_values)),
     )
-    for path, expected_hash in [
-        (pilot_results_path, manifest.pilot_results_sha256),
-        (annotations_path, manifest.human_annotations_sha256),
-    ]:
-        if not path.is_file():
-            raise ValueError(f"pilot evidence artifact does not exist: {path}")
-        if sha256_file(path) != expected_hash:
-            raise ValueError(f"pilot evidence artifact hash mismatch: {path}")
-
-    pilot_records = read_jsonl_models(path=pilot_results_path, model=ScoredRunRecord)
-    annotations = PilotHumanAnnotationArtifact.model_validate_json(
-        annotations_path.read_text(encoding="utf-8")
-    )
-    actual_run_unit_ids = [record.run_unit.run_unit_id for record in pilot_records]
-    if len(actual_run_unit_ids) != manifest.pilot_conversation_count:
-        raise ValueError("pilot result artifact does not contain exactly 48 conversations")
-    if set(actual_run_unit_ids) != set(manifest.pilot_run_unit_ids):
-        raise ValueError("pilot result artifact run units do not match the expansion manifest")
-    if {record.run_unit.scenario_family_id for record in pilot_records} != set(
-        manifest.pilot_family_ids
-    ):
-        raise ValueError("pilot result artifact does not cover the declared families")
-    if {record.run_unit.agent_model_id for record in pilot_records} != {
-        manifest.pilot_agent_model_id
-    }:
-        raise ValueError("pilot result artifact does not use the declared single agent model")
-    pilot_families = load_scenario_families(
-        scenario_run_dir, scenario_family_ids=manifest.pilot_family_ids
-    )
-    expected_run_unit_ids = {
-        spec.unit_id
-        for spec in build_selected_run_specs(
-            families=pilot_families,
-            agent_model_ids=[manifest.pilot_agent_model_id],
-            skip_ids=[],
-        )
-    }
-    if set(actual_run_unit_ids) != expected_run_unit_ids:
-        raise ValueError(
-            "pilot result artifact does not match the complete accepted family/prompt/persona matrix"
-        )
-    precision, recall, kappa = recompute_pilot_validation_metrics(
-        pilot_records=pilot_records,
-        pilot_families=pilot_families,
-        annotations=annotations,
-        manifest=manifest,
-    )
-    validate_recomputed_pilot_metrics(
-        manifest=manifest, precision=precision, recall=recall, kappa=kappa
-    )
+    observed_payload = [unit.model_dump(mode="json") for unit in units]
+    rebuilt_payload = [unit.model_dump(mode="json") for unit in rebuilt]
+    if observed_payload != rebuilt_payload:
+        raise ValueError("run plan is not the exact deterministic product of its frozen scenarios, models, budgets, prompts, and seed")
 
 
-def validate_pilot_expansion_gate(
-    scenario_run_dir: Path,
-    selected_family_ids: Sequence[str],
-    selected_agent_model_ids: Sequence[str],
-) -> None:
-    """Require passed evidence before adding a family or agent model beyond the pilot."""
-    selected_families = set(selected_family_ids)
-    if not selected_families:
-        return
-    if selected_families.issubset(PILOT_FAMILY_IDS) and set(selected_agent_model_ids) == {
-        PILOT_AGENT_MODEL_ID
-    }:
-        return
-    manifest_path = scenario_run_dir / PILOT_EXPANSION_GATE_PATH
-    if not manifest_path.exists():
-        raise ValueError("non-pilot execution requires pilot_validation/manifest.json")
-    manifest = ScenarioPilotExpansionGate.model_validate_json(
-        manifest_path.read_text(encoding="utf-8")
-    )
-    if manifest.status != PilotExpansionStatus.PASSED:
-        raise ValueError(f"pilot expansion gate is not passed: {manifest.status.value}")
-    if manifest.pilot_agent_model_id != PILOT_AGENT_MODEL_ID:
-        raise ValueError("pilot evidence does not use the fixed primary agent model")
-    validate_pilot_evidence_artifacts(scenario_run_dir=scenario_run_dir, manifest=manifest)
+def _provider_messages(messages: Sequence[PromptMessage]) -> List[Dict[str, str]]:
+    """Convert immutable prompt messages into exact provider dictionaries."""
+    return [{"role": message.role.value, "content": message.content} for message in messages]
 
 
-def group_specs_by_family(
-    specs: Sequence[ScenarioRunSpec],
-) -> List[Tuple[str, List[ScenarioRunSpec]]]:
-    """Group selected specs by family while preserving first-seen order."""
-    grouped_specs: Dict[str, List[ScenarioRunSpec]] = {}
-    for spec in specs:
-        grouped_specs.setdefault(spec.family.scenario_family_id, []).append(spec)
-    return list(grouped_specs.items())
-
-
-def group_specs_by_scenario(
-    specs: Sequence[ScenarioRunSpec],
-) -> List[Tuple[str, List[ScenarioRunSpec]]]:
-    """Group selected specs by scenario instance while preserving first-seen order."""
-    grouped_specs: Dict[str, List[ScenarioRunSpec]] = {}
-    for spec in specs:
-        grouped_specs.setdefault(spec.instance.scenario_id, []).append(spec)
-    return list(grouped_specs.items())
-
-
-def transcript_to_messages(
-    system_prompt: str, transcript: List[ConversationTurn]
-) -> List[Dict[str, str]]:
-    """Convert a typed transcript into OpenRouter chat messages."""
-    messages = [{"role": "system", "content": system_prompt}]
-    for turn in transcript:
-        role = "user" if turn.speaker == ConversationSpeaker.USER else "assistant"
-        messages.append({"role": role, "content": turn.content})
-    return messages
-
-
-def simulator_messages(prompt: str) -> List[Dict[str, str]]:
-    """Wrap a rendered simulator prompt as OpenRouter chat messages."""
-    return [{"role": "user", "content": prompt}]
-
-
-def add_call_usage(
-    summary: ExperimentUsageSummary, call_ids: List[str], result: LLMCallResult[Any]
-) -> None:
-    """Accumulate one LLM call result into a run usage summary."""
-    summary.add_call(usage=result.record.usage, cache_hit=result.record.cache_hit)
-    call_ids.append(result.record.call_id)
-
-
-def metadata_for_unit(unit: RunUnitIdentity, stage: ExperimentStage) -> Dict[str, str]:
-    """Build OpenRouter metadata for observability and sticky routing."""
-    return {
-        "stage": stage.value,
-        "scenario_family_id": unit.scenario_family_id,
-        "scenario_id": unit.scenario_id,
-        "prompt_condition": unit.prompt_condition.value,
-        "persona_id": unit.persona_id.value,
-        "agent_model_id": unit.agent_model_id,
-        "session_id": unit.run_unit_id[:256],
-    }
-
-
-def request_agent_response(
-    client: OpenRouterStructuredClient,
-    unit: RunUnitIdentity,
-    system_prompt: str,
-    transcript: List[ConversationTurn],
-    generation_config: GenerationConfig,
-) -> LLMCallResult[str]:
-    """Request the next agent response for the current conversation."""
-    return client.complete_text(
-        stage=ExperimentStage.AGENT_RESPONSE,
-        model_id=unit.agent_model_id,
-        messages=transcript_to_messages(system_prompt=system_prompt, transcript=transcript),
-        generation_config=generation_config,
-        prompt_version=SCENARIO_RUN_PROMPT_VERSION,
-        metadata=metadata_for_unit(unit=unit, stage=ExperimentStage.AGENT_RESPONSE),
-    )
-
-
-def request_user_outcome(
-    client: OpenRouterStructuredClient,
-    unit: RunUnitIdentity,
-    model_id: str,
-    outcome_input: UserSimulatorOutcomeInput,
-    generation_config: GenerationConfig,
-) -> LLMCallResult[UserSimulatorOutcome]:
-    """Request one structured post-conversation user outcome."""
-    prompt_template = UserSimulatorPromptTemplate()
-    return client.complete_structured(
-        stage=ExperimentStage.USER_SIMULATOR_OUTCOME,
-        model_id=model_id,
-        messages=simulator_messages(prompt_template.render_outcome_prompt(outcome_input)),
-        output_model=UserSimulatorOutcome,
-        generation_config=generation_config,
-        prompt_version=USER_SIMULATOR_PROMPT_VERSION,
-        metadata=metadata_for_unit(unit=unit, stage=ExperimentStage.USER_SIMULATOR_OUTCOME),
-    )
-
-
-def build_outcome_input(
-    family: ScenarioFamily,
-    instance: ScenarioInstance,
-    persona_id: UserPersonaId,
-    transcript: List[ConversationTurn],
-) -> UserSimulatorOutcomeInput:
-    """Build simulator-visible outcome input without hidden harm/support labels."""
-    return UserSimulatorOutcomeInput(
-        user_role=family.user_role,
-        user_goal=instance.user_goal,
-        agent_role=family.agent_role,
-        persona=persona_for_id(persona_id),
-        user_facing_context=instance.user_facing_context,
-        conversation=transcript,
-        available_actions=visible_actions_from_user_actions(instance.possible_user_actions),
-        available_beliefs=visible_beliefs_from_user_beliefs(instance.possible_user_beliefs),
-    )
-
-
-def run_one_scenario_unit(
-    agent_client: OpenRouterStructuredClient,
-    user_simulator_client: OpenRouterStructuredClient,
-    experiment_name: str,
-    run_id: str,
-    family: ScenarioFamily,
-    instance: ScenarioInstance,
-    variant: PromptVariant,
-    persona_id: UserPersonaId,
-    agent_model_id: str,
-    user_simulator_model: str,
-    generation_config: GenerationConfig,
-) -> ScenarioRunRecord:
-    """Run one scenario instance for a single prompt/persona/model unit."""
-    unit = RunUnitIdentity(
-        scenario_family_id=family.scenario_family_id,
-        scenario_id=instance.scenario_id,
-        interaction_mode=family.interaction_mode,
-        prompt_condition=variant.condition,
-        persona_id=persona_id,
-        agent_model_id=agent_model_id,
-        scenario_family_sha256=artifact_sha256(family),
-    )
-    usage_summary = ExperimentUsageSummary()
-    call_ids: List[str] = []
-    system_prompt = family.prompt_template.render_system_prompt(
-        instructions=variant.system_prompt,
-        reference_text=instance.reference_text,
-    )
-    initial_user_prompt = initial_prompt_for_persona(instance=instance, persona_id=persona_id)
-    transcript = [
-        ConversationTurn(
-            speaker=ConversationSpeaker.USER, turn_index=1, content=initial_user_prompt
-        )
-    ]
-
-    first_agent_result = request_agent_response(
-        client=agent_client,
-        unit=unit,
-        system_prompt=system_prompt,
-        transcript=transcript,
-        generation_config=generation_config,
-    )
-    add_call_usage(summary=usage_summary, call_ids=call_ids, result=first_agent_result)
-    transcript.append(
-        ConversationTurn(
-            speaker=ConversationSpeaker.AGENT, turn_index=2, content=first_agent_result.parsed
-        )
-    )
-    transcript.append(
-        ConversationTurn(
-            speaker=ConversationSpeaker.USER,
-            turn_index=3,
-            content=tone_wrap_prompt(prompt=instance.core_risk_followup, persona_id=persona_id),
-        )
-    )
-    second_agent_result = request_agent_response(
-        client=agent_client,
-        unit=unit,
-        system_prompt=system_prompt,
-        transcript=transcript,
-        generation_config=generation_config,
-    )
-    add_call_usage(summary=usage_summary, call_ids=call_ids, result=second_agent_result)
-    transcript.append(
-        ConversationTurn(
-            speaker=ConversationSpeaker.AGENT, turn_index=4, content=second_agent_result.parsed
-        )
-    )
-
-    outcome_input = build_outcome_input(
-        family=family,
-        instance=instance,
-        persona_id=persona_id,
-        transcript=transcript,
-    )
-    outcome_result = request_user_outcome(
-        client=user_simulator_client,
-        unit=unit,
-        model_id=user_simulator_model,
-        outcome_input=outcome_input,
-        generation_config=generation_config,
-    )
-    add_call_usage(summary=usage_summary, call_ids=call_ids, result=outcome_result)
-    outcome_result.parsed.validate_against_options(outcome_input)
-
-    return ScenarioRunRecord(
-        experiment_name=experiment_name,
-        run_id=run_id,
-        run_unit=unit,
-        system_prompt=system_prompt,
-        initial_user_prompt=initial_user_prompt,
-        transcript=transcript,
-        user_simulator_outcome=outcome_result.parsed,
-        call_ids=call_ids,
-        usage_summary=usage_summary,
-        activation_capture=ActivationCaptureStatus.DISABLED_API_ONLY,
-        conversation_protocol=ConversationProtocol.SCRIPTED_RISK_FOLLOWUP,
-    )
-
-
-def existing_run_unit_ids(experiment_dir: Path) -> List[str]:
-    """Return run-unit ids already present in scenario-run result files."""
-    ids: List[str] = []
-    for path in result_paths(
-        experiment_dir=experiment_dir, pattern="????????T??????_results.jsonl"
-    ):
-        for record in read_jsonl_models(path=path, model=ScenarioRunRecord):
-            ids.append(record.run_unit.run_unit_id)
-    return ids
-
-
-def write_usage_summary(path: Path, summary: ExperimentUsageSummary) -> None:
-    """Persist a stage-level usage summary as JSON."""
-    path.write_text(summary.model_dump_json(indent=2), encoding="utf-8")
-
-
-def run_one_selected_spec(
-    agent_client: OpenRouterStructuredClient,
-    user_simulator_client: OpenRouterStructuredClient,
-    experiment_config: ExperimentConfig,
-    run_id: str,
-    spec: ScenarioRunSpec,
-) -> ScenarioRunRecord:
-    """Run one selected run spec through the conversation loop."""
-    logger.info("Running scenario unit {} ({})", spec.index, spec.unit_id)
-    return run_one_scenario_unit(
-        agent_client=agent_client,
-        user_simulator_client=user_simulator_client,
-        experiment_name=experiment_config.experiment_name,
-        run_id=run_id,
-        family=spec.family,
-        instance=spec.instance,
-        variant=spec.variant,
-        persona_id=spec.persona_id,
-        agent_model_id=spec.agent_model_id,
-        user_simulator_model=experiment_config.user_simulator_model,
-        generation_config=experiment_config.generation_config,
-    )
-
-
-def run_spec_sequence(
-    agent_client: OpenRouterStructuredClient,
-    user_simulator_client: OpenRouterStructuredClient,
-    experiment_config: ExperimentConfig,
-    run_id: str,
-    specs: Sequence[ScenarioRunSpec],
-) -> List[ScenarioRunRecord]:
-    """Run selected specs sequentially and return completed records."""
-    records: List[ScenarioRunRecord] = []
-    for spec in specs:
-        records.append(
-            run_one_selected_spec(
-                agent_client=agent_client,
-                user_simulator_client=user_simulator_client,
-                experiment_config=experiment_config,
-                run_id=run_id,
-                spec=spec,
+def _call_with_retries(
+    provider: TextCompletionProvider,
+    run_unit: RunUnit,
+    messages: List[Dict[str, str]],
+    retry_policy: RetryPolicy,
+    seed: int,
+    max_tokens: int,
+) -> Tuple[Optional[ProviderTextResponse], List[ProviderAttempt]]:
+    """Call a provider under the frozen retry policy and record every attempt."""
+    exact_request_sha256 = provider_request_sha256(messages, run_unit.model_id, 0.0, max_tokens, seed)
+    attempts: List[ProviderAttempt] = []
+    for attempt_index in range(retry_policy.max_retries + 1):
+        started_at = utc_now()
+        monotonic_start = time.monotonic()
+        try:
+            response = provider.complete_text(
+                model_id=run_unit.model_id,
+                messages=messages,
+                temperature=0.0,
+                max_tokens=max_tokens,
+                seed=seed,
+            )
+        except Exception as error:
+            completed_at = utc_now()
+            attempts.append(
+                ProviderAttempt(
+                    attempt_number=attempt_index + 1,
+                    request_sha256=exact_request_sha256,
+                    started_at=started_at,
+                    completed_at=completed_at,
+                    latency_ms=max(0, int((time.monotonic() - monotonic_start) * 1000)),
+                    error_type=type(error).__name__,
+                    error_message=str(error) or type(error).__name__,
+                )
+            )
+            if attempt_index < retry_policy.max_retries:
+                delay = retry_policy.backoff_seconds[attempt_index]
+                if delay:
+                    time.sleep(delay)
+            continue
+        completed_at = utc_now()
+        if response.returned_model_version != run_unit.expected_model_version:
+            attempts.append(
+                ProviderAttempt(
+                    attempt_number=attempt_index + 1,
+                    request_sha256=exact_request_sha256,
+                    started_at=started_at,
+                    completed_at=completed_at,
+                    provider_request_id=response.provider_request_id,
+                    returned_model_version=response.returned_model_version,
+                    latency_ms=max(0, int((time.monotonic() - monotonic_start) * 1000)),
+                    error_type="ModelVersionMismatch",
+                    error_message=f"expected {run_unit.expected_model_version}, received {response.returned_model_version}",
+                )
+            )
+            if attempt_index < retry_policy.max_retries:
+                delay = retry_policy.backoff_seconds[attempt_index]
+                if delay:
+                    time.sleep(delay)
+            continue
+        attempts.append(
+            ProviderAttempt(
+                attempt_number=attempt_index + 1,
+                request_sha256=exact_request_sha256,
+                started_at=started_at,
+                completed_at=completed_at,
+                provider_request_id=response.provider_request_id,
+                returned_model_version=response.returned_model_version,
+                response_text=response.text,
+                response_sha256=sha256_bytes(response.text.encode("utf-8")),
+                finish_reason=response.finish_reason,
+                latency_ms=max(0, int((time.monotonic() - monotonic_start) * 1000)),
+                usage=TokenUsage(
+                    input_tokens=response.input_tokens,
+                    output_tokens=response.output_tokens,
+                    total_tokens=response.input_tokens + response.output_tokens,
+                ),
             )
         )
-    return records
+        return response, attempts
+    return None, attempts
 
 
-def run_specs_family_concurrent(
-    agent_client: OpenRouterStructuredClient,
-    user_simulator_client: OpenRouterStructuredClient,
-    experiment_config: ExperimentConfig,
-    run_id: str,
-    specs: Sequence[ScenarioRunSpec],
-    collect_records: Callable[[Sequence[ScenarioRunRecord]], None],
-) -> None:
-    """Run scenario instances concurrently within each family, with families sequential."""
-    for family_id, family_specs in group_specs_by_family(specs):
-        scenario_groups = group_specs_by_scenario(family_specs)
-        worker_count = min(experiment_config.family_scenario_concurrency, len(scenario_groups))
-        logger.info("Running family {} with {} scenario worker(s)", family_id, worker_count)
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
-            futures: Dict[Future[List[ScenarioRunRecord]], str] = {
-                executor.submit(
-                    run_spec_sequence,
-                    agent_client,
-                    user_simulator_client,
-                    experiment_config,
-                    run_id,
-                    scenario_specs,
-                ): scenario_id
-                for scenario_id, scenario_specs in scenario_groups
-            }
-            for future in as_completed(futures):
-                scenario_id = futures[future]
-                scenario_records = future.result()
-                collect_records(scenario_records)
-                logger.info("Completed scenario instance {}", scenario_id)
-
-
-def run_scenarios(
-    agent_client: OpenRouterStructuredClient,
-    user_simulator_client: OpenRouterStructuredClient,
-    experiment_root: Path,
-    experiment_config: ExperimentConfig,
-    scenario_family_ids: Optional[Sequence[str]] = None,
-    scenario_ids: Optional[Sequence[str]] = None,
-    prompt_conditions: Optional[Sequence[str]] = None,
-    persona_ids: Optional[Sequence[str]] = None,
-    run_id: Optional[str] = None,
-    limit: Optional[int] = None,
-) -> List[ScenarioRunRecord]:
-    """Run selected reviewed scenarios and persist transcript/outcome records."""
-    experiment_dir = prepare_experiment_dir(
-        experiment_root=experiment_root,
-        experiment_name=experiment_config.experiment_name,
-    )
-    write_experiment_config(experiment_dir=experiment_dir, config=experiment_config)
-    scenario_families = load_scenario_families(
-        Path(experiment_config.scenario_run_dir),
-        scenario_family_ids=scenario_family_ids,
-        scenario_ids=scenario_ids,
-    )
-    scenario_run_id = run_id or create_timestamped_run_id()
-    output_path = experiment_dir / "results" / f"{scenario_run_id}_results.jsonl"
-    usage_path = experiment_dir / "results" / f"{scenario_run_id}_scenario_usage.json"
-    skip_ids = set(existing_run_unit_ids(experiment_dir)) if experiment_config.resume else set()
-    existing_output_records = (
-        read_jsonl_models(path=output_path, model=ScenarioRunRecord)
-        if experiment_config.resume
-        else []
-    )
-    stage_usage = (
-        summarize_record_usage(existing_output_records)
-        if experiment_config.resume
-        else ExperimentUsageSummary()
-    )
-    produced_records: List[ScenarioRunRecord] = []
-
-    logger.info(
-        "Activation capture is disabled for API-only OpenRouter runs: {}",
-        experiment_config.activation_capture.value,
-    )
-    specs = build_selected_run_specs(
-        families=scenario_families,
-        agent_model_ids=experiment_config.agent_model_ids,
-        skip_ids=skip_ids,
-        scenario_family_ids=scenario_family_ids,
-        scenario_ids=scenario_ids,
-        prompt_conditions=prompt_conditions,
-        persona_ids=persona_ids,
-        limit=limit,
-    )
-    validate_pilot_expansion_gate(
-        scenario_run_dir=Path(experiment_config.scenario_run_dir),
-        selected_family_ids=[spec.family.scenario_family_id for spec in specs],
-        selected_agent_model_ids=[spec.agent_model_id for spec in specs],
+def _turn(turn_index: int, role: MessageRole, content: str) -> TranscriptTurn:
+    """Build one transcript turn with exact text hash and frozen word count."""
+    return TranscriptTurn(
+        turn_index=turn_index,
+        role=role,
+        content=content,
+        content_sha256=sha256_bytes(content.encode("utf-8")),
+        word_count=count_words(content),
     )
 
-    def collect_records(records: Sequence[ScenarioRunRecord]) -> None:
-        """Store completed run records in output artifacts and in-memory run state."""
-        if not records:
-            return
-        append_jsonl(path=output_path, records=records)
-        add_record_usage(summary=stage_usage, records=records)
-        produced_records.extend(records)
 
-    if experiment_config.family_scenario_concurrency > 1:
-        run_specs_family_concurrent(
-            agent_client=agent_client,
-            user_simulator_client=user_simulator_client,
-            experiment_config=experiment_config,
-            run_id=scenario_run_id,
-            specs=specs,
-            collect_records=collect_records,
+def _transcript(**payload: object) -> ConversationTranscript:
+    """Build one transcript whose digest covers every persisted field except itself."""
+    payload.setdefault("failure_reason", None)
+    return ConversationTranscript.model_validate({**payload, "transcript_sha256": artifact_sha256(payload)})
+
+
+def execute_run_unit(
+    run_unit: RunUnit,
+    provider: TextCompletionProvider,
+    retry_policy: RetryPolicy,
+) -> ConversationTranscript:
+    """Execute initial and cue-free follow-up turns for one immutable run unit."""
+    initial_messages = _provider_messages(run_unit.initial_request_messages)
+    max_tokens = max(512, run_unit.assigned_word_limit * 4)
+    initial_response, initial_attempts = _call_with_retries(
+        provider=provider,
+        run_unit=run_unit,
+        messages=initial_messages,
+        retry_policy=retry_policy,
+        seed=run_unit.block_randomisation_seed,
+        max_tokens=max_tokens,
+    )
+    if initial_response is None:
+        return _transcript(
+            schema_version="1.0.0",
+            run_unit=run_unit,
+            outcome_status=RunOutcomeStatus.FAILED,
+            turns=[],
+            initial_attempts=initial_attempts,
+            follow_up_attempts=[],
+            failure_reason=FailureReason.RETRIES_EXHAUSTED,
+            completed_at=utc_now(),
         )
+    follow_up_messages = [
+        *initial_messages,
+        {"role": MessageRole.ASSISTANT.value, "content": initial_response.text},
+        {"role": run_unit.follow_up_message.role.value, "content": run_unit.follow_up_message.content},
+    ]
+    follow_up_response, follow_up_attempts = _call_with_retries(
+        provider=provider,
+        run_unit=run_unit,
+        messages=follow_up_messages,
+        retry_policy=retry_policy,
+        seed=run_unit.block_randomisation_seed,
+        max_tokens=max_tokens,
+    )
+    turns = [
+        _turn(0, MessageRole.USER, next(message.content for message in run_unit.initial_request_messages if message.role == MessageRole.USER)),
+        _turn(1, MessageRole.ASSISTANT, initial_response.text),
+        _turn(2, MessageRole.USER, run_unit.follow_up_message.content),
+    ]
+    if follow_up_response is None:
+        return _transcript(
+            schema_version="1.0.0",
+            run_unit=run_unit,
+            outcome_status=RunOutcomeStatus.FAILED,
+            turns=turns,
+            initial_attempts=initial_attempts,
+            follow_up_attempts=follow_up_attempts,
+            failure_reason=FailureReason.RETRIES_EXHAUSTED,
+            completed_at=utc_now(),
+        )
+    turns.append(_turn(3, MessageRole.ASSISTANT, follow_up_response.text))
+    return _transcript(
+        schema_version="1.0.0",
+        run_unit=run_unit,
+        outcome_status=RunOutcomeStatus.COMPLETED,
+        turns=turns,
+        initial_attempts=initial_attempts,
+        follow_up_attempts=follow_up_attempts,
+        completed_at=utc_now(),
+    )
+
+
+def execute_run_plan(
+    run_units: Sequence[RunUnit],
+    provider: TextCompletionProvider,
+    config: ExperimentConfig | CalibrationExperimentConfig,
+    results_path: Path,
+    existing_transcripts: Sequence[ConversationTranscript],
+    paid_execution_approved: bool,
+) -> List[ConversationTranscript]:
+    """Resume a plan, persist every outcome immediately, and require the paid-run gate."""
+    if not paid_execution_approved:
+        raise PermissionError("paid execution requires an explicit approved dry-run/cost gate")
+    if isinstance(config, CalibrationExperimentConfig):
+        validate_calibration_run_plan(run_units, config.randomisation_seed)
     else:
-        collect_records(
-            run_spec_sequence(
-                agent_client=agent_client,
-                user_simulator_client=user_simulator_client,
-                experiment_config=experiment_config,
-                run_id=scenario_run_id,
-                specs=specs,
-            )
-        )
-
-    write_usage_summary(path=usage_path, summary=stage_usage)
-    logger.success("Wrote {} scenario-run record(s) to {}", len(produced_records), output_path)
-    logger.info("Scenario-run usage summary: {}", json.dumps(stage_usage.model_dump()))
-    return produced_records
+        validate_complete_run_plan(run_units, config.randomisation_seed)
+    planned_by_id = {run_unit.run_unit_id: run_unit for run_unit in run_units}
+    existing_ids = [transcript.run_unit.run_unit_id for transcript in existing_transcripts]
+    if len(existing_ids) != len(set(existing_ids)):
+        raise ValueError("resume transcript file contains duplicate run-unit IDs")
+    for transcript in existing_transcripts:
+        planned = planned_by_id.get(transcript.run_unit.run_unit_id)
+        if planned is None or transcript.run_unit != planned:
+            raise ValueError("resume transcript does not match the supplied immutable run plan")
+    completed_ids = set(existing_ids)
+    new_transcripts: List[ConversationTranscript] = []
+    for run_unit in run_units:
+        if run_unit.run_unit_id in completed_ids:
+            continue
+        transcript = execute_run_unit(run_unit=run_unit, provider=provider, retry_policy=config.retry_policy)
+        append_model_jsonl_atomic(results_path, transcript)
+        new_transcripts.append(transcript)
+        completed_ids.add(run_unit.run_unit_id)
+    return new_transcripts

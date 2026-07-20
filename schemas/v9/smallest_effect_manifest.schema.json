@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "FreezeStatus": {
+      "description": "Identify whether a manifest remains draft or is immutable for downstream use.",
+      "enum": [
+        "draft",
+        "frozen"
+      ],
+      "title": "FreezeStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Freeze the five smallest effect sizes used for power and equivalence checks.",
+  "properties": {
+    "absolute_bounds": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "type": "string"
+          }
+        ]
+      },
+      "maxProperties": 5,
+      "minProperties": 5,
+      "title": "Absolute Bounds",
+      "type": "object"
+    },
+    "freeze_status": {
+      "$ref": "#/$defs/FreezeStatus"
+    },
+    "frozen_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Frozen At"
+    },
+    "frozen_by": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Frozen By"
+    },
+    "manifest_sha256": {
+      "title": "Manifest Sha256",
+      "type": "string"
+    },
+    "rationale": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "maxProperties": 5,
+      "minProperties": 5,
+      "title": "Rationale",
+      "type": "object"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "freeze_status",
+    "absolute_bounds",
+    "rationale",
+    "manifest_sha256"
+  ],
+  "title": "SmallestEffectManifest",
+  "type": "object"
+}

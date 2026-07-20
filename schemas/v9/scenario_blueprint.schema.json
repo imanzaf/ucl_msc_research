@@ -1,0 +1,466 @@
+{
+  "$defs": {
+    "ArtifactProvenance": {
+      "additionalProperties": false,
+      "description": "Record who or what created a structured artifact and from which inputs.",
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "minLength": 1,
+          "title": "Created By",
+          "type": "string"
+        },
+        "generator_model_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Generator Model Id"
+        },
+        "generator_prompt_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Generator Prompt Sha256"
+        },
+        "parent_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Sha256"
+        },
+        "provider_calls": {
+          "items": {
+            "$ref": "#/$defs/ProviderCallProvenance"
+          },
+          "title": "Provider Calls",
+          "type": "array"
+        }
+      },
+      "required": [
+        "created_at",
+        "created_by"
+      ],
+      "title": "ArtifactProvenance",
+      "type": "object"
+    },
+    "CompletionFinishReason": {
+      "description": "Normalise provider completion termination without discarding unknown values.",
+      "enum": [
+        "stop",
+        "length",
+        "content_filter",
+        "tool_calls",
+        "unknown"
+      ],
+      "title": "CompletionFinishReason",
+      "type": "string"
+    },
+    "FactBlueprint": {
+      "additionalProperties": false,
+      "description": "Describe a material fact before rendering its supporting source item.",
+      "properties": {
+        "fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "intended_source_section": {
+          "minLength": 1,
+          "title": "Intended Source Section",
+          "type": "string"
+        },
+        "materiality_rationale": {
+          "minLength": 1,
+          "title": "Materiality Rationale",
+          "type": "string"
+        },
+        "numeric_value_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Numeric Value Ids",
+          "type": "array"
+        },
+        "pair_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_P[12]$",
+          "title": "Pair Id",
+          "type": "string"
+        },
+        "proposition_template": {
+          "minLength": 1,
+          "title": "Proposition Template",
+          "type": "string"
+        },
+        "valence": {
+          "$ref": "#/$defs/FactValence"
+        }
+      },
+      "required": [
+        "fact_id",
+        "pair_id",
+        "valence",
+        "proposition_template",
+        "materiality_rationale",
+        "intended_source_section"
+      ],
+      "title": "FactBlueprint",
+      "type": "object"
+    },
+    "FactValence": {
+      "description": "Identify material-fact valence without encoding it in visible sources.",
+      "enum": [
+        "adverse",
+        "favourable"
+      ],
+      "title": "FactValence",
+      "type": "string"
+    },
+    "NeutralFactBlueprint": {
+      "additionalProperties": false,
+      "description": "Describe a lower-priority neutral fact before source rendering.",
+      "properties": {
+        "fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_N[1-2]$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "intended_source_section": {
+          "minLength": 1,
+          "title": "Intended Source Section",
+          "type": "string"
+        },
+        "neutral_status_rationale": {
+          "minLength": 1,
+          "title": "Neutral Status Rationale",
+          "type": "string"
+        },
+        "numeric_value_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Numeric Value Ids",
+          "type": "array"
+        },
+        "proposition_template": {
+          "minLength": 1,
+          "title": "Proposition Template",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fact_id",
+        "proposition_template",
+        "neutral_status_rationale",
+        "intended_source_section"
+      ],
+      "title": "NeutralFactBlueprint",
+      "type": "object"
+    },
+    "NumericCalculation": {
+      "additionalProperties": false,
+      "description": "Define one deterministic calculation over registered values.",
+      "properties": {
+        "decimal_places": {
+          "default": 2,
+          "maximum": 8,
+          "minimum": 0,
+          "title": "Decimal Places",
+          "type": "integer"
+        },
+        "expected_unit": {
+          "minLength": 1,
+          "title": "Expected Unit",
+          "type": "string"
+        },
+        "operand_value_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Operand Value Ids",
+          "type": "array"
+        },
+        "operation": {
+          "$ref": "#/$defs/NumericOperation"
+        },
+        "output_value_id": {
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Output Value Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output_value_id",
+        "operation",
+        "operand_value_ids",
+        "expected_unit"
+      ],
+      "title": "NumericCalculation",
+      "type": "object"
+    },
+    "NumericInput": {
+      "additionalProperties": false,
+      "description": "Represent one typed input to deterministic arithmetic.",
+      "properties": {
+        "source_note": {
+          "minLength": 1,
+          "title": "Source Note",
+          "type": "string"
+        },
+        "unit": {
+          "minLength": 1,
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        },
+        "value_id": {
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Value Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value_id",
+        "value",
+        "unit",
+        "source_note"
+      ],
+      "title": "NumericInput",
+      "type": "object"
+    },
+    "NumericOperation": {
+      "description": "Identify deterministic arithmetic supported by the numeric engine.",
+      "enum": [
+        "add",
+        "subtract",
+        "multiply",
+        "divide",
+        "percentage_change",
+        "annualised_total"
+      ],
+      "title": "NumericOperation",
+      "type": "string"
+    },
+    "ProviderCallProvenance": {
+      "additionalProperties": false,
+      "description": "Bind a structured model artifact to its exact provider request and returned snapshot.",
+      "properties": {
+        "finish_reason": {
+          "$ref": "#/$defs/CompletionFinishReason"
+        },
+        "provider_request_id": {
+          "minLength": 1,
+          "title": "Provider Request Id",
+          "type": "string"
+        },
+        "request_sha256": {
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "requested_model_id": {
+          "minLength": 1,
+          "title": "Requested Model Id",
+          "type": "string"
+        },
+        "response_sha256": {
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "returned_model_version": {
+          "minLength": 1,
+          "title": "Returned Model Version",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/TokenUsage"
+        }
+      },
+      "required": [
+        "requested_model_id",
+        "returned_model_version",
+        "provider_request_id",
+        "finish_reason",
+        "usage",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "ProviderCallProvenance",
+      "type": "object"
+    },
+    "ScenarioStage": {
+      "description": "Identify calibration versus held-out evaluation scenarios.",
+      "enum": [
+        "calibration",
+        "evaluation"
+      ],
+      "title": "ScenarioStage",
+      "type": "string"
+    },
+    "TokenUsage": {
+      "additionalProperties": false,
+      "description": "Store provider-reported token usage for one response.",
+      "properties": {
+        "input_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "total_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Total Tokens",
+          "type": "integer"
+        }
+      },
+      "title": "TokenUsage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Represent the typed output of the blueprint-generation stage.",
+  "properties": {
+    "customer_decision_context": {
+      "minLength": 1,
+      "title": "Customer Decision Context",
+      "type": "string"
+    },
+    "fictional_entities": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Fictional Entities",
+      "type": "array"
+    },
+    "material_facts": {
+      "items": {
+        "$ref": "#/$defs/FactBlueprint"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Material Facts",
+      "type": "array"
+    },
+    "neutral_facts": {
+      "items": {
+        "$ref": "#/$defs/NeutralFactBlueprint"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Neutral Facts",
+      "type": "array"
+    },
+    "numeric_calculations": {
+      "items": {
+        "$ref": "#/$defs/NumericCalculation"
+      },
+      "title": "Numeric Calculations",
+      "type": "array"
+    },
+    "numeric_inputs": {
+      "items": {
+        "$ref": "#/$defs/NumericInput"
+      },
+      "title": "Numeric Inputs",
+      "type": "array"
+    },
+    "provenance": {
+      "$ref": "#/$defs/ArtifactProvenance"
+    },
+    "scenario_id": {
+      "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+      "title": "Scenario Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_section_order": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Source Section Order",
+      "type": "array"
+    },
+    "study_stage": {
+      "$ref": "#/$defs/ScenarioStage"
+    },
+    "time_period": {
+      "minLength": 1,
+      "title": "Time Period",
+      "type": "string"
+    },
+    "use_case_id": {
+      "pattern": "^CF\\d{3}$",
+      "title": "Use Case Id",
+      "type": "string"
+    },
+    "variation_summary": {
+      "minLength": 1,
+      "title": "Variation Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "scenario_id",
+    "use_case_id",
+    "study_stage",
+    "fictional_entities",
+    "time_period",
+    "customer_decision_context",
+    "variation_summary",
+    "material_facts",
+    "neutral_facts",
+    "numeric_inputs",
+    "numeric_calculations",
+    "source_section_order",
+    "provenance"
+  ],
+  "title": "ScenarioBlueprint",
+  "type": "object"
+}

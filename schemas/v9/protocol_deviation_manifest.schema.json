@@ -1,0 +1,112 @@
+{
+  "$defs": {
+    "ProtocolDeviation": {
+      "additionalProperties": false,
+      "description": "Record one post-preregistration protocol deviation and its scientific disposition.",
+      "properties": {
+        "analysis_impact": {
+          "minLength": 1,
+          "title": "Analysis Impact",
+          "type": "string"
+        },
+        "approved_by": {
+          "minLength": 1,
+          "title": "Approved By",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "deviation_id": {
+          "pattern": "^DEV_[A-Z0-9_]+$",
+          "title": "Deviation Id",
+          "type": "string"
+        },
+        "disposition": {
+          "minLength": 1,
+          "title": "Disposition",
+          "type": "string"
+        },
+        "lifecycle_gate": {
+          "maximum": 13,
+          "minimum": 8,
+          "title": "Lifecycle Gate",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviation_id",
+        "occurred_at",
+        "lifecycle_gate",
+        "description",
+        "rationale",
+        "analysis_impact",
+        "disposition",
+        "approved_by"
+      ],
+      "title": "ProtocolDeviation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Finalise the complete post-preregistration deviation register by backward hashes.",
+  "properties": {
+    "deviations": {
+      "items": {
+        "$ref": "#/$defs/ProtocolDeviation"
+      },
+      "title": "Deviations",
+      "type": "array"
+    },
+    "experiment_manifest_sha256": {
+      "title": "Experiment Manifest Sha256",
+      "type": "string"
+    },
+    "finalised_at": {
+      "format": "date-time",
+      "title": "Finalised At",
+      "type": "string"
+    },
+    "finalised_by": {
+      "minLength": 1,
+      "title": "Finalised By",
+      "type": "string"
+    },
+    "manifest_sha256": {
+      "title": "Manifest Sha256",
+      "type": "string"
+    },
+    "preregistration_manifest_sha256": {
+      "title": "Preregistration Manifest Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "preregistration_manifest_sha256",
+    "experiment_manifest_sha256",
+    "deviations",
+    "finalised_at",
+    "finalised_by",
+    "manifest_sha256"
+  ],
+  "title": "ProtocolDeviationManifest",
+  "type": "object"
+}

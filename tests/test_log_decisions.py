@@ -78,9 +78,7 @@ def test_stop_processing_scans_only_latest_assistant_message() -> None:
                     "content": [
                         {
                             "type": "text",
-                            "text": (
-                                "Research decision: Use an older benchmark source because it shaped a previous study design."
-                            ),
+                            "text": ("Research decision: Use an older benchmark source because it shaped a previous study design."),
                         }
                     ],
                 },

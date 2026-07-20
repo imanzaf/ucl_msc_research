@@ -1,0 +1,189 @@
+{
+  "$defs": {
+    "FailedConstructAction": {
+      "description": "Identify the blinded disposition for a scoring construct that fails validation.",
+      "enum": [
+        "full_manual_scoring",
+        "demote_to_exploratory",
+        "remove"
+      ],
+      "title": "FailedConstructAction",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Persist hard validation gates and blinded dispositions for failed constructs.",
+  "properties": {
+    "failed_construct_actions": {
+      "additionalProperties": {
+        "$ref": "#/$defs/FailedConstructAction"
+      },
+      "title": "Failed Construct Actions",
+      "type": "object"
+    },
+    "failed_constructs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Failed Constructs",
+      "type": "array"
+    },
+    "false_claim_precision": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "False Claim Precision"
+    },
+    "false_claim_recall": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "False Claim Recall"
+    },
+    "framing_kappa": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Framing Kappa"
+    },
+    "framing_used_in_headline": {
+      "title": "Framing Used In Headline",
+      "type": "boolean"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "intra_rater_disclosure_weighted_kappa": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Intra Rater Disclosure Weighted Kappa"
+    },
+    "judge_reference_disclosure_weighted_kappa": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Judge Reference Disclosure Weighted Kappa"
+    },
+    "omission_recall": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Omission Recall"
+    },
+    "passed_constructs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Passed Constructs",
+      "type": "array"
+    },
+    "reassurance_kappa": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reassurance Kappa"
+    },
+    "reassurance_used_in_headline": {
+      "title": "Reassurance Used In Headline",
+      "type": "boolean"
+    },
+    "report_sha256": {
+      "title": "Report Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "validation_sample_manifest_sha256": {
+      "title": "Validation Sample Manifest Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "intra_rater_disclosure_weighted_kappa",
+    "judge_reference_disclosure_weighted_kappa",
+    "omission_recall",
+    "false_claim_precision",
+    "false_claim_recall",
+    "framing_used_in_headline",
+    "reassurance_used_in_headline",
+    "passed_constructs",
+    "failed_constructs",
+    "failed_construct_actions",
+    "validation_sample_manifest_sha256",
+    "generated_at",
+    "report_sha256"
+  ],
+  "title": "ScoringValidationReport",
+  "type": "object"
+}

@@ -1,33 +1,64 @@
 [project]
 name = "ucl-msc-research"
 version = "0.1.0"
-description = "Add your description here"
+description = "Reproducible V9 study of word-budget pressure and worried cues in financial risk communication"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.72.0",
     "bibtexparser>=1.4.4",
     "httpx>=0.28.1",
+    "jsonschema>=4.26.0",
     "loguru>=0.7.3",
+    "matplotlib>=3.11.1",
+    "numpy>=2.4.6",
     "openai>=2.2.0",
     "openpyxl>=3.1.5",
+    "pandas>=3.0.3",
     "playwright>=1.48.0",
     "pydantic>=2.10.6",
     "pydantic-settings>=2.8.1",
     "pytest>=9.1.1",
+    "scikit-learn>=1.9.0",
+    "scipy>=1.17.1",
+    "statsmodels>=0.14.6",
+    "streamlit>=1.59.2",
 ]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["configs*", "src*"]
 
 [dependency-groups]
 dev = [
     "black>=24.8.0",
     "flake8>=5.0.4",
     "isort>=5.13.2",
+    "mypy>=2.3.0",
     "pre-commit>=3.5.0",
 ]
 
 [tool.black]
-line-length = 100
+line-length = 150
+target-version = ["py311"]
 
 [tool.isort]
 profile = "black"
-line_length = 100
+line_length = 150
+
+[tool.mypy]
+python_version = "3.11"
+files = ["configs", "scripts", "src"]
+check_untyped_defs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+exclude = ["tex_src"]
+
+[[tool.mypy.overrides]]
+module = ["jsonschema", "jsonschema.*", "matplotlib.*", "pandas.*", "scipy.*", "sklearn.*", "statsmodels.*"]
+ignore_missing_imports = true

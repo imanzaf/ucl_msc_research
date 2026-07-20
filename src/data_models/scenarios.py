@@ -1,863 +1,579 @@
-"""Pydantic models for current financial risk-communication scenarios."""
+"""Strict V0.5.1 seed, generated-scenario, and accepted-artifact models."""
 
 from __future__ import annotations
 
 import re
+from datetime import datetime
+from decimal import Decimal
 from enum import Enum
-from typing import Annotated, Dict, List, Set
+from typing import Any, Dict, List, Optional, Union
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
-from src.data_models.prompt_controls import (
-    COMMON_INTEGRITY_INSTRUCTIONS,
-    validate_task_constraint_instructions,
-)
-from src.prompts.scenarios.agent_source_reference import SYSTEM_TEMPLATE
+from src.data_models.common import ImmutableModel, VersionedImmutableModel, artifact_sha256, sha256_bytes, validate_sha256
+from src.data_models.experiments import ProviderCallProvenance
+from src.data_models.study import SourceOrderVariant
+from src.scenarios.word_count import count_words
 
-
-class FactPolarity(str, Enum):
-    """Classify the valence and disclosure materiality of a generated fact unit."""
-
-    HIGH_ADVERSE = "high_adverse"
-    LOW_ADVERSE = "low_adverse"
-    FAVORABLE = "favorable"
-    NEUTRAL_DISTRACTOR = "neutral_distractor"
+SCENARIO_ID_PATTERN = re.compile(r"^CF\d{3}_(C1|R[1-4])$")
+USE_CASE_ID_PATTERN = re.compile(r"^CF\d{3}$")
 
 
-class FinanceSegment(str, Enum):
-    """Classify the finance area represented by a scenario family."""
+class PairSlot(str, Enum):
+    """Identify one of the two matched material-fact pairs."""
 
-    RETAIL_WEALTH = "retail_wealth"
-    PERSONAL_FINANCIAL_MANAGEMENT = "personal_financial_management"
-    BRANCH_RELATIONSHIP_MANAGEMENT = "branch_relationship_management"
-    INVESTMENT_RESEARCH = "investment_research"
-    BANKING_ONBOARDING = "banking_onboarding"
-    COMPLAINTS_HANDLING = "complaints_handling"
+    P1 = "P1"
+    P2 = "P2"
 
 
-class InteractionMode(str, Enum):
-    """Classify whether the scenario is single-turn or multi-turn."""
+class ScenarioStage(str, Enum):
+    """Identify calibration versus held-out evaluation scenarios."""
 
-    SINGLE_TURN = "single_turn"
-    MULTI_TURN = "multi_turn"
-
-
-class PromptCondition(str, Enum):
-    """Classify the agent prompt condition used in the run matrix."""
-
-    NEUTRAL = "neutral"
-    PRODUCTION_BASELINE = "production_baseline"
-    PRODUCTION_INTEGRITY = "production_integrity"
+    CALIBRATION = "calibration"
+    EVALUATION = "evaluation"
 
 
-class RiskCategory(str, Enum):
-    """Classify the broad financial risk category represented by a fact unit."""
+class FactValence(str, Enum):
+    """Identify material-fact valence without encoding it in visible sources."""
 
-    LIQUIDITY = "liquidity"
-    MARKET = "market"
-    CREDIT = "credit"
-    CONCENTRATION = "concentration"
-    SUITABILITY = "suitability"
-    FEES_COSTS = "fees_costs"
-    COMPLIANCE_LEGAL = "compliance_legal"
-    OPERATIONAL = "operational"
-    FRAUD = "fraud"
-    PERFORMANCE = "performance"
-    NEUTRAL = "neutral"
+    ADVERSE = "adverse"
+    FAVOURABLE = "favourable"
 
 
-class DisclosureRequirement(str, Enum):
-    """Classify how strongly a fact unit should be disclosed to preserve decision quality."""
+class SpecificityElementType(str, Enum):
+    """Identify a typed decision-relevant specificity element."""
 
-    REQUIRED = "required"
-    RECOMMENDED = "recommended"
-    OPTIONAL = "optional"
-    NOT_RELEVANT = "not_relevant"
-
-
-class BeliefSupport(str, Enum):
-    """Classify whether a possible user belief is supported by the generated fact pool."""
-
-    SUPPORTED = "supported"
-    PARTIALLY_SUPPORTED = "partially_supported"
-    UNSUPPORTED = "unsupported"
+    AMOUNT = "amount"
+    PERCENTAGE = "percentage"
+    DATE = "date"
+    DURATION = "duration"
+    THRESHOLD = "threshold"
+    CONDITION = "condition"
+    EXCEPTION = "exception"
+    COMPARISON = "comparison"
 
 
-class ScenarioTaskArchetype(str, Enum):
-    """Classify the controlled task archetypes used in scenario families."""
+class NumericOperation(str, Enum):
+    """Identify deterministic arithmetic supported by the numeric engine."""
 
-    SPENDING_CASH_FLOW_REVIEW = "spending_cash_flow_review"
-    BUDGET_SAVINGS_ASSESSMENT = "budget_savings_assessment"
-    PORTFOLIO_PERFORMANCE_ALLOCATION = "portfolio_performance_allocation"
-    PRODUCT_MARKET_EVENT_IMPACT = "product_market_event_impact"
-    CUSTOMER_MEETING_BRIEF = "customer_meeting_brief"
-    SUPPORTED_NEXT_STEP_RECOMMENDATION = "supported_next_step_recommendation"
-    RESEARCH_COMPARISON = "research_comparison"
-    CLIENT_FACING_RESEARCH_BRIEF = "client_facing_research_brief"
-    IDENTITY_OWNERSHIP_VERIFICATION = "identity_ownership_verification"
-    ONBOARDING_ASSESSMENT = "onboarding_assessment"
-    COMPLAINT_CASE_INVESTIGATION = "complaint_case_investigation"
-    COMPLAINT_POLICY_OUTCOME_ASSESSMENT = "complaint_policy_outcome_assessment"
+    ADD = "add"
+    SUBTRACT = "subtract"
+    MULTIPLY = "multiply"
+    DIVIDE = "divide"
+    PERCENTAGE_CHANGE = "percentage_change"
+    ANNUALISED_TOTAL = "annualised_total"
 
 
-class ScenarioReferenceFormat(str, Enum):
-    """Classify the fixed finance-native source format for a task archetype."""
+class TaskContextSeed(ImmutableModel):
+    """Represent researcher-owned task context from the immutable seed."""
 
-    TRANSACTION_AND_CASH_FLOW_SUMMARY = "transaction_and_cash_flow_summary"
-    BUDGET_AND_SAVINGS_PLAN = "budget_and_savings_plan"
-    PORTFOLIO_HOLDINGS_AND_PERFORMANCE = "portfolio_holdings_and_performance"
-    PRODUCT_OR_MARKET_IMPACT_PACKET = "product_or_market_impact_packet"
-    CRM_CUSTOMER_RECORD = "crm_customer_record"
-    APPROVED_OPTION_EVIDENCE = "approved_option_evidence"
-    RESEARCH_COMPARISON_PACKET = "research_comparison_packet"
-    CLIENT_RESEARCH_PACKET = "client_research_packet"
-    ONBOARDING_VERIFICATION_RECORD = "onboarding_verification_record"
-    ONBOARDING_RISK_CASE = "onboarding_risk_case"
-    COMPLAINT_CASE_RECORD = "complaint_case_record"
-    COMPLAINT_EVIDENCE_AND_POLICY_PACKET = "complaint_evidence_and_policy_packet"
+    evidence_basis: str = Field(min_length=1)
+    authority_limits: str = Field(min_length=1)
+    response_genre: str = Field(min_length=1)
+    task_archetype: str = Field(min_length=1)
+    reference_format: str = Field(min_length=1)
+    customer_goal: str = Field(min_length=1)
+    core_initial_request: str = Field(min_length=1)
+    decision_context: str = Field(min_length=1)
 
 
-class FactEvaluationRole(str, Enum):
-    """Classify how a fact contributes to omission evaluation."""
+class MaterialFactPairBriefSeed(ImmutableModel):
+    """Represent one researcher-owned adverse/favourable pair brief."""
 
-    PRIMARY_ADVERSE_TARGET = "primary_adverse_target"
-    FAVORABLE_CONTROL = "favorable_control"
-    NEUTRAL_CONTROL = "neutral_control"
-
-
-class DisclosureCheckpoint(str, Enum):
-    """Identify the transcript checkpoint at which a fact is evaluated."""
-
-    INITIAL_RESPONSE = "initial_response"
-    AFTER_RISK_FOLLOWUP = "after_risk_followup"
+    pair_slot: PairSlot
+    adverse_theme: str = Field(min_length=1)
+    favorable_theme: str = Field(min_length=1)
+    matching_requirements: str = Field(min_length=1)
 
 
-REQUIRED_FACT_ROLE_COUNTS: Dict[FactEvaluationRole, int] = {
-    FactEvaluationRole.PRIMARY_ADVERSE_TARGET: 2,
-    FactEvaluationRole.FAVORABLE_CONTROL: 2,
-    FactEvaluationRole.NEUTRAL_CONTROL: 2,
-}
-REQUIRED_FACT_TOTAL = sum(REQUIRED_FACT_ROLE_COUNTS.values())
+class ReplicationSeed(ImmutableModel):
+    """Represent one calibration or held-out scenario brief."""
+
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
+    variation_brief: str = Field(min_length=1)
 
 
-def normalize_instruction_list(value: object) -> object:
-    """Convert legacy string instructions to the list representation used by current scenarios."""
-    if not isinstance(value, str):
-        return value
-    if not value.strip():
-        return []
-    return [value.strip()]
+class UseCaseSeed(ImmutableModel):
+    """Represent one V0.5.1 use case while excluding its unused legacy extension."""
 
-
-def render_instruction_list(instructions: List[str]) -> str:
-    """Render prompt instructions as a Markdown-style bullet list."""
-    return "\n".join(f"- {instruction}" for instruction in instructions)
-
-
-def validate_instruction_list(instructions: List[str]) -> List[str]:
-    """Reject blank instruction items that would create malformed prompt lists."""
-    if any(not instruction.strip() for instruction in instructions):
-        raise ValueError("prompt instruction items must not be blank")
-    return instructions
-
-
-InstructionList = Annotated[
-    List[str],
-    BeforeValidator(normalize_instruction_list),
-    AfterValidator(validate_instruction_list),
-]
-
-
-class PromptInstructions(BaseModel):
-    """Separate the agent identity, task, and condition-specific guidance."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    agent_role: str = Field(min_length=1, description="Role assigned to the agent model.")
-    model_owner: str = Field(min_length=1, description="Organization operating the agent model.")
-    agent_task: str = Field(min_length=1, description="Task the agent model should perform.")
-    guidance: InstructionList = Field(
-        default_factory=list,
-        description="Condition-specific guidance; empty for the neutral prompt condition.",
-    )
-    integrity_instructions: InstructionList = Field(
-        default_factory=list,
-        description="Integrity instructions added only to the production-integrity condition.",
-    )
-
-
-class PromptVariant(BaseModel):
-    """Describe one code-owned agent prompt condition."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    prompt_variant_id: str = Field(
-        default="",
-        description="Identifier derived from family id and prompt condition.",
-    )
-    condition: PromptCondition = Field(description="Prompt condition represented by this variant.")
-    system_prompt: PromptInstructions = Field(
-        description="Structured system-prompt instructions rendered at execution time."
-    )
-
-
-class PromptTemplate(BaseModel):
-    """Render agent prompts with one scenario-level context packet."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    system_template: str = Field(
-        default=SYSTEM_TEMPLATE,
-        description="System prompt template populated with identity, task, guidance, and references.",
-    )
+    use_case_id: str = Field(pattern=r"^CF\d{3}$")
+    segment: str = Field(min_length=1)
+    customer_journey: str = Field(min_length=1)
+    agent_role: str = Field(min_length=1)
+    model_owner: str = Field(min_length=1)
+    user_role: str = Field(min_length=1)
+    agent_task: str = Field(min_length=1)
+    task_context: TaskContextSeed
+    material_fact_pair_briefs: List[MaterialFactPairBriefSeed] = Field(min_length=2, max_length=2)
+    legacy_seed_extension: Dict[str, Any] = Field(alias="potential_harm_pathway", exclude=True)
+    replications: List[ReplicationSeed] = Field(min_length=5, max_length=5)
 
     @model_validator(mode="after")
-    def validate_template_placeholders(self) -> "PromptTemplate":
-        """Ensure templates contain the placeholders required for deterministic rendering."""
-        for placeholder in [
-            "{agent_role}",
-            "{model_owner}",
-            "{agent_task}",
-            "{guidance_block}",
-            "{reference_text}",
-        ]:
-            if placeholder not in self.system_template:
-                raise ValueError(f"system_template must contain {placeholder}")
-        return self
-
-    def render_guidance_block(self, instructions: PromptInstructions) -> str:
-        """Render optional guidance and integrity blocks as prompt-ready lists."""
-        blocks: List[str] = []
-        if instructions.guidance:
-            blocks.append(f"Guidance:\n{render_instruction_list(instructions.guidance)}")
-        if instructions.integrity_instructions:
-            blocks.append(
-                "Integrity instructions:\n"
-                f"{render_instruction_list(instructions.integrity_instructions)}"
-            )
-        if not blocks:
-            return ""
-        return "\n\n".join(blocks) + "\n\n"
-
-    def render_system_prompt(self, instructions: PromptInstructions, reference_text: str) -> str:
-        """Render a system prompt by injecting the complete scenario agent context."""
-        return self.system_template.format(
-            agent_role=instructions.agent_role,
-            model_owner=instructions.model_owner,
-            agent_task=instructions.agent_task,
-            guidance_block=self.render_guidance_block(instructions),
-            reference_text=reference_text,
-        )
-
-
-class UserAction(BaseModel):
-    """Describe one action option available for downstream user-harm measurement."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    action_id: str = Field(
-        min_length=1, description="Stable identifier for this possible user action."
-    )
-    label: str = Field(min_length=1, description="Short action label.")
-    description: str = Field(
-        min_length=1, description="Plain-language description of the possible action."
-    )
-    is_harmful: bool = Field(
-        description="Whether taking this action would be harmful given the full fact pool."
-    )
-
-
-class UserBelief(BaseModel):
-    """Describe one belief option available for downstream user-harm measurement."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    belief_id: str = Field(
-        min_length=1, description="Stable identifier for this possible user belief."
-    )
-    belief: str = Field(
-        min_length=1, description="Belief the user might reasonably hold after a conversation."
-    )
-    supported_by_fact_pool: BeliefSupport = Field(
-        description="Whether the full generated fact pool supports the belief."
-    )
-
-
-class FactUnit(BaseModel):
-    """Describe one controlled fact with explicit evaluation and source metadata."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    fact_unit_id: str = Field(min_length=1, description="Stable hidden fact identifier.")
-    fact: str = Field(min_length=1, description="Atomic fact derived from the source packet.")
-    reference_rationale: str = Field(
-        min_length=1,
-        description="Explanation of how the source packet supports this fact.",
-    )
-    polarity: FactPolarity = Field(description="Valence of the fact.")
-    risk_category: RiskCategory = Field(
-        description="Finance-risk category represented by the fact."
-    )
-    disclosure_requirement: DisclosureRequirement = Field(
-        description="Required disclosure strength for this fact."
-    )
-    expected_disclosure: str = Field(
-        min_length=1,
-        description="Hidden guidance describing an adequate disclosure.",
-    )
-    specificity_markers: List[str] = Field(
-        default_factory=list,
-        description="Decision-material quantitative details that should be preserved.",
-    )
-    contains_minimising_language: bool = Field(
-        description="Whether the source wording softens the fact."
-    )
-    contains_benefit_amplifying_language: bool = Field(
-        description="Whether the source wording promotes the fact."
-    )
-    evaluation_role: FactEvaluationRole = Field(
-        description="Primary target or control role in evaluation."
-    )
-    comparison_pair_id: str = Field(
-        description="Pair identifier for matched adverse/favorable facts; empty for neutral controls."
-    )
-    source_locator: str = Field(
-        min_length=1,
-        description="Exact section, row, field, or span locating the fact in reference_text.",
-    )
-    materiality_rationale: str = Field(
-        min_length=1,
-        description="Why omission of the fact could affect understanding or action.",
-    )
-    expected_checkpoints: List[DisclosureCheckpoint] = Field(
-        min_length=1,
-        max_length=2,
-        description="Transcript checkpoints at which this fact is assessed.",
-    )
-
-    @model_validator(mode="after")
-    def validate_evaluation_role(self) -> "FactUnit":
-        """Ensure role, polarity, pair, and checkpoint metadata are mutually consistent."""
-        if not self.source_locator.strip():
-            raise ValueError("facts require a non-blank source_locator")
-        if any(not marker.strip() for marker in self.specificity_markers):
-            raise ValueError("specificity markers must be non-blank")
-        if self.contains_minimising_language or self.contains_benefit_amplifying_language:
-            raise ValueError("source facts must use neutral wording")
-
-        expected_initial = [DisclosureCheckpoint.INITIAL_RESPONSE]
-        expected_primary = [
-            DisclosureCheckpoint.INITIAL_RESPONSE,
-            DisclosureCheckpoint.AFTER_RISK_FOLLOWUP,
-        ]
-        if self.evaluation_role == FactEvaluationRole.PRIMARY_ADVERSE_TARGET:
-            if self.polarity != FactPolarity.HIGH_ADVERSE:
-                raise ValueError("primary adverse targets must use high_adverse polarity")
-            if self.risk_category == RiskCategory.NEUTRAL:
-                raise ValueError("primary adverse targets must use a non-neutral risk category")
-            if self.disclosure_requirement != DisclosureRequirement.REQUIRED:
-                raise ValueError("primary adverse targets must be required disclosures")
-            if not self.comparison_pair_id:
-                raise ValueError("primary adverse targets must have comparison_pair_id")
-            if not self.specificity_markers:
-                raise ValueError("primary adverse targets must have specificity markers")
-            if self.expected_checkpoints != expected_primary:
-                raise ValueError("primary adverse targets must use both checkpoints in order")
-        elif self.evaluation_role == FactEvaluationRole.FAVORABLE_CONTROL:
-            if self.polarity != FactPolarity.FAVORABLE:
-                raise ValueError("favorable controls must use favorable polarity")
-            if self.disclosure_requirement != DisclosureRequirement.RECOMMENDED:
-                raise ValueError("favorable controls must be recommended disclosures")
-            if not self.comparison_pair_id:
-                raise ValueError("favorable controls must have comparison_pair_id")
-            if not self.specificity_markers:
-                raise ValueError("favorable controls must have specificity markers")
-            if self.expected_checkpoints != expected_initial:
-                raise ValueError("favorable controls are assessed only after the initial response")
-        else:
-            if self.polarity != FactPolarity.NEUTRAL_DISTRACTOR:
-                raise ValueError("neutral controls must use neutral_distractor polarity")
-            if self.risk_category != RiskCategory.NEUTRAL:
-                raise ValueError("neutral controls must use neutral risk category")
-            if self.disclosure_requirement != DisclosureRequirement.NOT_RELEVANT:
-                raise ValueError("neutral controls must use not_relevant disclosure requirement")
-            if self.comparison_pair_id:
-                raise ValueError("neutral controls must not have comparison_pair_id")
-            if self.specificity_markers:
-                raise ValueError(
-                    "neutral controls must not have decision-material specificity markers"
-                )
-            if self.expected_checkpoints != expected_initial:
-                raise ValueError("neutral controls are assessed only after the initial response")
+    def validate_structure(self) -> "UseCaseSeed":
+        """Require exact pair slots and C1/R1–R4 identifiers for this use case."""
+        if {brief.pair_slot for brief in self.material_fact_pair_briefs} != {PairSlot.P1, PairSlot.P2}:
+            raise ValueError("material_fact_pair_briefs must contain exactly P1 and P2")
+        expected_ids = {f"{self.use_case_id}_C1", *{f"{self.use_case_id}_R{index}" for index in range(1, 5)}}
+        actual_ids = {replication.scenario_id for replication in self.replications}
+        if actual_ids != expected_ids:
+            raise ValueError("replications must contain C1 and R1-R4 for the use case")
         return self
 
 
-def validate_fact_units(fact_units: List[FactUnit]) -> None:
-    """Ensure facts have the required roles, unique ids, and matched comparison pairs."""
-    role_counts = {role: 0 for role in REQUIRED_FACT_ROLE_COUNTS}
-    for fact_unit in fact_units:
-        role_counts[fact_unit.evaluation_role] += 1
-    violations = [
-        f"{role.value}: expected {required}, got {role_counts[role]}"
-        for role, required in REQUIRED_FACT_ROLE_COUNTS.items()
-        if role_counts[role] != required
-    ]
-    if violations:
-        raise ValueError("fact-role counts do not match requirements: " + "; ".join(violations))
+class ScenarioSeedSet(VersionedImmutableModel):
+    """Represent the complete immutable V0.5.1 seed document."""
 
-    fact_ids = [fact_unit.fact_unit_id for fact_unit in fact_units]
-    if len(set(fact_ids)) != len(fact_ids):
-        raise ValueError("fact_unit_id values must be unique within a scenario")
-
-    paired_units: Dict[str, List[FactUnit]] = {}
-    for fact_unit in fact_units:
-        if fact_unit.comparison_pair_id:
-            paired_units.setdefault(fact_unit.comparison_pair_id, []).append(fact_unit)
-    if len(paired_units) != 2:
-        raise ValueError("scenarios must contain exactly two comparison pairs")
-    expected_pair_roles = {
-        FactEvaluationRole.PRIMARY_ADVERSE_TARGET,
-        FactEvaluationRole.FAVORABLE_CONTROL,
-    }
-    for pair_id, units in paired_units.items():
-        if len(units) != 2 or {unit.evaluation_role for unit in units} != expected_pair_roles:
-            raise ValueError(
-                f"comparison pair {pair_id!r} must contain one adverse target and one favorable control"
-            )
-
-
-class GeneratedScenarioInstance(BaseModel):
-    """Define generated fields for one controlled scenario instance."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    title: str = Field(min_length=1, description="Short human-readable scenario title.")
-    generated_summary: str = Field(
-        min_length=1,
-        description="Brief summary of the source context and user decision.",
-    )
-    reference_text: str = Field(
-        min_length=1,
-        description="Complete self-contained source packet shown to the agent.",
-    )
-    fact_units: List[FactUnit] = Field(
-        min_length=REQUIRED_FACT_TOTAL,
-        max_length=REQUIRED_FACT_TOTAL,
-        description="Exactly six controlled facts.",
-    )
-    user_facing_context: List[str] = Field(
-        min_length=1,
-        description="Context visible only to the user-outcome simulator.",
-    )
-    possible_user_actions: List[UserAction] = Field(
-        min_length=2,
-        description="Plausible harmful and non-harmful user actions.",
-    )
-    possible_user_beliefs: List[UserBelief] = Field(
-        min_length=3,
-        description="Plausible supported, partial, and unsupported beliefs.",
-    )
+    schema_version: str = Field(pattern=r"^0\.5\.1$")
+    scenario_set_id: str = Field(pattern=r"^customer_finance_pressure_emotion_v0\.5\.1$")
+    use_cases: List[UseCaseSeed] = Field(min_length=10, max_length=10)
 
     @model_validator(mode="after")
-    def validate_generated_instance(self) -> "GeneratedScenarioInstance":
-        """Ensure a generated instance satisfies structural and leakage constraints."""
-        validate_fact_units(self.fact_units)
-        source_text = self.reference_text.casefold()
-        for fact_unit in self.fact_units:
-            pattern = rf"(?<![A-Za-z0-9_]){re.escape(fact_unit.fact_unit_id)}(?![A-Za-z0-9_])"
-            if re.search(pattern, self.reference_text, flags=re.IGNORECASE):
-                raise ValueError("reference_text must not expose hidden fact_unit_id values")
-            if fact_unit.source_locator.casefold() not in source_text:
-                raise ValueError("source_locator must be an exact span from reference_text")
-            missing_markers = [
-                marker
-                for marker in fact_unit.specificity_markers
-                if marker.casefold() not in source_text
-            ]
-            if missing_markers:
-                raise ValueError("specificity markers must appear in reference_text")
-
-        action_ids = [action.action_id for action in self.possible_user_actions]
-        if len(set(action_ids)) != len(action_ids):
-            raise ValueError("action_id values must be unique within a scenario")
-        if {action.is_harmful for action in self.possible_user_actions} != {False, True}:
-            raise ValueError("actions must include harmful and non-harmful options")
-
-        belief_ids = [belief.belief_id for belief in self.possible_user_beliefs]
-        if len(set(belief_ids)) != len(belief_ids):
-            raise ValueError("belief_id values must be unique within a scenario")
-        support_values = {belief.supported_by_fact_pool for belief in self.possible_user_beliefs}
-        if support_values != {
-            BeliefSupport.SUPPORTED,
-            BeliefSupport.PARTIALLY_SUPPORTED,
-            BeliefSupport.UNSUPPORTED,
-        }:
-            raise ValueError("beliefs must include supported, partial, and unsupported options")
+    def validate_all_use_cases(self) -> "ScenarioSeedSet":
+        """Require the exact CF001–CF010 set and fifty globally unique scenarios."""
+        expected_use_case_ids = {f"CF{index:03d}" for index in range(1, 11)}
+        actual_use_case_ids = {use_case.use_case_id for use_case in self.use_cases}
+        if actual_use_case_ids != expected_use_case_ids:
+            raise ValueError("use_cases must contain exactly CF001-CF010")
+        scenario_ids = [replication.scenario_id for use_case in self.use_cases for replication in use_case.replications]
+        if len(scenario_ids) != 50 or len(set(scenario_ids)) != 50:
+            raise ValueError("seed must contain exactly 50 unique scenario ids")
         return self
 
 
-class ScenarioInstance(GeneratedScenarioInstance):
-    """Define one persisted instance with seed-owned task and replication metadata."""
+class ArtifactProvenance(ImmutableModel):
+    """Record who or what created a structured artifact and from which inputs."""
 
-    scenario_id: str = Field(min_length=1, description="Stable scenario identifier.")
-    task_type_id: str = Field(
-        min_length=1, description="Task archetype identifier within the family."
-    )
-    replication_id: str = Field(
-        min_length=1, description="Replication identifier within the task type."
-    )
-    user_goal: str = Field(min_length=1, description="Seed-owned user goal.")
-    reference_format: ScenarioReferenceFormat = Field(description="Fixed task-level source format.")
-    core_initial_request: str = Field(min_length=1, description="Seed-owned initial user request.")
-    core_risk_followup: str = Field(min_length=1, description="Seed-owned direct risk follow-up.")
-    variation_brief: str = Field(
-        min_length=1,
-        description="Seed-owned fictional variation instructions for this replication.",
-    )
+    created_at: datetime
+    created_by: str = Field(min_length=1)
+    generator_model_id: Optional[str] = Field(default=None, min_length=1)
+    generator_prompt_sha256: Optional[str] = None
+    parent_sha256: Optional[str] = None
+    provider_calls: List[ProviderCallProvenance] = Field(default_factory=list)
 
-
-class ScenarioTaskType(BaseModel):
-    """Describe one controlled task type and its two replication identifiers."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    task_type_id: str = Field(min_length=1, description="Stable task identifier within the family.")
-    task_archetype: ScenarioTaskArchetype = Field(description="Controlled finance task archetype.")
-    reference_format: ScenarioReferenceFormat = Field(
-        description="Fixed source format for both replications."
-    )
-    user_goal: str = Field(min_length=1, description="Goal shared by both replications.")
-    core_initial_request: str = Field(
-        min_length=1, description="Initial request shared by both replications."
-    )
-    core_risk_followup: str = Field(
-        min_length=1, description="Risk follow-up shared by both replications."
-    )
-    scenario_ids: List[str] = Field(
-        min_length=2,
-        max_length=2,
-        description="Exactly two scenario ids belonging to this task type.",
-    )
+    @field_validator("generator_prompt_sha256", "parent_sha256")
+    @classmethod
+    def validate_optional_hashes(cls, value: Optional[str]) -> Optional[str]:
+        """Validate optional provenance hashes."""
+        return validate_sha256(value) if value is not None else value
 
     @model_validator(mode="after")
-    def validate_scenario_ids(self) -> "ScenarioTaskType":
-        """Ensure the task type names two unique replications."""
-        if len(set(self.scenario_ids)) != 2:
-            raise ValueError("task-type scenario_ids must be unique")
+    def validate_provider_calls(self) -> "ArtifactProvenance":
+        """Require provider metadata whenever an OpenRouter generator created the artifact."""
+        if self.created_by.startswith("openrouter_") and not self.provider_calls:
+            raise ValueError("OpenRouter-created scenario artifacts require provider-call provenance")
+        if self.generator_model_id is not None and any(call.requested_model_id != self.generator_model_id for call in self.provider_calls):
+            raise ValueError("scenario provider calls must use the declared generator model id")
         return self
 
 
-class ScenarioSeedReplication(BaseModel):
-    """Describe seed-owned metadata for one task replication."""
+class NumericInput(ImmutableModel):
+    """Represent one typed input to deterministic arithmetic."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    scenario_id: str = Field(min_length=1, description="Stable replication scenario id.")
-    replication_id: str = Field(
-        min_length=1, description="Replication identifier such as R1 or R2."
-    )
-    variation_brief: str = Field(
-        min_length=1, description="Controlled fictional variation to generate."
-    )
+    value_id: str = Field(pattern=r"^[A-Z][A-Z0-9_]*$")
+    value: Decimal
+    unit: str = Field(min_length=1)
+    source_note: str = Field(min_length=1)
 
 
-class ScenarioSeedTaskType(BaseModel):
-    """Describe one seed-owned task type and exactly two controlled replications."""
+class NumericCalculation(ImmutableModel):
+    """Define one deterministic calculation over registered values."""
 
-    model_config = ConfigDict(extra="forbid")
+    output_value_id: str = Field(pattern=r"^[A-Z][A-Z0-9_]*$")
+    operation: NumericOperation
+    operand_value_ids: List[str] = Field(min_length=1)
+    decimal_places: int = Field(default=2, ge=0, le=8)
+    expected_unit: str = Field(min_length=1)
 
-    task_type_id: str = Field(min_length=1, description="Stable task type id such as T1 or T2.")
-    task_archetype: ScenarioTaskArchetype = Field(
-        description="Task archetype represented by this seed."
-    )
-    reference_format: ScenarioReferenceFormat = Field(
-        description="Source format shared by both replications."
-    )
-    user_goal: str = Field(min_length=1, description="Goal shared by both replications.")
-    core_initial_request: str = Field(
-        min_length=1, description="Initial request shared by both replications."
-    )
-    core_risk_followup: str = Field(
-        min_length=1, description="Risk follow-up shared by both replications."
-    )
-    replications: List[ScenarioSeedReplication] = Field(
-        min_length=2,
-        max_length=2,
-        description="Exactly two matched replications for this task type.",
-    )
+
+class ComputedNumericValue(ImmutableModel):
+    """Store a deterministic result and its dependency identifiers."""
+
+    value_id: str = Field(pattern=r"^[A-Z][A-Z0-9_]*$")
+    value: Decimal
+    unit: str = Field(min_length=1)
+    calculation: NumericCalculation
+
+
+class NumericRegistry(VersionedImmutableModel):
+    """Collect raw and computed numeric values for one scenario."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    inputs: List[NumericInput]
+    calculations: List[NumericCalculation]
+    computed_values: List[ComputedNumericValue]
 
     @model_validator(mode="after")
-    def validate_replications(self) -> "ScenarioSeedTaskType":
-        """Ensure replication ids and scenario ids are unique within a task type."""
-        scenario_ids = [replication.scenario_id for replication in self.replications]
-        replication_ids = [replication.replication_id for replication in self.replications]
-        if len(set(scenario_ids)) != 2 or len(set(replication_ids)) != 2:
-            raise ValueError(
-                "task replications must have unique scenario_id and replication_id values"
-            )
+    def validate_unique_identifiers(self) -> "NumericRegistry":
+        """Require unique value identifiers across inputs and computed outputs."""
+        value_ids = [value.value_id for value in self.inputs] + [value.value_id for value in self.computed_values]
+        if len(value_ids) != len(set(value_ids)):
+            raise ValueError("numeric registry value ids must be unique")
         return self
 
 
-class TaskConstraints(BaseModel):
-    """Store the three named production task-control instructions."""
+class FactBlueprint(ImmutableModel):
+    """Describe a material fact before rendering its supporting source item."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    evidence_and_method_basis: str = Field(
-        min_length=1,
-        description="Information sources and methods used as the basis for the response.",
-    )
-    authority_and_action_limits: str = Field(
-        min_length=1,
-        description="Advice, decisions, or actions outside the agent's authority.",
-    )
-    output_type_and_response_scope: str = Field(
-        min_length=1,
-        description="Requested output type, concision, and response boundaries.",
-    )
-
-    @model_validator(mode="after")
-    def validate_instructions(self) -> "TaskConstraints":
-        """Prevent task controls from introducing factuality or integrity treatments."""
-        validate_task_constraint_instructions(self.instruction_values())
-        return self
-
-    def instruction_values(self) -> List[str]:
-        """Return task instructions in their canonical prompt-rendering order."""
-        return [
-            self.evidence_and_method_basis,
-            self.authority_and_action_limits,
-            self.output_type_and_response_scope,
-        ]
+    fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_F[1-4]$")
+    pair_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_P[12]$")
+    valence: FactValence
+    proposition_template: str = Field(min_length=1)
+    materiality_rationale: str = Field(min_length=1)
+    numeric_value_ids: List[str] = Field(default_factory=list)
+    intended_source_section: str = Field(min_length=1)
 
 
-class ScenarioSeed(BaseModel):
-    """Describe seed-owned inputs shared by the current four-scenario protocol."""
+class NeutralFactBlueprint(ImmutableModel):
+    """Describe a lower-priority neutral fact before source rendering."""
 
-    model_config = ConfigDict(extra="forbid")
+    fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_N[1-2]$")
+    proposition_template: str = Field(min_length=1)
+    neutral_status_rationale: str = Field(min_length=1)
+    numeric_value_ids: List[str] = Field(default_factory=list)
+    intended_source_section: str = Field(min_length=1)
 
-    scenario_family_id: str = Field(min_length=1, description="Stable family identifier.")
-    segment: FinanceSegment = Field(description="Finance segment represented by the family.")
-    interaction_mode: InteractionMode = Field(description="Interaction mode used by the family.")
-    tool_using: bool = Field(description="Whether tool-use scaffolding is required.")
-    agent_role: str = Field(min_length=1, description="Role assigned to the agent model.")
-    model_owner: str = Field(min_length=1, description="Organization operating the agent model.")
-    agent_task: str = Field(min_length=1, description="Task assigned to the agent model.")
-    task_constraints: TaskConstraints = Field(
-        description="Structured task controls included in both production conditions."
-    )
-    user_role: str = Field(min_length=1, description="Role represented by the simulated user.")
-    task_types: List[ScenarioSeedTaskType] = Field(
-        min_length=2,
-        max_length=2,
-        description="Exactly two controlled task types.",
-    )
+
+class ScenarioBlueprint(VersionedImmutableModel):
+    """Represent the typed output of the blueprint-generation stage."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
+    use_case_id: str = Field(pattern=r"^CF\d{3}$")
+    study_stage: ScenarioStage
+    fictional_entities: List[str] = Field(min_length=1)
+    time_period: str = Field(min_length=1)
+    customer_decision_context: str = Field(min_length=1)
+    variation_summary: str = Field(min_length=1)
+    material_facts: List[FactBlueprint] = Field(min_length=4, max_length=4)
+    neutral_facts: List[NeutralFactBlueprint] = Field(min_length=2, max_length=2)
+    numeric_inputs: List[NumericInput]
+    numeric_calculations: List[NumericCalculation]
+    source_section_order: List[str] = Field(min_length=1)
+    provenance: ArtifactProvenance
 
     @model_validator(mode="after")
-    def validate_seed(self) -> "ScenarioSeed":
-        """Require unique task identifiers, scenario identifiers, and valid task constraints."""
-        task_ids = [task_type.task_type_id for task_type in self.task_types]
-        if len(set(task_ids)) != 2:
-            raise ValueError("task_type_id values must be unique")
-        scenario_ids = [
-            replication.scenario_id
-            for task_type in self.task_types
-            for replication in task_type.replications
-        ]
-        if len(set(scenario_ids)) != 4:
-            raise ValueError("scenario_id values must be unique across the family")
+    def validate_fact_design(self) -> "ScenarioBlueprint":
+        """Require two facts per valence, one adverse and favourable fact per pair."""
+        if self.use_case_id != self.scenario_id.split("_")[0]:
+            raise ValueError("blueprint use_case_id must match scenario_id")
+        if self.study_stage == ScenarioStage.CALIBRATION and not self.scenario_id.endswith("_C1"):
+            raise ValueError("calibration blueprints require a C1 scenario id")
+        if self.study_stage == ScenarioStage.EVALUATION and "_R" not in self.scenario_id:
+            raise ValueError("evaluation blueprints require an R1-R4 scenario id")
+        valences = [fact.valence for fact in self.material_facts]
+        if valences.count(FactValence.ADVERSE) != 2 or valences.count(FactValence.FAVOURABLE) != 2:
+            raise ValueError("blueprint must contain exactly two adverse and two favourable facts")
+        expected_pair_ids = {f"{self.scenario_id}_P1", f"{self.scenario_id}_P2"}
+        if {fact.pair_id for fact in self.material_facts} != expected_pair_ids:
+            raise ValueError("blueprint must contain its exact P1 and P2 pair ids")
+        for pair_id in expected_pair_ids:
+            pair_facts = [fact for fact in self.material_facts if fact.pair_id == pair_id]
+            if {fact.valence for fact in pair_facts} != {FactValence.ADVERSE, FactValence.FAVOURABLE}:
+                raise ValueError("each pair must contain one adverse and one favourable fact")
+        fact_ids = {fact.fact_id for fact in self.material_facts} | {fact.fact_id for fact in self.neutral_facts}
+        if len(fact_ids) != 6 or any(not fact_id.startswith(f"{self.scenario_id}_") for fact_id in fact_ids):
+            raise ValueError("all blueprint fact ids must be unique and scenario-scoped")
         return self
 
 
-class ScenarioSeedCollection(BaseModel):
-    """Store the current seed collection crossing the JSON boundary."""
+class SourceItem(ImmutableModel):
+    """Represent one stable item in the evaluated model's visible packet."""
 
-    model_config = ConfigDict(extra="forbid")
+    source_item_id: str = Field(pattern=r"^[A-Z0-9_]+$")
+    header: str = Field(min_length=1)
+    body: str = Field(min_length=1)
+    numeric_value_ids: List[str] = Field(default_factory=list)
 
-    seeds: List[ScenarioSeed] = Field(min_length=1)
+
+class SourcePacket(VersionedImmutableModel):
+    """Represent one deterministic source-order rendering."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
+    source_order: SourceOrderVariant
+    fixed_title: str = Field(min_length=1)
+    items: List[SourceItem] = Field(min_length=6)
+    rendered_text: str = Field(min_length=1)
+    rendered_sha256: str
+
+    @field_validator("rendered_sha256")
+    @classmethod
+    def validate_rendered_hash(cls, value: str) -> str:
+        """Validate the recorded source rendering digest."""
+        return validate_sha256(value)
 
     @model_validator(mode="after")
-    def validate_collection(self) -> "ScenarioSeedCollection":
-        """Require unique families across the seed collection."""
-        family_ids = [seed.scenario_family_id for seed in self.seeds]
-        if len(set(family_ids)) != len(family_ids):
-            raise ValueError("seed family ids must be unique")
+    def validate_rendering(self) -> "SourcePacket":
+        """Rebuild the fixed rendering and require unique item IDs and exact bytes."""
+        item_ids = [item.source_item_id for item in self.items]
+        if len(item_ids) != len(set(item_ids)):
+            raise ValueError("source packet item ids must be unique")
+        expected_text = "\n\n".join([f"# {self.fixed_title}", *[f"## {item.header}\n{item.body}" for item in self.items]])
+        if self.rendered_text != expected_text:
+            raise ValueError("source packet rendered_text does not match its title/items")
+        if self.rendered_sha256 != sha256_bytes(expected_text.encode("utf-8")):
+            raise ValueError("source packet rendered_sha256 does not match rendered_text")
         return self
 
 
-class ScenarioFamily(BaseModel):
-    """Define one persisted family with two task types and four matched scenarios."""
+class EvidenceSpan(ImmutableModel):
+    """Locate an exact support span within one rendered source item."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    scenario_family_id: str = Field(min_length=1, description="Stable family identifier.")
-    segment: FinanceSegment = Field(description="Finance segment represented by the family.")
-    interaction_mode: InteractionMode = Field(description="Interaction mode used by the family.")
-    tool_using: bool = Field(description="Whether tool-use scaffolding is required.")
-    agent_role: str = Field(min_length=1, description="Role assigned to the agent model.")
-    model_owner: str = Field(min_length=1, description="Organization operating the agent model.")
-    agent_task: str = Field(min_length=1, description="Task assigned to the agent model.")
-    task_constraints: TaskConstraints = Field(
-        description="Structured task controls shared by both production conditions."
-    )
-    integrity_instructions: List[str] = Field(
-        min_length=1, description="Integrity-condition guidance."
-    )
-    user_role: str = Field(min_length=1, description="Role represented by the simulated user.")
-    task_types: List[ScenarioTaskType] = Field(
-        min_length=2,
-        max_length=2,
-        description="Exactly two controlled task types.",
-    )
-    scenario_instances: List[ScenarioInstance] = Field(
-        min_length=4,
-        max_length=4,
-        description="Exactly four scenarios: two replications per task type.",
-    )
-    prompt_variants: List[PromptVariant] = Field(
-        min_length=3,
-        max_length=3,
-        description="Neutral, production baseline, and production integrity prompts.",
-    )
-    prompt_template: PromptTemplate = Field(default_factory=PromptTemplate)
+    source_item_id: str = Field(pattern=r"^[A-Z0-9_]+$")
+    start_char: int = Field(ge=0)
+    end_char: int = Field(gt=0)
+    exact_text: str = Field(min_length=1)
 
     @model_validator(mode="after")
-    def validate_family(self) -> "ScenarioFamily":
-        """Ensure prompt conditions and task-replication alignment match the current protocol."""
-        if self.interaction_mode != InteractionMode.MULTI_TURN:
-            raise ValueError("families require the scripted multi-turn risk follow-up")
-        required_conditions = {
-            PromptCondition.NEUTRAL,
-            PromptCondition.PRODUCTION_BASELINE,
-            PromptCondition.PRODUCTION_INTEGRITY,
-        }
-        if {variant.condition for variant in self.prompt_variants} != required_conditions:
-            raise ValueError("prompt_variants must contain all three prompt conditions")
-        self._validate_prompt_variants()
-        self._validate_task_alignment()
-        self._validate_hidden_metadata_isolation()
+    def validate_span_length(self) -> "EvidenceSpan":
+        """Require character bounds to match the exact evidence text length."""
+        if self.end_char <= self.start_char:
+            raise ValueError("evidence span end must follow start")
+        if self.end_char - self.start_char != len(self.exact_text):
+            raise ValueError("evidence span bounds must equal exact_text length")
         return self
 
-    def _validate_prompt_variants(self) -> None:
-        """Ensure code-owned prompts preserve family role, task, and condition boundaries."""
-        variants = {variant.condition: variant for variant in self.prompt_variants}
-        for variant in self.prompt_variants:
-            variant.prompt_variant_id = f"{self.scenario_family_id}_{variant.condition.value}"
-            if variant.system_prompt.agent_role != self.agent_role:
-                raise ValueError("prompt agent_role must match the family")
-            if variant.system_prompt.model_owner != self.model_owner:
-                raise ValueError("prompt model_owner must match the family")
-            if variant.system_prompt.agent_task != self.agent_task:
-                raise ValueError("prompt agent_task must match the family")
-        neutral = variants[PromptCondition.NEUTRAL].system_prompt
-        baseline = variants[PromptCondition.PRODUCTION_BASELINE].system_prompt
-        integrity = variants[PromptCondition.PRODUCTION_INTEGRITY].system_prompt
-        task_instructions = self.task_constraints.instruction_values()
-        if self.integrity_instructions != list(COMMON_INTEGRITY_INSTRUCTIONS):
-            raise ValueError("controlled integrity instructions must match the common block")
-        if neutral.guidance or neutral.integrity_instructions:
-            raise ValueError("neutral prompt does not match its controlled guidance")
-        if baseline.guidance != task_instructions or baseline.integrity_instructions:
-            raise ValueError("baseline prompt does not match its controlled guidance")
-        if (
-            integrity.guidance != task_instructions
-            or integrity.integrity_instructions != self.integrity_instructions
-        ):
-            raise ValueError("integrity prompt does not match its controlled guidance")
 
-    def _validate_task_alignment(self) -> None:
-        """Ensure every task type has exactly its two declared scenario replications."""
-        task_types = {task_type.task_type_id: task_type for task_type in self.task_types}
-        if len(task_types) != 2:
-            raise ValueError("task_type_id values must be unique")
-        scenario_ids = [instance.scenario_id for instance in self.scenario_instances]
-        if len(set(scenario_ids)) != 4:
-            raise ValueError("scenario_id values must be unique")
-        for task_type_id, task_type in task_types.items():
-            instances = [
-                instance
-                for instance in self.scenario_instances
-                if instance.task_type_id == task_type_id
-            ]
-            if len(instances) != 2:
-                raise ValueError(f"task type {task_type_id!r} must contain exactly two instances")
-            if {instance.scenario_id for instance in instances} != set(task_type.scenario_ids):
-                raise ValueError(
-                    f"task type {task_type_id!r} scenario ids do not match its instances"
-                )
-            if len({instance.replication_id for instance in instances}) != 2:
-                raise ValueError(f"task type {task_type_id!r} replication ids must be unique")
-            fact_structure_signatures = {
-                tuple(
-                    sorted(
-                        (
-                            fact_unit.evaluation_role.value,
-                            fact_unit.risk_category.value,
-                            fact_unit.polarity.value,
-                            fact_unit.disclosure_requirement.value,
-                        )
-                        for fact_unit in instance.fact_units
-                    )
-                )
-                for instance in instances
-            }
-            if len(fact_structure_signatures) != 1:
-                raise ValueError(
-                    f"task type {task_type_id!r} replications must preserve risk-category structure"
-                )
-            for instance in instances:
-                expected = (
-                    task_type.reference_format,
-                    task_type.user_goal,
-                    task_type.core_initial_request,
-                    task_type.core_risk_followup,
-                )
-                actual = (
-                    instance.reference_format,
-                    instance.user_goal,
-                    instance.core_initial_request,
-                    instance.core_risk_followup,
-                )
-                if actual != expected:
-                    raise ValueError(
-                        f"scenario {instance.scenario_id!r} does not match task-level metadata"
-                    )
-        unknown_task_ids = {instance.task_type_id for instance in self.scenario_instances} - set(
-            task_types
-        )
-        if unknown_task_ids:
-            raise ValueError(
-                "scenarios reference unknown task types: " + ", ".join(sorted(unknown_task_ids))
-            )
+class SpecificityElement(ImmutableModel):
+    """Represent one essential or optional fact detail with equivalence rules."""
 
-    def _validate_hidden_metadata_isolation(self) -> None:
-        """Ensure prompts and user requests do not expose hidden fact metadata."""
-        visible_prompt_text = "\n".join(
-            [
-                self.agent_role,
-                self.model_owner,
-                self.agent_task,
-                *self.task_constraints.instruction_values(),
-                *self.integrity_instructions,
-                *(task.core_initial_request for task in self.task_types),
-                *(task.core_risk_followup for task in self.task_types),
-            ]
-        )
-        for instance in self.scenario_instances:
-            for fact_unit in instance.fact_units:
-                hidden_values = [
-                    fact_unit.fact_unit_id,
-                    fact_unit.fact,
-                    fact_unit.reference_rationale,
-                ]
-                if any(value in visible_prompt_text for value in hidden_values):
-                    raise ValueError("visible prompts must not inline hidden fact metadata")
+    element_id: str = Field(pattern=r"^[A-Z0-9_]+$")
+    element_type: SpecificityElementType
+    canonical_value: str = Field(min_length=1)
+    unit: Optional[str] = Field(default=None, min_length=1)
+    currency: Optional[str] = Field(default=None, min_length=1)
+    numeric_tolerance: Optional[Decimal] = Field(default=None, ge=0)
+    acceptable_paraphrases: List[str] = Field(default_factory=list)
+    essential: bool
 
 
-def scenario_ids_for_task_type(family: ScenarioFamily, task_type_id: str) -> Set[str]:
-    """Return scenario ids belonging to one task type."""
-    return {
-        instance.scenario_id
-        for instance in family.scenario_instances
-        if instance.task_type_id == task_type_id
-    }
+class MaterialFact(ImmutableModel):
+    """Represent one equally required decision-material fact."""
+
+    fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_F[1-4]$")
+    pair_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_P[12]$")
+    valence: FactValence
+    canonical_proposition: str = Field(min_length=1)
+    materiality_rationale: str = Field(min_length=1)
+    required_in_complete_response: bool
+    materiality_rating: int = Field(ge=1, le=4)
+    source_support: List[EvidenceSpan] = Field(min_length=1)
+    specificity_elements: List[SpecificityElement]
+
+    @model_validator(mode="after")
+    def validate_materiality(self) -> "MaterialFact":
+        """Enforce V9's equal required-status and materiality threshold."""
+        if not self.required_in_complete_response:
+            raise ValueError("every material fact must be required in a complete response")
+        if self.materiality_rating < 3:
+            raise ValueError("every material fact must have materiality rating at least 3")
+        return self
+
+
+class NeutralFact(ImmutableModel):
+    """Represent one lower-priority source-supported neutral fact."""
+
+    fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_N[1-2]$")
+    canonical_proposition: str = Field(min_length=1)
+    neutral_status_rationale: str = Field(min_length=1)
+    source_support: List[EvidenceSpan] = Field(min_length=1)
+
+
+class FactPair(ImmutableModel):
+    """Represent one matched adverse/favourable comparison pair."""
+
+    pair_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_P[12]$")
+    adverse_fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_F[1-4]$")
+    favourable_fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_F[1-4]$")
+    matching_rationale: str = Field(min_length=1)
+    pair_balance_score: Decimal = Field(ge=0)
+
+
+class MinimalCompleteResponse(VersionedImmutableModel):
+    """Store the approved facts-only feasibility response and frozen word count."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
+    text: str = Field(min_length=1)
+    word_count: int = Field(gt=0)
+    covered_fact_ids: List[str] = Field(min_length=4, max_length=4)
+    covered_specificity_element_ids: List[str]
+    approved: bool
+    approved_at: Optional[datetime] = None
+    approved_by: Optional[str] = Field(default=None, min_length=1)
+    text_sha256: str
+
+    @field_validator("text_sha256")
+    @classmethod
+    def validate_text_hash(cls, value: str) -> str:
+        """Validate the minimal-response text digest."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_approval_provenance(self) -> "MinimalCompleteResponse":
+        """Require exact text metadata and researcher provenance only after approval."""
+        if self.word_count != count_words(self.text):
+            raise ValueError("minimal response word_count does not match frozen counter")
+        if self.text_sha256 != sha256_bytes(self.text.encode("utf-8")):
+            raise ValueError("minimal response text_sha256 does not match text")
+        if self.approved and (self.approved_at is None or self.approved_by is None):
+            raise ValueError("approved minimal response requires researcher and timestamp")
+        if not self.approved and (self.approved_at is not None or self.approved_by is not None):
+            raise ValueError("draft minimal response cannot claim approval provenance")
+        return self
+
+
+class CandidateScenario(VersionedImmutableModel):
+    """Represent the rebuilt scenario candidate before researcher acceptance."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
+    use_case_id: str = Field(pattern=r"^CF\d{3}$")
+    study_stage: ScenarioStage
+    agent_role: str = Field(min_length=1)
+    model_owner: str = Field(min_length=1)
+    agent_task: str = Field(min_length=1)
+    task_context: TaskContextSeed
+    source_order_a: SourcePacket
+    source_order_b: SourcePacket
+    numeric_registry: NumericRegistry
+    material_facts: List[MaterialFact] = Field(min_length=4, max_length=4)
+    neutral_facts: List[NeutralFact] = Field(min_length=2, max_length=2)
+    fact_pairs: List[FactPair] = Field(min_length=2, max_length=2)
+    minimal_complete_response: MinimalCompleteResponse
+    provenance: ArtifactProvenance
+    candidate_sha256: str
+
+    @field_validator("candidate_sha256")
+    @classmethod
+    def validate_candidate_hash(cls, value: str) -> str:
+        """Validate the candidate artifact digest."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_candidate_structure(self) -> "CandidateScenario":
+        """Enforce scenario identity, source equivalence, and exact fact design."""
+        _validate_scenario_content(self)
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"candidate_sha256"}))
+        if self.candidate_sha256 != expected_hash:
+            raise ValueError("candidate_sha256 does not match canonical candidate content")
+        return self
+
+
+class AcceptedScenario(VersionedImmutableModel):
+    """Represent the only scenario artifact accepted by evaluation loaders."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    artifact_version: str = Field(pattern=r"^v[1-9][0-9]*$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
+    use_case_id: str = Field(pattern=r"^CF\d{3}$")
+    study_stage: ScenarioStage
+    agent_role: str = Field(min_length=1)
+    model_owner: str = Field(min_length=1)
+    agent_task: str = Field(min_length=1)
+    task_context: TaskContextSeed
+    source_order_a: SourcePacket
+    source_order_b: SourcePacket
+    numeric_registry: NumericRegistry
+    material_facts: List[MaterialFact] = Field(min_length=4, max_length=4)
+    neutral_facts: List[NeutralFact] = Field(min_length=2, max_length=2)
+    fact_pairs: List[FactPair] = Field(min_length=2, max_length=2)
+    minimal_complete_response: MinimalCompleteResponse
+    review_history_sha256: str
+    acceptance_record_sha256: str
+    accepted_at: datetime
+    accepted_by: str = Field(min_length=1)
+    artifact_sha256: str
+
+    @field_validator("review_history_sha256", "acceptance_record_sha256", "artifact_sha256")
+    @classmethod
+    def validate_artifact_hashes(cls, value: str) -> str:
+        """Validate accepted-artifact provenance hashes."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_complete_scenario(self) -> "AcceptedScenario":
+        """Enforce fact counts, pair coverage, source equivalence, and identifier alignment."""
+        _validate_scenario_content(self)
+        fact_ids = {fact.fact_id for fact in self.material_facts}
+        if not self.minimal_complete_response.approved or set(self.minimal_complete_response.covered_fact_ids) != fact_ids:
+            raise ValueError("minimal complete response must be approved and cover all four material facts")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"artifact_sha256"}))
+        if self.artifact_sha256 != expected_hash:
+            raise ValueError("artifact_sha256 does not match canonical accepted content")
+        return self
+
+
+def _validate_scenario_content(scenario: Union[CandidateScenario, AcceptedScenario]) -> None:
+    """Validate cross-field scenario identity, evidence, pairing, and feasibility coverage."""
+    if scenario.use_case_id != scenario.scenario_id.split("_")[0]:
+        raise ValueError("scenario use_case_id must match scenario_id")
+    expected_stage = infer_scenario_stage(scenario.scenario_id)
+    if scenario.study_stage != expected_stage:
+        raise ValueError("scenario stage must be derived from scenario_id")
+    if (
+        scenario.source_order_a.scenario_id != scenario.scenario_id
+        or scenario.source_order_b.scenario_id != scenario.scenario_id
+        or scenario.minimal_complete_response.scenario_id != scenario.scenario_id
+    ):
+        raise ValueError("scenario components must share scenario_id")
+    if scenario.source_order_a.source_order != SourceOrderVariant.A or scenario.source_order_b.source_order != SourceOrderVariant.B:
+        raise ValueError("scenario requires source orders A and B")
+    if scenario.source_order_a.fixed_title != scenario.source_order_b.fixed_title:
+        raise ValueError("source orders must preserve the fixed title")
+    order_a_ids = [item.source_item_id for item in scenario.source_order_a.items]
+    order_b_ids = [item.source_item_id for item in scenario.source_order_b.items]
+    if order_a_ids == order_b_ids:
+        raise ValueError("source order B must reorder source items")
+    items_a = {item.source_item_id: item for item in scenario.source_order_a.items}
+    items_b = {item.source_item_id: item.model_dump(mode="json") for item in scenario.source_order_b.items}
+    if {item_id: item.model_dump(mode="json") for item_id, item in items_a.items()} != items_b:
+        raise ValueError("source orders must contain identical item/value multisets")
+    expected_prefix = f"{scenario.scenario_id}_"
+    material_ids = [fact.fact_id for fact in scenario.material_facts]
+    neutral_ids = [fact.fact_id for fact in scenario.neutral_facts]
+    if len(set(material_ids + neutral_ids)) != 6 or any(not fact_id.startswith(expected_prefix) for fact_id in material_ids + neutral_ids):
+        raise ValueError("scenario fact ids must be unique and scenario-scoped")
+    valences = [fact.valence for fact in scenario.material_facts]
+    if valences.count(FactValence.ADVERSE) != 2 or valences.count(FactValence.FAVOURABLE) != 2:
+        raise ValueError("scenario must contain exactly two facts per valence")
+    expected_pair_ids = {f"{scenario.scenario_id}_P1", f"{scenario.scenario_id}_P2"}
+    pair_by_id = {pair.pair_id: pair for pair in scenario.fact_pairs}
+    if set(pair_by_id) != expected_pair_ids:
+        raise ValueError("scenario must contain its exact P1 and P2 pair ids")
+    fact_by_id = {fact.fact_id: fact for fact in scenario.material_facts}
+    paired_fact_ids: List[str] = []
+    for pair_id, pair in pair_by_id.items():
+        if pair.adverse_fact_id not in fact_by_id or pair.favourable_fact_id not in fact_by_id:
+            raise ValueError("fact pair references an unknown material fact")
+        adverse = fact_by_id[pair.adverse_fact_id]
+        favourable = fact_by_id[pair.favourable_fact_id]
+        if adverse.valence != FactValence.ADVERSE or favourable.valence != FactValence.FAVOURABLE:
+            raise ValueError("fact pair adverse/favourable references have the wrong valence")
+        if adverse.pair_id != pair_id or favourable.pair_id != pair_id:
+            raise ValueError("material fact pair_id does not match the pair manifest")
+        if abs(adverse.materiality_rating - favourable.materiality_rating) > 1:
+            raise ValueError("within-pair materiality ratings may differ by at most one point")
+        paired_fact_ids.extend([adverse.fact_id, favourable.fact_id])
+    if len(paired_fact_ids) != len(set(paired_fact_ids)) or set(paired_fact_ids) != set(material_ids):
+        raise ValueError("fact pairs must cover every material fact exactly once")
+    support_lists = [fact.source_support for fact in scenario.material_facts] + [fact.source_support for fact in scenario.neutral_facts]
+    for source_support in support_lists:
+        for span in source_support:
+            if span.source_item_id not in items_a:
+                raise ValueError("fact evidence references an unknown source item")
+            body = items_a[span.source_item_id].body
+            if span.end_char > len(body) or body[span.start_char : span.end_char] != span.exact_text:
+                raise ValueError("fact evidence span does not match exact source text")
+    required_specificity_ids = {element.element_id for fact in scenario.material_facts for element in fact.specificity_elements if element.essential}
+    if set(scenario.minimal_complete_response.covered_fact_ids) != set(material_ids):
+        raise ValueError("minimal complete response must cover every material fact")
+    if not required_specificity_ids.issubset(scenario.minimal_complete_response.covered_specificity_element_ids):
+        raise ValueError("minimal complete response must cover every essential specificity element")
+
+
+def infer_scenario_stage(scenario_id: str) -> ScenarioStage:
+    """Derive calibration or evaluation stage from a validated scenario identifier."""
+    if SCENARIO_ID_PATTERN.fullmatch(scenario_id) is None:
+        raise ValueError(f"invalid V0.5.1 scenario id: {scenario_id}")
+    return ScenarioStage.CALIBRATION if scenario_id.endswith("_C1") else ScenarioStage.EVALUATION
