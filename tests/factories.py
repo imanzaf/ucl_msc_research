@@ -261,7 +261,7 @@ def make_budget_manifest() -> WordBudgetManifest:
         tight_limit_manifest_sha256=ZERO_HASH,
         use_case_budgets=budgets,
         ample_pilot=AmplePilotSummary(
-            outputs_within_ample_limit=114,
+            outputs_within_ample_limit=57,
             all_approved_complete_responses_fit=True,
             result_record_sha256=ZERO_HASH,
         ),

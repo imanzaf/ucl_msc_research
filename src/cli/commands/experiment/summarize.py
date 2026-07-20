@@ -7,7 +7,7 @@ from collections import Counter
 from pathlib import Path
 
 from src.data_models.common import artifact_sha256
-from src.data_models.experiments import ConversationTranscript, ModelSummary, RunOutcomeStatus
+from src.data_models.experiments import EXPECTED_CONVERSATION_COUNT, ConversationTranscript, ModelSummary, RunOutcomeStatus
 from src.experiments.scenario_runner import validate_complete_run_plan
 from src.storage import read_model_jsonl, write_models_jsonl_atomic
 
@@ -21,6 +21,9 @@ def main() -> None:
     transcripts = read_model_jsonl(args.transcripts, ConversationTranscript)
     validate_complete_run_plan([transcript.run_unit for transcript in transcripts])
     model_ids = sorted({transcript.run_unit.model_id for transcript in transcripts})
+    if not model_ids or EXPECTED_CONVERSATION_COUNT % len(model_ids) != 0:
+        raise ValueError("expected conversation count must divide evenly across evaluated models")
+    expected_conversations_per_model = EXPECTED_CONVERSATION_COUNT // len(model_ids)
     summaries = []
     for model_id in model_ids:
         records = [transcript for transcript in transcripts if transcript.run_unit.model_id == model_id]
@@ -37,7 +40,7 @@ def main() -> None:
         payload = {
             "schema_version": "1.0.0",
             "model_id": model_id,
-            "expected_conversations": 640,
+            "expected_conversations": expected_conversations_per_model,
             "completed_conversations": sum(item.outcome_status == RunOutcomeStatus.COMPLETED for item in records),
             "failed_conversations": sum(item.outcome_status == RunOutcomeStatus.FAILED for item in records),
             "missing_conversations": sum(item.outcome_status == RunOutcomeStatus.MISSING for item in records),

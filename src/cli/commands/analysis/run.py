@@ -42,7 +42,7 @@ from src.experiments.layout import validate_experiment_path
 from src.paths import REPO_ROOT
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic
 
-CONFIRMATORY_NAMES = {"H1", "H2a", "H2b", "M1", "M2"}
+CONFIRMATORY_NAMES = {"H1", "H2a", "H2b"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -248,7 +248,7 @@ def main() -> None:
     fact_frame = pd.DataFrame.from_records(fact_records)
     estimates, intervals, draws = stratified_scenario_bootstrap(frame, draws=args.draws, seed=args.seed)
     if set(estimates) != CONFIRMATORY_NAMES:
-        raise ValueError("confirmatory bootstrap did not return all five preregistered estimands")
+        raise ValueError("confirmatory bootstrap did not return all three preregistered estimands")
     p_values = {name: min(1.0, 2 * min(float((draws[name] <= 0).mean()), float((draws[name] >= 0).mean()))) for name in estimates}
     adjusted = holm_adjust(p_values)
     confirmatory = _summary(

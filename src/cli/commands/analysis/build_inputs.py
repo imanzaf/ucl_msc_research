@@ -48,7 +48,7 @@ def build_analysis_rows(
 ) -> Tuple[List[AnalysisInputRow], List[MissingRunRecord]]:
     """Join all completed outcomes and preserve exhausted provider calls as missing."""
     if len(transcripts) != EXPECTED_CONVERSATION_COUNT:
-        raise ValueError("analysis input requires the complete 960-unit terminal transcript ledger")
+        raise ValueError("analysis input requires the complete 480-unit terminal transcript ledger")
     transcript_by_id: Dict[str, ConversationTranscript] = {}
     for transcript in transcripts:
         run_unit_id = transcript.run_unit.run_unit_id

@@ -31,12 +31,12 @@
     }
   },
   "additionalProperties": false,
-  "description": "Snapshot the 240-conversation canonical-order calibration matrix.",
+  "description": "Snapshot the 120-conversation canonical-order calibration matrix.",
   "properties": {
     "cell_count": {
-      "default": 8,
-      "maximum": 8,
-      "minimum": 8,
+      "default": 4,
+      "maximum": 4,
+      "minimum": 4,
       "title": "Cell Count",
       "type": "integer"
     },
@@ -53,16 +53,16 @@
       "type": "integer"
     },
     "expected_agent_response_count": {
-      "default": 480,
-      "maximum": 480,
-      "minimum": 480,
+      "default": 240,
+      "maximum": 240,
+      "minimum": 240,
       "title": "Expected Agent Response Count",
       "type": "integer"
     },
     "expected_conversation_count": {
-      "default": 240,
-      "maximum": 240,
-      "minimum": 240,
+      "default": 120,
+      "maximum": 120,
+      "minimum": 120,
       "title": "Expected Conversation Count",
       "type": "integer"
     },

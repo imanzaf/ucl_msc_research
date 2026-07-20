@@ -43,7 +43,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     if missing:
         raise ValueError("documentation references missing paths or commands: " + ", ".join(sorted(set(missing))))
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    if "e6b83d2" not in readme or "960" not in readme or "1,920" not in readme:
+    if "e6b83d2" not in readme or "480" not in readme or "960" not in readme:
         raise ValueError("README must identify the legacy commit and exact target counts")
     print(f"Documentation smoke test passed for {len(required_documents)} active documents.")
 

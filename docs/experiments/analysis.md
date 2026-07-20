@@ -1,8 +1,8 @@
 # Analysis and paper assets
 
-Python owns the five estimands, use-case-stratified scenario bootstrap, Holm correction, power simulation, equivalence checks, sensitivities, and assets. Facts are never resampled as independent units. The default bootstrap uses 10,000 draws.
+Python owns the three primary estimands, use-case-stratified scenario bootstrap, Holm correction, power simulation, equivalence checks, sensitivities, and assets. Facts are never resampled as independent units. The default bootstrap uses 10,000 draws.
 
-Before preregistration, freeze calibration-derived variance components and the five smallest effects, then simulate the repeated 10-use-case × 4-scenario × 3-model canonical-order design:
+Before preregistration, freeze calibration-derived variance components and the three smallest effects, then simulate the repeated 10-use-case × 4-scenario × 3-model canonical-order design:
 
 ```bash
 uv run risk-comm analysis freeze-assumptions \
@@ -19,9 +19,9 @@ uv run risk-comm analysis simulate-power \
   --simulations 5000
 ```
 
-`analysis_assumptions.json` is a strict `1.0.0` object containing `absolute_bounds`, `rationales`, and `variance_components`, each keyed by exactly `H1`, `H2a`, `H2b`, `M1`, and `M2`.
+`analysis_assumptions.json` is a strict `1.0.0` object containing `absolute_bounds`, `rationales`, and `variance_components`, each keyed by exactly `H1`, `H2a`, and `H2b`.
 
-The report applies Holm correction within each simulated five-test family and includes stressed model-heterogeneity and scoring-error surfaces. It uses only calibration variance inputs, never held-out effect directions.
+The report applies Holm correction within each simulated three-test family and includes stressed model-heterogeneity and scoring-error surfaces. It uses only calibration variance inputs, never held-out effect directions.
 
 ```bash
 uv run risk-comm analysis run \
@@ -45,9 +45,9 @@ uv run risk-comm analysis run \
   --draws 10000
 ```
 
-The command requires the full terminal 960-unit ledger while analysing only completed outcomes recorded by the bound missingness report. It refuses a changed analysis commit, broken preregistration links, unresolvable paired estimands, or failed disclosure/omission/reassurance headline gates. It writes schema-validated confirmatory, sensitivity, equivalence, and R summaries plus stable `risk_comm_v1_table.tex` and `risk_comm_v1_figure.pdf` paths. Sensitivities cover each model, leave-one-use-case-out estimates, budget-compliant responses, refusal exclusion, binary disclosure thresholds, the locked human-reference subset, response-length mediation, and mitigation-row exclusion invariance.
+The command requires the full terminal 480-unit primary ledger while analysing only completed outcomes recorded by the bound missingness report. It refuses a changed analysis commit, broken preregistration links, unresolvable paired estimands, or failed disclosure/omission/reassurance headline gates. It writes schema-validated confirmatory, sensitivity, equivalence, and R summaries plus stable `risk_comm_v1_table.tex` and `risk_comm_v1_figure.pdf` paths. Sensitivities cover each model, leave-one-use-case-out estimates, budget-compliant responses, refusal exclusion, binary disclosure thresholds, the locked human-reference subset, and response-length mediation.
 
-After canonical-order scoring, `src/analysis/source_order_subset.py` ranks use cases by mean initial-checkpoint pairwise disclosure gap and selects the two smallest-gap and two largest-gap use cases. Running derived order B across those four use cases would add 384 conversations and use their existing A runs as the comparison. The later A/B analysis is an exploratory secondary objective; selection is outcome-dependent, ties are broken by use-case ID, and its results are not folded into the confirmatory estimates.
+After primary scoring, `src/analysis/secondary_subset.py` ranks canonical-A, integrity-absent use cases by mean initial-checkpoint pairwise disclosure gap and selects the two smallest-gap and two largest-gap families. The exact same four families feed both secondary objectives. Derived order B with absent integrity adds 192 conversations; targeted integrity under canonical order A adds a separate 192 conversations. Both reuse the existing primary A/absent runs as their comparison, are outcome-selected, and are reported outside the confirmatory estimates. The two secondary factors are not crossed.
 
 R robustness code is locked by the complete transitive graph in `analysis/r/renv.lock` and executed by `analysis/r/run_mixed_models.R`:
 

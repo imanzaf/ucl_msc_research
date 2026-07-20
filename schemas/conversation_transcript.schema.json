@@ -315,7 +315,7 @@
           "type": "string"
         },
         "randomised_position": {
-          "maximum": 7,
+          "maximum": 3,
           "minimum": 0,
           "title": "Randomised Position",
           "type": "integer"
@@ -383,7 +383,7 @@
       "type": "string"
     },
     "StudyStage": {
-      "description": "Separate the primary mechanism study from the mitigation rerun.",
+      "description": "Separate the primary mechanism study from secondary integrity runs.",
       "enum": [
         "primary",
         "mitigation"

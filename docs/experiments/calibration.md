@@ -1,6 +1,6 @@
 # Calibration matrix
 
-The rubric-development experiment is `risk_comm_calibration_v1`: ten accepted C1 scenarios × three frozen evaluated models × canonical source order A × eight primary/mitigation cells, or 240 conversations and 480 agent responses. It is excluded from held-out confirmatory estimates.
+The rubric-development experiment is `risk_comm_calibration_v1`: ten accepted C1 scenarios × three frozen evaluated models × canonical source order A × four integrity-absent primary cells, or 120 conversations and 240 agent responses. It is excluded from held-out confirmatory estimates.
 
 After the ample pilot, all scenario reviews, and the final ten-use-case budget freeze, use `risk-comm experiment build-manifests` to create the self-hashed `CalibrationExperimentManifest`. It binds the complete accepted scenario manifest, evaluated snapshots, reviewed prompts, word budgets, active prompt-package hash, temperature-zero decoding, seed, and retry policy. Then build the config and plan:
 
@@ -14,7 +14,7 @@ uv run risk-comm calibration build-plan \
   --word-budget-manifest <word_budget_manifest.json>
 ```
 
-The builder writes `data/outputs/experiments/risk_comm_calibration_v1/config.json` before `checkpoints/run_plan.jsonl` and validates all 30 randomised eight-cell blocks.
+The builder writes `data/outputs/experiments/risk_comm_calibration_v1/config.json` before `checkpoints/run_plan.jsonl` and validates all 30 randomised four-cell blocks.
 
 Execute with immediate resumable persistence:
 

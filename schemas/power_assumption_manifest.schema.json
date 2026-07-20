@@ -77,7 +77,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Freeze pre-evaluation variance assumptions for all five power simulations.",
+  "description": "Freeze pre-evaluation variance assumptions for all three power simulations.",
   "properties": {
     "calibration_source_sha256": {
       "title": "Calibration Source Sha256",
@@ -129,8 +129,8 @@
       "additionalProperties": {
         "$ref": "#/$defs/PowerVarianceComponents"
       },
-      "maxProperties": 5,
-      "minProperties": 5,
+      "maxProperties": 3,
+      "minProperties": 3,
       "title": "Variance Components",
       "type": "object"
     }

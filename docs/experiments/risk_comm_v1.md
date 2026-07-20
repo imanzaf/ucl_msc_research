@@ -56,7 +56,7 @@ uv run risk-comm experiment build-plan \
   --output data/outputs/experiments/risk_comm_v1/checkpoints/run_plan.jsonl
 ```
 
-The builder writes the full immutable config before the plan, refuses any count other than 960 conversations/1,920 responses, requires canonical source order A, and validates byte-level factor isolation in every eight-cell block.
+The builder writes the full immutable config before the plan, refuses any count other than 480 conversations/960 responses, requires canonical source order A and absent integrity, and validates byte-level factor isolation in every four-cell block.
 
 Build the preregistration manifest before the dry run; it points only backward to frozen calibration inputs, the exact config/plan, effects, power report, retry policy, analysis commit/plan, and deviation policy:
 
@@ -125,7 +125,7 @@ uv run risk-comm experiment run \
 
 Before any call, the runner deterministically rebuilds the supplied plan from the frozen accepted scenarios, exact model snapshots, budgets, active prompts, and seed. Each outcome is persisted immediately. Resume skips existing terminal run-unit IDs. Every retry uses the same request hash. The fixed follow-up is cue-free and identical across all cells. Exhausted calls remain terminal missing outcomes with reasons; they are never silently replaced.
 
-After all 960 terminal records exist, generate the three self-hashed completion/version/token summaries:
+After all 480 terminal records exist, generate the three self-hashed completion/version/token summaries. Each model summary must account for exactly 160 conversations:
 
 ```bash
 uv run risk-comm experiment summarize \

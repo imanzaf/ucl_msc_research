@@ -81,7 +81,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Bind the full 960-unit execution ledger to its analyzable subset.",
+  "description": "Bind the full 480-unit execution ledger to its analyzable subset.",
   "properties": {
     "analysis_input_sha256": {
       "title": "Analysis Input Sha256",
@@ -103,7 +103,7 @@
       "type": "integer"
     },
     "expected_run_count": {
-      "default": 960,
+      "default": 480,
       "minimum": 1,
       "title": "Expected Run Count",
       "type": "integer"

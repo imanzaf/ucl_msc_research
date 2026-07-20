@@ -35,30 +35,29 @@ def validate_evaluation_headroom(tight_word_limit: int, minimal_word_counts: Dic
 
 
 def require_ample_pilot_gate(summary: AmplePilotSummary) -> None:
-    """Reject freezing when fewer than 114/120 pilot outputs finish within 240 words."""
+    """Reject freezing when fewer than 57/60 pilot outputs finish within 240 words."""
     if not summary.passes():
-        raise ValueError("ample-limit gate failed: require at least 114/120 outputs and all approved complete responses within 240 words")
+        raise ValueError("ample-limit gate failed: require at least 57/60 outputs and all approved complete responses within 240 words")
 
 
 def build_ample_pilot_summary(
     records: List[AmplePilotRecord],
     all_approved_complete_responses_fit: bool,
 ) -> AmplePilotSummary:
-    """Validate the exact 10×3×2×2 pilot matrix and derive its frozen gate summary."""
+    """Validate the exact 10×3×2 primary-prompt pilot matrix and derive its gate summary."""
     expected_use_cases = {f"CF{index:03d}" for index in range(1, 11)}
     model_ids = {record.model_id for record in records}
-    if len(records) != 120 or len(model_ids) != 3:
-        raise ValueError("ample pilot requires exactly 120 outputs from three frozen models")
+    if len(records) != 60 or len(model_ids) != 3:
+        raise ValueError("ample pilot requires exactly 60 outputs from three frozen models")
     keys = {(record.use_case_id, record.model_id, record.emotional_cue, record.integrity) for record in records}
     expected_keys = {
-        (use_case_id, model_id, cue, integrity)
+        (use_case_id, model_id, cue, IntegrityCondition.ABSENT)
         for use_case_id in expected_use_cases
         for model_id in model_ids
         for cue in EmotionalCueCondition
-        for integrity in IntegrityCondition
     }
     if keys != expected_keys:
-        raise ValueError("ample pilot must contain each use-case/model/cue/integrity combination exactly once")
+        raise ValueError("ample pilot must contain each use-case/model/cue primary combination exactly once")
     record_payloads = [record.model_dump(mode="json") for record in sorted(records, key=lambda item: item.pilot_record_id)]
     return AmplePilotSummary(
         outputs_within_ample_limit=sum(record.finishes_within_ample_limit() for record in records),

@@ -82,8 +82,8 @@
           }
         ]
       },
-      "maxProperties": 5,
-      "minProperties": 5,
+      "maxProperties": 3,
+      "minProperties": 3,
       "title": "Absolute Bounds",
       "type": "object"
     },
@@ -91,8 +91,8 @@
       "additionalProperties": {
         "type": "string"
       },
-      "maxProperties": 5,
-      "minProperties": 5,
+      "maxProperties": 3,
+      "minProperties": 3,
       "title": "Rationales",
       "type": "object"
     },
@@ -105,8 +105,8 @@
       "additionalProperties": {
         "$ref": "#/$defs/PowerVarianceComponents"
       },
-      "maxProperties": 5,
-      "minProperties": 5,
+      "maxProperties": 3,
+      "minProperties": 3,
       "title": "Variance Components",
       "type": "object"
     }

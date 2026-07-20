@@ -11,7 +11,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Freeze the five smallest effect sizes used for power and equivalence checks.",
+  "description": "Freeze the three smallest effect sizes used for power and equivalence checks.",
   "properties": {
     "absolute_bounds": {
       "additionalProperties": {
@@ -25,8 +25,8 @@
           }
         ]
       },
-      "maxProperties": 5,
-      "minProperties": 5,
+      "maxProperties": 3,
+      "minProperties": 3,
       "title": "Absolute Bounds",
       "type": "object"
     },
@@ -67,8 +67,8 @@
       "additionalProperties": {
         "type": "string"
       },
-      "maxProperties": 5,
-      "minProperties": 5,
+      "maxProperties": 3,
+      "minProperties": 3,
       "title": "Rationale",
       "type": "object"
     },

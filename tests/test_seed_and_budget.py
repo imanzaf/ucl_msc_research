@@ -82,15 +82,15 @@ def test_budget_rounding_bounds_and_headroom() -> None:
         validate_evaluation_headroom(90, {"CF001_R1": 79})
 
 
-def test_ample_gate_requires_114_of_120_and_all_complete_responses() -> None:
+def test_ample_gate_requires_57_of_60_and_all_complete_responses() -> None:
     """Refuse the 240-word freeze when either preregistered ample condition fails."""
     passing = AmplePilotSummary(
-        outputs_within_ample_limit=114,
+        outputs_within_ample_limit=57,
         all_approved_complete_responses_fit=True,
         result_record_sha256=ZERO_HASH,
     )
     require_ample_pilot_gate(passing)
-    for within, all_fit in [(113, True), (120, False)]:
+    for within, all_fit in [(56, True), (60, False)]:
         failing = AmplePilotSummary(
             outputs_within_ample_limit=within,
             all_approved_complete_responses_fit=all_fit,
@@ -100,48 +100,48 @@ def test_ample_gate_requires_114_of_120_and_all_complete_responses() -> None:
             require_ample_pilot_gate(failing)
 
 
-def test_ample_pilot_requires_every_cell_of_the_exact_120_output_matrix() -> None:
-    """Derive the gate only from ten use cases, three models, two cues, and two integrity states."""
+def test_ample_pilot_requires_every_cell_of_the_exact_60_output_matrix() -> None:
+    """Derive the gate from ten use cases, three models, and two cues under absent integrity."""
     output_text = "Complete response."
     records = []
     index = 0
     for use_case_number in range(1, 11):
         for model_id in ["m1", "m2", "m3"]:
             for cue in EmotionalCueCondition:
-                for integrity in IntegrityCondition:
-                    index += 1
-                    use_case_id = f"CF{use_case_number:03d}"
-                    payload = {
-                        "schema_version": "1.0.0",
-                        "pilot_record_id": f"PILOT_{index:016X}",
-                        "scenario_id": f"{use_case_id}_C1",
-                        "use_case_id": use_case_id,
-                        "model_id": model_id,
-                        "model_snapshot_sha256": ZERO_HASH,
-                        "prompt_review_manifest_sha256": ZERO_HASH,
-                        "expected_model_version": f"{model_id}@frozen",
-                        "returned_model_version": f"{model_id}@frozen",
-                        "emotional_cue": cue,
-                        "integrity": integrity,
-                        "pilot_word_limit": 320,
-                        "output_text": output_text,
-                        "output_word_count": 2,
-                        "finished_naturally": True,
-                        "finish_reason": CompletionFinishReason.STOP,
-                        "prompt_sha256": ZERO_HASH,
-                        "request_sha256": ZERO_HASH,
-                        "random_seed": 7,
-                        "provider_request_id": f"request-{index}",
-                        "input_tokens": 10,
-                        "output_tokens": 3,
-                        "scenario_artifact_sha256": ZERO_HASH,
-                        "generated_at": datetime(2026, 7, 19, tzinfo=timezone.utc),
-                        "output_sha256": sha256_bytes(output_text.encode("utf-8")),
-                    }
-                    records.append(AmplePilotRecord.model_validate({**payload, "record_sha256": artifact_sha256(payload)}))
+                integrity = IntegrityCondition.ABSENT
+                index += 1
+                use_case_id = f"CF{use_case_number:03d}"
+                payload = {
+                    "schema_version": "1.0.0",
+                    "pilot_record_id": f"PILOT_{index:016X}",
+                    "scenario_id": f"{use_case_id}_C1",
+                    "use_case_id": use_case_id,
+                    "model_id": model_id,
+                    "model_snapshot_sha256": ZERO_HASH,
+                    "prompt_review_manifest_sha256": ZERO_HASH,
+                    "expected_model_version": f"{model_id}@frozen",
+                    "returned_model_version": f"{model_id}@frozen",
+                    "emotional_cue": cue,
+                    "integrity": integrity,
+                    "pilot_word_limit": 320,
+                    "output_text": output_text,
+                    "output_word_count": 2,
+                    "finished_naturally": True,
+                    "finish_reason": CompletionFinishReason.STOP,
+                    "prompt_sha256": ZERO_HASH,
+                    "request_sha256": ZERO_HASH,
+                    "random_seed": 7,
+                    "provider_request_id": f"request-{index}",
+                    "input_tokens": 10,
+                    "output_tokens": 3,
+                    "scenario_artifact_sha256": ZERO_HASH,
+                    "generated_at": datetime(2026, 7, 19, tzinfo=timezone.utc),
+                    "output_sha256": sha256_bytes(output_text.encode("utf-8")),
+                }
+                records.append(AmplePilotRecord.model_validate({**payload, "record_sha256": artifact_sha256(payload)}))
     summary = build_ample_pilot_summary(records, all_approved_complete_responses_fit=True)
-    assert summary.outputs_within_ample_limit == 120
-    with pytest.raises(ValueError, match="each use-case/model/cue/integrity"):
+    assert summary.outputs_within_ample_limit == 60
+    with pytest.raises(ValueError, match="each use-case/model/cue"):
         build_ample_pilot_summary([records[0], *records[:-1]], all_approved_complete_responses_fit=True)
 
 

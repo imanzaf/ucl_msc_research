@@ -55,4 +55,4 @@ uv run risk-comm analysis build-inputs \
   --missingness-report data/outputs/experiments/risk_comm_v1/results/missingness_report.json
 ```
 
-The join requires the full 960-unit terminal ledger, but correctly permits retry-exhausted provider outcomes to remain missing. Every completed conversation must have exactly one automated bundle or validated manual resolution. The self-hashed missingness report binds the complete ledger, analyzable subset, reasons, conversation-level input, and four-fact/two-checkpoint ordinal input.
+The join requires the full 480-unit primary terminal ledger, but correctly permits retry-exhausted provider outcomes to remain missing. Every completed conversation must have exactly one automated bundle or validated manual resolution. The self-hashed missingness report binds the complete ledger, analyzable subset, reasons, conversation-level input, and four-fact/two-checkpoint ordinal input.

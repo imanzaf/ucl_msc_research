@@ -3,12 +3,12 @@
   "description": "Report exact call counts and conservative token/cost estimates before paid execution.",
   "properties": {
     "agent_responses": {
-      "default": 1920,
+      "default": 960,
       "title": "Agent Responses",
       "type": "integer"
     },
     "conversations": {
-      "default": 960,
+      "default": 480,
       "title": "Conversations",
       "type": "integer"
     },

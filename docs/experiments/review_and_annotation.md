@@ -32,7 +32,7 @@ uv run risk-comm scoring sample-annotations \
   --output-manifest data/outputs/experiments/risk_comm_v1/checkpoints/evaluation_annotation_sample_manifest.json
 ```
 
-Use `--stage calibration` with the complete 240-conversation calibration transcript to select the 80 rubric-development conversations. Selection is seeded probability sampling: calibration samples one available model within every C1 × cell stratum; evaluation samples one available conversation within every scenario × word-budget × integrity stratum. The manifest records every inclusion probability. Evaluation also freezes one seeded repeat item per scenario.
+Use `--stage calibration` with the complete 120-conversation calibration transcript to select the 80 rubric-development conversations. Selection is seeded probability sampling: calibration samples two available models within every C1 × primary-cell stratum; evaluation samples one available conversation within every scenario × word-budget × emotional-cue stratum. The manifest records every inclusion probability. Evaluation also freezes one seeded repeat item per scenario.
 
 After annotation and condition-blind automated scoring, calculate rather than hand-enter the hard gates:
 

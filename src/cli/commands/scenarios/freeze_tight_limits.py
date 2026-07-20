@@ -1,4 +1,4 @@
-"""Freeze C1-derived tight limits after the 120-output adequacy pilot."""
+"""Freeze C1-derived tight limits after the 60-output adequacy pilot."""
 
 from __future__ import annotations
 

@@ -81,7 +81,7 @@ The same response can contain the source sentence “Monthly utilities rose from
 
 This check catches inconsistent structured arithmetic, but it does not semantically prove that the prose used the registry correctly. The candidate-quality review still checks the rendered £160, £200, and 25% for consistency. If a scenario contains no derived quantity, its calculation list can be empty.
 
-The main experiment always uses canonical source A. After primary scoring, `src/analysis/source_order_subset.py` selects the two use cases with the smallest and two with the largest mean initial pairwise disclosure gap. Order B can then be derived for those four use cases without regeneration. This outcome-selected study is exploratory and reported separately.
+The main experiment always uses canonical source A with absent integrity. After primary scoring, `src/analysis/secondary_subset.py` selects the two use cases with the smallest and two with the largest mean initial pairwise disclosure gap. The same four families feed the later source-order and targeted-integrity studies. Order B can be derived without regeneration. Both studies are outcome-selected and reported separately.
 
 Every generated candidate receives one researcher review through the local application. Minimal-response approval may only add approval metadata. If its content needs editing, rebuild the candidate and rerun every automated review and the researcher review. Publish one reviewed bundle with:
 
@@ -130,7 +130,20 @@ uv run risk-comm experiment freeze-models \
   --output <evaluated_model_manifest.json>
 ```
 
-Then run the separate 320-word adequacy pilot over all 120 C1/model/cue/integrity combinations:
+During the same researcher review phase, record the cue review against the exact active wording. The `APPROVE` decision is valid only when both cues are marked natural and equivalent and none of the confounding flags is set:
+
+```bash
+uv run risk-comm experiment freeze-prompts \
+  --neutral-natural \
+  --worried-natural \
+  --semantic-request-equivalent \
+  --decision approve \
+  --notes <review_notes> \
+  --reviewed-by <researcher_id> \
+  --output <prompt_review_manifest.json>
+```
+
+Then run the separate 320-word adequacy pilot over all 60 C1/model/cue primary combinations:
 
 ```bash
 uv run risk-comm calibration run-ample-pilot \
@@ -145,7 +158,7 @@ uv run risk-comm calibration run-ample-pilot \
   --execute-paid
 ```
 
-Every record binds the accepted C1 artifact, exact model snapshot/version, cue/integrity prompt bytes, seed, finish reason, token usage, and response bytes. The runner resumes identical requests and refuses model-version drift. Freeze the ten C1-derived limits before generating R1–R4:
+Every record binds the accepted C1 artifact, exact model snapshot/version, cue prompt bytes under absent integrity, seed, finish reason, token usage, and response bytes. The runner resumes identical requests and refuses model-version drift. Freeze the ten C1-derived limits before generating R1–R4:
 
 ```bash
 uv run risk-comm scenarios freeze-tight-limits \

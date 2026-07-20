@@ -9,7 +9,7 @@
           "type": "boolean"
         },
         "outputs_within_ample_limit": {
-          "maximum": 120,
+          "maximum": 60,
           "minimum": 0,
           "title": "Outputs Within Ample Limit",
           "type": "integer"
@@ -29,7 +29,7 @@
           "type": "string"
         },
         "total_outputs": {
-          "default": 120,
+          "default": 60,
           "title": "Total Outputs",
           "type": "integer"
         }

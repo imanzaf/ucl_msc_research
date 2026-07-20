@@ -28,7 +28,7 @@ def _select_calibration(
     transcripts: List[ConversationTranscript],
     seed: int,
 ) -> Tuple[List[ConversationTranscript], Dict[str, Decimal]]:
-    """Sample one available model per C1/cell stratum using the recorded seed."""
+    """Sample two available models per C1/primary-cell stratum using the recorded seed."""
     selected: List[ConversationTranscript] = []
     grouped: Dict[Tuple[str, str], List[ConversationTranscript]] = {}
     for transcript in transcripts:
@@ -36,11 +36,12 @@ def _select_calibration(
     probabilities: Dict[str, Decimal] = {}
     for key in sorted(grouped):
         candidates = sorted(grouped[key], key=lambda item: item.run_unit.model_id)
-        if not candidates:
-            raise ValueError("each calibration scenario/cell stratum requires an available completed conversation")
+        if len(candidates) < 2:
+            raise ValueError("each calibration scenario/cell stratum requires at least two completed model conversations")
         stratum = f"calibration:{key[0]}:{key[1]}"
-        selected.append(random.Random(_group_seed(seed, stratum)).choice(candidates))
-        probabilities[stratum] = Decimal(1) / Decimal(len(candidates))
+        random.Random(_group_seed(seed, stratum)).shuffle(candidates)
+        selected.extend(candidates[:2])
+        probabilities[stratum] = Decimal(2) / Decimal(len(candidates))
     if len(selected) != 80:
         raise ValueError("calibration annotation selection must contain exactly 80 conversations")
     return selected, probabilities
@@ -50,7 +51,7 @@ def _select_evaluation(
     transcripts: List[ConversationTranscript],
     seed: int,
 ) -> Tuple[List[ConversationTranscript], Dict[str, Decimal]]:
-    """Sample one conversation in each scenario × budget × integrity stratum."""
+    """Sample one conversation in each scenario × budget × emotional-cue stratum."""
     selected: List[ConversationTranscript] = []
     by_scenario: Dict[str, List[ConversationTranscript]] = {}
     for transcript in transcripts:
@@ -59,18 +60,18 @@ def _select_evaluation(
     for scenario_id in sorted(by_scenario):
         candidates = by_scenario[scenario_id]
         for word_budget in ["ample", "tight"]:
-            for integrity in ["absent", "targeted"]:
+            for emotional_cue in ["neutral", "worried"]:
                 matches = sorted(
                     [
                         item
                         for item in candidates
-                        if item.run_unit.cell.word_budget.value == word_budget and item.run_unit.cell.integrity.value == integrity
+                        if item.run_unit.cell.word_budget.value == word_budget and item.run_unit.cell.emotional_cue.value == emotional_cue
                     ],
                     key=lambda item: item.run_unit.run_unit_id,
                 )
                 if not matches:
                     raise ValueError("evaluation annotation stratum has no completed conversation")
-                stratum = f"evaluation:{scenario_id}:{word_budget}:{integrity}"
+                stratum = f"evaluation:{scenario_id}:{word_budget}:{emotional_cue}"
                 selected.append(random.Random(_group_seed(seed, stratum)).choice(matches))
                 probabilities[stratum] = Decimal(1) / Decimal(len(matches))
     if len(selected) != 160:

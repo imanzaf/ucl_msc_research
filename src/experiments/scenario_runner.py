@@ -28,7 +28,7 @@ from src.data_models.experiments import (
 from src.data_models.manifests import EvaluatedModelSnapshot, FreezeStatus, WordBudgetManifest
 from src.data_models.prompt_controls import group_run_units_by_block, validate_prompt_factor_isolation
 from src.data_models.scenarios import AcceptedScenario
-from src.data_models.study import AMPLE_WORD_LIMIT, SourceOrderVariant, WordBudgetCondition, all_experiment_cells
+from src.data_models.study import AMPLE_WORD_LIMIT, SourceOrderVariant, WordBudgetCondition, primary_experiment_cells
 from src.llm.openrouter import ProviderTextResponse
 from src.prompts.experiment import compile_experiment_prompt
 from src.scenarios.word_count import count_words
@@ -75,7 +75,7 @@ def build_run_plan(
     randomisation_seed: int,
     created_at: datetime,
 ) -> List[RunUnit]:
-    """Construct and randomise eight canonical-order cells per scenario–model block."""
+    """Construct and randomise four canonical-order primary cells per scenario–model block."""
     tight_limits = _tight_limit_by_use_case(budget_manifest)
     run_units: List[RunUnit] = []
     for scenario in sorted(scenarios, key=lambda item: item.scenario_id):
@@ -86,7 +86,7 @@ def build_run_plan(
             packet = scenario.source_order_a
             block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id, source_order.value)
             block_randomisation_seed = _block_seed(randomisation_seed, block_id)
-            cells = all_experiment_cells()
+            cells = primary_experiment_cells()
             random.Random(block_randomisation_seed).shuffle(cells)
             block_units: List[RunUnit] = []
             for position, cell in enumerate(cells):
@@ -137,7 +137,7 @@ def build_calibration_run_plan(
     randomisation_seed: int,
     created_at: datetime,
 ) -> List[RunUnit]:
-    """Construct the 240 canonical-order calibration conversations across all eight cells."""
+    """Construct the 120 canonical-order calibration conversations across four primary cells."""
     tight_limits = _tight_limit_by_use_case(budget_manifest)
     if len(scenarios) != 10 or any(not scenario.scenario_id.endswith("_C1") for scenario in scenarios):
         raise ValueError("calibration plan requires exactly the ten accepted C1 scenarios")
@@ -146,7 +146,7 @@ def build_calibration_run_plan(
         for model in sorted(models, key=lambda item: item.model_id):
             block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id, SourceOrderVariant.A.value)
             block_randomisation_seed = _block_seed(randomisation_seed, block_id)
-            cells = all_experiment_cells()
+            cells = primary_experiment_cells()
             random.Random(block_randomisation_seed).shuffle(cells)
             block_units: List[RunUnit] = []
             for position, cell in enumerate(cells):
@@ -185,27 +185,27 @@ def build_calibration_run_plan(
 
 
 def validate_calibration_run_plan(run_units: Iterable[RunUnit], global_randomisation_seed: int | None = None) -> None:
-    """Validate all 30 eight-cell C1/model blocks at canonical source order A."""
+    """Validate all 30 four-cell C1/model blocks at canonical source order A."""
     units = list(run_units)
-    if len(units) != 240:
-        raise ValueError("calibration run plan must contain exactly 240 conversations")
+    if len(units) != 120:
+        raise ValueError("calibration run plan must contain exactly 120 conversations")
     grouped = group_run_units_by_block(units)
     expected_scenarios = {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
     if {unit.scenario_id for unit in units} != expected_scenarios or len({unit.model_id for unit in units}) != 3:
         raise ValueError("calibration plan requires ten C1 scenarios and three evaluated models")
     if {unit.source_order for unit in units} != {SourceOrderVariant.A} or len(grouped) != 30:
-        raise ValueError("calibration plan requires 30 canonical-order eight-cell blocks")
+        raise ValueError("calibration plan requires 30 canonical-order four-cell blocks")
     stored_seeds = {unit.global_randomisation_seed for unit in units}
     if len(stored_seeds) != 1:
         raise ValueError("calibration run units must share one global randomisation seed")
     stored_seed = next(iter(stored_seeds))
     if global_randomisation_seed is not None and stored_seed != global_randomisation_seed:
         raise ValueError("calibration run plan seed differs from its frozen config")
-    if len({unit.run_unit_id for unit in units}) != 240:
+    if len({unit.run_unit_id for unit in units}) != 120:
         raise ValueError("calibration run-unit identifiers must be unique")
     for block_id, block_units in grouped.items():
-        if len(block_units) != 8 or {unit.randomised_position for unit in block_units} != set(range(8)):
-            raise ValueError("every calibration block requires all eight randomised positions")
+        if len(block_units) != 4 or {unit.randomised_position for unit in block_units} != set(range(4)):
+            raise ValueError("every calibration block requires all four randomised positions")
         scenario_model = {(unit.scenario_id, unit.model_id) for unit in block_units}
         if len(scenario_model) != 1:
             raise ValueError("calibration block must share one scenario and model")
@@ -215,10 +215,10 @@ def validate_calibration_run_plan(run_units: Iterable[RunUnit], global_randomisa
             raise ValueError("calibration block id or seed does not derive from its assignment")
         if len({unit.source_packet_sha256 for unit in block_units}) != 1:
             raise ValueError("calibration block cells must share one exact source packet")
-        expected_cells = all_experiment_cells()
+        expected_cells = primary_experiment_cells()
         random.Random(_block_seed(stored_seed, block_id)).shuffle(expected_cells)
         cell_by_position = {unit.randomised_position: unit.cell for unit in block_units}
-        if [cell_by_position[position] for position in range(8)] != expected_cells:
+        if [cell_by_position[position] for position in range(4)] != expected_cells:
             raise ValueError("calibration cell order does not reproduce the frozen seeded permutation")
         for unit in block_units:
             if unit.run_unit_id != _short_identifier("RUN", block_id, unit.cell.cell_id):
@@ -251,13 +251,13 @@ def validate_calibration_plan_against_frozen_inputs(
 
 
 def validate_complete_run_plan(run_units: Iterable[RunUnit], global_randomisation_seed: int | None = None) -> None:
-    """Recompute IDs, hashes, dimensions, seeds, positions, and eight-cell isolation for the complete plan."""
+    """Recompute IDs, hashes, dimensions, seeds, positions, and four-cell isolation for the complete plan."""
     units = list(run_units)
     if len(units) != EXPECTED_CONVERSATION_COUNT:
-        raise ValueError("complete run plan must contain exactly 960 conversations")
+        raise ValueError("complete run plan must contain exactly 480 conversations")
     grouped = group_run_units_by_block(units)
-    if len(grouped) != EXPECTED_CONVERSATION_COUNT // 8:
-        raise ValueError("complete run plan must contain exactly 120 eight-cell blocks")
+    if len(grouped) != EXPECTED_CONVERSATION_COUNT // 4:
+        raise ValueError("complete run plan must contain exactly 120 four-cell blocks")
     if len({unit.run_unit_id for unit in units}) != len(units):
         raise ValueError("complete run plan contains duplicate run-unit IDs")
     scenario_ids = {unit.scenario_id for unit in units}
@@ -279,8 +279,8 @@ def validate_complete_run_plan(run_units: Iterable[RunUnit], global_randomisatio
     if len(model_snapshots) != 3:
         raise ValueError("each evaluated model must bind one exact snapshot/version")
     for block_id, block_units in grouped.items():
-        if len(block_units) != 8:
-            raise ValueError("each run-plan block must contain exactly eight units")
+        if len(block_units) != 4:
+            raise ValueError("each run-plan block must contain exactly four units")
         scenario_model_orders = {(unit.scenario_id, unit.model_id, unit.source_order) for unit in block_units}
         if len(scenario_model_orders) != 1:
             raise ValueError("block units must share scenario, model, and source order")
@@ -291,12 +291,12 @@ def validate_complete_run_plan(run_units: Iterable[RunUnit], global_randomisatio
         expected_block_seed = _block_seed(stored_global_seed, block_id)
         if {unit.block_randomisation_seed for unit in block_units} != {expected_block_seed}:
             raise ValueError("block randomisation seed does not derive from the global seed")
-        if {unit.randomised_position for unit in block_units} != set(range(8)):
-            raise ValueError("block randomised positions must be exactly 0-7")
-        expected_cells = all_experiment_cells()
+        if {unit.randomised_position for unit in block_units} != set(range(4)):
+            raise ValueError("block randomised positions must be exactly 0-3")
+        expected_cells = primary_experiment_cells()
         random.Random(expected_block_seed).shuffle(expected_cells)
         cell_by_position = {unit.randomised_position: unit.cell for unit in block_units}
-        if [cell_by_position[position] for position in range(8)] != expected_cells:
+        if [cell_by_position[position] for position in range(4)] != expected_cells:
             raise ValueError("block cell order does not reproduce the frozen seeded permutation")
         if len({unit.source_packet_sha256 for unit in block_units}) != 1:
             raise ValueError("all cells in a block must use one exact source packet")

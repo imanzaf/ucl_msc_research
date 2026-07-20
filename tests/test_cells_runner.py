@@ -1,4 +1,4 @@
-"""Test eight-cell construction, source equivalence, prompt isolation, counts, and retries."""
+"""Test cell construction, source equivalence, prompt isolation, counts, and retries."""
 
 from __future__ import annotations
 
@@ -46,16 +46,16 @@ def test_source_order_b_changes_positions_without_changing_items_or_values() -> 
     }
 
 
-def test_full_run_plan_has_960_conversations_1920_responses_and_reproducible_order() -> None:
-    """Build 120 canonical-order eight-cell blocks and reproduce their order from one seed."""
+def test_full_run_plan_has_480_conversations_960_responses_and_reproducible_order() -> None:
+    """Build 120 canonical-order four-cell blocks and reproduce their order from one seed."""
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 5)]
     created_at = datetime(2026, 7, 19, tzinfo=timezone.utc)
     first = build_run_plan(scenarios, make_models(), make_budget_manifest(), randomisation_seed=17, created_at=created_at)
     second = build_run_plan(scenarios, make_models(), make_budget_manifest(), randomisation_seed=17, created_at=created_at)
     validate_complete_run_plan(first)
 
-    assert len(first) == 960
-    assert len(first) * 2 == 1920
+    assert len(first) == 480
+    assert len(first) * 2 == 960
     assert {unit.source_order.value for unit in first} == {"A"}
     assert [unit.run_unit_id for unit in first] == [unit.run_unit_id for unit in second]
     assert [unit.cell.cell_id for unit in first] == [unit.cell.cell_id for unit in second]
@@ -68,8 +68,8 @@ def test_full_run_plan_has_960_conversations_1920_responses_and_reproducible_ord
         validate_complete_run_plan(tampered)
 
 
-def test_calibration_plan_has_240_canonical_order_conversations() -> None:
-    """Build ten C1 × three model × eight cell blocks with only source order A."""
+def test_calibration_plan_has_120_canonical_order_conversations() -> None:
+    """Build ten C1 × three-model × four-cell blocks with only source order A."""
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_C1") for use_case in range(1, 11)]
     plan = build_calibration_run_plan(
         scenarios,
@@ -79,13 +79,13 @@ def test_calibration_plan_has_240_canonical_order_conversations() -> None:
         created_at=datetime(2026, 7, 19, tzinfo=timezone.utc),
     )
     validate_calibration_run_plan(plan, 19)
-    assert len(plan) == 240
+    assert len(plan) == 120
     assert {unit.source_order.value for unit in plan} == {"A"}
     assert {unit.scenario_id for unit in plan} == {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
 
 
 def test_prompt_factor_isolation_one_cue_and_identical_follow_up() -> None:
-    """Allow byte differences only for budget, cue, and integrity in one eight-cell block."""
+    """Allow byte differences only for budget and cue in one primary four-cell block."""
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 5)]
     plan = build_run_plan(
         scenarios,

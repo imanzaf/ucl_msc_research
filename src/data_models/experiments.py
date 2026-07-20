@@ -15,9 +15,9 @@ from src.scenarios.word_count import count_words
 EVALUATION_SCENARIO_COUNT = 40
 EVALUATED_MODEL_COUNT = 3
 SOURCE_ORDER_COUNT = 1
-CELL_COUNT = 8
-EXPECTED_CONVERSATION_COUNT = 960
-EXPECTED_AGENT_RESPONSE_COUNT = 1920
+CELL_COUNT = 4
+EXPECTED_CONVERSATION_COUNT = 480
+EXPECTED_AGENT_RESPONSE_COUNT = 960
 
 
 def provider_request_sha256(messages: List[Dict[str, str]], model_id: str, temperature: float, max_tokens: int, seed: int) -> str:
@@ -115,14 +115,14 @@ class ExperimentConfig(VersionedImmutableModel):
         """Refuse any config whose declared target does not equal the active design."""
         expected_conversations = self.scenario_count * self.evaluated_model_count * self.source_order_count * self.cell_count
         if expected_conversations != self.expected_conversation_count or expected_conversations != EXPECTED_CONVERSATION_COUNT:
-            raise ValueError("risk_comm_v1 must contain exactly 960 conversations")
+            raise ValueError("risk_comm_v1 must contain exactly 480 conversations")
         if self.expected_agent_response_count != expected_conversations * 2:
-            raise ValueError("risk_comm_v1 must contain exactly 1,920 agent responses")
+            raise ValueError("risk_comm_v1 must contain exactly 960 agent responses")
         return self
 
 
 class CalibrationExperimentConfig(VersionedImmutableModel):
-    """Snapshot the 240-conversation canonical-order calibration matrix."""
+    """Snapshot the 120-conversation canonical-order calibration matrix."""
 
     schema_version: str = Field(pattern=r"^1\.0\.0$")
     experiment_name: str = Field(pattern=r"^risk_comm_calibration_v1$")
@@ -130,9 +130,9 @@ class CalibrationExperimentConfig(VersionedImmutableModel):
     scenario_count: int = Field(default=10, ge=10, le=10)
     evaluated_model_count: int = Field(default=3, ge=3, le=3)
     source_order_count: int = Field(default=1, ge=1, le=1)
-    cell_count: int = Field(default=8, ge=8, le=8)
-    expected_conversation_count: int = Field(default=240, ge=240, le=240)
-    expected_agent_response_count: int = Field(default=480, ge=480, le=480)
+    cell_count: int = Field(default=4, ge=4, le=4)
+    expected_conversation_count: int = Field(default=120, ge=120, le=120)
+    expected_agent_response_count: int = Field(default=240, ge=240, le=240)
     temperature: float = Field(default=0.0, ge=0.0, le=0.0)
     randomisation_seed: int
     retry_policy: RetryPolicy
@@ -168,7 +168,7 @@ class RunUnit(VersionedImmutableModel):
     assigned_word_limit: int = Field(ge=80, le=240)
     global_randomisation_seed: int
     block_randomisation_seed: int
-    randomised_position: int = Field(ge=0, le=7)
+    randomised_position: int = Field(ge=0, le=3)
     source_packet_sha256: str
     initial_request_messages: List[PromptMessage] = Field(min_length=2)
     initial_request_sha256: str

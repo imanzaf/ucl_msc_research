@@ -8,7 +8,7 @@ from typing import Dict
 import numpy as np
 from scipy import stats
 
-CONFIRMATORY_NAMES = {"H1", "H2a", "H2b", "M1", "M2"}
+CONFIRMATORY_NAMES = {"H1", "H2a", "H2b"}
 
 
 @dataclass(frozen=True)
@@ -73,9 +73,9 @@ def simulate_holm_corrected_power(
     alpha: float = 0.05,
     seed: int = 7,
 ) -> Dict[str, float]:
-    """Estimate per-hypothesis rejection probability under the five-test Holm family."""
+    """Estimate per-hypothesis rejection probability under the three-test Holm family."""
     if set(effects) != CONFIRMATORY_NAMES or set(components) != CONFIRMATORY_NAMES:
-        raise ValueError("power inputs must cover exactly H1, H2a, H2b, M1, and M2")
+        raise ValueError("power inputs must cover exactly H1, H2a, and H2b")
     if not 0 < alpha < 1:
         raise ValueError("power alpha must lie strictly between zero and one")
     names = sorted(CONFIRMATORY_NAMES)

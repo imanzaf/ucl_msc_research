@@ -19,12 +19,18 @@ def _canonical_initial_messages(run_unit: RunUnit) -> str:
 
 
 def validate_prompt_factor_isolation(run_units: Iterable[RunUnit]) -> None:
-    """Require eight block prompts to differ only in budget, cue, and integrity text."""
+    """Require one complete four-cell stage block to vary only declared factors."""
     units = list(run_units)
-    if len(units) != 8:
-        raise ValueError("prompt-isolation validation requires exactly eight run units")
-    if len({unit.cell.cell_id for unit in units}) != 8:
-        raise ValueError("block must contain all eight unique experiment cells")
+    if len(units) != 4:
+        raise ValueError("prompt-isolation validation requires exactly four run units")
+    if len({unit.cell.cell_id for unit in units}) != len(units):
+        raise ValueError("block must contain unique experiment cells")
+    expected_budget_cue_pairs = {(budget, cue) for budget in {"ample", "tight"} for cue in {"neutral", "worried"}}
+    observed_budget_cue_pairs = {(unit.cell.word_budget.value, unit.cell.emotional_cue.value) for unit in units}
+    if observed_budget_cue_pairs != expected_budget_cue_pairs:
+        raise ValueError("block must contain every word-budget and emotional-cue combination")
+    if len({unit.cell.integrity for unit in units}) != 1:
+        raise ValueError("a four-cell block must use one integrity condition")
     canonical_messages = {_canonical_initial_messages(unit) for unit in units}
     if len(canonical_messages) != 1:
         raise ValueError("compiled prompts differ outside the three declared treatment factors")

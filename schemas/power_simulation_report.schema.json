@@ -33,8 +33,8 @@
           }
         ]
       },
-      "maxProperties": 5,
-      "minProperties": 5,
+      "maxProperties": 3,
+      "minProperties": 3,
       "title": "Power",
       "type": "object"
     },

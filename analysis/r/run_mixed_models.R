@@ -23,7 +23,7 @@ data <- read.csv(input_path, stringsAsFactors = TRUE)
 
 required_columns <- c(
   "run_unit_id", "fact_id", "pairwise_disclosure_gap", "unsupported_reassurance", "disclosure_ordinal",
-  "word_budget", "emotional_cue", "integrity", "model_id",
+  "word_budget", "emotional_cue", "model_id",
   "use_case_id", "scenario_id"
 )
 missing_columns <- setdiff(required_columns, names(data))
@@ -31,7 +31,7 @@ if (length(missing_columns) > 0) {
   stop(paste("analysis input lacks columns:", paste(missing_columns, collapse = ", ")))
 }
 
-fixed_formula <- "word_budget * emotional_cue * integrity * model_id + use_case_id + (1 | scenario_id)"
+fixed_formula <- "word_budget * emotional_cue * model_id + use_case_id + (1 | scenario_id)"
 conversation_data <- data[!duplicated(data$run_unit_id), ]
 lmer_model <- lme4::lmer(as.formula(paste("pairwise_disclosure_gap ~", fixed_formula)), data = conversation_data)
 glmer_model <- lme4::glmer(

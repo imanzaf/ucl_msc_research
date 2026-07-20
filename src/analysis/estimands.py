@@ -1,4 +1,4 @@
-"""Calculate the five preregistered scenario-paired contrasts."""
+"""Calculate primary and secondary scenario-paired contrasts."""
 
 from __future__ import annotations
 
@@ -106,7 +106,7 @@ def estimate_primary_contrasts(frame: pd.DataFrame) -> Dict[str, float]:
 
 
 def estimate_mitigation_contrasts(frame: pd.DataFrame) -> Dict[str, float]:
-    """Estimate the two matched integrity-mitigation contrasts from paired blocks."""
+    """Estimate the two secondary integrity contrasts from matched subset blocks."""
     base_groups = ["scenario_id", "model_id", "source_order"]
     tight = frame.loc[frame["word_budget"] == "tight"]
     m1 = _paired_factor_difference(
@@ -131,12 +131,12 @@ def estimate_mitigation_contrasts(frame: pd.DataFrame) -> Dict[str, float]:
 
 
 def estimate_confirmatory_contrasts(frame: pd.DataFrame) -> Dict[str, float]:
-    """Estimate H1, H2a, H2b, M1, and M2 from paired scenario blocks."""
-    return {**estimate_primary_contrasts(frame), **estimate_mitigation_contrasts(frame)}
+    """Estimate the three preregistered primary contrasts from paired scenario blocks."""
+    return estimate_primary_contrasts(frame)
 
 
 def scenario_level_contrasts(frame: pd.DataFrame) -> pd.DataFrame:
-    """Return one complete five-estimand contrast vector per evaluation scenario."""
+    """Return one complete three-estimand contrast vector per evaluation scenario."""
     records: List[Dict[str, object]] = []
     for scenario_id, scenario_frame in frame.groupby("scenario_id", observed=True):
         use_case_ids = scenario_frame["use_case_id"].unique()

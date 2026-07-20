@@ -1,4 +1,4 @@
-"""Build the frozen 240-conversation canonical-order calibration plan and config."""
+"""Build the frozen 120-conversation canonical-order calibration plan and config."""
 
 from __future__ import annotations
 

@@ -17,8 +17,8 @@ from src.analysis.estimands import estimate_confirmatory_contrasts
 from src.analysis.multiplicity import holm_adjust
 from src.analysis.power import VarianceComponents, simulate_holm_corrected_power
 from src.analysis.r_models import run_r_robustness_models
+from src.analysis.secondary_subset import select_secondary_use_cases
 from src.analysis.sensitivities import _binary_threshold_estimates
-from src.analysis.source_order_subset import select_source_order_use_cases
 from src.data_models.common import file_sha256
 from src.experiments.assets import FIGURE_FILENAME, TABLE_FILENAME, generate_paper_assets
 
@@ -60,17 +60,18 @@ def simulated_frame() -> pd.DataFrame:
 
 
 def test_confirmatory_estimands_recover_known_effects() -> None:
-    """Recover all five effects from a complete deterministic repeated design."""
+    """Recover all three primary effects from a complete deterministic repeated design."""
     estimates = estimate_confirmatory_contrasts(simulated_frame())
-    assert estimates == pytest.approx({"H1": 0.2, "H2a": 0.1, "H2b": 1.0, "M1": -0.1, "M2": -0.1})
+    assert estimates == pytest.approx({"H1": 0.2, "H2a": 0.1, "H2b": 1.0})
 
 
-def test_source_order_subset_selects_two_best_and_two_worst_use_cases() -> None:
-    """Rank canonical-order use cases by mean primary pairwise disclosure gap."""
+def test_secondary_subset_selects_two_best_and_two_worst_use_cases() -> None:
+    """Share a primary-result subset between the integrity and source-order studies."""
     frame = simulated_frame().loc[lambda data: data["source_order"] == "A"].copy()
     use_case_number = frame["use_case_id"].str[-3:].astype(int)
-    frame["pairwise_disclosure_gap"] = frame["pairwise_disclosure_gap"] + use_case_number / 100
-    assert select_source_order_use_cases(frame) == {
+    frame.loc[frame["integrity"] == "absent", "pairwise_disclosure_gap"] = use_case_number / 100
+    frame.loc[frame["integrity"] == "targeted", "pairwise_disclosure_gap"] = 100 - use_case_number
+    assert select_secondary_use_cases(frame) == {
         "best": ["CF001", "CF002"],
         "worst": ["CF009", "CF010"],
     }
@@ -109,31 +110,31 @@ def test_binary_sensitivity_rebuilds_conversation_outcomes_from_facts() -> None:
                 }
             )
     estimates = _binary_threshold_estimates(frame, pd.DataFrame.from_records(fact_records), "full")
-    assert estimates == pytest.approx({"H1": 0.0, "H2a": 1.0, "H2b": 1.0, "M1": 0.0, "M2": 0.0})
+    assert estimates == pytest.approx({"H1": 0.0, "H2a": 1.0, "H2b": 1.0})
 
 
 def test_bootstrap_resamples_scenarios_within_use_cases_not_rows() -> None:
-    """Preserve complete eight-cell clusters during stratified resampling."""
-    frame = simulated_frame()
+    """Preserve complete primary four-cell clusters during stratified resampling."""
+    frame = simulated_frame().loc[lambda data: data["integrity"] == "absent"]
     sampled = resample_scenarios_within_use_case(frame, np.random.default_rng(3))
     assert len(sampled) == len(frame)
     assert sampled["scenario_id"].str.contains("__BOOT").all()
-    assert set(sampled.groupby("scenario_id").size()) == {3 * 2 * 2 * 2}
+    assert set(sampled.groupby("scenario_id").size()) == {3 * 2 * 2}
     estimates, intervals, draws = stratified_scenario_bootstrap(frame, draws=50, seed=3)
     assert len(draws) == 50
     assert intervals["H1"] == pytest.approx((0.2, 0.2))
-    assert estimates["M2"] == pytest.approx(-0.1)
+    assert estimates == pytest.approx({"H1": 0.2, "H2a": 0.1, "H2b": 1.0})
 
 
 def test_holm_matches_monotone_fixture() -> None:
-    """Reproduce a hand-checkable five-test Holm correction fixture."""
-    adjusted = holm_adjust({"H1": 0.001, "H2a": 0.01, "H2b": 0.03, "M1": 0.04, "M2": 0.2})
-    assert adjusted == pytest.approx({"H1": 0.005, "H2a": 0.04, "H2b": 0.09, "M1": 0.09, "M2": 0.2})
+    """Reproduce a hand-checkable three-test Holm correction fixture."""
+    adjusted = holm_adjust({"H1": 0.001, "H2a": 0.01, "H2b": 0.03})
+    assert adjusted == pytest.approx({"H1": 0.003, "H2a": 0.02, "H2b": 0.03})
 
 
 def test_power_simulation_uses_repeated_design_and_holm_family() -> None:
     """Recover low null rejection and high power for large effects across clustered use cases."""
-    names = {"H1", "H2a", "H2b", "M1", "M2"}
+    names = {"H1", "H2a", "H2b"}
     components = {
         name: VarianceComponents(
             use_case_standard_deviation=0.10,
@@ -188,7 +189,7 @@ def test_r_python_interchange_surfaces_nonconvergence(tmp_path: Path, monkeypatc
 
 def test_stable_paper_asset_names_and_content(tmp_path: Path) -> None:
     """Generate the fixed LaTeX table and PDF figure required by the dissertation."""
-    estimates = {name: index / 10 for index, name in enumerate(["H1", "H2a", "H2b", "M1", "M2"], start=1)}
+    estimates = {name: index / 10 for index, name in enumerate(["H1", "H2a", "H2b"], start=1)}
     intervals = {name: (value - 0.05, value + 0.05) for name, value in estimates.items()}
     adjusted = {name: 0.05 for name in estimates}
     table_path, figure_path = generate_paper_assets(tmp_path, estimates, intervals, adjusted)

@@ -50,7 +50,7 @@ class IntegrityCondition(str, Enum):
 
 
 class StudyStage(str, Enum):
-    """Separate the primary mechanism study from the mitigation rerun."""
+    """Separate the primary mechanism study from secondary integrity runs."""
 
     PRIMARY = "primary"
     MITIGATION = "mitigation"
@@ -101,11 +101,35 @@ class ExperimentCell(ImmutableModel):
         )
 
 
-def all_experiment_cells() -> List[ExperimentCell]:
-    """Return the eight cells in a stable canonical order."""
+def primary_experiment_cells() -> List[ExperimentCell]:
+    """Return the four integrity-absent primary cells in canonical order."""
     return [
-        ExperimentCell.create(word_budget=word_budget, emotional_cue=cue, integrity=integrity)
-        for integrity in [IntegrityCondition.ABSENT, IntegrityCondition.TARGETED]
+        ExperimentCell.create(
+            word_budget=word_budget,
+            emotional_cue=cue,
+            integrity=IntegrityCondition.ABSENT,
+        )
         for word_budget in [WordBudgetCondition.AMPLE, WordBudgetCondition.TIGHT]
         for cue in [EmotionalCueCondition.NEUTRAL, EmotionalCueCondition.WORRIED]
+    ]
+
+
+def integrity_experiment_cells() -> List[ExperimentCell]:
+    """Return the four targeted-integrity cells reserved for secondary runs."""
+    return [
+        ExperimentCell.create(
+            word_budget=word_budget,
+            emotional_cue=cue,
+            integrity=IntegrityCondition.TARGETED,
+        )
+        for word_budget in [WordBudgetCondition.AMPLE, WordBudgetCondition.TIGHT]
+        for cue in [EmotionalCueCondition.NEUTRAL, EmotionalCueCondition.WORRIED]
+    ]
+
+
+def all_experiment_cells() -> List[ExperimentCell]:
+    """Return primary and secondary-integrity cells in stable canonical order."""
+    return [
+        *primary_experiment_cells(),
+        *integrity_experiment_cells(),
     ]

@@ -1,4 +1,4 @@
-"""Execute the frozen 240-conversation rubric-calibration matrix with resume."""
+"""Execute the frozen 120-conversation rubric-calibration matrix with resume."""
 
 from __future__ import annotations
 

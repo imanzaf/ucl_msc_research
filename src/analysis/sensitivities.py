@@ -8,7 +8,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 import pandas as pd
 import statsmodels.api as sm
 
-from src.analysis.estimands import estimate_confirmatory_contrasts, estimate_primary_contrasts
+from src.analysis.estimands import estimate_confirmatory_contrasts
 
 
 def _prefixed(prefix: str, estimates: Dict[str, float]) -> Dict[str, float]:
@@ -57,7 +57,6 @@ def _response_length_mediation(frame: pd.DataFrame) -> Dict[str, float]:
         {
             "tight": (frame["word_budget"] == "tight").astype(float),
             "worried": (frame["emotional_cue"] == "worried").astype(float),
-            "integrity": (frame["integrity"] == "targeted").astype(float),
             "response_word_count": frame["response_word_count"].astype(float),
         }
     )
@@ -96,11 +95,6 @@ def estimate_sensitivities_with_messages(
         except ValueError as error:
             messages.append(f"{prefix}: {error}")
 
-    primary_from_full = estimate_primary_contrasts(frame)
-    primary_only = estimate_primary_contrasts(frame.loc[frame["integrity"] == "absent"])
-    if primary_from_full != primary_only:
-        raise ValueError("primary estimates changed when mitigation rows were excluded")
-    outputs.update(_prefixed("mitigation_excluded", primary_only))
     for model_id in sorted(frame["model_id"].unique()):
         add(f"model={model_id}", partial(estimate_confirmatory_contrasts, frame.loc[frame["model_id"] == model_id]))
     for use_case_id in sorted(frame["use_case_id"].unique()):

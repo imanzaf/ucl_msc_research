@@ -34,7 +34,7 @@
   "description": "Snapshot the risk_comm_v1 execution contract before a run starts.",
   "properties": {
     "cell_count": {
-      "default": 8,
+      "default": 4,
       "title": "Cell Count",
       "type": "integer"
     },
@@ -49,12 +49,12 @@
       "type": "integer"
     },
     "expected_agent_response_count": {
-      "default": 1920,
+      "default": 960,
       "title": "Expected Agent Response Count",
       "type": "integer"
     },
     "expected_conversation_count": {
-      "default": 960,
+      "default": 480,
       "title": "Expected Conversation Count",
       "type": "integer"
     },

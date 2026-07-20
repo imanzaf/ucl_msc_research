@@ -1,4 +1,4 @@
-"""Deterministic Holm family-wise correction for the five confirmatory tests."""
+"""Deterministic Holm family-wise correction for the confirmatory tests."""
 
 from __future__ import annotations
 

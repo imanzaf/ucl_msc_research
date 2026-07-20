@@ -162,8 +162,8 @@ class AmplePilotSummary(ImmutableModel):
 
     pilot_word_limit: int = Field(default=PILOT_WORD_LIMIT)
     proposed_ample_word_limit: int = Field(default=AMPLE_WORD_LIMIT)
-    total_outputs: int = Field(default=120)
-    outputs_within_ample_limit: int = Field(ge=0, le=120)
+    total_outputs: int = Field(default=60)
+    outputs_within_ample_limit: int = Field(ge=0, le=60)
     all_approved_complete_responses_fit: bool
     result_record_sha256: str
 
@@ -175,7 +175,7 @@ class AmplePilotSummary(ImmutableModel):
 
     def passes(self) -> bool:
         """Return whether the preregistered ample-limit gate passes."""
-        return self.total_outputs == 120 and self.outputs_within_ample_limit >= 114 and self.all_approved_complete_responses_fit
+        return self.total_outputs == 60 and self.outputs_within_ample_limit >= 57 and self.all_approved_complete_responses_fit
 
 
 class AmplePilotRecord(VersionedImmutableModel):
@@ -347,7 +347,7 @@ class TightLimitManifest(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_freeze(self) -> "TightLimitManifest":
-        """Refuse freeze without ten C1 limits and a passing 120-output pilot."""
+        """Refuse freeze without ten C1 limits and a passing 60-output pilot."""
         if {budget.use_case_id for budget in self.use_case_budgets} != {f"CF{index:03d}" for index in range(1, 11)}:
             raise ValueError("tight-limit manifest must contain exactly CF001-CF010")
         if self.freeze_status == FreezeStatus.FROZEN:
@@ -724,12 +724,12 @@ class ProtocolDeviationManifest(VersionedImmutableModel):
 
 
 class SmallestEffectManifest(VersionedImmutableModel):
-    """Freeze the five smallest effect sizes used for power and equivalence checks."""
+    """Freeze the three smallest effect sizes used for power and equivalence checks."""
 
     schema_version: str = Field(pattern=r"^1\.0\.0$")
     freeze_status: FreezeStatus
-    absolute_bounds: Dict[str, Decimal] = Field(min_length=5, max_length=5)
-    rationale: Dict[str, str] = Field(min_length=5, max_length=5)
+    absolute_bounds: Dict[str, Decimal] = Field(min_length=3, max_length=3)
+    rationale: Dict[str, str] = Field(min_length=3, max_length=3)
     frozen_at: Optional[datetime] = None
     frozen_by: Optional[str] = Field(default=None, min_length=1)
     manifest_sha256: str
@@ -742,10 +742,10 @@ class SmallestEffectManifest(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_effects(self) -> "SmallestEffectManifest":
-        """Require positive bounds and provenance for all five confirmatory estimands."""
-        expected = {"H1", "H2a", "H2b", "M1", "M2"}
+        """Require positive bounds and provenance for all three confirmatory estimands."""
+        expected = {"H1", "H2a", "H2b"}
         if set(self.absolute_bounds) != expected or set(self.rationale) != expected:
-            raise ValueError("smallest-effect manifest must cover exactly H1, H2a, H2b, M1, and M2")
+            raise ValueError("smallest-effect manifest must cover exactly H1, H2a, and H2b")
         if any(bound <= 0 for bound in self.absolute_bounds.values()):
             raise ValueError("smallest-effect absolute bounds must be positive")
         if self.freeze_status == FreezeStatus.FROZEN and (self.frozen_at is None or self.frozen_by is None):
@@ -773,28 +773,28 @@ class AnalysisAssumptionInput(VersionedImmutableModel):
     """Validate researcher-authored effect, rationale, and variance inputs before freezing."""
 
     schema_version: str = Field(pattern=r"^1\.0\.0$")
-    absolute_bounds: Dict[str, Decimal] = Field(min_length=5, max_length=5)
-    rationales: Dict[str, str] = Field(min_length=5, max_length=5)
-    variance_components: Dict[str, PowerVarianceComponents] = Field(min_length=5, max_length=5)
+    absolute_bounds: Dict[str, Decimal] = Field(min_length=3, max_length=3)
+    rationales: Dict[str, str] = Field(min_length=3, max_length=3)
+    variance_components: Dict[str, PowerVarianceComponents] = Field(min_length=3, max_length=3)
 
     @model_validator(mode="after")
     def validate_estimands(self) -> "AnalysisAssumptionInput":
-        """Require complete, positive, explained assumptions for the five tests."""
-        expected = {"H1", "H2a", "H2b", "M1", "M2"}
+        """Require complete, positive, explained assumptions for the three tests."""
+        expected = {"H1", "H2a", "H2b"}
         if set(self.absolute_bounds) != expected or set(self.rationales) != expected or set(self.variance_components) != expected:
-            raise ValueError("analysis assumptions must cover exactly H1, H2a, H2b, M1, and M2")
+            raise ValueError("analysis assumptions must cover exactly H1, H2a, and H2b")
         if any(bound <= 0 for bound in self.absolute_bounds.values()) or any(not rationale.strip() for rationale in self.rationales.values()):
             raise ValueError("analysis assumptions require positive bounds and nonblank rationales")
         return self
 
 
 class PowerAssumptionManifest(VersionedImmutableModel):
-    """Freeze pre-evaluation variance assumptions for all five power simulations."""
+    """Freeze pre-evaluation variance assumptions for all three power simulations."""
 
     schema_version: str = Field(pattern=r"^1\.0\.0$")
     freeze_status: FreezeStatus
     smallest_effect_manifest_sha256: str
-    variance_components: Dict[str, PowerVarianceComponents] = Field(min_length=5, max_length=5)
+    variance_components: Dict[str, PowerVarianceComponents] = Field(min_length=3, max_length=3)
     calibration_source_sha256: str
     frozen_at: Optional[datetime] = None
     frozen_by: Optional[str] = Field(default=None, min_length=1)
@@ -808,9 +808,9 @@ class PowerAssumptionManifest(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_assumptions(self) -> "PowerAssumptionManifest":
-        """Require five variance sets and frozen researcher provenance."""
-        if set(self.variance_components) != {"H1", "H2a", "H2b", "M1", "M2"}:
-            raise ValueError("power assumptions must cover all five confirmatory estimands")
+        """Require three variance sets and frozen researcher provenance."""
+        if set(self.variance_components) != {"H1", "H2a", "H2b"}:
+            raise ValueError("power assumptions must cover all three confirmatory estimands")
         if self.freeze_status == FreezeStatus.FROZEN and (self.frozen_at is None or self.frozen_by is None):
             raise ValueError("frozen power assumptions require timestamp and researcher")
         return self
@@ -825,7 +825,7 @@ class PowerSimulationReport(VersionedImmutableModel):
     simulations: int = Field(ge=5_000)
     alpha: Decimal = Field(gt=0, lt=1)
     random_seed: int
-    power: Dict[str, Decimal] = Field(min_length=5, max_length=5)
+    power: Dict[str, Decimal] = Field(min_length=3, max_length=3)
     sensitivity_power: Dict[str, Dict[str, Decimal]] = Field(min_length=2, max_length=2)
     generated_at: datetime
     report_sha256: str
@@ -839,14 +839,14 @@ class PowerSimulationReport(VersionedImmutableModel):
     @model_validator(mode="after")
     def validate_report(self) -> "PowerSimulationReport":
         """Require every power surface, valid probabilities, and an exact canonical self-hash."""
-        expected = {"H1", "H2a", "H2b", "M1", "M2"}
+        expected = {"H1", "H2a", "H2b"}
         if set(self.power) != expected or any(not Decimal("0") <= value <= Decimal("1") for value in self.power.values()):
-            raise ValueError("power report must contain five probabilities in [0, 1]")
+            raise ValueError("power report must contain three probabilities in [0, 1]")
         required_sensitivities = {"high_model_heterogeneity", "high_scoring_error"}
         if set(self.sensitivity_power) != required_sensitivities:
             raise ValueError("power report lacks a required heterogeneity or scoring-error sensitivity")
         if any(set(values) != expected for values in self.sensitivity_power.values()):
-            raise ValueError("every power sensitivity must cover all five estimands")
+            raise ValueError("every power sensitivity must cover all three estimands")
         if any(not Decimal("0") <= value <= Decimal("1") for values in self.sensitivity_power.values() for value in values.values()):
             raise ValueError("power sensitivity values must lie in [0, 1]")
         expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"report_sha256"}))
@@ -863,8 +863,8 @@ class DryRunCostReport(VersionedImmutableModel):
     run_plan_sha256: str
     experiment_config_sha256: str
     pricing_file_sha256: str
-    conversations: int = Field(default=960)
-    agent_responses: int = Field(default=1920)
+    conversations: int = Field(default=480)
+    agent_responses: int = Field(default=960)
     maximum_attempts_including_retries: int = Field(gt=0)
     estimated_input_tokens: int = Field(ge=0)
     estimated_output_tokens: int = Field(ge=0)
@@ -885,8 +885,8 @@ class DryRunCostReport(VersionedImmutableModel):
     @model_validator(mode="after")
     def validate_counts_and_costs(self) -> "DryRunCostReport":
         """Require the exact design and conservative worst-case totals."""
-        if self.conversations != 960 or self.agent_responses != 1920:
-            raise ValueError("dry-run report must bind exactly 960 conversations and 1,920 responses")
+        if self.conversations != 480 or self.agent_responses != 960:
+            raise ValueError("dry-run report must bind exactly 480 conversations and 960 responses")
         if self.worst_case_input_tokens < self.estimated_input_tokens or self.worst_case_output_tokens < self.estimated_output_tokens:
             raise ValueError("worst-case token totals cannot be smaller than base estimates")
         if self.worst_case_cost_usd < self.estimated_cost_usd:

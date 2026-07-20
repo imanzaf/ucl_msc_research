@@ -30,7 +30,7 @@ def stratified_scenario_bootstrap(
     draws: int = 10_000,
     seed: int = 7,
 ) -> Tuple[Dict[str, float], Dict[str, Tuple[float, float]], pd.DataFrame]:
-    """Estimate five contrasts and percentile intervals over scenario-cluster draws."""
+    """Estimate three contrasts and percentile intervals over scenario-cluster draws."""
     if draws < 1:
         raise ValueError("bootstrap draws must be positive")
     point_estimates = estimate_confirmatory_contrasts(frame)
