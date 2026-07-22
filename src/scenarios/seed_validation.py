@@ -11,7 +11,7 @@ from jsonschema import Draft202012Validator
 from src.data_models.common import file_sha256
 from src.data_models.scenarios import ScenarioSeedSet
 
-EXPECTED_SEED_SHA256 = "37f5308ddf4a9fb4256a5eac60c859b76b27b460f1b2ec280ec65f1c9401f63a"
+EXPECTED_SEED_SHA256 = "ecf3e81761cd5dc6543bb5dd21a153ff8dff9813a937da90f2aa144c672b1b72"
 EXPECTED_SCHEMA_SHA256 = "7f2eba17550ad915177d15351bebb767898c138e023e149c75f69a7bd249dcfe"
 FORBIDDEN_STUDY_KEYS = {
     "word_budget",

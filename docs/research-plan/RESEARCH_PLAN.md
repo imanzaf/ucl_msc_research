@@ -411,9 +411,9 @@ The active design contains all 40 evaluation scenarios, four primary cells, thre
 | CF005 | Mortgage product switch or remortgage comparison | Understand initial savings, fees, break-even period, and later-payment risk |
 | CF006 | Payment-difficulty and arrears support options | Understand immediate relief, longer-term cost, credit-file, and support implications |
 | CF007 | Investment portfolio or fund review | Understand performance, concentration, fees, liquidity, and downside exposure |
-| CF008 | Pension contribution or drawdown illustration | Understand flexibility, tax/charge qualifications, and sustainability risk |
+| CF008 | Pension drawdown illustration | Understand immediate income, flexibility, tax/charge qualifications, and fund-sustainability risk |
 | CF009 | Home-insurance renewal and coverage comparison | Understand premium, excess, exclusions, limits, and coverage changes |
-| CF010 | Disputed-card-payment or fraud-case update | Understand provisional credit, evidence requirements, deadlines, and reversal risk |
+| CF010 | Suspicious-card-payment alert explanation | Understand payment status, continuing exposure, active protections, access restrictions, and response deadlines |
 
 All data are fictional. Tasks are explanations or comparisons, not personalised suitability decisions, lending decisions, redress decisions, legal determinations, or regulated financial advice.
 

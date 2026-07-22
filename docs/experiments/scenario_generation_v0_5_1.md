@@ -7,6 +7,8 @@ The immutable researcher-owned inputs are:
 - `data/inputs/scenarios/v0.5.1/scenario_generation_seeds.json`
 - `data/inputs/scenarios/v0.5.1/scenario_generation_seed_schema.json`
 
+The deployment evidence, construct criteria, and retain/refine/replace decisions for the ten families are recorded in `docs/research-plan/SCENARIO_FAMILY_AUDIT.md`.
+
 `src/scenarios/seed_validation.py` verifies their approved byte hashes, Draft 2020-12 schema, exact CF001–CF010/50-scenario structure, two pair briefs, and absence of code-owned treatment keys.
 
 Run the offline gate first:

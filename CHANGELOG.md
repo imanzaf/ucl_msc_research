@@ -18,6 +18,7 @@ All notable changes to the active research implementation are recorded here. The
 - Consolidated the live research plan around the current design, including the shared secondary-subset rule, exact 192-conversation integrity and order studies, M1/M2/O1 estimands, reporting boundaries, and primary-data secondary analyses.
 - Audited the live research plan against executable code, corrected scoring-metric and review-workflow overstatements, and marked the exact secondary-study implementation boundary instead of presenting incomplete orchestration as runnable.
 - Removed superseded execution language, historical implementation notes, and unspecified alternate-cue or stochastic runs from the active research plan; design history now lives in this changelog and the documentation archive.
+- Audited the ten scenario families against current financial-AI deployments, made all customer requests more natural, narrowed CF008 to a coherent pension-drawdown family, and replaced CF010's dispute update with a suspicious-payment alert explanation.
 
 ## [0.1.0] - 2026-07-20
 

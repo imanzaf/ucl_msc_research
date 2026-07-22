@@ -6,7 +6,7 @@ The active protocol is the [Research Plan](docs/research-plan/RESEARCH_PLAN.md).
 
 ## Current gate
 
-The current code, strict schemas, offline validators, review application, runner, scoring contracts, analysis code, and tests are implemented. The supplied V0.5.1 seed and schema are committed byte-for-byte.
+The current code, strict schemas, offline validators, review application, runner, scoring contracts, analysis code, and tests are implemented. The reviewed V0.5.1 seed and schema are committed byte-for-byte; the family-selection evidence and decisions are documented in [the scenario-family audit](docs/research-plan/SCENARIO_FAMILY_AUDIT.md).
 
 Paid generation and evaluation are deliberately not complete. Scenario generation does not require cue approval. During the researcher review phase, the exact neutral and worried wording is reviewed and frozen in the prompt-review manifest; that review is required only before the ample-limit pilot. Accepted scenarios, the 60-output pilot, budget manifest, rubric/judge validation, preregistration package, dry-run cost report, and explicit paid-execution approval remain lifecycle gates. Secondary execution additionally requires selection/run manifests, run-plan validation, execution commands, O1 and secondary inference/reporting support that are not yet implemented.
 
