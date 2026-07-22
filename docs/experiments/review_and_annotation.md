@@ -49,7 +49,7 @@ uv run risk-comm scoring validate \
 
 The failed-actions file is a strict `1.0.0` JSON object with an `actions` mapping from each failed construct name to `full_manual_scoring`, `demote_to_exploratory`, or `remove`, chosen while treatment labels remain hidden.
 
-`src/scoring/reliability.py` enforces the disclosure, omission, false-claim, framing, and reassurance gates. False claims are matched one-to-one by checkpoint, error type, turn, and the frozen ≥50%-of-shorter-span overlap rule; unsupported and overcertain claims cannot inflate false-claim precision/recall. A failed construct must be assigned full manual scoring, exploratory demotion, or removal while conditions remain blinded.
+`src/scoring/reliability.py` enforces the disclosure, omission, false-claim, framing, and reassurance gates. False claims are matched one-to-one by checkpoint, error type, turn, and the frozen ≥50%-of-shorter-span overlap rule; unsupported claims cannot inflate false-claim precision/recall. A failed construct must be assigned full manual scoring, exploratory demotion, or removal while conditions remain blinded.
 
 After the final evaluation annotations close, build the human-reference sensitivity rows:
 

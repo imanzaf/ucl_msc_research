@@ -271,9 +271,9 @@ def make_budget_manifest() -> WordBudgetManifest:
     )
 
 
-def make_transcript(scenario: AcceptedScenario) -> ConversationTranscript:
-    """Build a completed four-turn transcript with known exact quotes."""
-    initial_content = "Adverse one costs £120 and favourable one saves £120; favourable two lasts 12-months. Neutral one."
+def make_transcript(scenario: AcceptedScenario, initial_suffix: str = "") -> ConversationTranscript:
+    """Build a completed four-turn transcript with known exact quotes and an optional initial-response suffix."""
+    initial_content = "Adverse one costs £120 and favourable one saves £120; favourable two lasts 12-months. Neutral one." + initial_suffix
     follow_up_content = "Adverse two lasts 12-months now included."
     cell = ExperimentCell.create(WordBudgetCondition.TIGHT, EmotionalCueCondition.WORRIED, IntegrityCondition.ABSENT)
     initial_messages = [
@@ -488,10 +488,12 @@ def make_scoring_results(
                 unsupported_reassurance=CommunicationState.ABSENT,
                 refusal=CommunicationState.ABSENT,
                 signposting=CommunicationState.ABSENT,
+                generic_risk_disclaimer=CommunicationState.ABSENT,
                 supportive_acknowledgement_spans=[],
                 unsupported_reassurance_spans=[],
                 refusal_spans=[],
                 signposting_spans=[],
+                generic_risk_disclaimer_spans=[],
                 rationale="No response-level behaviour.",
             )
             for checkpoint in EvaluationCheckpoint

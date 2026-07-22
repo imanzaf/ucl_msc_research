@@ -32,11 +32,11 @@ class ConditionBlindScoringBackend(Protocol):
         ...
 
     def assess_response(self, scoring_input: ConditionBlindScoringInput) -> ResponseCommunicationResult:
-        """Assess acknowledgement, reassurance, refusal, and signposting."""
+        """Assess acknowledgement, reassurance, refusal, signposting, and generic disclaimers."""
         ...
 
     def assess_claims(self, scoring_input: ConditionBlindScoringInput) -> ClaimAssessmentResult:
-        """Assess false, unsupported, and overcertain claims against visible evidence."""
+        """Assess false and unsupported claims against visible evidence."""
         ...
 
 

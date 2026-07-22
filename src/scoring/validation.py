@@ -87,6 +87,7 @@ def validate_scoring_results(
             "unsupported_reassurance_spans",
             "refusal_spans",
             "signposting_spans",
+            "generic_risk_disclaimer_spans",
         ]:
             for span in getattr(response_judgment, field_name):
                 _validate_checkpoint_span(response_judgment.checkpoint, span)

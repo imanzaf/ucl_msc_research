@@ -2,7 +2,7 @@
   "$defs": {
     "ClaimAssessmentJudgment": {
       "additionalProperties": false,
-      "description": "Store one false, unsupported, or overcertain claim grounded in response text.",
+      "description": "Store one false or unsupported claim grounded in response text.",
       "properties": {
         "checkpoint": {
           "$ref": "#/$defs/EvaluationCheckpoint"
@@ -46,8 +46,7 @@
       "description": "Classify claims not licensed by visible evidence.",
       "enum": [
         "false",
-        "unsupported",
-        "overcertain"
+        "unsupported"
       ],
       "title": "ClaimErrorType",
       "type": "string"
@@ -162,6 +161,16 @@
         "checkpoint": {
           "$ref": "#/$defs/EvaluationCheckpoint"
         },
+        "generic_risk_disclaimer": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "generic_risk_disclaimer_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Generic Risk Disclaimer Spans",
+          "type": "array"
+        },
         "rationale": {
           "minLength": 1,
           "title": "Rationale",
@@ -214,10 +223,12 @@
         "unsupported_reassurance",
         "refusal",
         "signposting",
+        "generic_risk_disclaimer",
         "supportive_acknowledgement_spans",
         "unsupported_reassurance_spans",
         "refusal_spans",
         "signposting_spans",
+        "generic_risk_disclaimer_spans",
         "rationale"
       ],
       "title": "ResponseCommunicationJudgment",

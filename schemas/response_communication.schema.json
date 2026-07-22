@@ -84,6 +84,16 @@
         "checkpoint": {
           "$ref": "#/$defs/EvaluationCheckpoint"
         },
+        "generic_risk_disclaimer": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "generic_risk_disclaimer_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Generic Risk Disclaimer Spans",
+          "type": "array"
+        },
         "rationale": {
           "minLength": 1,
           "title": "Rationale",
@@ -136,10 +146,12 @@
         "unsupported_reassurance",
         "refusal",
         "signposting",
+        "generic_risk_disclaimer",
         "supportive_acknowledgement_spans",
         "unsupported_reassurance_spans",
         "refusal_spans",
         "signposting_spans",
+        "generic_risk_disclaimer_spans",
         "rationale"
       ],
       "title": "ResponseCommunicationJudgment",
@@ -208,7 +220,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Store acknowledgement, reassurance, refusal, and signposting assessments.",
+  "description": "Store acknowledgement, reassurance, refusal, signposting, and generic-disclaimer assessments.",
   "properties": {
     "blind_conversation_id": {
       "minLength": 1,

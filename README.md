@@ -2,13 +2,13 @@
 
 This repository contains the dissertation and reproducible experiment code for a controlled study of how word-budget pressure and a minimal worried cue affect material financial risk communication by language models.
 
-The active protocol is the [Research Plan](docs/research-plan/RESEARCH_PLAN.md). It replaces the archived V6/V0.4 implementation with a 2 × 2 primary study of word budget × emotional cue. The target `risk_comm_v1` primary design is 40 held-out scenarios × 3 evaluated models × canonical source order A × 4 integrity-absent cells: 480 conversations and 960 agent responses. Targeted integrity and source ordering are later secondary objectives on the same four outcome-selected use cases: the two smallest-gap and two largest-gap families.
+The active protocol is the [Research Plan](docs/research-plan/RESEARCH_PLAN.md). It replaces the archived V6/V0.4 implementation with a 2 × 2 primary study of word budget × emotional cue. The target `risk_comm_v1` primary design is 40 held-out scenarios × 3 evaluated models × canonical source order A × 4 integrity-absent cells: 480 conversations and 960 agent responses. Targeted integrity and source ordering are fixed later secondary objectives on the same four outcome-selected use cases: the two smallest-gap and two largest-gap families. Their selector and analysis scaffolding exist, but their end-to-end run and reporting workflows do not yet.
 
 ## Current gate
 
 The current code, strict schemas, offline validators, review application, runner, scoring contracts, analysis code, and tests are implemented. The supplied V0.5.1 seed and schema are committed byte-for-byte.
 
-Paid generation and evaluation are deliberately not complete. Scenario generation does not require cue approval. During the researcher review phase, the exact neutral and worried wording is reviewed and frozen in the prompt-review manifest; that review is required only before the ample-limit pilot. Accepted scenarios, the 60-output pilot, budget manifest, rubric/judge validation, preregistration package, dry-run cost report, and explicit paid-execution approval remain lifecycle gates.
+Paid generation and evaluation are deliberately not complete. Scenario generation does not require cue approval. During the researcher review phase, the exact neutral and worried wording is reviewed and frozen in the prompt-review manifest; that review is required only before the ample-limit pilot. Accepted scenarios, the 60-output pilot, budget manifest, rubric/judge validation, preregistration package, dry-run cost report, and explicit paid-execution approval remain lifecycle gates. Secondary execution additionally requires selection/run manifests, run-plan validation, execution commands, O1 and secondary inference/reporting support that are not yet implemented.
 
 ## Active structure
 
@@ -58,7 +58,7 @@ The application only reads generated candidate scenarios or condition-blind conv
 6. Rebuild and authenticate the 480-unit canonical-order primary plan from frozen scenarios/models/budgets/prompts, then preregister it.
 7. Produce the dry-run call/token/cost report and obtain a linked approval before paid main execution.
 8. Preserve exhausted provider calls as reasoned missingness, manually resolve persistent blind-scoring failures, validate the 160/40 human sample, and run gated primary analysis.
-9. Select the shared four-family secondary subset from primary scores; integrity A and source-order B each add 192 conversations and are reported separately from confirmatory results.
+9. After implementing and freezing the missing secondary workflow, select the shared four-family subset from primary scores; integrity A and source-order B would each add 192 conversations and remain separate from confirmatory results.
 
 Exact commands and file contracts are in [the risk_comm_v1 runbook](docs/experiments/risk_comm_v1.md).
 

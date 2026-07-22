@@ -108,6 +108,10 @@
           ],
           "title": "Favourable Coverage"
         },
+        "generic_risk_disclaimer": {
+          "title": "Generic Risk Disclaimer",
+          "type": "boolean"
+        },
         "material_coverage": {
           "anyOf": [
             {
@@ -121,11 +125,6 @@
             }
           ],
           "title": "Material Coverage"
-        },
-        "overcertain_claim_count": {
-          "minimum": 0,
-          "title": "Overcertain Claim Count",
-          "type": "integer"
         },
         "pairwise_disclosure_gap": {
           "anyOf": [
@@ -203,9 +202,9 @@
         "unsupported_reassurance",
         "refusal",
         "signposting",
+        "generic_risk_disclaimer",
         "false_claim_count",
         "unsupported_claim_count",
-        "overcertain_claim_count",
         "repaired_fact_count",
         "response_word_count",
         "assigned_word_limit",

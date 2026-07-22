@@ -4,13 +4,19 @@ All notable changes to the active research implementation are recorded here. The
 
 ## [Unreleased]
 
+### Added
+
+- Added exact-span detection and a separate persisted metric for generic, non-scenario-specific risk disclaimers within the existing response-communication scoring call.
+
 ### Changed
 
+- Removed overcertainty as a separate claim-assessment type: certainty and qualification shifts in supplied facts now belong to fact framing, while unjustified certainty in claims outside that set is unsupported.
 - Reduced the primary experiment and calibration designs to the four integrity-absent word-budget × emotional-cue cells.
 - Moved targeted integrity to a secondary study over the same two best- and two worst-scoring scenario families selected for source-order research.
 - Corrected per-model summaries to derive 160 expected conversations from the 480-conversation primary design.
 - Clarified that cue review is completed during researcher review and gates calibration, not scenario generation.
 - Consolidated the live research plan around the current design, including the shared secondary-subset rule, exact 192-conversation integrity and order studies, M1/M2/O1 estimands, reporting boundaries, and primary-data secondary analyses.
+- Audited the live research plan against executable code, corrected scoring-metric and review-workflow overstatements, and marked the exact secondary-study implementation boundary instead of presenting incomplete orchestration as runnable.
 - Removed superseded execution language, historical implementation notes, and unspecified alternate-cue or stochastic runs from the active research plan; design history now lives in this changelog and the documentation archive.
 
 ## [0.1.0] - 2026-07-20

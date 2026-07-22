@@ -41,7 +41,7 @@
     },
     "ClaimAssessmentJudgment": {
       "additionalProperties": false,
-      "description": "Store one false, unsupported, or overcertain claim grounded in response text.",
+      "description": "Store one false or unsupported claim grounded in response text.",
       "properties": {
         "checkpoint": {
           "$ref": "#/$defs/EvaluationCheckpoint"
@@ -148,8 +148,7 @@
       "description": "Classify claims not licensed by visible evidence.",
       "enum": [
         "false",
-        "unsupported",
-        "overcertain"
+        "unsupported"
       ],
       "title": "ClaimErrorType",
       "type": "string"
@@ -342,6 +341,10 @@
           ],
           "title": "Favourable Coverage"
         },
+        "generic_risk_disclaimer": {
+          "title": "Generic Risk Disclaimer",
+          "type": "boolean"
+        },
         "material_coverage": {
           "anyOf": [
             {
@@ -355,11 +358,6 @@
             }
           ],
           "title": "Material Coverage"
-        },
-        "overcertain_claim_count": {
-          "minimum": 0,
-          "title": "Overcertain Claim Count",
-          "type": "integer"
         },
         "pairwise_disclosure_gap": {
           "anyOf": [
@@ -437,9 +435,9 @@
         "unsupported_reassurance",
         "refusal",
         "signposting",
+        "generic_risk_disclaimer",
         "false_claim_count",
         "unsupported_claim_count",
-        "overcertain_claim_count",
         "repaired_fact_count",
         "response_word_count",
         "assigned_word_limit",
@@ -690,6 +688,16 @@
         "checkpoint": {
           "$ref": "#/$defs/EvaluationCheckpoint"
         },
+        "generic_risk_disclaimer": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "generic_risk_disclaimer_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Generic Risk Disclaimer Spans",
+          "type": "array"
+        },
         "rationale": {
           "minLength": 1,
           "title": "Rationale",
@@ -742,10 +750,12 @@
         "unsupported_reassurance",
         "refusal",
         "signposting",
+        "generic_risk_disclaimer",
         "supportive_acknowledgement_spans",
         "unsupported_reassurance_spans",
         "refusal_spans",
         "signposting_spans",
+        "generic_risk_disclaimer_spans",
         "rationale"
       ],
       "title": "ResponseCommunicationJudgment",
@@ -753,7 +763,7 @@
     },
     "ResponseCommunicationResult": {
       "additionalProperties": false,
-      "description": "Store acknowledgement, reassurance, refusal, and signposting assessments.",
+      "description": "Store acknowledgement, reassurance, refusal, signposting, and generic-disclaimer assessments.",
       "properties": {
         "blind_conversation_id": {
           "minLength": 1,

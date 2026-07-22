@@ -19,6 +19,7 @@ from src.data_models.scoring import (
     ClaimAssessmentJudgment,
     ClaimAssessmentResult,
     ClaimErrorType,
+    CommunicationState,
     ConditionBlindScoringInput,
     DisclosureState,
     EvaluationCheckpoint,
@@ -27,6 +28,7 @@ from src.data_models.scoring import (
     FailedConstructAction,
     FramingState,
     ManualScoringQueueRecord,
+    ResponseCommunicationJudgment,
     ResponseCommunicationResult,
     ResponseSpan,
     ScoringAttemptStatus,
@@ -40,7 +42,7 @@ from src.scoring.validation import _full_specificity_value_is_supported, dates_e
 from tests.factories import ZERO_HASH, make_accepted_scenario, make_scoring_results, make_transcript
 
 
-def aligned_scoring_artifacts() -> Tuple[
+def aligned_scoring_artifacts(initial_suffix: str = "") -> Tuple[
     AcceptedScenario,
     ConversationTranscript,
     ConditionBlindScoringInput,
@@ -48,9 +50,9 @@ def aligned_scoring_artifacts() -> Tuple[
     ResponseCommunicationResult,
     ClaimAssessmentResult,
 ]:
-    """Return a scenario, transcript, blind input, and aligned three-contract results."""
+    """Return aligned scoring artifacts with an optional suffix on the initial agent response."""
     scenario = make_accepted_scenario()
-    transcript = make_transcript(scenario)
+    transcript = make_transcript(scenario, initial_suffix=initial_suffix)
     scoring_input = build_condition_blind_input(transcript, scenario, fact_order_seed=7)
     fact_result, response_result, claim_result = make_scoring_results(scenario, transcript)
     fact_result = fact_result.model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
@@ -102,7 +104,54 @@ def test_metrics_use_correct_omission_denominators_and_preserve_repair() -> None
     assert cumulative.repaired_fact_count == 2
     assert cumulative.pairwise_disclosure_gap == Decimal("0")
     assert initial.cue_occurrence_count == 1
+    assert not initial.generic_risk_disclaimer
+    assert {error_type.value for error_type in ClaimErrorType} == {"false", "unsupported"}
+    assert not hasattr(initial, "overcertain_claim_count")
     assert not hasattr(initial, "composite_score")
+
+
+def test_generic_risk_disclaimer_requires_an_exact_span_and_becomes_a_metric() -> None:
+    """Ground a generic-disclaimer flag in response text and persist it separately."""
+    disclaimer = "All investments carry risk."
+    scenario, transcript, scoring_input, fact_result, response_result, claim_result = aligned_scoring_artifacts(initial_suffix=f" {disclaimer}")
+    initial_judgment = next(item for item in response_result.judgments if item.checkpoint == EvaluationCheckpoint.INITIAL)
+    initial_text = transcript.turns[1].content
+    disclaimer_start = initial_text.index(disclaimer)
+    payload = initial_judgment.model_dump()
+    payload.update(
+        {
+            "generic_risk_disclaimer": CommunicationState.PRESENT,
+            "generic_risk_disclaimer_spans": [
+                ResponseSpan(
+                    turn_index=1,
+                    start_char=disclaimer_start,
+                    end_char=disclaimer_start + len(disclaimer),
+                    exact_quote=disclaimer,
+                )
+            ],
+        }
+    )
+    disclaimer_judgment = ResponseCommunicationJudgment.model_validate(payload)
+    updated_response_result = response_result.model_copy(
+        update={"judgments": [disclaimer_judgment if item.checkpoint == EvaluationCheckpoint.INITIAL else item for item in response_result.judgments]}
+    )
+
+    validate_scoring_results(scoring_input, transcript, fact_result, updated_response_result, claim_result)
+    metrics = compute_conversation_metrics(
+        transcript,
+        scenario,
+        fact_result,
+        updated_response_result,
+        claim_result,
+        EvaluationCheckpoint.INITIAL,
+        prompt_factor_isolation_valid=True,
+    )
+
+    assert metrics.generic_risk_disclaimer
+
+    payload["generic_risk_disclaimer_spans"] = []
+    with pytest.raises(ValidationError, match="generic_risk_disclaimer requires at least one exact span"):
+        ResponseCommunicationJudgment.model_validate(payload)
 
 
 def test_cumulative_budget_fidelity_checks_each_agent_turn_separately() -> None:

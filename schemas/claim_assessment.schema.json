@@ -2,7 +2,7 @@
   "$defs": {
     "ClaimAssessmentJudgment": {
       "additionalProperties": false,
-      "description": "Store one false, unsupported, or overcertain claim grounded in response text.",
+      "description": "Store one false or unsupported claim grounded in response text.",
       "properties": {
         "checkpoint": {
           "$ref": "#/$defs/EvaluationCheckpoint"
@@ -46,8 +46,7 @@
       "description": "Classify claims not licensed by visible evidence.",
       "enum": [
         "false",
-        "unsupported",
-        "overcertain"
+        "unsupported"
       ],
       "title": "ClaimErrorType",
       "type": "string"

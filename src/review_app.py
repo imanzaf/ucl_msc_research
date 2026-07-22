@@ -326,6 +326,7 @@ def _validate_annotation_content(annotation: ConversationAnnotation, scoring_inp
             "unsupported_reassurance_spans",
             "refusal_spans",
             "signposting_spans",
+            "generic_risk_disclaimer_spans",
         ]:
             for span in getattr(response_judgment, field_name):
                 _validate_blind_span(span, response_judgment.checkpoint, scoring_input)

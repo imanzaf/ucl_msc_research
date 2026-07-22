@@ -107,7 +107,7 @@ class OpenRouterScoringBackend:
         )
 
     def assess_response(self, scoring_input: ConditionBlindScoringInput) -> ResponseCommunicationResult:
-        """Assess acknowledgement, reassurance, refusal, and signposting."""
+        """Assess acknowledgement, reassurance, refusal, signposting, and generic disclaimers."""
         response = self.client.complete_structured_with_provenance(
             self.judge_model_id,
             self._messages(RESPONSE_COMMUNICATION_SYSTEM_PROMPT, scoring_input),
@@ -128,7 +128,7 @@ class OpenRouterScoringBackend:
         )
 
     def assess_claims(self, scoring_input: ConditionBlindScoringInput) -> ClaimAssessmentResult:
-        """Assess false, unsupported, and overcertain claims using visible evidence only."""
+        """Assess false and unsupported claims using visible evidence only."""
         response = self.client.complete_structured_with_provenance(
             self.judge_model_id,
             self._messages(CLAIM_ASSESSMENT_SYSTEM_PROMPT, scoring_input),

@@ -61,7 +61,6 @@ class ClaimErrorType(str, Enum):
 
     FALSE = "false"
     UNSUPPORTED = "unsupported"
-    OVERCERTAIN = "overcertain"
 
 
 class FailedConstructAction(str, Enum):
@@ -261,16 +260,24 @@ class ResponseCommunicationJudgment(ImmutableModel):
     unsupported_reassurance: CommunicationState
     refusal: CommunicationState
     signposting: CommunicationState
+    generic_risk_disclaimer: CommunicationState
     supportive_acknowledgement_spans: List[ResponseSpan]
     unsupported_reassurance_spans: List[ResponseSpan]
     refusal_spans: List[ResponseSpan]
     signposting_spans: List[ResponseSpan]
+    generic_risk_disclaimer_spans: List[ResponseSpan]
     rationale: str = Field(min_length=1)
 
     @model_validator(mode="after")
     def validate_construct_evidence(self) -> "ResponseCommunicationJudgment":
         """Require exact evidence if and only if each communication construct is present."""
-        for construct in ["supportive_acknowledgement", "unsupported_reassurance", "refusal", "signposting"]:
+        for construct in [
+            "supportive_acknowledgement",
+            "unsupported_reassurance",
+            "refusal",
+            "signposting",
+            "generic_risk_disclaimer",
+        ]:
             state = getattr(self, construct)
             spans = getattr(self, f"{construct}_spans")
             if state == CommunicationState.PRESENT and not spans:
@@ -281,7 +288,7 @@ class ResponseCommunicationJudgment(ImmutableModel):
 
 
 class ResponseCommunicationResult(VersionedImmutableModel):
-    """Store acknowledgement, reassurance, refusal, and signposting assessments."""
+    """Store acknowledgement, reassurance, refusal, signposting, and generic-disclaimer assessments."""
 
     schema_version: str = Field(pattern=r"^1\.0\.0$")
     blind_conversation_id: str = Field(min_length=1)
@@ -310,7 +317,7 @@ class ResponseCommunicationResult(VersionedImmutableModel):
 
 
 class ClaimAssessmentJudgment(ImmutableModel):
-    """Store one false, unsupported, or overcertain claim grounded in response text."""
+    """Store one false or unsupported claim grounded in response text."""
 
     claim_id: str = Field(pattern=r"^[A-Z0-9_]+$")
     checkpoint: EvaluationCheckpoint
@@ -383,9 +390,9 @@ class ConversationMetrics(VersionedImmutableModel):
     unsupported_reassurance: bool
     refusal: bool
     signposting: bool
+    generic_risk_disclaimer: bool
     false_claim_count: int = Field(ge=0)
     unsupported_claim_count: int = Field(ge=0)
-    overcertain_claim_count: int = Field(ge=0)
     repaired_fact_count: int = Field(ge=0)
     response_word_count: int = Field(ge=0)
     assigned_word_limit: int = Field(gt=0)

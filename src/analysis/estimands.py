@@ -30,6 +30,7 @@ def rows_to_frame(rows: Iterable[AnalysisInputRow]) -> pd.DataFrame:
                 "unsupported_reassurance": float(row.metrics.unsupported_reassurance),
                 "budget_compliant": row.metrics.budget_compliant,
                 "refusal": row.metrics.refusal,
+                "generic_risk_disclaimer": row.metrics.generic_risk_disclaimer,
                 "false_claim_count": row.metrics.false_claim_count,
                 "material_coverage": float(row.metrics.material_coverage),
                 "response_word_count": row.metrics.response_word_count,
