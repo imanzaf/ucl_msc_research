@@ -1,0 +1,245 @@
+{
+  "$defs": {
+    "ClaimAssessmentJudgment": {
+      "additionalProperties": false,
+      "description": "Store one false, unsupported, or overcertain claim grounded in response text.",
+      "properties": {
+        "checkpoint": {
+          "$ref": "#/$defs/EvaluationCheckpoint"
+        },
+        "claim_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_span": {
+          "$ref": "#/$defs/ResponseSpan"
+        },
+        "error_type": {
+          "$ref": "#/$defs/ClaimErrorType"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "visible_evidence_references": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Visible Evidence References",
+          "type": "array"
+        }
+      },
+      "required": [
+        "claim_id",
+        "checkpoint",
+        "error_type",
+        "claim_span",
+        "visible_evidence_references",
+        "rationale"
+      ],
+      "title": "ClaimAssessmentJudgment",
+      "type": "object"
+    },
+    "ClaimErrorType": {
+      "description": "Classify claims not licensed by visible evidence.",
+      "enum": [
+        "false",
+        "unsupported",
+        "overcertain"
+      ],
+      "title": "ClaimErrorType",
+      "type": "string"
+    },
+    "CompletionFinishReason": {
+      "description": "Normalise provider completion termination without discarding unknown values.",
+      "enum": [
+        "stop",
+        "length",
+        "content_filter",
+        "tool_calls",
+        "unknown"
+      ],
+      "title": "CompletionFinishReason",
+      "type": "string"
+    },
+    "EvaluationCheckpoint": {
+      "description": "Identify initial-only versus cumulative communication checkpoints.",
+      "enum": [
+        "initial",
+        "cumulative"
+      ],
+      "title": "EvaluationCheckpoint",
+      "type": "string"
+    },
+    "ProviderCallProvenance": {
+      "additionalProperties": false,
+      "description": "Bind a structured model artifact to its exact provider request and returned snapshot.",
+      "properties": {
+        "finish_reason": {
+          "$ref": "#/$defs/CompletionFinishReason"
+        },
+        "provider_request_id": {
+          "minLength": 1,
+          "title": "Provider Request Id",
+          "type": "string"
+        },
+        "request_sha256": {
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "requested_model_id": {
+          "minLength": 1,
+          "title": "Requested Model Id",
+          "type": "string"
+        },
+        "response_sha256": {
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "returned_model_version": {
+          "minLength": 1,
+          "title": "Returned Model Version",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/TokenUsage"
+        }
+      },
+      "required": [
+        "requested_model_id",
+        "returned_model_version",
+        "provider_request_id",
+        "finish_reason",
+        "usage",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "ProviderCallProvenance",
+      "type": "object"
+    },
+    "ResponseSpan": {
+      "additionalProperties": false,
+      "description": "Locate an exact quote in one evaluated agent turn.",
+      "properties": {
+        "end_char": {
+          "exclusiveMinimum": 0,
+          "title": "End Char",
+          "type": "integer"
+        },
+        "exact_quote": {
+          "minLength": 1,
+          "title": "Exact Quote",
+          "type": "string"
+        },
+        "start_char": {
+          "minimum": 0,
+          "title": "Start Char",
+          "type": "integer"
+        },
+        "turn_index": {
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Turn Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "turn_index",
+        "start_char",
+        "end_char",
+        "exact_quote"
+      ],
+      "title": "ResponseSpan",
+      "type": "object"
+    },
+    "TokenUsage": {
+      "additionalProperties": false,
+      "description": "Store provider-reported token usage for one response.",
+      "properties": {
+        "input_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "total_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Total Tokens",
+          "type": "integer"
+        }
+      },
+      "title": "TokenUsage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Store the visible-evidence-only claim-assessment contract output.",
+  "properties": {
+    "blind_conversation_id": {
+      "minLength": 1,
+      "title": "Blind Conversation Id",
+      "type": "string"
+    },
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/ClaimAssessmentJudgment"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "judge_model_id": {
+      "minLength": 1,
+      "title": "Judge Model Id",
+      "type": "string"
+    },
+    "provider_call": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProviderCallProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scored_at": {
+      "format": "date-time",
+      "title": "Scored At",
+      "type": "string"
+    },
+    "scoring_prompt_sha256": {
+      "title": "Scoring Prompt Sha256",
+      "type": "string"
+    },
+    "visible_source_sha256": {
+      "title": "Visible Source Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "blind_conversation_id",
+    "claims",
+    "visible_source_sha256",
+    "judge_model_id",
+    "scoring_prompt_sha256",
+    "scored_at"
+  ],
+  "title": "ClaimAssessmentResult",
+  "type": "object"
+}

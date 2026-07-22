@@ -1,0 +1,237 @@
+{
+  "$defs": {
+    "MaterialFactPairBriefSeed": {
+      "additionalProperties": false,
+      "description": "Represent one researcher-owned adverse/favourable pair brief.",
+      "properties": {
+        "adverse_theme": {
+          "minLength": 1,
+          "title": "Adverse Theme",
+          "type": "string"
+        },
+        "favorable_theme": {
+          "minLength": 1,
+          "title": "Favorable Theme",
+          "type": "string"
+        },
+        "matching_requirements": {
+          "minLength": 1,
+          "title": "Matching Requirements",
+          "type": "string"
+        },
+        "pair_slot": {
+          "$ref": "#/$defs/PairSlot"
+        }
+      },
+      "required": [
+        "pair_slot",
+        "adverse_theme",
+        "favorable_theme",
+        "matching_requirements"
+      ],
+      "title": "MaterialFactPairBriefSeed",
+      "type": "object"
+    },
+    "PairSlot": {
+      "description": "Identify one of the two matched material-fact pairs.",
+      "enum": [
+        "P1",
+        "P2"
+      ],
+      "title": "PairSlot",
+      "type": "string"
+    },
+    "ReplicationSeed": {
+      "additionalProperties": false,
+      "description": "Represent one calibration or held-out scenario brief.",
+      "properties": {
+        "scenario_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "variation_brief": {
+          "minLength": 1,
+          "title": "Variation Brief",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "variation_brief"
+      ],
+      "title": "ReplicationSeed",
+      "type": "object"
+    },
+    "TaskContextSeed": {
+      "additionalProperties": false,
+      "description": "Represent researcher-owned task context from the immutable seed.",
+      "properties": {
+        "authority_limits": {
+          "minLength": 1,
+          "title": "Authority Limits",
+          "type": "string"
+        },
+        "core_initial_request": {
+          "minLength": 1,
+          "title": "Core Initial Request",
+          "type": "string"
+        },
+        "customer_goal": {
+          "minLength": 1,
+          "title": "Customer Goal",
+          "type": "string"
+        },
+        "decision_context": {
+          "minLength": 1,
+          "title": "Decision Context",
+          "type": "string"
+        },
+        "evidence_basis": {
+          "minLength": 1,
+          "title": "Evidence Basis",
+          "type": "string"
+        },
+        "reference_format": {
+          "minLength": 1,
+          "title": "Reference Format",
+          "type": "string"
+        },
+        "response_genre": {
+          "minLength": 1,
+          "title": "Response Genre",
+          "type": "string"
+        },
+        "task_archetype": {
+          "minLength": 1,
+          "title": "Task Archetype",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_basis",
+        "authority_limits",
+        "response_genre",
+        "task_archetype",
+        "reference_format",
+        "customer_goal",
+        "core_initial_request",
+        "decision_context"
+      ],
+      "title": "TaskContextSeed",
+      "type": "object"
+    },
+    "UseCaseSeed": {
+      "additionalProperties": false,
+      "description": "Represent one V0.5.1 use case while excluding its unused legacy extension.",
+      "properties": {
+        "agent_role": {
+          "minLength": 1,
+          "title": "Agent Role",
+          "type": "string"
+        },
+        "agent_task": {
+          "minLength": 1,
+          "title": "Agent Task",
+          "type": "string"
+        },
+        "customer_journey": {
+          "minLength": 1,
+          "title": "Customer Journey",
+          "type": "string"
+        },
+        "material_fact_pair_briefs": {
+          "items": {
+            "$ref": "#/$defs/MaterialFactPairBriefSeed"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Material Fact Pair Briefs",
+          "type": "array"
+        },
+        "model_owner": {
+          "minLength": 1,
+          "title": "Model Owner",
+          "type": "string"
+        },
+        "potential_harm_pathway": {
+          "additionalProperties": true,
+          "title": "Potential Harm Pathway",
+          "type": "object"
+        },
+        "replications": {
+          "items": {
+            "$ref": "#/$defs/ReplicationSeed"
+          },
+          "maxItems": 5,
+          "minItems": 5,
+          "title": "Replications",
+          "type": "array"
+        },
+        "segment": {
+          "minLength": 1,
+          "title": "Segment",
+          "type": "string"
+        },
+        "task_context": {
+          "$ref": "#/$defs/TaskContextSeed"
+        },
+        "use_case_id": {
+          "pattern": "^CF\\d{3}$",
+          "title": "Use Case Id",
+          "type": "string"
+        },
+        "user_role": {
+          "minLength": 1,
+          "title": "User Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "use_case_id",
+        "segment",
+        "customer_journey",
+        "agent_role",
+        "model_owner",
+        "user_role",
+        "agent_task",
+        "task_context",
+        "material_fact_pair_briefs",
+        "potential_harm_pathway",
+        "replications"
+      ],
+      "title": "UseCaseSeed",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Represent the complete immutable V0.5.1 seed document.",
+  "properties": {
+    "scenario_set_id": {
+      "pattern": "^customer_finance_pressure_emotion_v0\\.5\\.1$",
+      "title": "Scenario Set Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^0\\.5\\.1$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "use_cases": {
+      "items": {
+        "$ref": "#/$defs/UseCaseSeed"
+      },
+      "maxItems": 10,
+      "minItems": 10,
+      "title": "Use Cases",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "scenario_set_id",
+    "use_cases"
+  ],
+  "title": "ScenarioSeedSet",
+  "type": "object"
+}

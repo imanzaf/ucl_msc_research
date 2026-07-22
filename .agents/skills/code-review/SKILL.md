@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: "Performs a thorough code review of local changes in this research codebase. ALWAYS invoke this skill when: (1) the user asks for a code review, review of a component, file, directory, or the full codebase; (2) after the agent completes a major feature addition, significant refactor, or new experiment scaffold. Trigger phrases: review this, code review, review the changes, check my code, review src/, did I do this right, is this correct, review before I commit, or any explicit request to check code quality. Also auto-trigger after the agent writes a new experiment runner, adds a new configs/ class, or does a multi-file refactor — even if the user did not explicitly ask for a review."
+description: "Performs a thorough code review of local changes in this research codebase. ALWAYS invoke this skill when: (1) the user asks for a code review, review of a component, file, directory, or the full codebase; (2) after the agent completes a major feature addition, significant refactor, or new experiment scaffold. Trigger phrases: review this, code review, review the changes, check my code, review src/, did I do this right, is this correct, review before I commit, or any explicit request to check code quality. Also auto-trigger after the agent writes a new experiment runner, adds a new settings class, or does a multi-file refactor — even if the user did not explicitly ask for a review."
 ---
 
 # Code Review
@@ -53,8 +53,8 @@ Read AGENTS.md (already provided in context) and check the diff against every ap
 - `uv run python` / `uv add` (never `python` directly, never `pip install`)
 - Pydantic v2 (`BaseModel`, `Field`, `model_validator`) for all structured data crossing boundaries
 - `str, Enum` for fixed string fields — never bare `str` with a comment
-- `BaseSettings` subclasses in `configs/`, one class per concern, each with an `@lru_cache` getter
-- Settings accessed via `get_<desc>_settings()` from `configs/`, never `os.environ` directly
+- `BaseSettings` subclasses in `src/settings/`, one class per concern, each with an `@lru_cache` getter
+- Settings accessed via `get_<desc>_settings()` from `src/settings/`, never `os.environ` directly
 - Structured outputs saved as JSONL (records) or JSON (configs/summaries); must include `schema_version`
 - Line length ≤ 150
 

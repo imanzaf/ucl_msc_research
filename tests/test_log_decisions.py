@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from scripts import log_decisions
+from scripts.hooks import log_decisions
 
 
 def test_extract_decisions_ignores_inline_markers_and_code_fenced_templates() -> None:
@@ -78,9 +78,7 @@ def test_stop_processing_scans_only_latest_assistant_message() -> None:
                     "content": [
                         {
                             "type": "text",
-                            "text": (
-                                "Research decision: Use an older benchmark source because it shaped a previous study design."
-                            ),
+                            "text": ("Research decision: Use an older benchmark source because it shaped a previous study design."),
                         }
                     ],
                 },

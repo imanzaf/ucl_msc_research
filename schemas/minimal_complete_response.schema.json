@@ -1,0 +1,88 @@
+{
+  "additionalProperties": false,
+  "description": "Store the approved facts-only feasibility response and frozen word count.",
+  "properties": {
+    "approved": {
+      "title": "Approved",
+      "type": "boolean"
+    },
+    "approved_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Approved At"
+    },
+    "approved_by": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Approved By"
+    },
+    "covered_fact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Covered Fact Ids",
+      "type": "array"
+    },
+    "covered_specificity_element_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Covered Specificity Element Ids",
+      "type": "array"
+    },
+    "scenario_id": {
+      "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+      "title": "Scenario Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "text": {
+      "minLength": 1,
+      "title": "Text",
+      "type": "string"
+    },
+    "text_sha256": {
+      "title": "Text Sha256",
+      "type": "string"
+    },
+    "word_count": {
+      "exclusiveMinimum": 0,
+      "title": "Word Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "scenario_id",
+    "text",
+    "word_count",
+    "covered_fact_ids",
+    "covered_specificity_element_ids",
+    "approved",
+    "text_sha256"
+  ],
+  "title": "MinimalCompleteResponse",
+  "type": "object"
+}

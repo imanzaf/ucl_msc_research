@@ -1,0 +1,429 @@
+{
+  "$defs": {
+    "BlindFactReference": {
+      "additionalProperties": false,
+      "description": "Provide a scoring judge only source-grounded fact content and detail rules.",
+      "properties": {
+        "canonical_proposition": {
+          "minLength": 1,
+          "title": "Canonical Proposition",
+          "type": "string"
+        },
+        "fact_id": {
+          "minLength": 1,
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "source_support": {
+          "items": {
+            "$ref": "#/$defs/EvidenceSpan"
+          },
+          "minItems": 1,
+          "title": "Source Support",
+          "type": "array"
+        },
+        "specificity_elements": {
+          "items": {
+            "$ref": "#/$defs/SpecificityElement"
+          },
+          "title": "Specificity Elements",
+          "type": "array"
+        }
+      },
+      "required": [
+        "fact_id",
+        "canonical_proposition",
+        "source_support",
+        "specificity_elements"
+      ],
+      "title": "BlindFactReference",
+      "type": "object"
+    },
+    "ConditionBlindScoringInput": {
+      "additionalProperties": false,
+      "description": "Expose only evaluated-model-visible evidence and anonymised response text.",
+      "properties": {
+        "agent_turns": {
+          "items": {
+            "$ref": "#/$defs/ScoringTranscriptTurn"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Agent Turns",
+          "type": "array"
+        },
+        "blind_conversation_id": {
+          "minLength": 1,
+          "title": "Blind Conversation Id",
+          "type": "string"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/BlindFactReference"
+          },
+          "maxItems": 6,
+          "minItems": 6,
+          "title": "Facts",
+          "type": "array"
+        },
+        "randomised_fact_order_seed": {
+          "title": "Randomised Fact Order Seed",
+          "type": "integer"
+        },
+        "schema_version": {
+          "pattern": "^1\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "visible_source_sha256": {
+          "title": "Visible Source Sha256",
+          "type": "string"
+        },
+        "visible_source_text": {
+          "minLength": 1,
+          "title": "Visible Source Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "blind_conversation_id",
+        "visible_source_text",
+        "visible_source_sha256",
+        "facts",
+        "agent_turns",
+        "randomised_fact_order_seed"
+      ],
+      "title": "ConditionBlindScoringInput",
+      "type": "object"
+    },
+    "EvidenceSpan": {
+      "additionalProperties": false,
+      "description": "Locate an exact support span within one rendered source item.",
+      "properties": {
+        "end_char": {
+          "exclusiveMinimum": 0,
+          "title": "End Char",
+          "type": "integer"
+        },
+        "exact_text": {
+          "minLength": 1,
+          "title": "Exact Text",
+          "type": "string"
+        },
+        "source_item_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Source Item Id",
+          "type": "string"
+        },
+        "start_char": {
+          "minimum": 0,
+          "title": "Start Char",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_item_id",
+        "start_char",
+        "end_char",
+        "exact_text"
+      ],
+      "title": "EvidenceSpan",
+      "type": "object"
+    },
+    "ScoringAttemptStatus": {
+      "description": "Identify whether one identical scoring-package attempt succeeded or failed.",
+      "enum": [
+        "succeeded",
+        "failed"
+      ],
+      "title": "ScoringAttemptStatus",
+      "type": "string"
+    },
+    "ScoringExecutionAttempt": {
+      "additionalProperties": false,
+      "description": "Record one condition-blind three-contract attempt with immutable request bytes.",
+      "properties": {
+        "attempt_id": {
+          "pattern": "^SCOREATTEMPT_[A-F0-9]{16}$",
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "attempt_number": {
+          "minimum": 1,
+          "title": "Attempt Number",
+          "type": "integer"
+        },
+        "blind_conversation_id": {
+          "minLength": 1,
+          "title": "Blind Conversation Id",
+          "type": "string"
+        },
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Message"
+        },
+        "error_type": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Type"
+        },
+        "request_sha256": {
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "run_unit_id": {
+          "pattern": "^RUN_[A-F0-9]{16}$",
+          "title": "Run Unit Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "pattern": "^1\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scoring_output_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scoring Output Sha256"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ScoringAttemptStatus"
+        }
+      },
+      "required": [
+        "schema_version",
+        "attempt_id",
+        "run_unit_id",
+        "blind_conversation_id",
+        "attempt_number",
+        "request_sha256",
+        "status",
+        "started_at",
+        "completed_at"
+      ],
+      "title": "ScoringExecutionAttempt",
+      "type": "object"
+    },
+    "ScoringTranscriptTurn": {
+      "additionalProperties": false,
+      "description": "Provide one agent response to a condition-blind scorer.",
+      "properties": {
+        "content": {
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "turn_index": {
+          "enum": [
+            1,
+            3
+          ],
+          "title": "Turn Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "turn_index",
+        "content"
+      ],
+      "title": "ScoringTranscriptTurn",
+      "type": "object"
+    },
+    "SpecificityElement": {
+      "additionalProperties": false,
+      "description": "Represent one essential or optional fact detail with equivalence rules.",
+      "properties": {
+        "acceptable_paraphrases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Acceptable Paraphrases",
+          "type": "array"
+        },
+        "canonical_value": {
+          "minLength": 1,
+          "title": "Canonical Value",
+          "type": "string"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currency"
+        },
+        "element_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Element Id",
+          "type": "string"
+        },
+        "element_type": {
+          "$ref": "#/$defs/SpecificityElementType"
+        },
+        "essential": {
+          "title": "Essential",
+          "type": "boolean"
+        },
+        "numeric_tolerance": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Numeric Tolerance"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "element_id",
+        "element_type",
+        "canonical_value",
+        "essential"
+      ],
+      "title": "SpecificityElement",
+      "type": "object"
+    },
+    "SpecificityElementType": {
+      "description": "Identify a typed decision-relevant specificity element.",
+      "enum": [
+        "amount",
+        "percentage",
+        "date",
+        "duration",
+        "threshold",
+        "condition",
+        "exception",
+        "comparison"
+      ],
+      "title": "SpecificityElementType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Persist a terminal scoring failure for blinded manual resolution.",
+  "properties": {
+    "attempts": {
+      "items": {
+        "$ref": "#/$defs/ScoringExecutionAttempt"
+      },
+      "minItems": 1,
+      "title": "Attempts",
+      "type": "array"
+    },
+    "queued_at": {
+      "format": "date-time",
+      "title": "Queued At",
+      "type": "string"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "record_sha256": {
+      "title": "Record Sha256",
+      "type": "string"
+    },
+    "run_unit_id": {
+      "pattern": "^RUN_[A-F0-9]{16}$",
+      "title": "Run Unit Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scoring_contract_sha256": {
+      "title": "Scoring Contract Sha256",
+      "type": "string"
+    },
+    "scoring_execution_manifest_sha256": {
+      "title": "Scoring Execution Manifest Sha256",
+      "type": "string"
+    },
+    "scoring_input": {
+      "$ref": "#/$defs/ConditionBlindScoringInput"
+    },
+    "transcript_sha256": {
+      "title": "Transcript Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_unit_id",
+    "transcript_sha256",
+    "scoring_execution_manifest_sha256",
+    "scoring_contract_sha256",
+    "scoring_input",
+    "attempts",
+    "queued_at",
+    "reason",
+    "record_sha256"
+  ],
+  "title": "ManualScoringQueueRecord",
+  "type": "object"
+}

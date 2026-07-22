@@ -1,0 +1,107 @@
+{
+  "$defs": {
+    "CueReviewDecision": {
+      "description": "Identify the outcome of the researcher cue self-review.",
+      "enum": [
+        "approve",
+        "revise"
+      ],
+      "title": "CueReviewDecision",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Freeze the pre-calibration naturalness and confounding review of cue wording.",
+  "properties": {
+    "decision": {
+      "$ref": "#/$defs/CueReviewDecision"
+    },
+    "decision_preference_confounded": {
+      "title": "Decision Preference Confounded",
+      "type": "boolean"
+    },
+    "desired_detail_confounded": {
+      "title": "Desired Detail Confounded",
+      "type": "boolean"
+    },
+    "manifest_sha256": {
+      "title": "Manifest Sha256",
+      "type": "string"
+    },
+    "neutral_cue": {
+      "minLength": 1,
+      "title": "Neutral Cue",
+      "type": "string"
+    },
+    "neutral_natural": {
+      "title": "Neutral Natural",
+      "type": "boolean"
+    },
+    "prompt_version": {
+      "pattern": "^v[1-9][0-9]*$",
+      "title": "Prompt Version",
+      "type": "string"
+    },
+    "researcher_notes": {
+      "minLength": 1,
+      "title": "Researcher Notes",
+      "type": "string"
+    },
+    "reviewed_at": {
+      "format": "date-time",
+      "title": "Reviewed At",
+      "type": "string"
+    },
+    "reviewed_by": {
+      "minLength": 1,
+      "title": "Reviewed By",
+      "type": "string"
+    },
+    "risk_appetite_confounded": {
+      "title": "Risk Appetite Confounded",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "semantic_request_equivalent": {
+      "title": "Semantic Request Equivalent",
+      "type": "boolean"
+    },
+    "urgency_confounded": {
+      "title": "Urgency Confounded",
+      "type": "boolean"
+    },
+    "worried_cue": {
+      "minLength": 1,
+      "title": "Worried Cue",
+      "type": "string"
+    },
+    "worried_natural": {
+      "title": "Worried Natural",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "prompt_version",
+    "neutral_cue",
+    "worried_cue",
+    "neutral_natural",
+    "worried_natural",
+    "semantic_request_equivalent",
+    "urgency_confounded",
+    "desired_detail_confounded",
+    "decision_preference_confounded",
+    "risk_appetite_confounded",
+    "researcher_notes",
+    "decision",
+    "reviewed_by",
+    "reviewed_at",
+    "manifest_sha256"
+  ],
+  "title": "PromptReviewManifest",
+  "type": "object"
+}

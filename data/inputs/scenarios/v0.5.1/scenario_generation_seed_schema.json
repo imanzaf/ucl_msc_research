@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ucl-msc:customer-finance-scenario-generation-seed:0.5.1",
+  "title": "Customer-facing finance scenario generation seed V0.5.1",
+  "description": "Strict schema for use-case-specific scenario-generation inputs. Study design, treatment wording, word-budget rules, review criteria, fact counts, source-order logic, and scoring requirements are code-owned or documentation-owned and are intentionally absent from the seed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scenario_set_id",
+    "use_cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.5.1"
+    },
+    "scenario_set_id": {
+      "const": "customer_finance_pressure_emotion_v0.5.1"
+    },
+    "use_cases": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/useCaseSeed"
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "taskContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_basis",
+        "authority_limits",
+        "response_genre",
+        "task_archetype",
+        "reference_format",
+        "customer_goal",
+        "core_initial_request",
+        "decision_context"
+      ],
+      "properties": {
+        "evidence_basis": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "authority_limits": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "response_genre": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "task_archetype": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "reference_format": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "customer_goal": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "core_initial_request": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "decision_context": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "materialFactPairBrief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pair_slot",
+        "adverse_theme",
+        "favorable_theme",
+        "matching_requirements"
+      ],
+      "properties": {
+        "pair_slot": {
+          "enum": [
+            "P1",
+            "P2"
+          ]
+        },
+        "adverse_theme": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "favorable_theme": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "matching_requirements": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "potentialHarmPathway": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Use-case-specific consequence pathway retained without committing to a user-harm measurement method.",
+      "required": [
+        "mechanism",
+        "candidate_decision_question",
+        "decision_relevant_belief_topics"
+      ],
+      "properties": {
+        "mechanism": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "candidate_decision_question": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "decision_relevant_belief_topics": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "replication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "variation_brief"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^CF\\d{3}_(C1|R[1-4])$"
+        },
+        "variation_brief": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "useCaseSeed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "use_case_id",
+        "segment",
+        "customer_journey",
+        "agent_role",
+        "model_owner",
+        "user_role",
+        "agent_task",
+        "task_context",
+        "material_fact_pair_briefs",
+        "potential_harm_pathway",
+        "replications"
+      ],
+      "properties": {
+        "use_case_id": {
+          "enum": [
+            "CF001",
+            "CF002",
+            "CF003",
+            "CF004",
+            "CF005",
+            "CF006",
+            "CF007",
+            "CF008",
+            "CF009",
+            "CF010"
+          ]
+        },
+        "segment": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "customer_journey": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "agent_role": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "model_owner": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "user_role": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "agent_task": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "task_context": {
+          "$ref": "#/$defs/taskContext"
+        },
+        "material_fact_pair_briefs": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/materialFactPairBrief"
+          },
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "pair_slot"
+                ],
+                "properties": {
+                  "pair_slot": {
+                    "const": "P1"
+                  }
+                }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "pair_slot"
+                ],
+                "properties": {
+                  "pair_slot": {
+                    "const": "P2"
+                  }
+                }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ]
+        },
+        "potential_harm_pathway": {
+          "$ref": "#/$defs/potentialHarmPathway"
+        },
+        "replications": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/replication"
+          },
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "scenario_id"
+                ],
+                "properties": {
+                  "scenario_id": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9]+_C1$"
+                  }
+                }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "scenario_id"
+                ],
+                "properties": {
+                  "scenario_id": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9]+_R1$"
+                  }
+                }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "scenario_id"
+                ],
+                "properties": {
+                  "scenario_id": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9]+_R2$"
+                  }
+                }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "scenario_id"
+                ],
+                "properties": {
+                  "scenario_id": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9]+_R3$"
+                  }
+                }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "scenario_id"
+                ],
+                "properties": {
+                  "scenario_id": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9]+_R4$"
+                  }
+                }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ]
+        }
+      }
+    }
+  }
+}

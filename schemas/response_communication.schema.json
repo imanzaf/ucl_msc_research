@@ -1,0 +1,268 @@
+{
+  "$defs": {
+    "CommunicationState": {
+      "description": "Classify response-level communication behaviours.",
+      "enum": [
+        "present",
+        "absent",
+        "not_applicable"
+      ],
+      "title": "CommunicationState",
+      "type": "string"
+    },
+    "CompletionFinishReason": {
+      "description": "Normalise provider completion termination without discarding unknown values.",
+      "enum": [
+        "stop",
+        "length",
+        "content_filter",
+        "tool_calls",
+        "unknown"
+      ],
+      "title": "CompletionFinishReason",
+      "type": "string"
+    },
+    "EvaluationCheckpoint": {
+      "description": "Identify initial-only versus cumulative communication checkpoints.",
+      "enum": [
+        "initial",
+        "cumulative"
+      ],
+      "title": "EvaluationCheckpoint",
+      "type": "string"
+    },
+    "ProviderCallProvenance": {
+      "additionalProperties": false,
+      "description": "Bind a structured model artifact to its exact provider request and returned snapshot.",
+      "properties": {
+        "finish_reason": {
+          "$ref": "#/$defs/CompletionFinishReason"
+        },
+        "provider_request_id": {
+          "minLength": 1,
+          "title": "Provider Request Id",
+          "type": "string"
+        },
+        "request_sha256": {
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "requested_model_id": {
+          "minLength": 1,
+          "title": "Requested Model Id",
+          "type": "string"
+        },
+        "response_sha256": {
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "returned_model_version": {
+          "minLength": 1,
+          "title": "Returned Model Version",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/TokenUsage"
+        }
+      },
+      "required": [
+        "requested_model_id",
+        "returned_model_version",
+        "provider_request_id",
+        "finish_reason",
+        "usage",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "ProviderCallProvenance",
+      "type": "object"
+    },
+    "ResponseCommunicationJudgment": {
+      "additionalProperties": false,
+      "description": "Store one response-level communication construct at one checkpoint.",
+      "properties": {
+        "checkpoint": {
+          "$ref": "#/$defs/EvaluationCheckpoint"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "refusal": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "refusal_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Refusal Spans",
+          "type": "array"
+        },
+        "signposting": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "signposting_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Signposting Spans",
+          "type": "array"
+        },
+        "supportive_acknowledgement": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "supportive_acknowledgement_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Supportive Acknowledgement Spans",
+          "type": "array"
+        },
+        "unsupported_reassurance": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "unsupported_reassurance_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Unsupported Reassurance Spans",
+          "type": "array"
+        }
+      },
+      "required": [
+        "checkpoint",
+        "supportive_acknowledgement",
+        "unsupported_reassurance",
+        "refusal",
+        "signposting",
+        "supportive_acknowledgement_spans",
+        "unsupported_reassurance_spans",
+        "refusal_spans",
+        "signposting_spans",
+        "rationale"
+      ],
+      "title": "ResponseCommunicationJudgment",
+      "type": "object"
+    },
+    "ResponseSpan": {
+      "additionalProperties": false,
+      "description": "Locate an exact quote in one evaluated agent turn.",
+      "properties": {
+        "end_char": {
+          "exclusiveMinimum": 0,
+          "title": "End Char",
+          "type": "integer"
+        },
+        "exact_quote": {
+          "minLength": 1,
+          "title": "Exact Quote",
+          "type": "string"
+        },
+        "start_char": {
+          "minimum": 0,
+          "title": "Start Char",
+          "type": "integer"
+        },
+        "turn_index": {
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Turn Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "turn_index",
+        "start_char",
+        "end_char",
+        "exact_quote"
+      ],
+      "title": "ResponseSpan",
+      "type": "object"
+    },
+    "TokenUsage": {
+      "additionalProperties": false,
+      "description": "Store provider-reported token usage for one response.",
+      "properties": {
+        "input_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "total_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Total Tokens",
+          "type": "integer"
+        }
+      },
+      "title": "TokenUsage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Store acknowledgement, reassurance, refusal, and signposting assessments.",
+  "properties": {
+    "blind_conversation_id": {
+      "minLength": 1,
+      "title": "Blind Conversation Id",
+      "type": "string"
+    },
+    "judge_model_id": {
+      "minLength": 1,
+      "title": "Judge Model Id",
+      "type": "string"
+    },
+    "judgments": {
+      "items": {
+        "$ref": "#/$defs/ResponseCommunicationJudgment"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Judgments",
+      "type": "array"
+    },
+    "provider_call": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProviderCallProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scored_at": {
+      "format": "date-time",
+      "title": "Scored At",
+      "type": "string"
+    },
+    "scoring_prompt_sha256": {
+      "title": "Scoring Prompt Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "blind_conversation_id",
+    "judgments",
+    "judge_model_id",
+    "scoring_prompt_sha256",
+    "scored_at"
+  ],
+  "title": "ResponseCommunicationResult",
+  "type": "object"
+}

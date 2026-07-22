@@ -1,13 +1,6 @@
-"""Programmatic scoring helpers for benchmark responses."""
+"""Scoring validation, separate metrics, and reliability gates."""
 
-from src.scoring.metrics import (
-    calculate_response_metrics,
-    calculate_user_harm_metrics,
-    validate_direct_disclosure_alignment,
-)
+from src.scoring.metrics import compute_conversation_metrics
+from src.scoring.validation import validate_scoring_results
 
-__all__ = [
-    "calculate_response_metrics",
-    "calculate_user_harm_metrics",
-    "validate_direct_disclosure_alignment",
-]
+__all__ = ["compute_conversation_metrics", "validate_scoring_results"]
