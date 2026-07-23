@@ -13,13 +13,16 @@ from src.data_models.common import ImmutableModel, VersionedImmutableModel, arti
 from src.data_models.experiments import CompletionFinishReason, RetryPolicy
 from src.data_models.scenarios import ScenarioStage
 from src.data_models.study import (
+    ALL_CUE_PHRASES,
     AMPLE_WORD_LIMIT,
-    NEUTRAL_CUE,
+    CUE_PAIRS,
+    EXPERIMENT_DIMENSIONS,
     PILOT_WORD_LIMIT,
     PROMPT_PACKAGE_VERSION,
-    WORRIED_CUE,
-    EmotionalCueCondition,
+    ExperimentName,
+    ExpressedConcernCondition,
     IntegrityCondition,
+    assigned_cue,
 )
 from src.scenarios.word_count import count_words
 
@@ -45,27 +48,59 @@ class ModelWeightType(str, Enum):
     CLOSED = "closed"
 
 
-class PromptReviewManifest(VersionedImmutableModel):
-    """Freeze the pre-calibration naturalness and confounding review of cue wording."""
+class CompleteRenderedRequestReview(ImmutableModel):
+    """Store one holistic review of a complete scenario-specific rendered request."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
-    prompt_version: str = Field(pattern=r"^v[1-9][0-9]*$")
-    neutral_cue: str = Field(min_length=1)
-    worried_cue: str = Field(min_length=1)
-    neutral_natural: bool
-    worried_natural: bool
-    semantic_request_equivalent: bool
+    scenario_id: str = Field(pattern=r"^CF\d{3}_R[1-4]$")
+    expressed_concern: ExpressedConcernCondition
+    cue_template_id: int = Field(ge=1, le=4)
+    assigned_phrase: str = Field(min_length=1)
+    rendered_request_text: str = Field(min_length=1)
+    rendered_request_sha256: str
+    natural: bool
+    semantically_equivalent: bool
     urgency_confounded: bool
     desired_detail_confounded: bool
     decision_preference_confounded: bool
     risk_appetite_confounded: bool
+    notes: str = Field(min_length=1)
+
+    @field_validator("rendered_request_sha256")
+    @classmethod
+    def validate_hash(cls, value: str) -> str:
+        """Validate the complete rendered-request digest."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_rendering(self) -> "CompleteRenderedRequestReview":
+        """Bind the exact assigned phrase, template, and complete rendered bytes."""
+        if self.assigned_phrase != assigned_cue(self.scenario_id, self.expressed_concern):
+            raise ValueError("request review does not use the assigned cue phrase")
+        if self.cue_template_id != int(self.scenario_id[-1]):
+            raise ValueError("R1-R4 must map directly to cue templates 1-4")
+        if self.rendered_request_sha256 != sha256_bytes(self.rendered_request_text.encode("utf-8")):
+            raise ValueError("rendered-request hash does not match exact text")
+        observed = [phrase for phrase in ALL_CUE_PHRASES if phrase in self.rendered_request_text]
+        if observed != [self.assigned_phrase] or self.rendered_request_text.count(self.assigned_phrase) != 1:
+            raise ValueError("rendered request must contain exactly its assigned cue and no alternative phrase")
+        return self
+
+
+class PromptReviewManifest(VersionedImmutableModel):
+    """Freeze holistic researcher review of all 80 rendered evaluation requests."""
+
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    prompt_version: str = Field(pattern=r"^v[1-9][0-9]*$")
+    accepted_scenario_manifest_sha256: str
+    cue_pairs: Dict[int, List[str]]
+    request_reviews: List[CompleteRenderedRequestReview] = Field(min_length=80, max_length=80)
     researcher_notes: str = Field(min_length=1)
     decision: CueReviewDecision
     reviewed_by: str = Field(min_length=1)
     reviewed_at: datetime
     manifest_sha256: str
 
-    @field_validator("manifest_sha256")
+    @field_validator("accepted_scenario_manifest_sha256", "manifest_sha256")
     @classmethod
     def validate_hash(cls, value: str) -> str:
         """Validate the prompt-review manifest digest."""
@@ -73,24 +108,37 @@ class PromptReviewManifest(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_approval(self) -> "PromptReviewManifest":
-        """Permit approval only when both cues are natural and no confound is recorded."""
-        if self.prompt_version != PROMPT_PACKAGE_VERSION or self.neutral_cue != NEUTRAL_CUE or self.worried_cue != WORRIED_CUE:
-            raise ValueError("prompt review must bind the exact active prompt version and cue wording")
-        acceptable = (
-            self.neutral_natural
-            and self.worried_natural
-            and self.semantic_request_equivalent
+        """Permit approval only after all 40×2 complete requests pass holistic review."""
+        expected_pairs = {index: list(pair) for index, pair in CUE_PAIRS.items()}
+        if self.prompt_version != PROMPT_PACKAGE_VERSION or self.cue_pairs != expected_pairs:
+            raise ValueError("prompt review must bind the exact active prompt version and four cue pairs")
+        expected_keys = {
+            (f"CF{use_case:03d}_R{replication}", condition)
+            for use_case in range(1, 11)
+            for replication in range(1, 5)
+            for condition in ExpressedConcernCondition
+        }
+        observed_keys = {(review.scenario_id, review.expressed_concern) for review in self.request_reviews}
+        if observed_keys != expected_keys or len(observed_keys) != len(self.request_reviews):
+            raise ValueError("prompt review must contain each of the 80 scenario-by-concern requests exactly once")
+        acceptable = all(
+            review.natural
+            and review.semantically_equivalent
             and not any(
                 [
-                    self.urgency_confounded,
-                    self.desired_detail_confounded,
-                    self.decision_preference_confounded,
-                    self.risk_appetite_confounded,
+                    review.urgency_confounded,
+                    review.desired_detail_confounded,
+                    review.decision_preference_confounded,
+                    review.risk_appetite_confounded,
                 ]
             )
+            for review in self.request_reviews
         )
         if self.decision == CueReviewDecision.APPROVE and not acceptable:
-            raise ValueError("cue wording cannot be approved while a naturalness or confounding check fails")
+            raise ValueError("cue wording cannot be approved while any complete-request review fails")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"manifest_sha256"}))
+        if self.manifest_sha256 != expected_hash:
+            raise ValueError("prompt-review manifest digest does not match canonical content")
         return self
 
 
@@ -181,7 +229,7 @@ class AmplePilotSummary(ImmutableModel):
 class AmplePilotRecord(VersionedImmutableModel):
     """Persist one calibration-only 320-word adequacy-pilot response."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     pilot_record_id: str = Field(pattern=r"^PILOT_[A-F0-9]{16}$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_C1$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
@@ -190,7 +238,7 @@ class AmplePilotRecord(VersionedImmutableModel):
     prompt_review_manifest_sha256: str
     expected_model_version: str = Field(min_length=1)
     returned_model_version: str = Field(min_length=1)
-    emotional_cue: EmotionalCueCondition
+    expressed_concern: ExpressedConcernCondition
     integrity: IntegrityCondition
     pilot_word_limit: int = Field(default=PILOT_WORD_LIMIT, ge=PILOT_WORD_LIMIT, le=PILOT_WORD_LIMIT)
     output_text: str = Field(min_length=1)
@@ -255,7 +303,7 @@ class PilotAttemptStatus(str, Enum):
 class AmplePilotAttempt(VersionedImmutableModel):
     """Persist each ample-pilot provider attempt immediately for safe resume."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     attempt_id: str = Field(pattern=r"^PILOTATTEMPT_[A-F0-9]{16}$")
     pilot_record_id: str = Field(pattern=r"^PILOT_[A-F0-9]{16}$")
     attempt_number: int = Field(ge=1)
@@ -297,7 +345,7 @@ class AmplePilotAttempt(VersionedImmutableModel):
 class WordBudgetManifest(VersionedImmutableModel):
     """Freeze all ten use-case limits only after feasibility and ample checks pass."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     freeze_status: FreezeStatus
     counter_version: str = Field(min_length=1)
     tight_limit_manifest_sha256: str
@@ -329,7 +377,7 @@ class WordBudgetManifest(VersionedImmutableModel):
 class TightLimitManifest(VersionedImmutableModel):
     """Freeze C1-derived limits after the model adequacy pilot and before R1-R4."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     freeze_status: FreezeStatus
     counter_version: str = Field(min_length=1)
     prompt_review_manifest_sha256: str
@@ -380,7 +428,7 @@ class EvaluatedModelSnapshot(ImmutableModel):
 class EvaluatedModelManifest(VersionedImmutableModel):
     """Freeze exactly three evaluated snapshots before model-generated calibration."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     freeze_status: FreezeStatus
     evaluated_models: List[EvaluatedModelSnapshot] = Field(min_length=3, max_length=3)
     scoring_judge_model_ids: List[str] = Field(min_length=1)
@@ -438,8 +486,8 @@ class ScenarioManifestScope(str, Enum):
 class AcceptedScenarioManifest(VersionedImmutableModel):
     """Publish the accepted-only scenario set with source provenance."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
-    scenario_set_id: str = Field(pattern=r"^customer_finance_pressure_emotion_v0\.5\.1$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    scenario_set_id: str = Field(pattern=r"^customer_finance_pressure_concern_v0\.5\.2$")
     manifest_scope: ScenarioManifestScope
     seed_sha256: str
     seed_schema_sha256: str
@@ -473,8 +521,9 @@ class AcceptedScenarioManifest(VersionedImmutableModel):
 class ExperimentManifest(VersionedImmutableModel):
     """Freeze evaluated models, prompts, scenarios, decoding, and retry policy."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
-    experiment_name: str = Field(pattern=r"^risk_comm_v1$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    experiment_name: ExperimentName
+    expected_conversation_count: int = Field(ge=1)
     freeze_status: FreezeStatus
     evaluated_models: List[EvaluatedModelSnapshot] = Field(min_length=3, max_length=3)
     scoring_judge_model_ids: List[str] = Field(min_length=1)
@@ -520,13 +569,16 @@ class ExperimentManifest(VersionedImmutableModel):
             raise ValueError("an evaluated model cannot serve as its own sole scoring judge")
         if self.freeze_status == FreezeStatus.FROZEN and self.frozen_at is None:
             raise ValueError("frozen experiment manifest requires frozen_at")
+        expected = EXPERIMENT_DIMENSIONS[self.experiment_name].conversation_count
+        if self.expected_conversation_count != expected:
+            raise ValueError(f"{self.experiment_name.value} manifest must freeze exactly {expected} conversations")
         return self
 
 
 class CalibrationExperimentManifest(VersionedImmutableModel):
     """Freeze scenario, model, prompt, decoding, and retry inputs for rubric calibration."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     experiment_name: str = Field(pattern=r"^risk_comm_calibration_v1$")
     freeze_status: FreezeStatus
     evaluated_models: List[EvaluatedModelSnapshot] = Field(min_length=3, max_length=3)
@@ -570,7 +622,7 @@ class CalibrationExperimentManifest(VersionedImmutableModel):
 class ScoringExecutionManifest(VersionedImmutableModel):
     """Freeze scoring judges, contracts, fact ordering, and invalid-output retries."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     freeze_status: FreezeStatus
     judge_model_ids: List[str] = Field(min_length=1)
     judge_snapshots: List[EvaluatedModelSnapshot] = Field(min_length=1)
@@ -602,12 +654,11 @@ class ScoringExecutionManifest(VersionedImmutableModel):
 class AnnotationSampleManifest(VersionedImmutableModel):
     """Freeze a blinded calibration or evaluation annotation sample."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     sample_id: str = Field(min_length=1)
     sample_stage: ScenarioStage
     random_seed: int
     conversation_ids: List[str] = Field(min_length=1)
-    repeat_conversation_ids: List[str]
     strata_summary: Dict[str, int]
     selection_probabilities: Dict[str, Decimal]
     scoring_execution_manifest_sha256: str
@@ -626,24 +677,20 @@ class AnnotationSampleManifest(VersionedImmutableModel):
         """Enforce minimum calibration and locked evaluation sample sizes."""
         if len(self.conversation_ids) != len(set(self.conversation_ids)):
             raise ValueError("annotation sample conversation ids must be unique")
-        if not set(self.repeat_conversation_ids).issubset(self.conversation_ids):
-            raise ValueError("repeat sample must be a subset of the primary sample")
         if not self.selection_probabilities or any(probability <= 0 or probability > 1 for probability in self.selection_probabilities.values()):
             raise ValueError("annotation sampling requires a valid nonzero inclusion probability for every stratum")
-        if self.sample_stage == ScenarioStage.CALIBRATION and len(self.conversation_ids) < 80:
-            raise ValueError("calibration annotation sample requires at least 80 conversations")
+        if self.sample_stage == ScenarioStage.CALIBRATION and len(self.conversation_ids) != 80:
+            raise ValueError("calibration annotation sample requires exactly 80 conversations")
         if self.sample_stage == ScenarioStage.EVALUATION:
-            if len(self.conversation_ids) < 160:
-                raise ValueError("evaluation annotation sample requires at least 160 conversations")
-            if len(self.repeat_conversation_ids) < 40:
-                raise ValueError("evaluation repeat sample requires at least 40 conversations")
+            if len(self.conversation_ids) != 160:
+                raise ValueError("evaluation annotation sample requires exactly 160 conversations")
         return self
 
 
 class PreregistrationManifest(VersionedImmutableModel):
     """Freeze every preregistration input and protocol decision by hash."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     experiment_manifest_sha256: str
     experiment_config_sha256: str
     run_plan_sha256: str
@@ -698,7 +745,7 @@ class ProtocolDeviation(ImmutableModel):
 class ProtocolDeviationManifest(VersionedImmutableModel):
     """Finalise the complete post-preregistration deviation register by backward hashes."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     preregistration_manifest_sha256: str
     experiment_manifest_sha256: str
     deviations: List[ProtocolDeviation]
@@ -724,12 +771,12 @@ class ProtocolDeviationManifest(VersionedImmutableModel):
 
 
 class SmallestEffectManifest(VersionedImmutableModel):
-    """Freeze the three smallest effect sizes used for power and equivalence checks."""
+    """Freeze the two smallest composite effects used for power and equivalence checks."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     freeze_status: FreezeStatus
-    absolute_bounds: Dict[str, Decimal] = Field(min_length=3, max_length=3)
-    rationale: Dict[str, str] = Field(min_length=3, max_length=3)
+    absolute_bounds: Dict[str, Decimal] = Field(min_length=2, max_length=2)
+    rationale: Dict[str, str] = Field(min_length=2, max_length=2)
     frozen_at: Optional[datetime] = None
     frozen_by: Optional[str] = Field(default=None, min_length=1)
     manifest_sha256: str
@@ -742,10 +789,10 @@ class SmallestEffectManifest(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_effects(self) -> "SmallestEffectManifest":
-        """Require positive bounds and provenance for all three confirmatory estimands."""
-        expected = {"H1", "H2a", "H2b"}
+        """Require positive bounds and provenance for both confirmatory estimands."""
+        expected = {"H1", "H2"}
         if set(self.absolute_bounds) != expected or set(self.rationale) != expected:
-            raise ValueError("smallest-effect manifest must cover exactly H1, H2a, and H2b")
+            raise ValueError("smallest-effect manifest must cover exactly H1 and H2")
         if any(bound <= 0 for bound in self.absolute_bounds.values()):
             raise ValueError("smallest-effect absolute bounds must be positive")
         if self.freeze_status == FreezeStatus.FROZEN and (self.frozen_at is None or self.frozen_by is None):
@@ -756,7 +803,9 @@ class SmallestEffectManifest(VersionedImmutableModel):
 class PowerVarianceComponents(ImmutableModel):
     """Freeze calibration-derived variance at every repeated-design level."""
 
-    use_case_standard_deviation: Decimal = Field(ge=0)
+    cue_template_standard_deviation: Decimal = Field(ge=0)
+    pair_standard_deviation: Decimal = Field(ge=0)
+    fact_standard_deviation: Decimal = Field(ge=0)
     scenario_standard_deviation: Decimal = Field(ge=0)
     model_standard_deviation: Decimal = Field(ge=0)
     scoring_error_standard_deviation: Decimal = Field(ge=0)
@@ -772,29 +821,29 @@ class PowerVarianceComponents(ImmutableModel):
 class AnalysisAssumptionInput(VersionedImmutableModel):
     """Validate researcher-authored effect, rationale, and variance inputs before freezing."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
-    absolute_bounds: Dict[str, Decimal] = Field(min_length=3, max_length=3)
-    rationales: Dict[str, str] = Field(min_length=3, max_length=3)
-    variance_components: Dict[str, PowerVarianceComponents] = Field(min_length=3, max_length=3)
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    absolute_bounds: Dict[str, Decimal] = Field(min_length=2, max_length=2)
+    rationales: Dict[str, str] = Field(min_length=2, max_length=2)
+    variance_components: PowerVarianceComponents
 
     @model_validator(mode="after")
     def validate_estimands(self) -> "AnalysisAssumptionInput":
-        """Require complete, positive, explained assumptions for the three tests."""
-        expected = {"H1", "H2a", "H2b"}
-        if set(self.absolute_bounds) != expected or set(self.rationales) != expected or set(self.variance_components) != expected:
-            raise ValueError("analysis assumptions must cover exactly H1, H2a, and H2b")
+        """Require complete, positive, explained assumptions for both tests."""
+        expected = {"H1", "H2"}
+        if set(self.absolute_bounds) != expected or set(self.rationales) != expected:
+            raise ValueError("analysis assumptions must cover exactly H1 and H2")
         if any(bound <= 0 for bound in self.absolute_bounds.values()) or any(not rationale.strip() for rationale in self.rationales.values()):
             raise ValueError("analysis assumptions require positive bounds and nonblank rationales")
         return self
 
 
 class PowerAssumptionManifest(VersionedImmutableModel):
-    """Freeze pre-evaluation variance assumptions for all three power simulations."""
+    """Freeze pre-evaluation variance assumptions for the composite estimator."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     freeze_status: FreezeStatus
     smallest_effect_manifest_sha256: str
-    variance_components: Dict[str, PowerVarianceComponents] = Field(min_length=3, max_length=3)
+    variance_components: PowerVarianceComponents
     calibration_source_sha256: str
     frozen_at: Optional[datetime] = None
     frozen_by: Optional[str] = Field(default=None, min_length=1)
@@ -808,9 +857,7 @@ class PowerAssumptionManifest(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_assumptions(self) -> "PowerAssumptionManifest":
-        """Require three variance sets and frozen researcher provenance."""
-        if set(self.variance_components) != {"H1", "H2a", "H2b"}:
-            raise ValueError("power assumptions must cover all three confirmatory estimands")
+        """Require calibrated composite variance and frozen researcher provenance."""
         if self.freeze_status == FreezeStatus.FROZEN and (self.frozen_at is None or self.frozen_by is None):
             raise ValueError("frozen power assumptions require timestamp and researcher")
         return self
@@ -819,13 +866,13 @@ class PowerAssumptionManifest(VersionedImmutableModel):
 class PowerSimulationReport(VersionedImmutableModel):
     """Persist Holm-corrected repeated-design power and heterogeneity sensitivities."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     power_assumption_manifest_sha256: str
     smallest_effect_manifest_sha256: str
     simulations: int = Field(ge=5_000)
     alpha: Decimal = Field(gt=0, lt=1)
     random_seed: int
-    power: Dict[str, Decimal] = Field(min_length=3, max_length=3)
+    power: Dict[str, Decimal] = Field(min_length=2, max_length=2)
     sensitivity_power: Dict[str, Dict[str, Decimal]] = Field(min_length=2, max_length=2)
     generated_at: datetime
     report_sha256: str
@@ -839,14 +886,14 @@ class PowerSimulationReport(VersionedImmutableModel):
     @model_validator(mode="after")
     def validate_report(self) -> "PowerSimulationReport":
         """Require every power surface, valid probabilities, and an exact canonical self-hash."""
-        expected = {"H1", "H2a", "H2b"}
+        expected = {"H1", "H2"}
         if set(self.power) != expected or any(not Decimal("0") <= value <= Decimal("1") for value in self.power.values()):
-            raise ValueError("power report must contain three probabilities in [0, 1]")
+            raise ValueError("power report must contain both probabilities in [0, 1]")
         required_sensitivities = {"high_model_heterogeneity", "high_scoring_error"}
         if set(self.sensitivity_power) != required_sensitivities:
             raise ValueError("power report lacks a required heterogeneity or scoring-error sensitivity")
         if any(set(values) != expected for values in self.sensitivity_power.values()):
-            raise ValueError("every power sensitivity must cover all three estimands")
+            raise ValueError("every power sensitivity must cover both estimands")
         if any(not Decimal("0") <= value <= Decimal("1") for values in self.sensitivity_power.values() for value in values.values()):
             raise ValueError("power sensitivity values must lie in [0, 1]")
         expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"report_sha256"}))
@@ -858,13 +905,13 @@ class PowerSimulationReport(VersionedImmutableModel):
 class DryRunCostReport(VersionedImmutableModel):
     """Report exact call counts and conservative token/cost estimates before paid execution."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
-    experiment_name: str = Field(pattern=r"^risk_comm_v1$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    experiment_name: ExperimentName
     run_plan_sha256: str
     experiment_config_sha256: str
     pricing_file_sha256: str
-    conversations: int = Field(default=480)
-    agent_responses: int = Field(default=960)
+    conversations: int = Field(gt=0)
+    agent_responses: int = Field(gt=0)
     maximum_attempts_including_retries: int = Field(gt=0)
     estimated_input_tokens: int = Field(ge=0)
     estimated_output_tokens: int = Field(ge=0)
@@ -885,8 +932,10 @@ class DryRunCostReport(VersionedImmutableModel):
     @model_validator(mode="after")
     def validate_counts_and_costs(self) -> "DryRunCostReport":
         """Require the exact design and conservative worst-case totals."""
-        if self.conversations != 480 or self.agent_responses != 960:
-            raise ValueError("dry-run report must bind exactly 480 conversations and 960 responses")
+        dimensions = EXPERIMENT_DIMENSIONS[self.experiment_name]
+        expected = (dimensions.conversation_count, dimensions.response_count)
+        if (self.conversations, self.agent_responses) != expected:
+            raise ValueError(f"dry-run report has invalid counts for {self.experiment_name.value}")
         if self.worst_case_input_tokens < self.estimated_input_tokens or self.worst_case_output_tokens < self.estimated_output_tokens:
             raise ValueError("worst-case token totals cannot be smaller than base estimates")
         if self.worst_case_cost_usd < self.estimated_cost_usd:
@@ -904,15 +953,101 @@ class ModelPricingAssumption(ImmutableModel):
 class PricingAssumptionInput(VersionedImmutableModel):
     """Validate model-keyed dry-run pricing assumptions from a researcher-authored file."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     models: Dict[str, ModelPricingAssumption] = Field(min_length=1)
+
+
+class ScenarioGenerationCostReport(VersionedImmutableModel):
+    """Bind conservative scenario-generation costs to one seed batch and backend."""
+
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    stage: ScenarioStage
+    use_case_id: Optional[str] = Field(default=None, pattern=r"^CF\d{3}$")
+    backend_specification: str = Field(min_length=1)
+    seed_sha256: str
+    seed_schema_sha256: str
+    generator_model_id: str = Field(min_length=1)
+    reviewer_model_id: str = Field(min_length=1)
+    scenario_count: int = Field(gt=0)
+    base_generation_calls: int = Field(gt=0)
+    base_review_calls: int = Field(gt=0)
+    worst_case_generation_calls: int = Field(gt=0)
+    worst_case_review_calls: int = Field(gt=0)
+    maximum_input_tokens_per_call: int = Field(gt=0)
+    maximum_output_tokens_per_call: int = Field(default=12000, ge=12000, le=12000)
+    base_cost_usd: Decimal = Field(ge=0)
+    worst_case_cost_usd: Decimal = Field(ge=0)
+    pricing_assumptions: Dict[str, Decimal]
+    generated_at: datetime
+    report_sha256: str
+
+    @field_validator("seed_sha256", "seed_schema_sha256", "report_sha256")
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate the immutable seed and report digests."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_batch_and_costs(self) -> "ScenarioGenerationCostReport":
+        """Require exact lifecycle call counts and conservative cost ordering."""
+        expected = {
+            ScenarioStage.CALIBRATION: (10, 10, 10, 30, 30),
+            ScenarioStage.EVALUATION: (4, 4, 5, 12, 15),
+        }[self.stage]
+        observed = (
+            self.scenario_count,
+            self.base_generation_calls,
+            self.base_review_calls,
+            self.worst_case_generation_calls,
+            self.worst_case_review_calls,
+        )
+        if observed != expected:
+            raise ValueError("scenario-generation cost report does not match the frozen lifecycle call counts")
+        if (self.stage == ScenarioStage.CALIBRATION) != (self.use_case_id is None):
+            raise ValueError("only evaluation scenario generation identifies one use case")
+        if self.generator_model_id == self.reviewer_model_id:
+            raise ValueError("scenario generation and review require different model ids")
+        if self.worst_case_cost_usd < self.base_cost_usd:
+            raise ValueError("worst-case scenario-generation cost cannot be below base cost")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"report_sha256"}))
+        if self.report_sha256 != expected_hash:
+            raise ValueError("scenario-generation cost report digest does not match canonical content")
+        return self
+
+
+class ScenarioGenerationApproval(VersionedImmutableModel):
+    """Bind explicit researcher cost approval to one scenario-generation report."""
+
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    cost_report_sha256: str
+    approved: bool
+    approved_maximum_cost_usd: Decimal = Field(gt=0)
+    approved_by: str = Field(min_length=1)
+    approved_at: datetime
+    approval_sha256: str
+
+    @field_validator("cost_report_sha256", "approval_sha256")
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate the cost-report and approval digests."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_approval(self) -> "ScenarioGenerationApproval":
+        """Require an explicit positive approval and exact canonical self-hash."""
+        if not self.approved:
+            raise ValueError("scenario-generation approval must be explicitly true")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"approval_sha256"}))
+        if self.approval_sha256 != expected_hash:
+            raise ValueError("scenario-generation approval digest does not match canonical content")
+        return self
 
 
 class PaidExecutionApproval(VersionedImmutableModel):
     """Bind explicit researcher approval to one immutable dry-run report."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
-    experiment_name: str = Field(pattern=r"^risk_comm_v1$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    experiment_name: ExperimentName
     dry_run_report_sha256: str
     approved: bool
     approved_maximum_cost_usd: Decimal = Field(gt=0)

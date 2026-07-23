@@ -1,57 +1,55 @@
-"""Test known-effect recovery, clustered bootstrap, Holm, sensitivity, R interchange, and assets."""
+"""Test composite estimands, inference, power, and prespecified sensitivities."""
 
 from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict, List
 
-import numpy as np
 import pandas as pd
 import pytest
 
-from src.analysis.bootstrap import resample_scenarios_within_use_case, stratified_scenario_bootstrap
+from src.analysis.bootstrap import stratified_scenario_bootstrap
 from src.analysis.estimands import estimate_confirmatory_contrasts
-from src.analysis.multiplicity import holm_adjust
-from src.analysis.power import VarianceComponents, simulate_holm_corrected_power
+from src.analysis.exploratory import brevity_locus_scenario_effects, material_priority_scenario_effects, scenario_cluster_estimates
+from src.analysis.power import VarianceComponents, _composite_contrasts, simulate_holm_corrected_power
 from src.analysis.r_models import run_r_robustness_models
-from src.analysis.secondary_subset import select_secondary_use_cases
-from src.analysis.sensitivities import _binary_threshold_estimates
+from src.analysis.sensitivities import equal_domain_composite, leave_one_domain_out_composite
+from src.analysis.sign_flip import confirmatory_sign_flip_tests
 from src.data_models.common import file_sha256
+from src.data_models.scoring import AnalysisEngine, AnalysisSummary
 from src.experiments.assets import FIGURE_FILENAME, TABLE_FILENAME, generate_paper_assets
+from src.experiments.exploratory_assets import generate_exploratory_paper_assets
 
 
 def simulated_frame() -> pd.DataFrame:
-    """Build complete repeated cells with exactly known confirmatory effects."""
+    """Build the complete design with exact H1=.20 and H2=.10 effects."""
     records: List[Dict[str, object]] = []
-    for scenario_index in range(1, 41):
-        use_case_id = f"CF{((scenario_index - 1) // 4) + 1:03d}"
-        scenario_id = f"{use_case_id}_R{((scenario_index - 1) % 4) + 1}"
-        for model_id in ["m1", "m2", "m3"]:
-            for integrity in ["absent", "targeted"]:
-                for word_budget in ["ample", "tight"]:
-                    for cue in ["neutral", "worried"]:
-                        run_unit_id = f"RUN_{len(records):016X}"
-                        gap = 0.0
-                        if word_budget == "tight":
-                            gap = 0.2 if integrity == "absent" else 0.1
+    for use_case in range(1, 11):
+        for replication in range(1, 5):
+            scenario_id = f"CF{use_case:03d}_R{replication}"
+            for model_id in ["m1", "m2", "m3"]:
+                for budget in ["ample", "tight"]:
+                    for concern in ["neutral", "concerned"]:
+                        score = 0.2 + 0.2 * (budget == "tight") + 0.1 * (concern == "concerned")
                         records.append(
                             {
-                                "run_unit_id": run_unit_id,
+                                "run_unit_id": f"RUN_{len(records):016X}",
                                 "scenario_id": scenario_id,
-                                "use_case_id": use_case_id,
+                                "use_case_id": f"CF{use_case:03d}",
                                 "model_id": model_id,
                                 "source_order": "A",
-                                "word_budget": word_budget,
-                                "emotional_cue": cue,
-                                "integrity": integrity,
-                                "pairwise_disclosure_gap": gap,
-                                "adverse_coverage": 0.6 if cue == "worried" else 0.5,
-                                "unsupported_reassurance": 1.0 if cue == "worried" else 0.0,
-                                "material_coverage": 0.5,
-                                "response_word_count": 80,
+                                "word_budget": budget,
+                                "expressed_concern": concern,
+                                "selective_risk_communication_score": score,
+                                "coverage_asymmetry": score,
+                                "specificity_asymmetry": score,
+                                "framing_reassurance_distortion": score,
+                                "salience_asymmetry": score,
+                                "factual_integrity_failure": score,
                                 "budget_compliant": True,
                                 "refusal": False,
                             }
@@ -59,118 +57,137 @@ def simulated_frame() -> pd.DataFrame:
     return pd.DataFrame.from_records(records)
 
 
-def test_confirmatory_estimands_recover_known_effects() -> None:
-    """Recover all three primary effects from a complete deterministic repeated design."""
-    estimates = estimate_confirmatory_contrasts(simulated_frame())
-    assert estimates == pytest.approx({"H1": 0.2, "H2a": 0.1, "H2b": 1.0})
+def test_confirmatory_estimands_recover_both_composite_effects() -> None:
+    """Recover the two paired composite effects from the complete matrix."""
+    assert estimate_confirmatory_contrasts(simulated_frame()) == pytest.approx({"H1": 0.2, "H2": 0.1})
 
 
-def test_secondary_subset_selects_two_best_and_two_worst_use_cases() -> None:
-    """Share a primary-result subset between the integrity and source-order studies."""
-    frame = simulated_frame().loc[lambda data: data["source_order"] == "A"].copy()
-    use_case_number = frame["use_case_id"].str[-3:].astype(int)
-    frame.loc[frame["integrity"] == "absent", "pairwise_disclosure_gap"] = use_case_number / 100
-    frame.loc[frame["integrity"] == "targeted", "pairwise_disclosure_gap"] = 100 - use_case_number
-    assert select_secondary_use_cases(frame) == {
-        "best": ["CF001", "CF002"],
-        "worst": ["CF009", "CF010"],
-    }
-
-
-def test_primary_estimates_ignore_any_mitigation_row_changes() -> None:
-    """Prove H1/H2a/H2b are unchanged when mitigation outcomes are perturbed."""
-    frame = simulated_frame()
-    original = estimate_confirmatory_contrasts(frame)
-    changed = frame.copy()
-    changed.loc[changed["integrity"] == "targeted", ["pairwise_disclosure_gap", "adverse_coverage", "unsupported_reassurance"]] = 99
-    perturbed = estimate_confirmatory_contrasts(changed)
-    assert {name: original[name] for name in ["H1", "H2a", "H2b"]} == {name: perturbed[name] for name in ["H1", "H2a", "H2b"]}
-
-
-def test_binary_sensitivity_rebuilds_conversation_outcomes_from_facts() -> None:
-    """Threshold four material-fact rows rather than thresholding conversation aggregates."""
-    frame = simulated_frame()
-    fact_records: List[Dict[str, object]] = []
-    for row in frame.to_dict(orient="records"):
-        for index in range(2):
-            fact_records.append(
-                {
-                    "run_unit_id": row["run_unit_id"],
-                    "fact_id": f"A{index}",
-                    "fact_valence": "adverse",
-                    "disclosure_ordinal": 2 if row["emotional_cue"] == "worried" else 0,
-                }
-            )
-            fact_records.append(
-                {
-                    "run_unit_id": row["run_unit_id"],
-                    "fact_id": f"F{index}",
-                    "fact_valence": "favourable",
-                    "disclosure_ordinal": 2,
-                }
-            )
-    estimates = _binary_threshold_estimates(frame, pd.DataFrame.from_records(fact_records), "full")
-    assert estimates == pytest.approx({"H1": 0.0, "H2a": 1.0, "H2b": 1.0})
-
-
-def test_bootstrap_resamples_scenarios_within_use_cases_not_rows() -> None:
-    """Preserve complete primary four-cell clusters during stratified resampling."""
-    frame = simulated_frame().loc[lambda data: data["integrity"] == "absent"]
-    sampled = resample_scenarios_within_use_case(frame, np.random.default_rng(3))
-    assert len(sampled) == len(frame)
-    assert sampled["scenario_id"].str.contains("__BOOT").all()
-    assert set(sampled.groupby("scenario_id").size()) == {3 * 2 * 2}
-    estimates, intervals, draws = stratified_scenario_bootstrap(frame, draws=50, seed=3)
-    assert len(draws) == 50
+def test_bootstrap_and_sign_flip_use_scenario_clusters() -> None:
+    """Return deterministic intervals and two Holm-adjusted sign-flip tests."""
+    estimates, intervals, draws = stratified_scenario_bootstrap(simulated_frame(), draws=50, seed=3)
+    assert estimates == pytest.approx({"H1": 0.2, "H2": 0.1})
     assert intervals["H1"] == pytest.approx((0.2, 0.2))
-    assert estimates == pytest.approx({"H1": 0.2, "H2a": 0.1, "H2b": 1.0})
+    assert len(draws) == 50
+    raw, adjusted = confirmatory_sign_flip_tests(simulated_frame(), permutations=100_000, seed=3)
+    assert set(raw) == {"H1", "H2"}
+    assert all(value < 0.001 for value in adjusted.values())
 
 
-def test_holm_matches_monotone_fixture() -> None:
-    """Reproduce a hand-checkable three-test Holm correction fixture."""
-    adjusted = holm_adjust({"H1": 0.001, "H2a": 0.01, "H2b": 0.03})
-    assert adjusted == pytest.approx({"H1": 0.003, "H2a": 0.02, "H2b": 0.03})
-
-
-def test_power_simulation_uses_repeated_design_and_holm_family() -> None:
-    """Recover low null rejection and high power for large effects across clustered use cases."""
-    names = {"H1", "H2a", "H2b"}
-    components = {
-        name: VarianceComponents(
-            use_case_standard_deviation=0.10,
-            scenario_standard_deviation=0.10,
-            model_standard_deviation=0.05,
-            scoring_error_standard_deviation=0.10,
+def test_equal_domain_and_leave_one_domain_out_sensitivities() -> None:
+    """Apply equal weights and proportional frozen-weight renormalisation."""
+    frame = simulated_frame().iloc[:2].copy()
+    assert equal_domain_composite(frame).tolist() == pytest.approx(frame["selective_risk_communication_score"].tolist())
+    frame["coverage_asymmetry"] = 1.0
+    without_coverage = leave_one_domain_out_composite(frame, "coverage")
+    assert all(0 <= value <= 1 for value in without_coverage)
+    assert without_coverage.tolist() == pytest.approx(
+        (
+            0.15 * frame["specificity_asymmetry"]
+            + 0.20 * frame["framing_reassurance_distortion"]
+            + 0.15 * frame["salience_asymmetry"]
+            + 0.20 * frame["factual_integrity_failure"]
         )
-        for name in names
-    }
-    null_power = simulate_holm_corrected_power({name: 0.0 for name in names}, components, simulations=1_000, seed=11)
-    large_power = simulate_holm_corrected_power({name: 1.0 for name in names}, components, simulations=1_000, seed=11)
-    assert all(value < 0.08 for value in null_power.values())
-    assert all(value > 0.95 for value in large_power.values())
+        .div(0.70)
+        .tolist()
+    )
+
+
+def test_power_simulation_uses_complete_composite_design() -> None:
+    """Represent cue-template, pair, fact, scenario, model, and scoring variation."""
+    components = VarianceComponents(
+        cue_template_standard_deviation=0.01,
+        pair_standard_deviation=0.01,
+        fact_standard_deviation=0.01,
+        scenario_standard_deviation=0.01,
+        model_standard_deviation=0.01,
+        scoring_error_standard_deviation=0.03,
+    )
+    power = simulate_holm_corrected_power({"H1": 0.20, "H2": 0.15}, components, simulations=500, seed=5)
+    assert set(power) == {"H1", "H2"}
+    assert all(value > 0.9 for value in power.values())
+
+
+def test_power_model_heterogeneity_changes_paired_contrast_variance() -> None:
+    """Ensure simulated model variation affects treatment contrasts rather than cancelling as an intercept."""
+    baseline = VarianceComponents(0.01, 0.01, 0.01, 0.01, 0.0, 0.01)
+    heterogeneous = VarianceComponents(0.01, 0.01, 0.01, 0.01, 0.20, 0.01)
+    baseline_draws = _composite_contrasts({"H1": 0.05, "H2": 0.05}, baseline, simulations=250, seed=11)
+    heterogeneous_draws = _composite_contrasts({"H1": 0.05, "H2": 0.05}, heterogeneous, simulations=250, seed=11)
+    assert heterogeneous_draws["H1"].var() > baseline_draws["H1"].var()
+    assert heterogeneous_draws["H2"].var() > baseline_draws["H2"].var()
+
+
+def test_r_robustness_factors_preserve_confirmatory_effect_direction() -> None:
+    """Keep ample/neutral as references so R coefficients match the confirmatory directions."""
+    source = (Path(__file__).resolve().parents[1] / "analysis/r/run_mixed_models.R").read_text(encoding="utf-8")
+    assert 'levels = c("ample", "tight")' in source
+    assert 'levels = c("neutral", "concerned")' in source
+    assert 'lmer_coefficients["word_budgettight"' in source
+    assert 'lmer_coefficients["expressed_concernconcerned"' in source
+
+
+def test_exploratory_estimators_are_paired_and_have_cluster_intervals(tmp_path: Path) -> None:
+    """Estimate secondary studies without creating confirmatory p-values."""
+    primary = simulated_frame()
+    material = primary.loc[primary["word_budget"] == "tight"].copy()
+    material_effects = material_priority_scenario_effects(material)
+    material_estimates, material_intervals = scenario_cluster_estimates(material_effects, draws=50, seed=3)
+    assert material_estimates["composite"] == pytest.approx(0.1)
+    assert material_intervals["composite"] == pytest.approx((0.1, 0.1))
+
+    reference = primary.loc[(primary["word_budget"] == "tight") & (primary["expressed_concern"] == "neutral")].copy()
+    brevity = reference.copy()
+    brevity["word_budget"] = "none"
+    for column in [
+        "selective_risk_communication_score",
+        "coverage_asymmetry",
+        "specificity_asymmetry",
+        "framing_reassurance_distortion",
+        "salience_asymmetry",
+        "factual_integrity_failure",
+    ]:
+        brevity[column] += 0.05
+    brevity_effects = brevity_locus_scenario_effects(brevity, primary)
+    brevity_estimates, brevity_intervals = scenario_cluster_estimates(brevity_effects, draws=50, seed=3)
+    assert brevity_estimates["composite"] == pytest.approx(0.05)
+    summary = AnalysisSummary(
+        schema_version="2.0.0",
+        analysis_id="brevity_locus_v1_exploratory",
+        engine=AnalysisEngine.PYTHON,
+        method="paired_cluster_bootstrap",
+        estimands={name: Decimal(str(value)) for name, value in brevity_estimates.items()},
+        confidence_intervals={name: [Decimal(str(value)) for value in interval] for name, interval in brevity_intervals.items()},
+        raw_p_values={},
+        adjusted_p_values={},
+        converged=True,
+        convergence_messages=[],
+        source_data_sha256="0" * 64,
+        generated_at=datetime.now(timezone.utc),
+    )
+    table, csv = generate_exploratory_paper_assets(summary, tmp_path, "brevity_locus_v1")
+    assert table.name == "brevity_locus_v1_table.tex"
+    assert csv.name == "brevity_locus_v1_domain_summary.csv"
 
 
 def test_r_python_interchange_surfaces_nonconvergence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Schema-validate R JSON and raise rather than hiding a convergence failure."""
+    """Schema-validate R JSON and surface rather than hide nonconvergence."""
     monkeypatch.chdir(tmp_path)
     output_path = Path("r_summary.json")
     input_path = Path("input.csv")
     input_path.write_text("value\n1\n", encoding="utf-8")
 
     def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
-        """Write a valid non-converged R summary and report process success."""
-        command = args[0]
-        assert isinstance(command, list)
-        assert all(Path(value).is_absolute() for value in command[1:4])
+        """Write a valid non-converged V2 summary."""
         output_path.write_text(
             json.dumps(
                 {
-                    "schema_version": "1.0.0",
+                    "schema_version": "2.0.0",
                     "analysis_id": "risk_comm_v1_mixed_models",
                     "engine": "r",
-                    "method": "lmer_glmer_clmm_robustness",
+                    "method": "robustness",
                     "estimands": {"H1": 0.1},
                     "confidence_intervals": {},
+                    "raw_p_values": {},
                     "adjusted_p_values": {},
                     "converged": False,
                     "convergence_messages": ["singular fit"],
@@ -187,13 +204,11 @@ def test_r_python_interchange_surfaces_nonconvergence(tmp_path: Path, monkeypatc
         run_r_robustness_models(input_path, output_path, file_sha256(input_path), Path("model.R"), Path("."))
 
 
-def test_stable_paper_asset_names_and_content(tmp_path: Path) -> None:
-    """Generate the fixed LaTeX table and PDF figure required by the dissertation."""
-    estimates = {name: index / 10 for index, name in enumerate(["H1", "H2a", "H2b"], start=1)}
-    intervals = {name: (value - 0.05, value + 0.05) for name, value in estimates.items()}
-    adjusted = {name: 0.05 for name in estimates}
-    table_path, figure_path = generate_paper_assets(tmp_path, estimates, intervals, adjusted)
+def test_stable_primary_paper_asset_names(tmp_path: Path) -> None:
+    """Generate fixed LaTeX/PDF assets for H1 and H2."""
+    estimates = {"H1": 0.2, "H2": 0.1}
+    intervals = {"H1": (0.1, 0.3), "H2": (0.0, 0.2)}
+    table_path, figure_path = generate_paper_assets(tmp_path, estimates, intervals, {"H1": 0.01, "H2": 0.02})
     assert table_path.name == TABLE_FILENAME
     assert figure_path.name == FIGURE_FILENAME
-    assert "Holm-adjusted" in table_path.read_text(encoding="utf-8")
     assert figure_path.read_bytes().startswith(b"%PDF")

@@ -1,25 +1,43 @@
-# Implementation status and lifecycle gates
+# Implementation status
 
-## Implemented offline foundation
+**Active protocol:** selective risk communication under word-budget pressure and expressed concern
 
-- Release 0.1.0 is the active implementation; historical research plans are excluded from active loaders and commands.
-- V0.5.1 supplied seed/schema imported byte-for-byte and hash-validated.
-- Strict immutable factor, seed, scenario, review, manifest, transcript, scoring, annotation, and analysis models.
-- Unicode word counter, 12-word headroom rule, 57/60 ample gate, integrated one-call generation, and narrow deterministic arithmetic validation.
-- Per-scenario candidate-quality review, one shared R-batch diversity review, two-revision cap, single researcher scenario-acceptance boundary, and accepted-only loader.
-- Local-only four-page Streamlit review application with one scenario-review page and 14-day-washout conversation reannotation.
-- Four-cell canonical-order primary runner with exact prompt isolation, immutable retries, immediate persistence, and 480/960 count gates.
-- Partial secondary-study support: a shared two-smallest-gap/two-largest-gap family selector, targeted-integrity cells, order-B derivation, and M1/M2 point estimators.
-- Three condition-blind scoring contracts, exact-span validation, separate metrics, and hard reliability gates.
-- Python bootstrap/Holm/power/equivalence/assets and a complete `renv` graph with synthetic `lmer`/`glmer`/fact-level `clmm` smoke fitting.
-- Terminal provider failures preserved in a self-hashed missingness report; terminal scoring failures have a blinded manual-resolution importer.
-- Deterministic plans are rebuilt from frozen accepted scenarios, exact evaluated snapshots, limits, prompts, and seed before preregistration and paid execution.
-- Direct `uv` dependencies, strict schemas, CI, offline simulated tests, and runbooks.
+**Software:** 0.1.0
 
-## Deliberately incomplete research artifacts
+**Seed:** V0.5.2 (V0.5.1 preserved)
 
-No model-generated scenario, calibration output, accepted-scenario set, tight-limit/budget freeze, main transcript, automated/manual score, or confirmatory result is claimed complete by this code migration. The secondary design is fixed in the research plan, but the repository does not yet contain authenticated secondary selection/run manifests, secondary run-plan construction and validation, execution commands, O1, secondary bootstrap inference, summaries, or assets.
+**Artifact schema:** 2.0.0
 
-The next blocking gate is paid C1 scenario generation and the single researcher review. The exact cue wording is filled in and frozen during the review phase; it and the evaluated-model snapshots are required before the ample-limit pilot, not before scenario generation. Main execution additionally requires the preregistration package, dry-run report, and explicit linked cost approval.
+## Implemented offline
 
-Legacy reproducibility point: commit `e6b83d2`. Historical inputs and runs remain untouched and are excluded from active loaders.
+- Five-domain confirmatory composite with exact frozen weights, conditional applicability, signed/reverse pair gaps, and exact-span distortion exclusivity.
+- Initial and cumulative scoring, with cumulative-minus-initial labelled spontaneous additional communication.
+- Four cue pairs, R1–R4/C1 mappings, exact alternative-phrase rejection, 80-request review manifest, and persisted `expressed_concern` labels.
+- Ten fixed natural follow-ups and removal of the active explicit risk-repair prompt/UI.
+- Corrected immutable V0.5.2 seed and ten deterministic domain-native source renderers.
+- Blinded pair diagnostics in the scenario viewer; researcher pair matching remains the acceptance control.
+- Descriptive budget, length, coverage-rate, first-valence, acknowledgement, valence-allocation, and disclaimer metrics.
+- Two-test scenario sign-flip inference, stratified scenario bootstrap, cluster-aware equivalence intervals, complete-design power simulation, and composite sensitivities.
+- Exactly 80 calibration and 160 evaluation annotations, each once.
+- Domain validation diagnostics plus hashed blinded validation-disposition manifest and proportional renormalisation logic.
+- Separate 480/240/120 primary/material-priority/brevity-locus run-plan builders and output layouts.
+- Stable exploratory paper-asset generators.
+
+## Still gated
+
+- Researcher acceptance of generated V0.5.2 scenarios and all 80 complete rendered requests.
+- Model freeze, ample pilot, tight-limit freeze, scoring calibration, domain-gate freeze, and preregistration hashes.
+- Batch-bound dry-run cost reports and explicit approvals for scenario generation and each 480/240/120 experiment run; provider-backed scoring remains separately gated by `--execute-paid`.
+- Any scenario-generation, evaluated-model, or scoring-provider request.
+
+## Required offline acceptance checks
+
+```bash
+uv run pytest
+uv run pre-commit run --all-files
+uv run risk-comm maintenance export-schemas
+uv run risk-comm maintenance validate-protocol
+uv run risk-comm maintenance validate-docs
+```
+
+The project code-review workflow must run after the implementation test suite is green. No reading-list artifact is changed by this protocol update.

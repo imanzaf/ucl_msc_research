@@ -5,49 +5,53 @@ from __future__ import annotations
 from typing import Dict, Iterable, List
 
 from src.data_models.experiments import RunUnit
-from src.data_models.study import INTEGRITY_INSTRUCTION, NEUTRAL_CUE, WORRIED_CUE
+from src.data_models.study import ALL_CUE_PHRASES, assigned_cue, natural_follow_up
 
 
 def _canonical_initial_messages(run_unit: RunUnit) -> str:
-    """Replace only declared treatment text with factor placeholders."""
+    """Replace only the assigned cue and word-budget text with placeholders."""
     rendered = "\n\n".join(f"{message.role.value}:{message.content}" for message in run_unit.initial_request_messages)
-    rendered = rendered.replace(NEUTRAL_CUE, "<CUE>").replace(WORRIED_CUE, "<CUE>")
-    rendered = rendered.replace(f"\n\n{INTEGRITY_INSTRUCTION}", "")
-    rendered = rendered.replace("Use no more than 240 words.", "Use no more than <WORD_LIMIT> words.")
-    rendered = rendered.replace(f"Use no more than {run_unit.assigned_word_limit} words.", "Use no more than <WORD_LIMIT> words.")
+    for phrase in ALL_CUE_PHRASES:
+        rendered = rendered.replace(phrase, "<CUE>")
+    if run_unit.assigned_word_limit is not None:
+        rendered = rendered.replace(f"Use no more than {run_unit.assigned_word_limit} words.", "Use no more than <WORD_LIMIT> words.")
     return rendered
 
 
+def validate_assigned_cue(run_unit: RunUnit) -> None:
+    """Require exactly the assigned phrase and reject all seven alternatives."""
+    initial_text = "\n".join(message.content for message in run_unit.initial_request_messages)
+    expected = assigned_cue(run_unit.scenario_id, run_unit.cell.expressed_concern)
+    observed = [phrase for phrase in ALL_CUE_PHRASES if phrase in initial_text]
+    if observed != [expected] or initial_text.count(expected) != 1:
+        raise ValueError("initial request must contain exactly the assigned cue phrase and no alternative")
+    if any(phrase in run_unit.follow_up_message.content for phrase in ALL_CUE_PHRASES):
+        raise ValueError("natural follow-up must be cue-free")
+
+
 def validate_prompt_factor_isolation(run_units: Iterable[RunUnit]) -> None:
-    """Require one complete four-cell stage block to vary only declared factors."""
+    """Require a complete primary 2×2 block to vary only budget and concern cue."""
     units = list(run_units)
     if len(units) != 4:
         raise ValueError("prompt-isolation validation requires exactly four run units")
-    if len({unit.cell.cell_id for unit in units}) != len(units):
-        raise ValueError("block must contain unique experiment cells")
-    expected_budget_cue_pairs = {(budget, cue) for budget in {"ample", "tight"} for cue in {"neutral", "worried"}}
-    observed_budget_cue_pairs = {(unit.cell.word_budget.value, unit.cell.emotional_cue.value) for unit in units}
-    if observed_budget_cue_pairs != expected_budget_cue_pairs:
-        raise ValueError("block must contain every word-budget and emotional-cue combination")
-    if len({unit.cell.integrity for unit in units}) != 1:
-        raise ValueError("a four-cell block must use one integrity condition")
+    expected_pairs = {(budget, cue) for budget in {"ample", "tight"} for cue in {"neutral", "concerned"}}
+    observed_pairs = {(unit.cell.word_budget.value, unit.cell.expressed_concern.value) for unit in units}
+    if observed_pairs != expected_pairs:
+        raise ValueError("block must contain every word-budget and expressed-concern combination")
     canonical_messages = {_canonical_initial_messages(unit) for unit in units}
     if len(canonical_messages) != 1:
-        raise ValueError("compiled prompts differ outside the three declared treatment factors")
-    if len({unit.follow_up_message.content for unit in units}) != 1 or len({unit.follow_up_sha256 for unit in units}) != 1:
+        raise ValueError("compiled prompts differ outside the declared primary treatment factors")
+    expected_follow_up = natural_follow_up(units[0].use_case_id)
+    if {unit.follow_up_message.content for unit in units} != {expected_follow_up}:
+        raise ValueError("follow-up must be the frozen use-case-specific natural question")
+    if len({unit.follow_up_sha256 for unit in units}) != 1:
         raise ValueError("follow-up must be byte-identical across all cells")
     for unit in units:
-        initial_text = "\n".join(message.content for message in unit.initial_request_messages)
-        cue = WORRIED_CUE if unit.cell.emotional_cue.value == "worried" else NEUTRAL_CUE
-        other_cue = NEUTRAL_CUE if cue == WORRIED_CUE else WORRIED_CUE
-        if initial_text.count(cue) != 1 or other_cue in initial_text:
-            raise ValueError("assigned cue must occur exactly once and the alternate cue must be absent")
-        if NEUTRAL_CUE in unit.follow_up_message.content or WORRIED_CUE in unit.follow_up_message.content:
-            raise ValueError("follow-up must be cue-free")
+        validate_assigned_cue(unit)
 
 
 def group_run_units_by_block(run_units: Iterable[RunUnit]) -> Dict[str, List[RunUnit]]:
-    """Group run units by immutable scenario–model–source-order block id."""
+    """Group run units by immutable scenario–model block id."""
     grouped: Dict[str, List[RunUnit]] = {}
     for run_unit in run_units:
         grouped.setdefault(run_unit.block_id, []).append(run_unit)

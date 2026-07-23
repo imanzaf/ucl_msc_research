@@ -30,21 +30,21 @@ StructuredT = TypeVar("StructuredT", bound=BaseModel)
 class FactAssessmentDraft(VersionedImmutableModel):
     """Return only fact judgments before code attaches judge provenance."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     judgments: List[FactAssessmentJudgment] = Field(min_length=12, max_length=12)
 
 
 class ResponseCommunicationDraft(VersionedImmutableModel):
     """Return only response judgments before code attaches judge provenance."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     judgments: List[ResponseCommunicationJudgment] = Field(min_length=2, max_length=2)
 
 
 class ClaimAssessmentDraft(VersionedImmutableModel):
     """Return only visible-evidence claim judgments before provenance."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     claims: List[ClaimAssessmentJudgment]
 
 
@@ -97,7 +97,7 @@ class OpenRouterScoringBackend:
         )
         draft = response.output
         return FactAssessmentResult(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             blind_conversation_id=scoring_input.blind_conversation_id,
             judgments=draft.judgments,
             judge_model_id=self.judge_model_id,
@@ -118,7 +118,7 @@ class OpenRouterScoringBackend:
         )
         draft = response.output
         return ResponseCommunicationResult(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             blind_conversation_id=scoring_input.blind_conversation_id,
             judgments=draft.judgments,
             judge_model_id=self.judge_model_id,
@@ -139,7 +139,7 @@ class OpenRouterScoringBackend:
         )
         draft = response.output
         return ClaimAssessmentResult(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             blind_conversation_id=scoring_input.blind_conversation_id,
             claims=draft.claims,
             visible_source_sha256=scoring_input.visible_source_sha256,

@@ -74,7 +74,7 @@ def make_integrated_draft() -> IntegratedScenarioDraft:
     items[0] = items[0].model_copy(update={"numeric_value_ids": ["OLD", "NEW", "CHANGE"]})
     minimal = candidate.minimal_complete_response
     return IntegratedScenarioDraft(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         fixed_title=candidate.source_order_a.fixed_title,
         items=items,
         source_order_plan=candidate.source_order_plan,
@@ -83,7 +83,7 @@ def make_integrated_draft() -> IntegratedScenarioDraft:
         neutral_facts=candidate.neutral_facts,
         fact_pairs=candidate.fact_pairs,
         minimal_complete_response=MinimalResponseDraft(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             text=minimal.text,
             covered_fact_ids=minimal.covered_fact_ids,
             covered_specificity_element_ids=minimal.covered_specificity_element_ids,
@@ -114,7 +114,7 @@ class AlwaysReviseBackend:
             suggested_action="Revise the field.",
         )
         return AutomatedScenarioReview(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             scenario_id=candidate.scenario_id,
             review_kind=AutomatedReviewKind.CANDIDATE_QUALITY,
             decision=ReviewDecision.REVISE,
@@ -133,7 +133,7 @@ class AlwaysReviseBackend:
         """Accept batch diversity while the quality contract drives revision."""
         return [
             AutomatedScenarioReview(
-                schema_version="1.0.0",
+                schema_version="2.0.0",
                 scenario_id=candidate.scenario_id,
                 review_kind=AutomatedReviewKind.BATCH_DIVERSITY,
                 decision=ReviewDecision.ACCEPT,
@@ -189,7 +189,7 @@ class BatchAcceptBackend:
     def review_candidate_quality(self, candidate: CandidateScenario) -> AutomatedScenarioReview:
         """Accept one candidate's combined quality review."""
         return AutomatedScenarioReview(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             scenario_id=candidate.scenario_id,
             review_kind=AutomatedReviewKind.CANDIDATE_QUALITY,
             decision=ReviewDecision.ACCEPT,
@@ -209,7 +209,7 @@ class BatchAcceptBackend:
         self.observed_batches.append(sorted(item.scenario_id for item in [*fixed_diversity_candidates, *candidates]))
         return [
             AutomatedScenarioReview(
-                schema_version="1.0.0",
+                schema_version="2.0.0",
                 scenario_id=candidate.scenario_id,
                 review_kind=AutomatedReviewKind.BATCH_DIVERSITY,
                 decision=ReviewDecision.ACCEPT,

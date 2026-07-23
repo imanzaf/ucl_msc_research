@@ -1,0 +1,180 @@
+{
+  "$defs": {
+    "CompositeDomain": {
+      "description": "Identify one domain in the frozen confirmatory composite.",
+      "enum": [
+        "coverage",
+        "specificity",
+        "framing",
+        "salience",
+        "integrity"
+      ],
+      "title": "CompositeDomain",
+      "type": "string"
+    },
+    "DomainValidationGate": {
+      "additionalProperties": false,
+      "description": "Freeze researcher-selected acceptance thresholds for one scoring domain.",
+      "properties": {
+        "maximum_invalid_output_count": {
+          "minimum": 0,
+          "title": "Maximum Invalid Output Count",
+          "type": "integer"
+        },
+        "maximum_salience_absolute_error": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum Salience Absolute Error"
+        },
+        "minimum_agreement": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Minimum Agreement"
+        },
+        "minimum_f1": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Minimum F1"
+        },
+        "minimum_precision": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Minimum Precision"
+        },
+        "minimum_recall": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Minimum Recall"
+        }
+      },
+      "required": [
+        "minimum_agreement",
+        "minimum_precision",
+        "minimum_recall",
+        "minimum_f1",
+        "maximum_invalid_output_count"
+      ],
+      "title": "DomainValidationGate",
+      "type": "object"
+    },
+    "FreezeStatus": {
+      "description": "Identify whether a manifest remains draft or is immutable for downstream use.",
+      "enum": [
+        "draft",
+        "frozen"
+      ],
+      "title": "FreezeStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Bind calibration-frozen domain thresholds before locked evaluation.",
+  "properties": {
+    "calibration_source_sha256": {
+      "title": "Calibration Source Sha256",
+      "type": "string"
+    },
+    "freeze_status": {
+      "$ref": "#/$defs/FreezeStatus"
+    },
+    "frozen_at": {
+      "format": "date-time",
+      "title": "Frozen At",
+      "type": "string"
+    },
+    "frozen_by": {
+      "minLength": 1,
+      "title": "Frozen By",
+      "type": "string"
+    },
+    "gates": {
+      "additionalProperties": {
+        "$ref": "#/$defs/DomainValidationGate"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/CompositeDomain"
+      },
+      "title": "Gates",
+      "type": "object"
+    },
+    "manifest_sha256": {
+      "title": "Manifest Sha256",
+      "type": "string"
+    },
+    "rationale": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/CompositeDomain"
+      },
+      "title": "Rationale",
+      "type": "object"
+    },
+    "schema_version": {
+      "pattern": "^2\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "freeze_status",
+    "gates",
+    "rationale",
+    "calibration_source_sha256",
+    "frozen_by",
+    "frozen_at",
+    "manifest_sha256"
+  ],
+  "title": "DomainValidationGateManifest",
+  "type": "object"
+}

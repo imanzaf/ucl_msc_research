@@ -38,7 +38,7 @@ def main() -> None:
                 if attempt.response_text is not None and attempt.returned_model_version is not None:
                     returned_versions[attempt.returned_model_version] += 1
         payload = {
-            "schema_version": "1.0.0",
+            "schema_version": "2.0.0",
             "model_id": model_id,
             "expected_conversations": expected_conversations_per_model,
             "completed_conversations": sum(item.outcome_status == RunOutcomeStatus.COMPLETED for item in records),

@@ -1,14 +1,26 @@
 {
+  "$defs": {
+    "ExperimentName": {
+      "description": "Identify one independently manifested conversation experiment.",
+      "enum": [
+        "risk_comm_v1",
+        "material_priority_v1",
+        "brevity_locus_v1"
+      ],
+      "title": "ExperimentName",
+      "type": "string"
+    }
+  },
   "additionalProperties": false,
   "description": "Report exact call counts and conservative token/cost estimates before paid execution.",
   "properties": {
     "agent_responses": {
-      "default": 960,
+      "exclusiveMinimum": 0,
       "title": "Agent Responses",
       "type": "integer"
     },
     "conversations": {
-      "default": 480,
+      "exclusiveMinimum": 0,
       "title": "Conversations",
       "type": "integer"
     },
@@ -40,9 +52,7 @@
       "type": "string"
     },
     "experiment_name": {
-      "pattern": "^risk_comm_v1$",
-      "title": "Experiment Name",
-      "type": "string"
+      "$ref": "#/$defs/ExperimentName"
     },
     "generated_at": {
       "format": "date-time",
@@ -82,7 +92,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -116,6 +126,8 @@
     "run_plan_sha256",
     "experiment_config_sha256",
     "pricing_file_sha256",
+    "conversations",
+    "agent_responses",
     "maximum_attempts_including_retries",
     "estimated_input_tokens",
     "estimated_output_tokens",

@@ -11,8 +11,9 @@ from pathlib import Path
 from src.data_models.common import artifact_sha256, file_sha256
 from src.data_models.experiments import ExperimentConfig, RunUnit
 from src.data_models.manifests import DryRunCostReport, PricingAssumptionInput
+from src.data_models.study import AMPLE_WORD_LIMIT, ExperimentName
 from src.experiments.layout import validate_experiment_path
-from src.experiments.scenario_runner import validate_complete_run_plan
+from src.experiments.scenario_runner import validate_complete_run_plan, validate_exploratory_run_plan
 from src.paths import REPO_ROOT
 from src.scenarios.word_count import count_words
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic
@@ -36,12 +37,16 @@ def _estimate_tokens(word_count: int) -> int:
 def main() -> None:
     """Calculate exact calls and conservative per-model token/cost estimates offline."""
     args = parse_args()
-    validate_experiment_path(args.config, REPO_ROOT, "config")
-    validate_experiment_path(args.run_plan, REPO_ROOT, "checkpoint")
-    validate_experiment_path(args.output, REPO_ROOT, "checkpoint")
-    run_units = read_model_jsonl(args.run_plan, RunUnit)
     config = read_model_json(args.config, ExperimentConfig)
-    validate_complete_run_plan(run_units, config.randomisation_seed)
+    experiment_name = config.experiment_name.value
+    validate_experiment_path(args.config, REPO_ROOT, "config", experiment_name)
+    validate_experiment_path(args.run_plan, REPO_ROOT, "checkpoint", experiment_name)
+    validate_experiment_path(args.output, REPO_ROOT, "checkpoint", experiment_name)
+    run_units = read_model_jsonl(args.run_plan, RunUnit)
+    if config.experiment_name == ExperimentName.RISK_COMM_V1:
+        validate_complete_run_plan(run_units, config.randomisation_seed)
+    else:
+        validate_exploratory_run_plan(run_units, config.expected_conversation_count, config.cell_count)
     pricing = read_model_json(args.pricing, PricingAssumptionInput).models
     estimated_input_tokens = 0
     estimated_output_tokens = 0
@@ -54,8 +59,9 @@ def main() -> None:
         if run_unit.model_id not in pricing:
             raise ValueError(f"missing pricing assumption for {run_unit.model_id}")
         initial_input_words = sum(count_words(message.content) for message in run_unit.initial_request_messages)
-        output_tokens_per_response = _estimate_tokens(run_unit.assigned_word_limit)
-        maximum_output_tokens_per_attempt = max(512, run_unit.assigned_word_limit * 4)
+        planning_word_limit = run_unit.assigned_word_limit or AMPLE_WORD_LIMIT
+        output_tokens_per_response = _estimate_tokens(planning_word_limit)
+        maximum_output_tokens_per_attempt = max(512, planning_word_limit * 4)
         initial_input_tokens = _estimate_tokens(initial_input_words)
         follow_up_input_tokens = initial_input_tokens + output_tokens_per_response + _estimate_tokens(count_words(run_unit.follow_up_message.content))
         worst_follow_up_input_tokens = (
@@ -77,8 +83,8 @@ def main() -> None:
     pricing_assumptions = {f"{model_id}:input_per_million_usd": values.input_per_million_usd for model_id, values in pricing.items()}
     pricing_assumptions.update({f"{model_id}:output_per_million_usd": values.output_per_million_usd for model_id, values in pricing.items()})
     payload = {
-        "schema_version": "1.0.0",
-        "experiment_name": "risk_comm_v1",
+        "schema_version": "2.0.0",
+        "experiment_name": config.experiment_name,
         "run_plan_sha256": file_sha256(args.run_plan),
         "experiment_config_sha256": artifact_sha256(config),
         "pricing_file_sha256": file_sha256(args.pricing),

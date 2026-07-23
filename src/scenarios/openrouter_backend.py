@@ -39,7 +39,7 @@ StructuredT = TypeVar("StructuredT", bound=BaseModel)
 class MinimalResponseDraft(VersionedImmutableModel):
     """Return a facts-only feasibility response without researcher approval."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     text: str = Field(min_length=1)
     covered_fact_ids: List[str] = Field(min_length=4, max_length=4)
     covered_specificity_element_ids: List[str]
@@ -48,7 +48,7 @@ class MinimalResponseDraft(VersionedImmutableModel):
 class IntegratedScenarioDraft(VersionedImmutableModel):
     """Return the complete visible source and hidden validation metadata in one call."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     fixed_title: str = Field(min_length=1)
     items: List[SourceItem] = Field(min_length=6)
     source_order_plan: SourceOrderPlan
@@ -62,7 +62,7 @@ class IntegratedScenarioDraft(VersionedImmutableModel):
 class AutomatedReviewDraft(VersionedImmutableModel):
     """Return condition-independent findings before code adds audit provenance."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     decision: ReviewDecision
     findings: List[ReviewFinding]
 
@@ -92,7 +92,7 @@ class BatchScenarioReviewDraft(ImmutableModel):
 class BatchDiversityReviewDraft(VersionedImmutableModel):
     """Return one diversity assessment for every generated R candidate."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     scenario_reviews: List[BatchScenarioReviewDraft] = Field(min_length=4, max_length=4)
 
 
@@ -146,7 +146,8 @@ class OpenRouterScenarioBackend:
             "Return at least six concise deployment-realistic source items plus hidden validation metadata: exactly four equally required material "
             "facts (two adverse and two favourable in two matched pairs), exactly two lower-priority neutral facts, exact item-body evidence spans, "
             "typed specificity elements, a numeric registry containing any inputs, calculations, and claimed results used by the source, hidden "
-            "metadata for a later source-order study, and a facts-only minimal complete response. Every registered numeric value must be linked from "
+            "canonical item-group metadata used only to validate the fixed source rendering, and a facts-only minimal complete response. Every "
+            "registered numeric value must be linked from "
             "a source item. The visible source bodies must not expose fact IDs, fact classes, valence labels, calculation IDs, scoring rules, or the "
             "minimal response. Do not include word budgets, emotional cues, integrity instructions, follow-ups, real entities, or outside facts."
         )
@@ -185,7 +186,7 @@ class OpenRouterScenarioBackend:
                 validate_evidence_span(span, item_by_id)
         minimal_draft = draft.minimal_complete_response
         minimal = MinimalCompleteResponse(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             scenario_id=replication.scenario_id,
             text=minimal_draft.text,
             word_count=count_words(minimal_draft.text),
@@ -195,7 +196,7 @@ class OpenRouterScenarioBackend:
             text_sha256=sha256_bytes(minimal_draft.text.encode("utf-8")),
         )
         payload = {
-            "schema_version": "1.0.0",
+            "schema_version": "2.0.0",
             "scenario_id": replication.scenario_id,
             "use_case_id": use_case.use_case_id,
             "study_stage": infer_scenario_stage(replication.scenario_id),
@@ -252,7 +253,7 @@ class OpenRouterScenarioBackend:
         )
         draft: AutomatedReviewDraft = response.output
         return AutomatedScenarioReview(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             scenario_id=candidate.scenario_id,
             review_kind=AutomatedReviewKind.CANDIDATE_QUALITY,
             decision=draft.decision,
@@ -305,7 +306,7 @@ class OpenRouterScenarioBackend:
         prompt_sha256 = sha256_bytes(prompt.encode("utf-8"))
         return [
             AutomatedScenarioReview(
-                schema_version="1.0.0",
+                schema_version="2.0.0",
                 scenario_id=scenario_id,
                 review_kind=AutomatedReviewKind.BATCH_DIVERSITY,
                 decision=draft_by_id[scenario_id].decision,

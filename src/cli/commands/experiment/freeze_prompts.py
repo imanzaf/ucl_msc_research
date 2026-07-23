@@ -1,52 +1,53 @@
-"""Persist the required researcher self-review of the exact active cue wording."""
+"""Freeze the four cue pairs after review of all 80 complete requests."""
 
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from src.data_models.common import artifact_sha256
-from src.data_models.manifests import CueReviewDecision, PromptReviewManifest
-from src.data_models.study import NEUTRAL_CUE, PROMPT_PACKAGE_VERSION, WORRIED_CUE
-from src.storage import write_model_json_atomic
+from src.data_models.common import artifact_sha256, validate_model_self_hash
+from src.data_models.manifests import AcceptedScenarioManifest, CompleteRenderedRequestReview, CueReviewDecision, PromptReviewManifest
+from src.data_models.study import CUE_PAIRS, PROMPT_PACKAGE_VERSION
+from src.experiments.io import load_accepted_evaluation_scenarios
+from src.prompts.experiment import validate_complete_request_reviews
+from src.storage import read_model_json, write_model_json_atomic
 
 
 def main() -> None:
-    """Build a strict cue review; model calibration remains blocked unless it approves."""
+    """Validate researcher-completed request reviews and write a self-hashed manifest."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--neutral-natural", action="store_true")
-    parser.add_argument("--worried-natural", action="store_true")
-    parser.add_argument("--semantic-request-equivalent", action="store_true")
-    parser.add_argument("--urgency-confounded", action="store_true")
-    parser.add_argument("--desired-detail-confounded", action="store_true")
-    parser.add_argument("--decision-preference-confounded", action="store_true")
-    parser.add_argument("--risk-appetite-confounded", action="store_true")
-    parser.add_argument("--decision", type=CueReviewDecision, choices=list(CueReviewDecision), required=True)
-    parser.add_argument("--notes", required=True)
+    parser.add_argument("--request-reviews", type=Path, required=True, help="JSON array containing all 80 review records")
+    parser.add_argument("--accepted-root", type=Path, required=True)
+    parser.add_argument("--accepted-scenario-manifest", type=Path, required=True)
+    parser.add_argument("--researcher-notes", required=True)
+    parser.add_argument("--decision", choices=[item.value for item in CueReviewDecision], required=True)
     parser.add_argument("--reviewed-by", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    raw = json.loads(args.request_reviews.read_text(encoding="utf-8"))
+    if not isinstance(raw, list):
+        raise ValueError("request-review input must be a JSON array")
+    reviews = [CompleteRenderedRequestReview.model_validate(item) for item in raw]
+    accepted = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
+    validate_model_self_hash(accepted, "manifest_sha256")
+    scenarios = load_accepted_evaluation_scenarios(args.accepted_root, accepted)
+    validate_complete_request_reviews(reviews, scenarios)
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "prompt_version": PROMPT_PACKAGE_VERSION,
-        "neutral_cue": NEUTRAL_CUE,
-        "worried_cue": WORRIED_CUE,
-        "neutral_natural": args.neutral_natural,
-        "worried_natural": args.worried_natural,
-        "semantic_request_equivalent": args.semantic_request_equivalent,
-        "urgency_confounded": args.urgency_confounded,
-        "desired_detail_confounded": args.desired_detail_confounded,
-        "decision_preference_confounded": args.decision_preference_confounded,
-        "risk_appetite_confounded": args.risk_appetite_confounded,
-        "researcher_notes": args.notes,
-        "decision": args.decision,
+        "accepted_scenario_manifest_sha256": accepted.manifest_sha256,
+        "cue_pairs": {index: list(pair) for index, pair in CUE_PAIRS.items()},
+        "request_reviews": reviews,
+        "researcher_notes": args.researcher_notes,
+        "decision": CueReviewDecision(args.decision),
         "reviewed_by": args.reviewed_by,
         "reviewed_at": datetime.now(timezone.utc),
     }
     manifest = PromptReviewManifest.model_validate({**payload, "manifest_sha256": artifact_sha256(payload)})
     write_model_json_atomic(args.output, manifest)
-    print(f"Wrote cue self-review manifest to {args.output}")
+    print(f"Wrote reviewed V2 cue manifest for {len(reviews)} complete requests")
 
 
 if __name__ == "__main__":

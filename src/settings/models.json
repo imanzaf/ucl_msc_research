@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "description": "Draft candidate catalog. Freeze exact returned model snapshots before any model-generated calibration; this draft is intentionally blocked from execution.",
   "freeze_status": "draft",
   "evaluated_models": [

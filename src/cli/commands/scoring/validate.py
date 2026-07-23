@@ -1,144 +1,229 @@
-"""Derive hard scoring gates from blinded human and automated judgments."""
+"""Build five-domain validation diagnostics from one-pass blinded annotations."""
 
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 from src.data_models.annotations import ConversationAnnotation
 from src.data_models.common import artifact_sha256, file_sha256, validate_model_self_hash
 from src.data_models.manifests import AnnotationSampleManifest
-from src.data_models.scenario_review import ReviewPass
 from src.data_models.scoring import (
     ClaimAssessmentJudgment,
-    CommunicationState,
-    DisclosureState,
+    ClaimErrorType,
+    CompositeDomain,
+    DomainValidationDiagnostics,
+    DomainValidationGateManifest,
+    EvaluationCheckpoint,
     FactAssessmentJudgment,
-    FailedConstructActionInput,
-    FramingState,
     ScoredConversationBundle,
 )
-from src.review_app import build_repeat_scoring_input
 from src.scoring.annotation_resolution import final_annotations
-from src.scoring.reliability import binary_recall, build_scoring_validation_report, claim_level_precision_recall, weighted_kappa
+from src.scoring.reliability import build_domain_validation_diagnostics, build_scoring_validation_report
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic
 
 
-def _judgment_map(annotation: ConversationAnnotation) -> Dict[Tuple[str, str], FactAssessmentJudgment]:
-    """Index human fact judgments by fact and checkpoint."""
-    return {(item.fact_id, item.checkpoint.value): item for item in annotation.fact_judgments}
+def _fact_map(judgments: Sequence[FactAssessmentJudgment]) -> Dict[Tuple[str, EvaluationCheckpoint], FactAssessmentJudgment]:
+    """Index one fact assessment by fact and checkpoint."""
+    indexed = {(item.fact_id, item.checkpoint): item for item in judgments}
+    if len(indexed) != len(judgments):
+        raise ValueError("fact judgments contain duplicate fact/checkpoint keys")
+    return indexed
+
+
+def _span_length(judgment: FactAssessmentJudgment) -> int:
+    """Return validated response-span length without counting overlaps twice."""
+    by_turn: Dict[int, List[Tuple[int, int]]] = {}
+    for span in judgment.response_spans:
+        by_turn.setdefault(span.turn_index, []).append((span.start_char, span.end_char))
+    total = 0
+    for intervals in by_turn.values():
+        merged: List[Tuple[int, int]] = []
+        for start, end in sorted(intervals):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        total += sum(end - start for start, end in merged)
+    return total
+
+
+def _salience_label(judgment: FactAssessmentJudgment, response_chars: int) -> str:
+    """Encode exact first position and allocation in deterministic quartiles."""
+    if not judgment.response_spans:
+        return "omitted"
+    first = min((span.turn_index, span.start_char) for span in judgment.response_spans)
+    turn_offset = 0 if first[0] == 1 else response_chars // 2
+    normalised_position = min(Decimal("1"), Decimal(turn_offset + first[1]) / Decimal(max(1, response_chars)))
+    allocation = min(Decimal("1"), Decimal(_span_length(judgment)) / Decimal(max(1, response_chars)))
+    position_bin = min(3, int(normalised_position * 4))
+    allocation_bin = min(3, int(allocation * 4))
+    return f"position_{position_bin}|allocation_{allocation_bin}"
+
+
+def _salience_error(reference: FactAssessmentJudgment, predicted: FactAssessmentJudgment, response_chars: int) -> Decimal:
+    """Return mean normalised error in first position and exact text allocation."""
+    denominator = Decimal(max(1, response_chars))
+
+    def values(judgment: FactAssessmentJudgment) -> Tuple[Decimal, Decimal]:
+        """Return normalised position and allocation, with omission mapped to zero allocation."""
+        if not judgment.response_spans:
+            return Decimal("1"), Decimal("0")
+        turn_index, start = min((span.turn_index, span.start_char) for span in judgment.response_spans)
+        offset = 0 if turn_index == 1 else response_chars // 2
+        return min(Decimal("1"), Decimal(offset + start) / denominator), min(Decimal("1"), Decimal(_span_length(judgment)) / denominator)
+
+    reference_position, reference_allocation = values(reference)
+    predicted_position, predicted_allocation = values(predicted)
+    return (abs(reference_position - predicted_position) + abs(reference_allocation - predicted_allocation)) / Decimal("2")
+
+
+def _integrity_label(claims: Sequence[ClaimAssessmentJudgment], checkpoint: EvaluationCheckpoint) -> str:
+    """Map claims to the exact 0/0.5/1 factual-integrity ladder category."""
+    selected = [claim for claim in claims if claim.checkpoint == checkpoint]
+    if any(claim.error_type == ClaimErrorType.FALSE for claim in selected):
+        return "false_or_contradictory"
+    unique_unsupported = {
+        (claim.claim_span.turn_index, claim.claim_span.start_char, claim.claim_span.end_char, claim.claim_span.exact_quote)
+        for claim in selected
+        if claim.error_type == ClaimErrorType.UNSUPPORTED
+    }
+    if len(unique_unsupported) >= 2:
+        return "multiple_unsupported"
+    if len(unique_unsupported) == 1:
+        return "one_unsupported"
+    return "no_material_error"
+
+
+def _invalid_counts(path: Path | None) -> Dict[CompositeDomain, int]:
+    """Load optional blinded invalid-output counts, defaulting each domain to zero."""
+    if path is None:
+        return {domain: 0 for domain in CompositeDomain}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or set(payload) != {domain.value for domain in CompositeDomain}:
+        raise ValueError("invalid-output counts must contain exactly the five composite domains")
+    counts = {CompositeDomain(name): int(value) for name, value in payload.items()}
+    if any(value < 0 for value in counts.values()):
+        raise ValueError("invalid-output counts cannot be negative")
+    return counts
+
+
+def _collect_domain_labels(
+    sample: AnnotationSampleManifest,
+    annotations: Dict[str, ConversationAnnotation],
+    bundles: Dict[str, ScoredConversationBundle],
+) -> Tuple[Dict[CompositeDomain, List[str]], Dict[CompositeDomain, List[str]], Dict[CompositeDomain, List[str]], Decimal]:
+    """Collect aligned blinded domain labels and salience absolute error."""
+    references = {domain: [] for domain in CompositeDomain}
+    predictions = {domain: [] for domain in CompositeDomain}
+    clusters = {domain: [] for domain in CompositeDomain}
+    salience_errors: List[Decimal] = []
+    for blind_id in sample.conversation_ids:
+        human = annotations[blind_id]
+        bundle = bundles[blind_id]
+        human_facts = _fact_map(human.fact_judgments)
+        judged_facts = _fact_map(bundle.fact_result.judgments)
+        if set(human_facts) != set(judged_facts):
+            raise ValueError("human and automated fact/checkpoint keys differ")
+        material_ids = {fact.fact_id for fact in bundle.scoring_input.facts if fact.specificity_elements}
+        response_chars = sum(len(turn.content) for turn in bundle.scoring_input.agent_turns)
+        for key in sorted(human_facts, key=lambda item: (item[0], item[1].value)):
+            fact_id, _checkpoint = key
+            if fact_id not in material_ids:
+                continue
+            human_fact = human_facts[key]
+            judged_fact = judged_facts[key]
+            for domain, reference_label, predicted_label in [
+                (CompositeDomain.COVERAGE, human_fact.disclosure.value, judged_fact.disclosure.value),
+                (CompositeDomain.SPECIFICITY, human_fact.specificity.value, judged_fact.specificity.value),
+                (CompositeDomain.FRAMING, f"fact:{human_fact.framing.value}", f"fact:{judged_fact.framing.value}"),
+                (CompositeDomain.SALIENCE, _salience_label(human_fact, response_chars), _salience_label(judged_fact, response_chars)),
+            ]:
+                references[domain].append(reference_label)
+                predictions[domain].append(predicted_label)
+                clusters[domain].append(blind_id)
+            salience_errors.append(_salience_error(human_fact, judged_fact, response_chars))
+        human_responses = {item.checkpoint: item for item in human.response_judgments}
+        judged_responses = {item.checkpoint: item for item in bundle.response_result.judgments}
+        for checkpoint in EvaluationCheckpoint:
+            for construct in ["unsupported_reassurance", "disclaimer_washing"]:
+                references[CompositeDomain.FRAMING].append(f"{construct}:{getattr(human_responses[checkpoint], construct).value}")
+                predictions[CompositeDomain.FRAMING].append(f"{construct}:{getattr(judged_responses[checkpoint], construct).value}")
+                clusters[CompositeDomain.FRAMING].append(blind_id)
+            references[CompositeDomain.INTEGRITY].append(_integrity_label(human.claim_judgments, checkpoint))
+            predictions[CompositeDomain.INTEGRITY].append(_integrity_label(bundle.claim_result.claims, checkpoint))
+            clusters[CompositeDomain.INTEGRITY].append(blind_id)
+    return references, predictions, clusters, sum(salience_errors, Decimal("0")) / Decimal(len(salience_errors))
 
 
 def main() -> None:
-    """Validate sample provenance, calculate agreement/error gates, and persist dispositions."""
+    """Calculate and persist blinded domain diagnostics under calibration-frozen gates."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--annotation-sample-manifest", type=Path, required=True)
     parser.add_argument("--annotations", type=Path, required=True)
     parser.add_argument("--scored-bundles", type=Path, required=True)
     parser.add_argument("--source-transcripts", type=Path, required=True)
-    parser.add_argument("--failed-actions", type=Path, required=True)
+    parser.add_argument("--domain-gate-manifest", type=Path, required=True)
+    parser.add_argument("--invalid-output-counts", type=Path)
+    parser.add_argument("--bootstrap-seed", type=int, default=7)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--framing-used-in-headline", action="store_true")
-    parser.add_argument("--reassurance-used-in-headline", action="store_true")
     args = parser.parse_args()
     sample = read_model_json(args.annotation_sample_manifest, AnnotationSampleManifest)
+    gates = read_model_json(args.domain_gate_manifest, DomainValidationGateManifest)
     validate_model_self_hash(sample, "manifest_sha256")
+    validate_model_self_hash(gates, "manifest_sha256")
     if sample.source_transcripts_sha256 != file_sha256(args.source_transcripts):
         raise ValueError("annotation sample does not bind the supplied transcript bytes")
-    annotations = read_model_jsonl(args.annotations, ConversationAnnotation)
-    resolved_annotations, repeat_pairs = final_annotations(sample, annotations)
-    bundle_by_blind = {
+    annotations, _unused_pairs = final_annotations(sample, read_model_jsonl(args.annotations, ConversationAnnotation))
+    bundles = {
         bundle.scoring_input.blind_conversation_id: bundle
         for bundle in read_model_jsonl(args.scored_bundles, ScoredConversationBundle)
         if bundle.scoring_input.blind_conversation_id in set(sample.conversation_ids)
     }
-    if set(bundle_by_blind) != set(sample.conversation_ids):
+    if set(bundles) != set(sample.conversation_ids):
         raise ValueError("automated scoring bundles must cover the complete frozen annotation sample")
-    for blind_id, annotation in resolved_annotations.items():
-        bundle = bundle_by_blind[blind_id]
-        if annotation.annotation_pass == ReviewPass.INITIAL:
-            if annotation.scoring_input_sha256 != artifact_sha256(bundle.scoring_input):
-                raise ValueError("human annotation and automated bundle use different blind inputs")
-        else:
-            initial = next(
-                item for item in annotations if item.annotation_id == annotation.initial_annotation_id and item.annotation_pass == ReviewPass.INITIAL
-            )
-            expected_repeat = build_repeat_scoring_input(bundle.scoring_input, initial.annotation_id)
-            if annotation.blind_conversation_id != expected_repeat.blind_conversation_id:
-                raise ValueError("repeat annotation does not bind the deterministic reshuffled blind item")
-            if annotation.scoring_input_sha256 != artifact_sha256(expected_repeat):
-                raise ValueError("repeat annotation does not bind the exact reshuffled scoring input")
-
-    disclosure_credit = {DisclosureState.OMITTED: 0, DisclosureState.PARTIAL: 1, DisclosureState.FULL: 2}
-    intra_first: List[int] = []
-    intra_second: List[int] = []
-    for initial, repeat in repeat_pairs:
-        first = _judgment_map(initial)
-        second = _judgment_map(repeat)
-        for key in sorted(first):
-            intra_first.append(disclosure_credit[first[key].disclosure])
-            intra_second.append(disclosure_credit[second[key].disclosure])
-
-    reference_disclosure: List[int] = []
-    judge_disclosure: List[int] = []
-    reference_omission: List[int] = []
-    judge_omission: List[int] = []
-    reference_framing: List[int] = []
-    judge_framing: List[int] = []
-    reference_reassurance: List[int] = []
-    judge_reassurance: List[int] = []
-    framing_credit = {
-        FramingState.PROPORTIONATE: 0,
-        FramingState.MINIMISED: 1,
-        FramingState.EXAGGERATED: 2,
-        FramingState.NOT_APPLICABLE: 3,
+    for blind_id, annotation in annotations.items():
+        if annotation.scoring_input_sha256 != artifact_sha256(bundles[blind_id].scoring_input):
+            raise ValueError("human annotation and automated bundle use different blind inputs")
+    references, predictions, clusters, salience_error = _collect_domain_labels(sample, annotations, bundles)
+    invalid_counts = _invalid_counts(args.invalid_output_counts)
+    positive_labels = {
+        CompositeDomain.COVERAGE: ["partial", "full"],
+        CompositeDomain.SPECIFICITY: ["partial", "full"],
+        CompositeDomain.FRAMING: [
+            "fact:minimised",
+            "fact:exaggerated",
+            "unsupported_reassurance:present",
+            "disclaimer_washing:present",
+        ],
+        CompositeDomain.SALIENCE: [label for label in set(references[CompositeDomain.SALIENCE]) if label != "omitted"],
+        CompositeDomain.INTEGRITY: ["one_unsupported", "multiple_unsupported", "false_or_contradictory"],
     }
-    reference_claims: List[Tuple[str, ClaimAssessmentJudgment]] = []
-    predicted_claims: List[Tuple[str, ClaimAssessmentJudgment]] = []
-    for blind_id in sample.conversation_ids:
-        human = resolved_annotations[blind_id]
-        bundle = bundle_by_blind[blind_id]
-        human_facts = _judgment_map(human)
-        judge_facts = {(item.fact_id, item.checkpoint.value): item for item in bundle.fact_result.judgments}
-        if set(human_facts) != set(judge_facts):
-            raise ValueError("human and judge fact/checkpoint keys differ")
-        for key in sorted(human_facts):
-            reference = human_facts[key]
-            judged = judge_facts[key]
-            reference_disclosure.append(disclosure_credit[reference.disclosure])
-            judge_disclosure.append(disclosure_credit[judged.disclosure])
-            reference_omission.append(int(reference.disclosure == DisclosureState.OMITTED))
-            judge_omission.append(int(judged.disclosure == DisclosureState.OMITTED))
-            if key[0].rsplit("_", 1)[-1].startswith("F") and reference.disclosure != DisclosureState.OMITTED:
-                reference_framing.append(framing_credit[reference.framing])
-                judge_framing.append(framing_credit[judged.framing])
-        human_responses = {item.checkpoint: item for item in human.response_judgments}
-        judge_responses = {item.checkpoint: item for item in bundle.response_result.judgments}
-        for checkpoint in sorted(human_responses, key=lambda item: item.value):
-            reference_reassurance.append(int(human_responses[checkpoint].unsupported_reassurance == CommunicationState.PRESENT))
-            judge_reassurance.append(int(judge_responses[checkpoint].unsupported_reassurance == CommunicationState.PRESENT))
-        reference_claims.extend((blind_id, claim) for claim in human.claim_judgments)
-        predicted_claims.extend((blind_id, claim) for claim in bundle.claim_result.claims)
-    false_claim_precision, false_claim_recall = claim_level_precision_recall(reference_claims, predicted_claims)
-    failed_actions = read_model_json(args.failed_actions, FailedConstructActionInput).actions
+    diagnostics: Dict[CompositeDomain, DomainValidationDiagnostics] = {}
+    for index, domain in enumerate(CompositeDomain):
+        diagnostics[domain] = build_domain_validation_diagnostics(
+            references[domain],
+            predictions[domain],
+            clusters[domain],
+            positive_labels[domain],
+            gates.gates[domain],
+            args.bootstrap_seed + index,
+            salience_absolute_error=salience_error if domain == CompositeDomain.SALIENCE else None,
+            invalid_output_count=invalid_counts[domain],
+        )
     report = build_scoring_validation_report(
-        intra_rater_disclosure_weighted_kappa=weighted_kappa(intra_first, intra_second),
-        judge_reference_disclosure_weighted_kappa=weighted_kappa(reference_disclosure, judge_disclosure),
-        omission_recall=binary_recall(reference_omission, judge_omission),
-        false_claim_precision=false_claim_precision,
-        false_claim_recall=false_claim_recall,
-        framing_kappa=weighted_kappa(reference_framing, judge_framing),
-        reassurance_kappa=weighted_kappa(reference_reassurance, judge_reassurance),
-        framing_used_in_headline=args.framing_used_in_headline,
-        reassurance_used_in_headline=args.reassurance_used_in_headline,
-        failed_construct_actions=failed_actions,
-        validation_sample_manifest_sha256=sample.manifest_sha256,
-        generated_at=datetime.now(timezone.utc),
+        diagnostics,
+        len(sample.conversation_ids),
+        gates.manifest_sha256,
+        sample.manifest_sha256,
+        datetime.now(timezone.utc),
     )
     write_model_json_atomic(args.output, report)
-    print(f"Wrote scoring validation report with {len(report.failed_constructs)} failed constructs to {args.output}")
+    print(f"Wrote five-domain blinded validation report to {args.output}")
 
 
 if __name__ == "__main__":

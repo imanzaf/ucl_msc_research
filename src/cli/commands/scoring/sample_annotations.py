@@ -51,7 +51,7 @@ def _select_evaluation(
     transcripts: List[ConversationTranscript],
     seed: int,
 ) -> Tuple[List[ConversationTranscript], Dict[str, Decimal]]:
-    """Sample one conversation in each scenario × budget × emotional-cue stratum."""
+    """Sample one conversation in each scenario × budget × expressed-concern stratum."""
     selected: List[ConversationTranscript] = []
     by_scenario: Dict[str, List[ConversationTranscript]] = {}
     for transcript in transcripts:
@@ -60,18 +60,18 @@ def _select_evaluation(
     for scenario_id in sorted(by_scenario):
         candidates = by_scenario[scenario_id]
         for word_budget in ["ample", "tight"]:
-            for emotional_cue in ["neutral", "worried"]:
+            for expressed_concern in ["neutral", "concerned"]:
                 matches = sorted(
                     [
                         item
                         for item in candidates
-                        if item.run_unit.cell.word_budget.value == word_budget and item.run_unit.cell.emotional_cue.value == emotional_cue
+                        if item.run_unit.cell.word_budget.value == word_budget and item.run_unit.cell.expressed_concern.value == expressed_concern
                     ],
                     key=lambda item: item.run_unit.run_unit_id,
                 )
                 if not matches:
                     raise ValueError("evaluation annotation stratum has no completed conversation")
-                stratum = f"evaluation:{scenario_id}:{word_budget}:{emotional_cue}"
+                stratum = f"evaluation:{scenario_id}:{word_budget}:{expressed_concern}"
                 selected.append(random.Random(_group_seed(seed, stratum)).choice(matches))
                 probabilities[stratum] = Decimal(1) / Decimal(len(matches))
     if len(selected) != 160:
@@ -123,36 +123,25 @@ def main() -> None:
             [transcript for transcript in transcripts if transcript.outcome_status == RunOutcomeStatus.COMPLETED],
             args.seed,
         )
-        repeat_ids: List[str] = []
     else:
         validate_complete_run_plan([transcript.run_unit for transcript in transcripts])
         selected, probabilities = _select_evaluation(
             [transcript for transcript in transcripts if transcript.outcome_status == RunOutcomeStatus.COMPLETED],
             args.seed,
         )
-        repeat_ids = []
     blind_ids: List[str] = []
-    blind_id_by_scenario: Dict[str, List[str]] = {}
     for transcript in selected:
         run_unit_id = transcript.run_unit.run_unit_id
         fact_seed = int(sha256_bytes(f"{scoring_manifest.fact_order_seed}:{run_unit_id}".encode("utf-8"))[:16], 16)
         scoring_input = build_condition_blind_input(transcript, scenarios[transcript.run_unit.scenario_id], fact_seed)
         write_model_json_atomic(args.scoring_input_root / f"{scoring_input.blind_conversation_id}.json", scoring_input)
         blind_ids.append(scoring_input.blind_conversation_id)
-        blind_id_by_scenario.setdefault(transcript.run_unit.scenario_id, []).append(scoring_input.blind_conversation_id)
-    if stage == ScenarioStage.EVALUATION:
-        repeat_ids = [
-            random.Random(_group_seed(args.seed, f"repeat:{scenario_id}")).choice(sorted(ids))
-            for scenario_id, ids in sorted(blind_id_by_scenario.items())
-        ]
-        probabilities["evaluation_repeat_within_scenario_sample"] = Decimal(1) / Decimal(4)
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "sample_id": f"risk_comm_{stage.value}_annotation_v1",
         "sample_stage": stage,
         "random_seed": args.seed,
         "conversation_ids": sorted(blind_ids),
-        "repeat_conversation_ids": repeat_ids,
         "strata_summary": _strata_summary(selected),
         "selection_probabilities": probabilities,
         "scoring_execution_manifest_sha256": scoring_manifest.manifest_sha256,

@@ -23,7 +23,7 @@ def main() -> None:
     assumptions = read_model_json(args.assumptions_json, AnalysisAssumptionInput)
     frozen_at = datetime.now(timezone.utc)
     smallest_payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "freeze_status": FreezeStatus.FROZEN,
         "absolute_bounds": assumptions.absolute_bounds,
         "rationale": assumptions.rationales,
@@ -32,7 +32,7 @@ def main() -> None:
     }
     smallest = SmallestEffectManifest.model_validate({**smallest_payload, "manifest_sha256": artifact_sha256(smallest_payload)})
     power_payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "freeze_status": FreezeStatus.FROZEN,
         "smallest_effect_manifest_sha256": smallest.manifest_sha256,
         "variance_components": assumptions.variance_components,

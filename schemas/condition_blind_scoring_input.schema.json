@@ -226,7 +226,7 @@
       "type": "integer"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },

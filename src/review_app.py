@@ -3,21 +3,21 @@
 from __future__ import annotations
 
 import json
-import random
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from src.data_models.annotations import ConversationAnnotation, repeat_washout_elapsed
-from src.data_models.common import artifact_sha256, sha256_bytes, validate_model_self_hash
+from src.data_models.annotations import ConversationAnnotation
+from src.data_models.common import artifact_sha256, validate_model_self_hash
 from src.data_models.manifests import AnnotationSampleManifest
 from src.data_models.scenario_review import ResearcherScenarioReview, ReviewPass
 from src.data_models.scenarios import CandidateScenario, MinimalCompleteResponse
 from src.data_models.scoring import ConditionBlindScoringInput, EvaluationCheckpoint, ResponseSpan
 from src.scenarios.acceptance import validate_candidate_scenario_hash
+from src.scenarios.pair_diagnostics import build_pair_diagnostics
 from src.storage import append_model_jsonl_validated, read_model_json, read_model_jsonl, write_model_json_atomic
 
 
@@ -26,33 +26,9 @@ class ReviewPage(str, Enum):
 
     SCENARIO_INITIAL = "Scenario review"
     CONVERSATION_INITIAL = "Conversation annotation"
-    CONVERSATION_REPEAT = "Conversation repeat annotation"
-    CONVERSATION_RESOLUTION = "Conversation resolution"
 
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
-
-
-def build_repeat_scoring_input(
-    original: ConditionBlindScoringInput,
-    initial_annotation_id: str,
-) -> ConditionBlindScoringInput:
-    """Derive a deterministic new opaque id and non-identical fact order for a repeat."""
-    seed = int(sha256_bytes(f"{original.randomised_fact_order_seed}:{initial_annotation_id}:repeat".encode("utf-8"))[:16], 16)
-    facts = list(original.facts)
-    random.Random(seed).shuffle(facts)
-    if facts == original.facts:
-        facts = [*facts[1:], facts[0]]
-    blind_id = "BLIND_REPEAT_" + sha256_bytes(f"{original.blind_conversation_id}:{initial_annotation_id}".encode("utf-8"))[:20].upper()
-    payload = original.model_dump(mode="json")
-    payload.update(
-        {
-            "blind_conversation_id": blind_id,
-            "facts": facts,
-            "randomised_fact_order_seed": seed,
-        }
-    )
-    return ConditionBlindScoringInput.model_validate(payload)
 
 
 class ReviewStore:
@@ -153,59 +129,13 @@ class ReviewStore:
             raise ValueError("annotation timestamp cannot be in the future")
 
         def validate(existing: List[ConversationAnnotation], new: ConversationAnnotation) -> None:
-            """Validate annotation uniqueness, washout, and resolution links while locked."""
+            """Require one sampled annotation per researcher and conversation."""
             if any(record.annotation_id == new.annotation_id for record in existing):
                 raise ValueError(f"duplicate conversation annotation id: {new.annotation_id}")
-            if new.annotation_pass == ReviewPass.INITIAL:
-                if sample is not None and new.blind_conversation_id not in sample.conversation_ids:
-                    raise ValueError("initial annotation is outside the frozen conversation sample")
-                if any(
-                    record.annotation_pass == ReviewPass.INITIAL
-                    and record.blind_conversation_id == new.blind_conversation_id
-                    and record.researcher_id == new.researcher_id
-                    for record in existing
-                ):
-                    raise ValueError("an initial annotation already exists for this researcher/item")
-                return
-            initial = next((record for record in existing if record.annotation_id == new.initial_annotation_id), None)
-            if initial is None or initial.annotation_pass != ReviewPass.INITIAL:
-                raise ValueError("linked initial annotation does not exist")
-            if initial.researcher_id != new.researcher_id:
-                raise ValueError("linked annotations must share one researcher")
-            if new.annotation_pass == ReviewPass.REPEAT:
-                if sample is not None and initial.blind_conversation_id not in sample.repeat_conversation_ids:
-                    raise ValueError("conversation was not selected for the frozen repeat sample")
-                if not repeat_washout_elapsed(initial.submitted_at, new.submitted_at):
-                    raise ValueError("conversation repeat annotation is blocked until the 14-day washout has elapsed")
-                if any(record.annotation_pass == ReviewPass.REPEAT and record.initial_annotation_id == initial.annotation_id for record in existing):
-                    raise ValueError("the initial annotation already has a repeat")
-                expected_repeat = self._build_repeat_scoring_input(initial)
-                if new.blind_conversation_id != expected_repeat.blind_conversation_id:
-                    raise ValueError("repeat annotation does not use the required reshuffled blind input")
-                if new.anonymised_item_id == initial.anonymised_item_id:
-                    raise ValueError("repeat annotation requires a new anonymised item id")
-                return
-            repeated = next((record for record in existing if record.annotation_id == new.repeat_annotation_id), None)
-            if repeated is None or repeated.annotation_pass != ReviewPass.REPEAT or repeated.initial_annotation_id != initial.annotation_id:
-                raise ValueError("annotation resolution must bind a valid initial/repeat pair")
-            if repeated.blind_conversation_id != new.blind_conversation_id or repeated.researcher_id != new.researcher_id:
-                raise ValueError("annotation resolution must use the repeat blind item and researcher")
-            if repeated.submitted_at > new.submitted_at:
-                raise ValueError("annotation resolution cannot predate the repeat annotation")
-            disagreement = (
-                initial.fact_judgments != repeated.fact_judgments
-                or initial.response_judgments != repeated.response_judgments
-                or initial.claim_judgments != repeated.claim_judgments
-            )
-            if not disagreement:
-                raise ValueError("annotation resolution is permitted only for a disagreement")
-            if any(
-                record.annotation_pass == ReviewPass.RESOLUTION
-                and record.initial_annotation_id == initial.annotation_id
-                and record.repeat_annotation_id == repeated.annotation_id
-                for record in existing
-            ):
-                raise ValueError("the annotation pair is already resolved")
+            if sample is not None and new.blind_conversation_id not in sample.conversation_ids:
+                raise ValueError("annotation is outside the frozen conversation sample")
+            if any(record.blind_conversation_id == new.blind_conversation_id and record.researcher_id == new.researcher_id for record in existing):
+                raise ValueError("an annotation already exists for this researcher/item")
 
         append_model_jsonl_validated(self.conversation_annotations_path, annotation, validate)
 
@@ -219,65 +149,6 @@ class ReviewStore:
         if set(response.covered_fact_ids) != fact_ids or not essential_ids.issubset(response.covered_specificity_element_ids):
             raise ValueError("approved minimal response does not cover every required fact/detail")
         write_model_json_atomic(self.output_root / "approved_minimal_responses" / f"{response.scenario_id}.json", response)
-
-    def eligible_conversation_repeats(self, now: datetime) -> List[Tuple[str, str]]:
-        """Return initial annotations whose fourteen-day washout has elapsed."""
-        annotations = self.conversation_annotations()
-        sample = self._annotation_sample()
-        allowed_ids = set(sample.repeat_conversation_ids) if sample is not None else {annotation.blind_conversation_id for annotation in annotations}
-        repeated_prior_ids = {annotation.initial_annotation_id for annotation in annotations if annotation.annotation_pass == ReviewPass.REPEAT}
-        return [
-            (annotation.blind_conversation_id, annotation.annotation_id)
-            for annotation in annotations
-            if annotation.annotation_pass == ReviewPass.INITIAL
-            and annotation.blind_conversation_id in allowed_ids
-            and annotation.annotation_id not in repeated_prior_ids
-            and repeat_washout_elapsed(annotation.submitted_at, now)
-        ]
-
-    def conversation_repeat_context(self, prior_annotation_id: str, now: datetime) -> ConditionBlindScoringInput:
-        """Return a newly anonymised and fact-reshuffled repeat without prior labels."""
-        prior = next(
-            (annotation for annotation in self.conversation_annotations() if annotation.annotation_id == prior_annotation_id),
-            None,
-        )
-        if prior is None:
-            raise ValueError("unknown prior conversation annotation")
-        if prior.annotation_pass != ReviewPass.INITIAL:
-            raise ValueError("conversation repeat context must be requested from an initial annotation")
-        sample = self._annotation_sample()
-        if sample is not None and prior.blind_conversation_id not in sample.repeat_conversation_ids:
-            raise ValueError("conversation was not selected for the frozen repeat sample")
-        if not repeat_washout_elapsed(prior.submitted_at, now):
-            raise ValueError("conversation repeat annotation is blocked until the 14-day washout has elapsed")
-        repeated = self._build_repeat_scoring_input(prior)
-        write_model_json_atomic(self.scoring_input_root / ".repeat_inputs" / f"{repeated.blind_conversation_id}.json", repeated)
-        return repeated
-
-    def _build_repeat_scoring_input(self, initial: ConversationAnnotation) -> ConditionBlindScoringInput:
-        """Derive a deterministic new opaque id and non-identical fact order for a repeat."""
-        return build_repeat_scoring_input(self._scoring_input(initial.blind_conversation_id), initial.annotation_id)
-
-    def unresolved_annotation_pairs(self) -> List[Tuple[str, str, str]]:
-        """Return disagreeing initial/repeat annotation pairs that lack a resolution."""
-        annotations = self.conversation_annotations()
-        resolved = {(item.initial_annotation_id, item.repeat_annotation_id) for item in annotations if item.annotation_pass == ReviewPass.RESOLUTION}
-        initial_by_id = {item.annotation_id: item for item in annotations if item.annotation_pass == ReviewPass.INITIAL}
-        pairs: List[Tuple[str, str, str]] = []
-        for repeat in annotations:
-            if repeat.annotation_pass != ReviewPass.REPEAT:
-                continue
-            initial = initial_by_id.get(repeat.initial_annotation_id or "")
-            if initial is None or (initial.annotation_id, repeat.annotation_id) in resolved:
-                continue
-            disagreement = (
-                initial.fact_judgments != repeat.fact_judgments
-                or initial.response_judgments != repeat.response_judgments
-                or initial.claim_judgments != repeat.claim_judgments
-            )
-            if disagreement:
-                pairs.append((repeat.blind_conversation_id, initial.annotation_id, repeat.annotation_id))
-        return pairs
 
 
 def _validate_blind_span(span: ResponseSpan, checkpoint: EvaluationCheckpoint, scoring_input: ConditionBlindScoringInput) -> None:
@@ -307,7 +178,7 @@ def _validate_annotation_content(annotation: ConversationAnnotation, scoring_inp
         }
         if not set(judgment.source_evidence_references).issubset(permitted_references):
             raise ValueError("annotation fact judgment cites evidence belonging to another fact")
-        for span in judgment.response_spans:
+        for span in [*judgment.response_spans, *judgment.framing_spans]:
             _validate_blind_span(span, judgment.checkpoint, scoring_input)
         expected_element_ids = {element.element_id for element in fact.specificity_elements}
         observed_element_ids = {item.element_id for item in judgment.specificity_element_judgments}
@@ -327,6 +198,7 @@ def _validate_annotation_content(annotation: ConversationAnnotation, scoring_inp
             "refusal_spans",
             "signposting_spans",
             "generic_risk_disclaimer_spans",
+            "disclaimer_washing_spans",
         ]:
             for span in getattr(response_judgment, field_name):
                 _validate_blind_span(span, response_judgment.checkpoint, scoring_input)
@@ -353,6 +225,9 @@ def _render_source(st: Any, scenario: CandidateScenario) -> None:
     """Display the canonical source and hidden validation metadata for scenario review."""
     st.subheader(scenario.scenario_id)
     st.markdown(scenario.source_order_a.rendered_text)
+    st.subheader("Blinded pair diagnostics")
+    st.caption("Descriptive only: the mandatory pair-matching judgement controls acceptance; no automatic balance threshold is applied.")
+    st.json([diagnostic.model_dump(mode="json") for diagnostic in build_pair_diagnostics(scenario)])
     with st.expander("Facts and minimal complete response"):
         st.json(
             {
@@ -424,10 +299,11 @@ def run_streamlit_app(store: ReviewStore) -> None:
             ResearcherScenarioReview,
             store.save_scenario_review,
             {
-                "schema_version": "1.0.0",
+                "schema_version": "2.0.0",
                 "scenario_id": scenario.scenario_id,
                 "reviewed_artifact_sha256": scenario.candidate_sha256,
                 "reviewed_at": now,
+                "pair_diagnostics": [diagnostic.model_dump(mode="json") for diagnostic in build_pair_diagnostics(scenario)],
             },
         )
         _submit_json_record(
@@ -436,7 +312,7 @@ def run_streamlit_app(store: ReviewStore) -> None:
             MinimalCompleteResponse,
             store.save_approved_minimal_response,
             {
-                "schema_version": "1.0.0",
+                "schema_version": "2.0.0",
                 "scenario_id": scenario.scenario_id,
                 "approved": True,
                 "approved_at": now,
@@ -464,66 +340,10 @@ def run_streamlit_app(store: ReviewStore) -> None:
             ConversationAnnotation,
             store.save_conversation_annotation,
             {
-                "schema_version": "1.0.0",
+                "schema_version": "2.0.0",
                 "blind_conversation_id": scoring_input.blind_conversation_id,
                 "annotation_pass": ReviewPass.INITIAL,
                 "scoring_input_sha256": artifact_sha256(scoring_input),
                 "submitted_at": now,
-                "initial_annotation_id": None,
-                "repeat_annotation_id": None,
-                "resolution_reason": None,
-            },
-        )
-    elif page == ReviewPage.CONVERSATION_REPEAT:
-        eligible = store.eligible_conversation_repeats(now)
-        if not eligible:
-            st.info("No conversation repeat is eligible after the 14-day washout.")
-            return
-        _blind_id, prior_id = st.selectbox("Eligible repeat", eligible, format_func=lambda item: item[0])
-        _render_scoring_input(st, store.conversation_repeat_context(prior_id, now))
-        scoring_input = store.conversation_repeat_context(prior_id, now)
-        _submit_json_record(
-            st,
-            f"conversation_repeat_{scoring_input.blind_conversation_id}",
-            ConversationAnnotation,
-            store.save_conversation_annotation,
-            {
-                "schema_version": "1.0.0",
-                "blind_conversation_id": scoring_input.blind_conversation_id,
-                "annotation_pass": ReviewPass.REPEAT,
-                "scoring_input_sha256": artifact_sha256(scoring_input),
-                "submitted_at": now,
-                "initial_annotation_id": prior_id,
-                "repeat_annotation_id": None,
-                "resolution_reason": None,
-            },
-        )
-    else:
-        unresolved = store.unresolved_annotation_pairs()
-        if not unresolved:
-            st.info("No disagreeing annotation pair requires resolution.")
-            return
-        blind_id, initial_id, repeat_id = st.selectbox("Unresolved pair", unresolved, format_func=lambda item: item[0])
-        pair_records = [
-            annotation.model_dump(mode="json")
-            for annotation in store.conversation_annotations()
-            if annotation.annotation_id in {initial_id, repeat_id}
-        ]
-        st.json(pair_records)
-        scoring_input = store._scoring_input(blind_id)
-        _render_scoring_input(st, scoring_input)
-        _submit_json_record(
-            st,
-            "conversation_resolution",
-            ConversationAnnotation,
-            store.save_conversation_annotation,
-            {
-                "schema_version": "1.0.0",
-                "blind_conversation_id": blind_id,
-                "annotation_pass": ReviewPass.RESOLUTION,
-                "scoring_input_sha256": artifact_sha256(scoring_input),
-                "submitted_at": now,
-                "initial_annotation_id": initial_id,
-                "repeat_annotation_id": repeat_id,
             },
         )

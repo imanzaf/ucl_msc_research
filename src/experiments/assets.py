@@ -21,9 +21,9 @@ def render_confirmatory_table(
     intervals: Dict[str, Tuple[float, float]],
     adjusted_p_values: Dict[str, float],
 ) -> str:
-    """Render the three separate confirmatory estimands without a composite."""
+    """Render the two preregistered composite-score estimands."""
     rows = []
-    for name in ["H1", "H2a", "H2b"]:
+    for name in ["H1", "H2"]:
         lower, upper = intervals[name]
         rows.append(f"{_escape_latex(name)} & {estimates[name]:.3f} & [{lower:.3f}, {upper:.3f}] & {adjusted_p_values[name]:.3f} \\\\")
     body = "\n".join(rows)
@@ -46,14 +46,14 @@ def generate_paper_assets(
     adjusted_p_values: Dict[str, float],
 ) -> Tuple[Path, Path]:
     """Write stable LaTeX table and PDF figure filenames for risk_comm_v1."""
-    expected_names = {"H1", "H2a", "H2b"}
+    expected_names = {"H1", "H2"}
     if set(estimates) != expected_names or set(intervals) != expected_names or set(adjusted_p_values) != expected_names:
-        raise ValueError("paper assets require exactly H1, H2a, and H2b")
+        raise ValueError("paper assets require exactly H1 and H2")
     assets_dir.mkdir(parents=True, exist_ok=True)
     table_path = assets_dir / TABLE_FILENAME
     figure_path = assets_dir / FIGURE_FILENAME
     table_path.write_text(render_confirmatory_table(estimates, intervals, adjusted_p_values), encoding="utf-8")
-    labels = ["H1", "H2a", "H2b"]
+    labels = ["H1", "H2"]
     point_values = [estimates[label] for label in labels]
     lower_errors = [estimates[label] - intervals[label][0] for label in labels]
     upper_errors = [intervals[label][1] - estimates[label] for label in labels]

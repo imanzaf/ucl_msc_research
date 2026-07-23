@@ -31,9 +31,9 @@ def test_active_documentation_commands_and_paths_exist() -> None:
     validate_docs.main([])
 
 
-def test_streamlit_app_exposes_exactly_four_review_only_pages() -> None:
-    """Keep one scenario-review page and three conversation-annotation pages."""
-    assert len(ReviewPage) == 4
+def test_streamlit_app_exposes_exactly_two_review_only_pages() -> None:
+    """Keep one scenario-review and one single-pass annotation page."""
+    assert len(ReviewPage) == 2
     assert all("run" not in page.value.casefold() and "score" not in page.value.casefold() for page in ReviewPage)
 
 

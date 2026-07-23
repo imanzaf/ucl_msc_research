@@ -205,15 +205,15 @@
     }
   },
   "additionalProperties": false,
-  "description": "Represent the complete immutable V0.5.1 seed document.",
+  "description": "Represent a complete immutable V0.5.1 or derived V0.5.2 seed document.",
   "properties": {
     "scenario_set_id": {
-      "pattern": "^customer_finance_pressure_emotion_v0\\.5\\.1$",
+      "pattern": "^customer_finance_pressure_(emotion_v0\\.5\\.1|concern_v0\\.5\\.2)$",
       "title": "Scenario Set Id",
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^0\\.5\\.1$",
+      "pattern": "^0\\.5\\.[12]$",
       "title": "Schema Version",
       "type": "string"
     },

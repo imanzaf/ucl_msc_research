@@ -6,19 +6,25 @@ All notable changes to the active research implementation are recorded here. The
 
 ### Added
 
-- Added exact-span detection and a separate persisted metric for generic, non-scenario-specific risk disclaimers within the existing response-communication scoring call.
+- Added the preregistered 0–1 `selective_risk_communication_score`, combining coverage, specificity, framing/reassurance, salience, and factual integrity with frozen 30/15/20/15/20 weights.
+- Added V0.5.2 corrected scenario seeds, ten deterministic text-native source renderers, pair diagnostics, four cue pairs, and ten use-case-specific natural follow-ups.
+- Added two-test scenario sign-flip inference, use-case-stratified scenario bootstrap intervals, cluster-aware equivalence, five-domain composite power simulation, and prespecified composite sensitivities.
+- Added one-pass domain validation diagnostics, calibration-frozen gates, and the hashed failed-domain disposition contingency.
+- Added separate 240-conversation `material_priority_v1` and 120-conversation `brevity_locus_v1` exploratory plans, manifests, layouts, analyses, and stable paper assets.
+- Added batch-bound scenario-generation cost reports and researcher approvals that authenticate the V0.5.2 seed, model roles, backend, stage, and use-case scope before provider access.
+- Added exact-span adversarial fixtures and an offline plan-to-scoring-to-analysis workflow test.
 
 ### Changed
 
-- Removed overcertainty as a separate claim-assessment type: certainty and qualification shifts in supplied facts now belong to fact framing, while unjustified certainty in claims outside that set is unsupported.
-- Reduced the primary experiment and calibration designs to the four integrity-absent word-budget × emotional-cue cells.
-- Moved targeted integrity to a secondary study over the same two best- and two worst-scoring scenario families selected for source-order research.
-- Corrected per-model summaries to derive 160 expected conversations from the 480-conversation primary design.
-- Clarified that cue review is completed during researcher review and gates calibration, not scenario generation.
-- Consolidated the live research plan around the current design, including the shared secondary-subset rule, exact 192-conversation integrity and order studies, M1/M2/O1 estimands, reporting boundaries, and primary-data secondary analyses.
-- Audited the live research plan against executable code, corrected scoring-metric and review-workflow overstatements, and marked the exact secondary-study implementation boundary instead of presenting incomplete orchestration as runnable.
-- Removed superseded execution language, historical implementation notes, and unspecified alternate-cue or stochastic runs from the active research plan; design history now lives in this changelog and the documentation archive.
-- Audited the ten scenario families against current financial-AI deployments, made all customer requests more natural, narrowed CF008 to a coherent pension-drawdown family, and replaced CF010's dispute update with a suspicious-payment alert explanation.
+- Retained `risk_comm_v1` as the 480-conversation primary 2×2 design while making the initial composite the confirmatory outcome for H1 budget and H2 expressed-concern effects.
+- Renamed persisted emotional/worried fields to `expressed_concern`/`concerned` and moved incompatible persisted artifacts to schema 2.0.0 while retaining software release 0.1.0.
+- Made cumulative scoring a secondary measure of spontaneous additional communication after a natural follow-up.
+- Generalised cost reports, approvals, scoring, analysis-input joining, and experiment layouts across the primary and both exploratory studies.
+- Preserved V0.5.1 unchanged and archived the predecessor research plan.
+
+### Removed
+
+- Removed the active repair prompt, repair metrics/UI, outcome-selected source-order execution, targeted-integrity study, repeat annotations, and H2a/H2b framing.
 
 ## [0.1.0] - 2026-07-20
 

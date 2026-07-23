@@ -1,5 +1,15 @@
 {
   "$defs": {
+    "ExperimentName": {
+      "description": "Identify one independently manifested conversation experiment.",
+      "enum": [
+        "risk_comm_v1",
+        "material_priority_v1",
+        "brevity_locus_v1"
+      ],
+      "title": "ExperimentName",
+      "type": "string"
+    },
     "RetryPolicy": {
       "additionalProperties": false,
       "description": "Freeze retry count and backoff while prohibiting prompt mutation.",
@@ -63,9 +73,7 @@
       "type": "string"
     },
     "experiment_name": {
-      "pattern": "^risk_comm_v1$",
-      "title": "Experiment Name",
-      "type": "string"
+      "$ref": "#/$defs/ExperimentName"
     },
     "randomisation_seed": {
       "title": "Randomisation Seed",
@@ -80,7 +88,7 @@
       "type": "integer"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },

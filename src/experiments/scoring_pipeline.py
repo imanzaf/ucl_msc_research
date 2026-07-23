@@ -78,7 +78,7 @@ def build_condition_blind_input(
     ]
     blind_id = "BLIND_" + artifact_sha256({"run_unit_id": transcript.run_unit.run_unit_id, "seed": fact_order_seed})[:20].upper()
     return ConditionBlindScoringInput(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         blind_conversation_id=blind_id,
         visible_source_text=packet.rendered_text,
         visible_source_sha256=packet.rendered_sha256,

@@ -9,15 +9,16 @@ from typing import Dict, List, Optional
 from pydantic import Field, field_validator, model_validator
 
 from src.data_models.common import ImmutableModel, StrictModel, VersionedImmutableModel, artifact_sha256, sha256_bytes, validate_sha256
-from src.data_models.study import ExperimentCell, SourceOrderVariant
+from src.data_models.study import AMPLE_WORD_LIMIT, EXPERIMENT_DIMENSIONS, ExperimentCell, ExperimentName, SourceOrderVariant
 from src.scenarios.word_count import count_words
 
-EVALUATION_SCENARIO_COUNT = 40
-EVALUATED_MODEL_COUNT = 3
-SOURCE_ORDER_COUNT = 1
-CELL_COUNT = 4
-EXPECTED_CONVERSATION_COUNT = 480
-EXPECTED_AGENT_RESPONSE_COUNT = 960
+PRIMARY_DIMENSIONS = EXPERIMENT_DIMENSIONS[ExperimentName.RISK_COMM_V1]
+EVALUATION_SCENARIO_COUNT = PRIMARY_DIMENSIONS.scenario_count
+EVALUATED_MODEL_COUNT = PRIMARY_DIMENSIONS.evaluated_model_count
+SOURCE_ORDER_COUNT = PRIMARY_DIMENSIONS.source_order_count
+CELL_COUNT = PRIMARY_DIMENSIONS.cell_count
+EXPECTED_CONVERSATION_COUNT = PRIMARY_DIMENSIONS.conversation_count
+EXPECTED_AGENT_RESPONSE_COUNT = PRIMARY_DIMENSIONS.response_count
 
 
 def provider_request_sha256(messages: List[Dict[str, str]], model_id: str, temperature: float, max_tokens: int, seed: int) -> str:
@@ -90,8 +91,8 @@ class RetryPolicy(ImmutableModel):
 class ExperimentConfig(VersionedImmutableModel):
     """Snapshot the risk_comm_v1 execution contract before a run starts."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
-    experiment_name: str = Field(pattern=r"^risk_comm_v1$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    experiment_name: ExperimentName
     experiment_manifest_sha256: str
     scenario_count: int = Field(default=EVALUATION_SCENARIO_COUNT)
     evaluated_model_count: int = Field(default=EVALUATED_MODEL_COUNT)
@@ -112,19 +113,20 @@ class ExperimentConfig(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_target_counts(self) -> "ExperimentConfig":
-        """Refuse any config whose declared target does not equal the active design."""
+        """Refuse any config whose dimensions differ from its frozen design."""
         expected_conversations = self.scenario_count * self.evaluated_model_count * self.source_order_count * self.cell_count
-        if expected_conversations != self.expected_conversation_count or expected_conversations != EXPECTED_CONVERSATION_COUNT:
-            raise ValueError("risk_comm_v1 must contain exactly 480 conversations")
+        frozen_count = EXPERIMENT_DIMENSIONS[self.experiment_name].conversation_count
+        if expected_conversations != self.expected_conversation_count or expected_conversations != frozen_count:
+            raise ValueError(f"{self.experiment_name.value} must contain exactly {frozen_count} conversations")
         if self.expected_agent_response_count != expected_conversations * 2:
-            raise ValueError("risk_comm_v1 must contain exactly 960 agent responses")
+            raise ValueError("expected response count must be two per conversation")
         return self
 
 
 class CalibrationExperimentConfig(VersionedImmutableModel):
     """Snapshot the 120-conversation canonical-order calibration matrix."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     experiment_name: str = Field(pattern=r"^risk_comm_calibration_v1$")
     experiment_manifest_sha256: str
     scenario_count: int = Field(default=10, ge=10, le=10)
@@ -155,7 +157,7 @@ class PromptMessage(ImmutableModel):
 class RunUnit(VersionedImmutableModel):
     """Represent one randomised immutable scenario–model–order–cell assignment."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
     block_id: str = Field(pattern=r"^BLOCK_[A-F0-9]{16}$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
@@ -165,7 +167,7 @@ class RunUnit(VersionedImmutableModel):
     model_snapshot_sha256: str
     source_order: SourceOrderVariant
     cell: ExperimentCell
-    assigned_word_limit: int = Field(ge=80, le=240)
+    assigned_word_limit: Optional[int] = Field(default=None, ge=80, le=240)
     global_randomisation_seed: int
     block_randomisation_seed: int
     randomised_position: int = Field(ge=0, le=3)
@@ -295,7 +297,7 @@ class TranscriptTurn(ImmutableModel):
 class ConversationTranscript(VersionedImmutableModel):
     """Persist a terminal conversation result immediately after its run unit."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     run_unit: RunUnit
     outcome_status: RunOutcomeStatus
     turns: List[TranscriptTurn]
@@ -326,7 +328,7 @@ class ConversationTranscript(VersionedImmutableModel):
             if any(attempt.response_text is not None for attempt in attempts[:-1]):
                 raise ValueError("only the terminal provider attempt may succeed")
         initial_messages = [{"role": message.role.value, "content": message.content} for message in self.run_unit.initial_request_messages]
-        max_tokens = max(512, self.run_unit.assigned_word_limit * 4)
+        max_tokens = max(512, (self.run_unit.assigned_word_limit or AMPLE_WORD_LIMIT) * 4)
         expected_initial_request = provider_request_sha256(
             initial_messages,
             self.run_unit.model_id,
@@ -386,7 +388,7 @@ class RunProgress(StrictModel):
 class ModelSummary(VersionedImmutableModel):
     """Summarise completed, missing, and usage counts for one evaluated model."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     model_id: str = Field(min_length=1)
     expected_conversations: int = Field(gt=0)
     completed_conversations: int = Field(ge=0)

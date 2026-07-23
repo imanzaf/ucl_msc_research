@@ -95,7 +95,7 @@ def main() -> None:
     )
     analysis_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, check=True, capture_output=True, text=True).stdout.strip()
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "experiment_manifest_sha256": experiment.manifest_sha256,
         "experiment_config_sha256": artifact_sha256(config),
         "run_plan_sha256": file_sha256(args.run_plan),

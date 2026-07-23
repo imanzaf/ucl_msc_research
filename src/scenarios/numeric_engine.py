@@ -64,4 +64,4 @@ def compute_numeric_registry(inputs: List[NumericInput], calculations: List[Nume
                 calculation=calculation,
             )
         )
-    return NumericRegistry(schema_version="1.0.0", inputs=inputs, calculations=calculations, computed_values=computed)
+    return NumericRegistry(schema_version="2.0.0", inputs=inputs, calculations=calculations, computed_values=computed)

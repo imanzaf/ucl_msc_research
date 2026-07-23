@@ -27,7 +27,7 @@ def main() -> None:
     if preregistration.experiment_manifest_sha256 != experiment.manifest_sha256:
         raise ValueError("preregistration does not bind the supplied experiment")
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "preregistration_manifest_sha256": preregistration.manifest_sha256,
         "experiment_manifest_sha256": experiment.manifest_sha256,
         "deviations": read_model_jsonl(args.deviations, ProtocolDeviation),

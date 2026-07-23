@@ -1,4 +1,4 @@
-"""Build and atomically publish researcher-accepted V0.5.1 scenario bundles."""
+"""Build and atomically publish researcher-accepted versioned scenario bundles."""
 
 from __future__ import annotations
 
@@ -81,7 +81,7 @@ def build_accepted_scenario(
         raise ValueError("minimal response content changed after review; rebuild the candidate and rerun every review")
     review_history_sha256 = artifact_sha256(review_history)
     record_payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "scenario_id": candidate.scenario_id,
         "artifact_version": artifact_version,
         "candidate_sha256": candidate.candidate_sha256,
@@ -91,7 +91,7 @@ def build_accepted_scenario(
     }
     acceptance_record = ScenarioAcceptanceRecord.model_validate({**record_payload, "record_sha256": artifact_sha256(record_payload)})
     accepted_payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "artifact_version": artifact_version,
         "scenario_id": candidate.scenario_id,
         "use_case_id": candidate.use_case_id,

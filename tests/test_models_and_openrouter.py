@@ -93,7 +93,7 @@ def test_ci_paid_call_switch_fails_before_client_construction() -> None:
 def test_model_catalog_is_deliberately_draft_and_blocked_before_calibration() -> None:
     """Require exactly three diverse candidates but prevent use until snapshots freeze."""
     catalog = load_model_catalog()
-    assert catalog.schema_version == "1.0.0"
+    assert catalog.schema_version == "2.0.0"
     assert catalog.freeze_status == FreezeStatus.DRAFT
     assert len(catalog.evaluated_models) == 3
     assert len({model.provider for model in catalog.evaluated_models}) >= 2

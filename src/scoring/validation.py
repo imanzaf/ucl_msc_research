@@ -68,7 +68,7 @@ def validate_scoring_results(
         fact_specificity_by_id = {element.element_id: element for element in fact.specificity_elements}
         if not set(judgment.source_evidence_references).issubset(fact_source_ids | set(fact_specificity_by_id)):
             raise ValueError("fact assessment cites evidence belonging to another fact")
-        for span in judgment.response_spans:
+        for span in [*judgment.response_spans, *judgment.framing_spans]:
             _validate_checkpoint_span(judgment.checkpoint, span)
             validate_response_span(span, transcript)
         observed_specificity_ids = {item.element_id for item in judgment.specificity_element_judgments}
@@ -88,6 +88,7 @@ def validate_scoring_results(
             "refusal_spans",
             "signposting_spans",
             "generic_risk_disclaimer_spans",
+            "disclaimer_washing_spans",
         ]:
             for span in getattr(response_judgment, field_name):
                 _validate_checkpoint_span(response_judgment.checkpoint, span)

@@ -1,4 +1,4 @@
-"""Validate immutable V0.5.1 sources, model catalog, schemas, and active-code exclusions."""
+"""Validate immutable V0.5.2 sources, model catalog, schemas, and active protocol."""
 
 from __future__ import annotations
 
@@ -11,8 +11,10 @@ from jsonschema import Draft202012Validator
 from src.experiments.model_catalog import load_model_catalog
 from src.paths import REPO_ROOT
 from src.scenarios.seed_validation import load_and_validate_seed
+from src.scenarios.source_rendering import SOURCE_FORMAT_BY_USE_CASE
 
-SEED_ROOT = REPO_ROOT / "data" / "inputs" / "scenarios" / "v0.5.1"
+SEED_ROOT = REPO_ROOT / "data" / "inputs" / "scenarios" / "v0.5.2"
+LEGACY_SEED_ROOT = REPO_ROOT / "data" / "inputs" / "scenarios" / "v0.5.1"
 
 
 def validate_exported_schemas(schema_root: Path) -> int:
@@ -44,6 +46,15 @@ def main() -> None:
         seed_path=SEED_ROOT / "scenario_generation_seeds.json",
         schema_path=SEED_ROOT / "scenario_generation_seed_schema.json",
     )
+    legacy_seed = load_and_validate_seed(
+        seed_path=LEGACY_SEED_ROOT / "scenario_generation_seeds.json",
+        schema_path=LEGACY_SEED_ROOT / "scenario_generation_seed_schema.json",
+    )
+    expected_use_cases = {f"CF{index:03d}" for index in range(1, 11)}
+    if set(SOURCE_FORMAT_BY_USE_CASE) != expected_use_cases or len(set(SOURCE_FORMAT_BY_USE_CASE.values())) != 10:
+        raise ValueError("V0.5.2 requires one distinct deterministic source format for each use case")
+    if {item.use_case_id for item in seed.use_cases} != {item.use_case_id for item in legacy_seed.use_cases}:
+        raise ValueError("V0.5.2 must preserve the ten V0.5.1 use-case identifiers")
     catalog = load_model_catalog()
     schema_count = validate_exported_schemas(REPO_ROOT / "schemas")
     validate_removed_active_interfaces()

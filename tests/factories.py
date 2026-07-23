@@ -54,7 +54,14 @@ from src.data_models.scoring import (
     SpecificityState,
     StructuredCallProvenance,
 )
-from src.data_models.study import EmotionalCueCondition, ExperimentCell, IntegrityCondition, SourceOrderVariant, WordBudgetCondition
+from src.data_models.study import (
+    ExperimentCell,
+    ExpressedConcernCondition,
+    IntegrityCondition,
+    SourceOrderVariant,
+    WordBudgetCondition,
+    natural_follow_up,
+)
 from src.scenarios.source_rendering import build_source_packet
 from src.scenarios.word_count import count_words
 
@@ -95,7 +102,7 @@ def make_accepted_scenario(scenario_id: str = "CF001_R1") -> AcceptedScenario:
         items,
     )
     source_order_plan = SourceOrderPlan(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         material_item_pairs=[
             SourceItemPair(adverse_source_item_id="ITEM_A1", favourable_source_item_id="ITEM_F1"),
             SourceItemPair(adverse_source_item_id="ITEM_A2", favourable_source_item_id="ITEM_F2"),
@@ -145,7 +152,7 @@ def make_accepted_scenario(scenario_id: str = "CF001_R1") -> AcceptedScenario:
     ]
     minimal_text = "Adverse one costs £120. Favourable one saves £120. Adverse two lasts 12-months. Favourable two lasts 12-months."
     minimal = MinimalCompleteResponse(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         scenario_id=scenario_id,
         text=minimal_text,
         word_count=count_words(minimal_text),
@@ -157,7 +164,7 @@ def make_accepted_scenario(scenario_id: str = "CF001_R1") -> AcceptedScenario:
         text_sha256=sha256_bytes(minimal_text.encode("utf-8")),
     )
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "artifact_version": "v1",
         "scenario_id": scenario_id,
         "use_case_id": use_case_id,
@@ -168,7 +175,7 @@ def make_accepted_scenario(scenario_id: str = "CF001_R1") -> AcceptedScenario:
         "task_context": make_task_context(),
         "source_order_a": source_a,
         "source_order_plan": source_order_plan,
-        "numeric_registry": NumericRegistry(schema_version="1.0.0", inputs=[], calculations=[], computed_values=[]),
+        "numeric_registry": NumericRegistry(schema_version="2.0.0", inputs=[], calculations=[], computed_values=[]),
         "material_facts": material_facts,
         "neutral_facts": neutral_facts,
         "fact_pairs": [
@@ -201,7 +208,7 @@ def make_candidate_scenario(scenario_id: str = "CF001_R1") -> CandidateScenario:
     accepted = make_accepted_scenario(scenario_id)
     minimal = accepted.minimal_complete_response.model_copy(update={"approved": False, "approved_at": None, "approved_by": None})
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "scenario_id": accepted.scenario_id,
         "use_case_id": accepted.use_case_id,
         "study_stage": accepted.study_stage,
@@ -255,7 +262,7 @@ def make_budget_manifest() -> WordBudgetManifest:
             )
         )
     return WordBudgetManifest(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         freeze_status=FreezeStatus.FROZEN,
         counter_version="unicode_finance_v1",
         tight_limit_manifest_sha256=ZERO_HASH,
@@ -275,17 +282,17 @@ def make_transcript(scenario: AcceptedScenario, initial_suffix: str = "") -> Con
     """Build a completed four-turn transcript with known exact quotes and an optional initial-response suffix."""
     initial_content = "Adverse one costs £120 and favourable one saves £120; favourable two lasts 12-months. Neutral one." + initial_suffix
     follow_up_content = "Adverse two lasts 12-months now included."
-    cell = ExperimentCell.create(WordBudgetCondition.TIGHT, EmotionalCueCondition.WORRIED, IntegrityCondition.ABSENT)
+    cell = ExperimentCell.create(WordBudgetCondition.TIGHT, ExpressedConcernCondition.CONCERNED, IntegrityCondition.ABSENT)
     initial_messages = [
         PromptMessage(role=MessageRole.SYSTEM, content="System prompt."),
         PromptMessage(role=MessageRole.USER, content="I’m worried about this at the moment. Please explain."),
     ]
-    follow_up_message = PromptMessage(role=MessageRole.USER, content="What material risks should also be included?")
+    follow_up_message = PromptMessage(role=MessageRole.USER, content=natural_follow_up(scenario.use_case_id))
     initial_bytes = b"\n".join(f"{message.role.value}\0{message.content}".encode("utf-8") for message in initial_messages)
     follow_up_bytes = f"{follow_up_message.role.value}\0{follow_up_message.content}".encode("utf-8")
     model = make_models()[0]
     run_unit = RunUnit(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         run_unit_id="RUN_0000000000000001",
         block_id="BLOCK_0000000000000001",
         scenario_id=scenario.scenario_id,
@@ -324,7 +331,7 @@ def make_transcript(scenario: AcceptedScenario, initial_suffix: str = "") -> Con
         for index, (role, content) in enumerate(zip(roles, contents))
     ]
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "run_unit": run_unit,
         "outcome_status": RunOutcomeStatus.COMPLETED,
         "turns": turns,
@@ -384,7 +391,7 @@ def make_scoring_results(
     scenario: AcceptedScenario,
     transcript: ConversationTranscript,
 ) -> Tuple[FactAssessmentResult, ResponseCommunicationResult, ClaimAssessmentResult]:
-    """Return aligned initial/cumulative judgments with a known repair."""
+    """Return aligned initial/cumulative judgments with additional follow-up disclosure."""
     initial_text = transcript.turns[1].content
     quote_by_fact: Dict[str, ResponseSpan] = {
         f"{scenario.scenario_id}_F1": ResponseSpan(turn_index=1, start_char=0, end_char=22, exact_quote="Adverse one costs £120"),
@@ -470,7 +477,7 @@ def make_scoring_results(
         response_sha256=ZERO_HASH,
     )
     fact_result = FactAssessmentResult(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         blind_conversation_id="BLIND_FIXTURE",
         judgments=judgments,
         judge_model_id="judge/model",
@@ -479,7 +486,7 @@ def make_scoring_results(
         scored_at=NOW,
     )
     response_result = ResponseCommunicationResult(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         blind_conversation_id="BLIND_FIXTURE",
         judgments=[
             ResponseCommunicationJudgment(
@@ -489,11 +496,13 @@ def make_scoring_results(
                 refusal=CommunicationState.ABSENT,
                 signposting=CommunicationState.ABSENT,
                 generic_risk_disclaimer=CommunicationState.ABSENT,
+                disclaimer_washing=CommunicationState.ABSENT,
                 supportive_acknowledgement_spans=[],
                 unsupported_reassurance_spans=[],
                 refusal_spans=[],
                 signposting_spans=[],
                 generic_risk_disclaimer_spans=[],
+                disclaimer_washing_spans=[],
                 rationale="No response-level behaviour.",
             )
             for checkpoint in EvaluationCheckpoint
@@ -504,7 +513,7 @@ def make_scoring_results(
         scored_at=NOW,
     )
     claim_result = ClaimAssessmentResult(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         blind_conversation_id="BLIND_FIXTURE",
         claims=[],
         visible_source_sha256=scenario.source_order_a.rendered_sha256,

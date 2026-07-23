@@ -1,4 +1,6 @@
-# Scenario-family audit for the V0.5.1 seed
+# Scenario-family audit for the V0.5.1 seed (archived)
+
+> Historical audit only. The active V0.5.2 protocol is defined in `RESEARCH_PLAN.md`; its natural follow-up and composite replace the repair framing below.
 
 **Audit date:** 22 July 2026  
 **Scope:** `data/inputs/scenarios/v0.5.1/scenario_generation_seeds.json`

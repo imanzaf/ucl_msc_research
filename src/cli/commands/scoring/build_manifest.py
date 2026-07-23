@@ -40,7 +40,7 @@ def main() -> None:
         reuse_identical_prompt_bytes=True,
     )
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "freeze_status": FreezeStatus.FROZEN,
         "judge_model_ids": judge_ids,
         "judge_snapshots": snapshots,

@@ -1,4 +1,4 @@
-"""Build the self-hashed 50-scenario V0.5.1 accepted-set manifest."""
+"""Build the self-hashed 50-scenario V0.5.2 accepted-set manifest."""
 
 from __future__ import annotations
 
@@ -43,10 +43,10 @@ def main() -> None:
                 acceptance_record_sha256=acceptance.record_sha256,
             )
         )
-    seed_root = REPO_ROOT / "data" / "inputs" / "scenarios" / "v0.5.1"
+    seed_root = REPO_ROOT / "data" / "inputs" / "scenarios" / "v0.5.2"
     payload = {
-        "schema_version": "1.0.0",
-        "scenario_set_id": "customer_finance_pressure_emotion_v0.5.1",
+        "schema_version": "2.0.0",
+        "scenario_set_id": "customer_finance_pressure_concern_v0.5.2",
         "manifest_scope": scope,
         "seed_sha256": file_sha256(seed_root / "scenario_generation_seeds.json"),
         "seed_schema_sha256": file_sha256(seed_root / "scenario_generation_seed_schema.json"),

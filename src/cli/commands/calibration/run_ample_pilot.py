@@ -22,7 +22,7 @@ from src.data_models.manifests import (
     PromptReviewManifest,
 )
 from src.data_models.scenarios import AcceptedScenario
-from src.data_models.study import PILOT_WORD_LIMIT, EmotionalCueCondition, ExperimentCell, IntegrityCondition, WordBudgetCondition
+from src.data_models.study import PILOT_WORD_LIMIT, ExperimentCell, ExpressedConcernCondition, IntegrityCondition, WordBudgetCondition
 from src.experiments.io import load_accepted_calibration_scenarios
 from src.llm.openrouter import OpenRouterClient
 from src.prompts.experiment import compile_experiment_prompt
@@ -48,7 +48,7 @@ def _append_unique(path: Path, model: BaseModel, field_name: str) -> None:
     append_model_jsonl_validated(path, model, validate)
 
 
-def _messages(scenario: AcceptedScenario, cue: EmotionalCueCondition, integrity: IntegrityCondition) -> Tuple[List[Dict[str, str]], str]:
+def _messages(scenario: AcceptedScenario, cue: ExpressedConcernCondition, integrity: IntegrityCondition) -> Tuple[List[Dict[str, str]], str]:
     """Compile the exact 320-word pilot request without a follow-up turn."""
     cell = ExperimentCell.create(WordBudgetCondition.AMPLE, cue, integrity)
     messages, _follow_up, prompt_sha256, _follow_up_sha256 = compile_experiment_prompt(scenario, scenario.source_order_a, cell, PILOT_WORD_LIMIT)
@@ -79,6 +79,8 @@ def main() -> None:
         validate_model_self_hash(manifest, "manifest_sha256")
     if model_manifest.freeze_status != FreezeStatus.FROZEN or prompt_review.decision != CueReviewDecision.APPROVE:
         raise ValueError("ample pilot requires frozen model snapshots and an approved cue review")
+    if prompt_review.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
+        raise ValueError("prompt review does not bind the accepted calibration scenarios")
     scenarios = load_accepted_calibration_scenarios(args.accepted_root, accepted_manifest)
     if len(scenarios) != 10:
         raise ValueError("ample pilot requires exactly ten accepted C1 scenarios")
@@ -94,7 +96,7 @@ def main() -> None:
     maximum_attempts = retry_policy.max_retries + 1
     for scenario in sorted(scenarios, key=lambda item: item.scenario_id):
         for model in sorted(model_manifest.evaluated_models, key=lambda item: item.model_id):
-            for cue in EmotionalCueCondition:
+            for cue in ExpressedConcernCondition:
                 integrity = IntegrityCondition.ABSENT
                 record_id = _identifier("PILOT", scenario.scenario_id, model.model_id, cue.value, integrity.value)
                 messages, prompt_sha256 = _messages(scenario, cue, integrity)
@@ -109,7 +111,7 @@ def main() -> None:
                         "model_snapshot_sha256": artifact_sha256(model),
                         "prompt_review_manifest_sha256": prompt_review.manifest_sha256,
                         "expected_model_version": model.returned_model_version,
-                        "emotional_cue": cue,
+                        "expressed_concern": cue,
                         "integrity": integrity,
                         "prompt_sha256": prompt_sha256,
                         "request_sha256": request_digest,
@@ -133,7 +135,7 @@ def main() -> None:
                             )
                     except Exception as error:
                         attempt_payload = {
-                            "schema_version": "1.0.0",
+                            "schema_version": "2.0.0",
                             "attempt_id": _identifier("PILOTATTEMPT", record_id, str(attempt_number)),
                             "pilot_record_id": record_id,
                             "attempt_number": attempt_number,
@@ -157,7 +159,7 @@ def main() -> None:
                                 time.sleep(delay)
                         continue
                     record_payload = {
-                        "schema_version": "1.0.0",
+                        "schema_version": "2.0.0",
                         "pilot_record_id": record_id,
                         "scenario_id": scenario.scenario_id,
                         "use_case_id": scenario.use_case_id,
@@ -166,7 +168,7 @@ def main() -> None:
                         "prompt_review_manifest_sha256": prompt_review.manifest_sha256,
                         "expected_model_version": model.returned_model_version,
                         "returned_model_version": response.returned_model_version,
-                        "emotional_cue": cue,
+                        "expressed_concern": cue,
                         "integrity": integrity,
                         "pilot_word_limit": PILOT_WORD_LIMIT,
                         "output_text": response.text,

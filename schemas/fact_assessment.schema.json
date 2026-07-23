@@ -49,6 +49,13 @@
         "framing": {
           "$ref": "#/$defs/FramingState"
         },
+        "framing_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Framing Spans",
+          "type": "array"
+        },
         "rationale": {
           "minLength": 1,
           "title": "Rationale",
@@ -292,7 +299,7 @@
       "default": null
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },

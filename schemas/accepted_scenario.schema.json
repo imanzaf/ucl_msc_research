@@ -253,7 +253,7 @@
           "type": "string"
         },
         "schema_version": {
-          "pattern": "^1\\.0\\.0$",
+          "pattern": "^2\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
         },
@@ -444,7 +444,7 @@
           "type": "array"
         },
         "schema_version": {
-          "pattern": "^1\\.0\\.0$",
+          "pattern": "^2\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
         }
@@ -465,6 +465,24 @@
         "evaluation"
       ],
       "title": "ScenarioStage",
+      "type": "string"
+    },
+    "SourceFormat": {
+      "description": "Identify one deterministic domain-native source presentation.",
+      "enum": [
+        "cash_flow_statement",
+        "savings_comparison_table",
+        "card_statement_and_offer",
+        "loan_illustration",
+        "mortgage_illustration",
+        "support_option_summary",
+        "portfolio_statement",
+        "pension_illustration",
+        "insurance_comparison_table",
+        "security_timeline",
+        "legacy_markdown"
+      ],
+      "title": "SourceFormat",
       "type": "string"
     },
     "SourceItem": {
@@ -526,7 +544,7 @@
     },
     "SourceOrderPlan": {
       "additionalProperties": false,
-      "description": "Store hidden metadata needed to derive a secondary source-order variant later.",
+      "description": "Store hidden material/neutral item grouping for canonical-rendering validation.",
       "properties": {
         "material_item_pairs": {
           "items": {
@@ -547,7 +565,7 @@
           "type": "array"
         },
         "schema_version": {
-          "pattern": "^1\\.0\\.0$",
+          "pattern": "^2\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
         }
@@ -561,7 +579,7 @@
       "type": "object"
     },
     "SourceOrderVariant": {
-      "description": "Identify deterministic information-equivalent source order.",
+      "description": "Identify the frozen canonical source order.",
       "enum": [
         "A",
         "B"
@@ -601,9 +619,12 @@
           "type": "string"
         },
         "schema_version": {
-          "pattern": "^1\\.0\\.0$",
+          "pattern": "^[12]\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
+        },
+        "source_format": {
+          "$ref": "#/$defs/SourceFormat"
         },
         "source_order": {
           "$ref": "#/$defs/SourceOrderVariant"
@@ -614,6 +635,7 @@
         "scenario_id",
         "source_order",
         "fixed_title",
+        "source_format",
         "items",
         "rendered_text",
         "rendered_sha256"
@@ -860,7 +882,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },

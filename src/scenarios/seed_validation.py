@@ -1,4 +1,4 @@
-"""Validate immutable V0.5.1 seed ownership, identifiers, schema, and bytes."""
+"""Validate immutable V0.5.1/V0.5.2 seed ownership, schema, and bytes."""
 
 from __future__ import annotations
 
@@ -11,12 +11,22 @@ from jsonschema import Draft202012Validator
 from src.data_models.common import file_sha256
 from src.data_models.scenarios import ScenarioSeedSet
 
-EXPECTED_SEED_SHA256 = "ecf3e81761cd5dc6543bb5dd21a153ff8dff9813a937da90f2aa144c672b1b72"
-EXPECTED_SCHEMA_SHA256 = "7f2eba17550ad915177d15351bebb767898c138e023e149c75f69a7bd249dcfe"
+EXPECTED_HASHES = {
+    "v0.5.1": (
+        "ecf3e81761cd5dc6543bb5dd21a153ff8dff9813a937da90f2aa144c672b1b72",
+        "7f2eba17550ad915177d15351bebb767898c138e023e149c75f69a7bd249dcfe",
+    ),
+    "v0.5.2": (
+        "ce21fd98368a0f0719a5fdad0a4e5793510be58f4f7367d8339bec6fdbb3d389",
+        "480e40d7d05f38500ccc2bdfcd792c7ed1a8eb0583beba1c3ab15f4a5b28f130",
+    ),
+}
+EXPECTED_SEED_SHA256, EXPECTED_SCHEMA_SHA256 = EXPECTED_HASHES["v0.5.1"]
 FORBIDDEN_STUDY_KEYS = {
     "word_budget",
     "word_limit",
     "emotional_cue",
+    "expressed_concern",
     "worried_cue",
     "neutral_cue",
     "integrity_instruction",
@@ -49,10 +59,14 @@ def _collect_forbidden_keys(value: Any, path: str = "$") -> List[str]:
 def validate_seed_hashes(seed_path: Path, schema_path: Path) -> Dict[str, str]:
     """Require the imported seed and schema to match the supplied source bytes."""
     hashes = {"seed_sha256": file_sha256(seed_path), "schema_sha256": file_sha256(schema_path)}
-    if hashes["seed_sha256"] != EXPECTED_SEED_SHA256:
-        raise ValueError("V0.5.1 seed bytes differ from the approved supplied artifact")
-    if hashes["schema_sha256"] != EXPECTED_SCHEMA_SHA256:
-        raise ValueError("V0.5.1 seed schema bytes differ from the approved supplied artifact")
+    version = seed_path.parent.name
+    if version not in EXPECTED_HASHES:
+        raise ValueError(f"unsupported immutable seed version: {version}")
+    expected_seed, expected_schema = EXPECTED_HASHES[version]
+    if hashes["seed_sha256"] != expected_seed:
+        raise ValueError(f"{version} seed bytes differ from the approved artifact")
+    if hashes["schema_sha256"] != expected_schema:
+        raise ValueError(f"{version} seed schema bytes differ from the approved artifact")
     return hashes
 
 

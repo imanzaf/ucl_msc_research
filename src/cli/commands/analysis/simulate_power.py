@@ -17,7 +17,9 @@ from src.storage import read_model_json, write_model_json_atomic
 def _components(values: PowerVarianceComponents, model_multiplier: float = 1.0, scoring_multiplier: float = 1.0) -> VarianceComponents:
     """Convert frozen Decimal components into simulation inputs with declared stress multipliers."""
     return VarianceComponents(
-        use_case_standard_deviation=float(values.use_case_standard_deviation),
+        cue_template_standard_deviation=float(values.cue_template_standard_deviation),
+        pair_standard_deviation=float(values.pair_standard_deviation),
+        fact_standard_deviation=float(values.fact_standard_deviation),
         scenario_standard_deviation=float(values.scenario_standard_deviation),
         model_standard_deviation=float(values.model_standard_deviation) * model_multiplier,
         scoring_error_standard_deviation=float(values.scoring_error_standard_deviation) * scoring_multiplier,
@@ -34,7 +36,7 @@ def _simulate(
     scoring_multiplier: float = 1.0,
 ) -> Dict[str, float]:
     """Run one base or stressed repeated-design power surface."""
-    components = {name: _components(values, model_multiplier, scoring_multiplier) for name, values in assumptions.variance_components.items()}
+    components = _components(assumptions.variance_components, model_multiplier, scoring_multiplier)
     return simulate_holm_corrected_power(effects, components, simulations, alpha, seed)
 
 
@@ -63,7 +65,7 @@ def main() -> None:
         "high_scoring_error": _simulate(effects, assumptions, args.simulations, args.alpha, args.seed + 200, scoring_multiplier=1.5),
     }
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "power_assumption_manifest_sha256": assumptions.manifest_sha256,
         "smallest_effect_manifest_sha256": smallest.manifest_sha256,
         "simulations": args.simulations,

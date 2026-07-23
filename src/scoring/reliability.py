@@ -7,12 +7,91 @@ from decimal import Decimal
 from math import isnan
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from sklearn.metrics import cohen_kappa_score, precision_score, recall_score
+import numpy as np
+from sklearn.metrics import cohen_kappa_score, confusion_matrix, f1_score, precision_score, recall_score
 
 from src.data_models.common import artifact_sha256
-from src.data_models.scoring import ClaimAssessmentJudgment, ClaimErrorType, FailedConstructAction, ScoringValidationReport
+from src.data_models.scoring import (
+    ClaimAssessmentJudgment,
+    ClaimErrorType,
+    CompositeDomain,
+    DomainValidationDiagnostics,
+    DomainValidationGate,
+    ScoringValidationReport,
+)
 
 CLAIM_SPAN_OVERLAP_THRESHOLD = Decimal("0.5")
+
+
+def _clustered_agreement_interval(
+    reference: Sequence[str],
+    predicted: Sequence[str],
+    cluster_ids: Sequence[str],
+    seed: int,
+    draws: int = 2_000,
+) -> List[Decimal]:
+    """Bootstrap exact agreement by blinded conversation cluster."""
+    if len(reference) != len(predicted) or len(reference) != len(cluster_ids) or not reference:
+        raise ValueError("agreement interval requires nonempty aligned labels and clusters")
+    unique_clusters = sorted(set(cluster_ids))
+    indices = {cluster: [index for index, value in enumerate(cluster_ids) if value == cluster] for cluster in unique_clusters}
+    generator = np.random.default_rng(seed)
+    estimates = []
+    for _ in range(draws):
+        sampled = generator.choice(unique_clusters, size=len(unique_clusters), replace=True)
+        selected = [index for cluster in sampled for index in indices[str(cluster)]]
+        estimates.append(sum(reference[index] == predicted[index] for index in selected) / len(selected))
+    lower, upper = np.quantile(np.asarray(estimates), [0.025, 0.975])
+    return [Decimal(str(lower)), Decimal(str(upper))]
+
+
+def build_domain_validation_diagnostics(
+    reference: Sequence[str],
+    predicted: Sequence[str],
+    cluster_ids: Sequence[str],
+    positive_labels: Sequence[str],
+    gate: DomainValidationGate,
+    seed: int,
+    salience_absolute_error: Optional[Decimal] = None,
+    invalid_output_count: int = 0,
+) -> DomainValidationDiagnostics:
+    """Calculate complete blinded diagnostics and apply one frozen domain gate."""
+    if len(reference) != len(predicted) or len(reference) != len(cluster_ids) or not reference:
+        raise ValueError("domain validation requires nonempty aligned reference and predicted labels")
+    labels = sorted(set(reference) | set(predicted))
+    matrix = confusion_matrix(reference, predicted, labels=labels)
+    nested_matrix = {
+        reference_label: {predicted_label: int(matrix[row, column]) for column, predicted_label in enumerate(labels)}
+        for row, reference_label in enumerate(labels)
+    }
+    agreement = Decimal(sum(left == right for left, right in zip(reference, predicted))) / Decimal(len(reference))
+    precision = Decimal(str(precision_score(reference, predicted, labels=labels, average="macro", zero_division=0)))
+    recall = Decimal(str(recall_score(reference, predicted, labels=labels, average="macro", zero_division=0)))
+    f1 = Decimal(str(f1_score(reference, predicted, labels=labels, average="macro", zero_division=0)))
+    positive = set(positive_labels)
+    prevalence = Decimal(sum(label in positive for label in reference)) / Decimal(len(reference))
+    passed = (
+        agreement >= gate.minimum_agreement
+        and precision >= gate.minimum_precision
+        and recall >= gate.minimum_recall
+        and f1 >= gate.minimum_f1
+        and invalid_output_count <= gate.maximum_invalid_output_count
+    )
+    if gate.maximum_salience_absolute_error is not None:
+        passed = passed and salience_absolute_error is not None and salience_absolute_error <= gate.maximum_salience_absolute_error
+    return DomainValidationDiagnostics(
+        prevalence=prevalence,
+        agreement=agreement,
+        confusion_matrix=nested_matrix,
+        precision=precision,
+        recall=recall,
+        f1=f1,
+        salience_absolute_error=salience_absolute_error,
+        invalid_output_count=invalid_output_count,
+        sample_size=len(reference),
+        uncertainty_interval=_clustered_agreement_interval(reference, predicted, cluster_ids, seed),
+        gate_passed=passed,
+    )
 
 
 def _claim_match(reference: ClaimAssessmentJudgment, predicted: ClaimAssessmentJudgment) -> bool:
@@ -83,49 +162,24 @@ def binary_recall(reference: Sequence[int], predicted: Sequence[int]) -> Decimal
 
 
 def build_scoring_validation_report(
-    intra_rater_disclosure_weighted_kappa: Decimal,
-    judge_reference_disclosure_weighted_kappa: Decimal,
-    omission_recall: Decimal,
-    false_claim_precision: Decimal,
-    false_claim_recall: Decimal,
-    framing_kappa: Optional[Decimal],
-    reassurance_kappa: Optional[Decimal],
-    framing_used_in_headline: bool,
-    reassurance_used_in_headline: bool,
-    failed_construct_actions: Dict[str, FailedConstructAction],
+    domain_diagnostics: Dict[CompositeDomain, DomainValidationDiagnostics],
+    sample_size: int,
+    domain_gate_manifest_sha256: str,
     validation_sample_manifest_sha256: str,
     generated_at: datetime,
 ) -> ScoringValidationReport:
-    """Apply all hard gates and require blinded disposition of every failed construct."""
-    gates = {
-        "intra_rater_disclosure": intra_rater_disclosure_weighted_kappa >= Decimal("0.75"),
-        "judge_reference_disclosure": judge_reference_disclosure_weighted_kappa >= Decimal("0.70"),
-        "omission_recall": omission_recall >= Decimal("0.85"),
-        "false_claim_precision": false_claim_precision >= Decimal("0.80"),
-        "false_claim_recall": false_claim_recall >= Decimal("0.80"),
-    }
-    if framing_used_in_headline:
-        gates["framing"] = framing_kappa is not None and framing_kappa >= Decimal("0.60")
-    if reassurance_used_in_headline:
-        gates["reassurance"] = reassurance_kappa is not None and reassurance_kappa >= Decimal("0.60")
-    failed = sorted(name for name, passed in gates.items() if not passed)
-    passed = sorted(name for name, passed in gates.items() if passed)
-    if set(failed_construct_actions) != set(failed):
-        raise ValueError("failed constructs must be assigned full manual scoring, exploratory demotion, or removal while blinded")
+    """Persist every frozen-domain diagnostic before any treatment labels are joined."""
+    passed = sorted((domain for domain, values in domain_diagnostics.items() if values.gate_passed), key=lambda item: item.value)
+    failed = sorted((domain for domain in CompositeDomain if domain not in passed), key=lambda item: item.value)
     payload = {
-        "schema_version": "1.0.0",
-        "intra_rater_disclosure_weighted_kappa": intra_rater_disclosure_weighted_kappa,
-        "judge_reference_disclosure_weighted_kappa": judge_reference_disclosure_weighted_kappa,
-        "omission_recall": omission_recall,
-        "false_claim_precision": false_claim_precision,
-        "false_claim_recall": false_claim_recall,
-        "framing_kappa": framing_kappa,
-        "reassurance_kappa": reassurance_kappa,
-        "framing_used_in_headline": framing_used_in_headline,
-        "reassurance_used_in_headline": reassurance_used_in_headline,
-        "passed_constructs": passed,
-        "failed_constructs": failed,
-        "failed_construct_actions": failed_construct_actions,
+        "schema_version": "2.0.0",
+        "sample_size": sample_size,
+        "annotation_count_per_conversation": 1,
+        "domain_diagnostics": domain_diagnostics,
+        "passed_domains": passed,
+        "failed_domains": failed,
+        "invalid_output_count": sum(values.invalid_output_count for values in domain_diagnostics.values()),
+        "domain_gate_manifest_sha256": domain_gate_manifest_sha256,
         "validation_sample_manifest_sha256": validation_sample_manifest_sha256,
         "generated_at": generated_at,
     }

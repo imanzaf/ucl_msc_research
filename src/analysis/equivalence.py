@@ -1,41 +1,39 @@
-"""Two one-sided equivalence checks against preregistered smallest effects."""
+"""Cluster-aware 90% bootstrap intervals for equivalence decisions."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 import numpy as np
-from scipy import stats
+import pandas as pd
+
+from src.analysis.bootstrap import resample_scenarios_within_use_case
+from src.analysis.estimands import estimate_confirmatory_contrasts
 
 
 @dataclass(frozen=True)
 class EquivalenceResult:
-    """Return TOST p-values and whether both one-sided tests reject."""
+    """Return a 90% scenario-cluster interval and its bound decision."""
 
-    lower_p_value: float
-    upper_p_value: float
+    lower_interval: float
+    upper_interval: float
     equivalent: bool
 
 
-def two_one_sided_test(values: np.ndarray, lower_bound: float, upper_bound: float, alpha: float = 0.05) -> EquivalenceResult:
-    """Test whether a paired-effect distribution lies inside fixed equivalence bounds."""
-    if values.ndim != 1 or len(values) < 2:
-        raise ValueError("equivalence test requires at least two one-dimensional observations")
+def cluster_bootstrap_equivalence(
+    frame: pd.DataFrame,
+    estimand: str,
+    lower_bound: float,
+    upper_bound: float,
+    draws: int = 10_000,
+    seed: int = 7,
+) -> EquivalenceResult:
+    """Declare equivalence only when the cluster-aware 90% interval lies inside bounds."""
     if lower_bound >= upper_bound:
         raise ValueError("lower equivalence bound must be below upper bound")
-    standard_error = float(stats.sem(values))
-    if standard_error == 0:
-        mean_value = float(np.mean(values))
-        equivalent = lower_bound < mean_value < upper_bound
-        return EquivalenceResult(0.0 if mean_value > lower_bound else 1.0, 0.0 if mean_value < upper_bound else 1.0, equivalent)
-    degrees_of_freedom = len(values) - 1
-    mean_value = float(np.mean(values))
-    lower_statistic = (mean_value - lower_bound) / standard_error
-    upper_statistic = (mean_value - upper_bound) / standard_error
-    lower_p_value = float(stats.t.sf(lower_statistic, degrees_of_freedom))
-    upper_p_value = float(stats.t.cdf(upper_statistic, degrees_of_freedom))
-    return EquivalenceResult(
-        lower_p_value=lower_p_value,
-        upper_p_value=upper_p_value,
-        equivalent=lower_p_value < alpha and upper_p_value < alpha,
-    )
+    if draws < 1:
+        raise ValueError("equivalence bootstrap draws must be positive")
+    generator = np.random.default_rng(seed)
+    estimates = np.array([estimate_confirmatory_contrasts(resample_scenarios_within_use_case(frame, generator))[estimand] for _ in range(draws)])
+    lower, upper = (float(value) for value in np.quantile(estimates, [0.05, 0.95]))
+    return EquivalenceResult(lower, upper, lower_bound < lower and upper < upper_bound)

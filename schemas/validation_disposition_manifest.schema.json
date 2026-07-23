@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "CompositeDomain": {
+      "description": "Identify one domain in the frozen confirmatory composite.",
+      "enum": [
+        "coverage",
+        "specificity",
+        "framing",
+        "salience",
+        "integrity"
+      ],
+      "title": "CompositeDomain",
+      "type": "string"
+    },
+    "FailedConstructAction": {
+      "description": "Identify the blinded disposition for a scoring construct that fails validation.",
+      "enum": [
+        "full_manual_scoring",
+        "remove_and_renormalise",
+        "withhold_confirmatory_inference"
+      ],
+      "title": "FailedConstructAction",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Bind blinded failed-domain dispositions to the resulting score definition.",
+  "properties": {
+    "blinded_diagnostics_sha256": {
+      "title": "Blinded Diagnostics Sha256",
+      "type": "string"
+    },
+    "confirmatory_inference_withheld": {
+      "title": "Confirmatory Inference Withheld",
+      "type": "boolean"
+    },
+    "decided_at": {
+      "format": "date-time",
+      "title": "Decided At",
+      "type": "string"
+    },
+    "dispositions": {
+      "additionalProperties": {
+        "$ref": "#/$defs/FailedConstructAction"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/CompositeDomain"
+      },
+      "title": "Dispositions",
+      "type": "object"
+    },
+    "effect_estimates_available_when_decided": {
+      "default": false,
+      "title": "Effect Estimates Available When Decided",
+      "type": "boolean"
+    },
+    "failed_domains": {
+      "items": {
+        "$ref": "#/$defs/CompositeDomain"
+      },
+      "title": "Failed Domains",
+      "type": "array"
+    },
+    "manifest_sha256": {
+      "title": "Manifest Sha256",
+      "type": "string"
+    },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "researcher_id": {
+      "minLength": 1,
+      "title": "Researcher Id",
+      "type": "string"
+    },
+    "resulting_weights": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "type": "string"
+          }
+        ]
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/CompositeDomain"
+      },
+      "title": "Resulting Weights",
+      "type": "object"
+    },
+    "schema_version": {
+      "pattern": "^2\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "treatment_labels_available_when_decided": {
+      "default": false,
+      "title": "Treatment Labels Available When Decided",
+      "type": "boolean"
+    },
+    "validation_report_sha256": {
+      "title": "Validation Report Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "validation_report_sha256",
+    "blinded_diagnostics_sha256",
+    "failed_domains",
+    "dispositions",
+    "resulting_weights",
+    "confirmatory_inference_withheld",
+    "researcher_id",
+    "rationale",
+    "decided_at",
+    "manifest_sha256"
+  ],
+  "title": "ValidationDispositionManifest",
+  "type": "object"
+}

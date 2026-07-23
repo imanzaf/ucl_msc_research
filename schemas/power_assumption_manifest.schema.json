@@ -13,6 +13,32 @@
       "additionalProperties": false,
       "description": "Freeze calibration-derived variance at every repeated-design level.",
       "properties": {
+        "cue_template_standard_deviation": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Cue Template Standard Deviation"
+        },
+        "fact_standard_deviation": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Fact Standard Deviation"
+        },
         "model_standard_deviation": {
           "anyOf": [
             {
@@ -25,6 +51,19 @@
             }
           ],
           "title": "Model Standard Deviation"
+        },
+        "pair_standard_deviation": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Pair Standard Deviation"
         },
         "scenario_standard_deviation": {
           "anyOf": [
@@ -51,23 +90,12 @@
             }
           ],
           "title": "Scoring Error Standard Deviation"
-        },
-        "use_case_standard_deviation": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Use Case Standard Deviation"
         }
       },
       "required": [
-        "use_case_standard_deviation",
+        "cue_template_standard_deviation",
+        "pair_standard_deviation",
+        "fact_standard_deviation",
         "scenario_standard_deviation",
         "model_standard_deviation",
         "scoring_error_standard_deviation"
@@ -77,7 +105,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Freeze pre-evaluation variance assumptions for all three power simulations.",
+  "description": "Freeze pre-evaluation variance assumptions for the composite estimator.",
   "properties": {
     "calibration_source_sha256": {
       "title": "Calibration Source Sha256",
@@ -117,7 +145,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -126,13 +154,7 @@
       "type": "string"
     },
     "variance_components": {
-      "additionalProperties": {
-        "$ref": "#/$defs/PowerVarianceComponents"
-      },
-      "maxProperties": 3,
-      "minProperties": 3,
-      "title": "Variance Components",
-      "type": "object"
+      "$ref": "#/$defs/PowerVarianceComponents"
     }
   },
   "required": [

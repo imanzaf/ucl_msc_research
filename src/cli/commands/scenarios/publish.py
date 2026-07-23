@@ -1,4 +1,4 @@
-"""Build and atomically publish one fully reviewed V0.5.1 scenario bundle."""
+"""Build and atomically publish one fully reviewed V0.5.2 scenario bundle."""
 
 from __future__ import annotations
 
@@ -25,13 +25,13 @@ def main() -> None:
     parser.add_argument("--accepted-by", required=True)
     parser.add_argument("--artifact-version", default="v1")
     args = parser.parse_args()
-    expected_accepted_root = (REPO_ROOT / "data/inputs/scenarios/v0.5.1/accepted").resolve()
+    expected_accepted_root = (REPO_ROOT / "data/inputs/scenarios/v0.5.2/accepted").resolve()
     if args.accepted_root.resolve() != expected_accepted_root:
-        raise ValueError("accepted scenarios must publish only under data/inputs/scenarios/v0.5.1/accepted")
+        raise ValueError("accepted scenarios must publish only under data/inputs/scenarios/v0.5.2/accepted")
 
     candidate = read_model_json(args.candidate, CandidateScenario)
     history = ScenarioReviewHistory(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         scenario_id=candidate.scenario_id,
         automated_reviews=read_model_jsonl(args.automated_reviews, AutomatedScenarioReview),
         revisions=read_model_jsonl(args.revision_cycles, RevisionCycleRecord),

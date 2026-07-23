@@ -1,4 +1,4 @@
-"""Strict V0.5.1 seed, generated-scenario, and accepted-artifact models."""
+"""Strict V0.5.2 seed, generated-scenario, and accepted-artifact models."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from pydantic import Field, field_validator, model_validator
 from src.data_models.common import ImmutableModel, VersionedImmutableModel, artifact_sha256, sha256_bytes, validate_sha256
 from src.data_models.experiments import ProviderCallProvenance
 from src.data_models.study import SourceOrderVariant
+from src.scenarios.rendering_templates import render_text_native_source
 from src.scenarios.word_count import count_words
 
 SCENARIO_ID_PATTERN = re.compile(r"^CF\d{3}_(C1|R[1-4])$")
@@ -38,6 +39,22 @@ class FactValence(str, Enum):
 
     ADVERSE = "adverse"
     FAVOURABLE = "favourable"
+
+
+class SourceFormat(str, Enum):
+    """Identify one deterministic domain-native source presentation."""
+
+    CASH_FLOW_STATEMENT = "cash_flow_statement"
+    SAVINGS_COMPARISON_TABLE = "savings_comparison_table"
+    CARD_STATEMENT_AND_OFFER = "card_statement_and_offer"
+    LOAN_ILLUSTRATION = "loan_illustration"
+    MORTGAGE_ILLUSTRATION = "mortgage_illustration"
+    SUPPORT_OPTION_SUMMARY = "support_option_summary"
+    PORTFOLIO_STATEMENT = "portfolio_statement"
+    PENSION_ILLUSTRATION = "pension_illustration"
+    INSURANCE_COMPARISON_TABLE = "insurance_comparison_table"
+    SECURITY_TIMELINE = "security_timeline"
+    LEGACY_MARKDOWN = "legacy_markdown"
 
 
 class SpecificityElementType(str, Enum):
@@ -121,10 +138,10 @@ class UseCaseSeed(ImmutableModel):
 
 
 class ScenarioSeedSet(VersionedImmutableModel):
-    """Represent the complete immutable V0.5.1 seed document."""
+    """Represent a complete immutable V0.5.1 or derived V0.5.2 seed document."""
 
-    schema_version: str = Field(pattern=r"^0\.5\.1$")
-    scenario_set_id: str = Field(pattern=r"^customer_finance_pressure_emotion_v0\.5\.1$")
+    schema_version: str = Field(pattern=r"^0\.5\.[12]$")
+    scenario_set_id: str = Field(pattern=r"^customer_finance_pressure_(emotion_v0\.5\.1|concern_v0\.5\.2)$")
     use_cases: List[UseCaseSeed] = Field(min_length=10, max_length=10)
 
     @model_validator(mode="after")
@@ -137,6 +154,8 @@ class ScenarioSeedSet(VersionedImmutableModel):
         scenario_ids = [replication.scenario_id for use_case in self.use_cases for replication in use_case.replications]
         if len(scenario_ids) != 50 or len(set(scenario_ids)) != 50:
             raise ValueError("seed must contain exactly 50 unique scenario ids")
+        if not self.scenario_set_id.endswith(self.schema_version):
+            raise ValueError("scenario set id must bind the exact seed version")
         return self
 
 
@@ -197,7 +216,7 @@ class ComputedNumericValue(ImmutableModel):
 class NumericRegistry(VersionedImmutableModel):
     """Collect raw and computed numeric values for one scenario."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     inputs: List[NumericInput]
     calculations: List[NumericCalculation]
     computed_values: List[ComputedNumericValue]
@@ -228,9 +247,9 @@ class SourceItemPair(ImmutableModel):
 
 
 class SourceOrderPlan(VersionedImmutableModel):
-    """Store hidden metadata needed to derive a secondary source-order variant later."""
+    """Store hidden material/neutral item grouping for canonical-rendering validation."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     material_item_pairs: List[SourceItemPair] = Field(min_length=2, max_length=2)
     neutral_source_item_ids: List[str] = Field(min_length=2, max_length=2)
 
@@ -250,10 +269,11 @@ class SourceOrderPlan(VersionedImmutableModel):
 class SourcePacket(VersionedImmutableModel):
     """Represent one deterministic source-order rendering."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^[12]\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     source_order: SourceOrderVariant
     fixed_title: str = Field(min_length=1)
+    source_format: SourceFormat
     items: List[SourceItem] = Field(min_length=6)
     rendered_text: str = Field(min_length=1)
     rendered_sha256: str
@@ -270,7 +290,11 @@ class SourcePacket(VersionedImmutableModel):
         item_ids = [item.source_item_id for item in self.items]
         if len(item_ids) != len(set(item_ids)):
             raise ValueError("source packet item ids must be unique")
-        expected_text = "\n\n".join([f"# {self.fixed_title}", *[f"## {item.header}\n{item.body}" for item in self.items]])
+        expected_text = render_text_native_source(
+            self.source_format.value,
+            self.fixed_title,
+            [(item.header, item.body) for item in self.items],
+        )
         if self.rendered_text != expected_text:
             raise ValueError("source packet rendered_text does not match its title/items")
         if self.rendered_sha256 != sha256_bytes(expected_text.encode("utf-8")):
@@ -354,7 +378,7 @@ class FactPair(ImmutableModel):
 class MinimalCompleteResponse(VersionedImmutableModel):
     """Store the approved facts-only feasibility response and frozen word count."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     text: str = Field(min_length=1)
     word_count: int = Field(gt=0)
@@ -388,7 +412,7 @@ class MinimalCompleteResponse(VersionedImmutableModel):
 class CandidateScenario(VersionedImmutableModel):
     """Represent the rebuilt scenario candidate before researcher acceptance."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     study_stage: ScenarioStage
@@ -425,7 +449,7 @@ class CandidateScenario(VersionedImmutableModel):
 class AcceptedScenario(VersionedImmutableModel):
     """Represent the only scenario artifact accepted by evaluation loaders."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     artifact_version: str = Field(pattern=r"^v[1-9][0-9]*$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")

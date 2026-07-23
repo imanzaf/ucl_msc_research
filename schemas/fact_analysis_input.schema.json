@@ -1,14 +1,5 @@
 {
   "$defs": {
-    "EmotionalCueCondition": {
-      "description": "Identify the single visible opening-cue condition.",
-      "enum": [
-        "neutral",
-        "worried"
-      ],
-      "title": "EmotionalCueCondition",
-      "type": "string"
-    },
     "EvaluationCheckpoint": {
       "description": "Identify initial-only versus cumulative communication checkpoints.",
       "enum": [
@@ -16,6 +7,16 @@
         "cumulative"
       ],
       "title": "EvaluationCheckpoint",
+      "type": "string"
+    },
+    "ExpressedConcernCondition": {
+      "description": "Identify whether the user expresses concern in the opening cue.",
+      "enum": [
+        "neutral",
+        "concerned",
+        "concerned"
+      ],
+      "title": "ExpressedConcernCondition",
       "type": "string"
     },
     "FactValence": {
@@ -28,7 +29,7 @@
       "type": "string"
     },
     "IntegrityCondition": {
-      "description": "Identify whether the targeted mitigation is present.",
+      "description": "Retain the legacy field boundary without an active integrity treatment.",
       "enum": [
         "absent",
         "targeted"
@@ -37,7 +38,7 @@
       "type": "string"
     },
     "SourceOrderVariant": {
-      "description": "Identify deterministic information-equivalent source order.",
+      "description": "Identify the frozen canonical source order.",
       "enum": [
         "A",
         "B"
@@ -49,7 +50,8 @@
       "description": "Identify the assigned response-length condition.",
       "enum": [
         "ample",
-        "tight"
+        "tight",
+        "none"
       ],
       "title": "WordBudgetCondition",
       "type": "string"
@@ -61,14 +63,20 @@
     "checkpoint": {
       "$ref": "#/$defs/EvaluationCheckpoint"
     },
+    "cue_template_id": {
+      "maximum": 4,
+      "minimum": 1,
+      "title": "Cue Template Id",
+      "type": "integer"
+    },
     "disclosure_ordinal": {
       "maximum": 2,
       "minimum": 0,
       "title": "Disclosure Ordinal",
       "type": "integer"
     },
-    "emotional_cue": {
-      "$ref": "#/$defs/EmotionalCueCondition"
+    "expressed_concern": {
+      "$ref": "#/$defs/ExpressedConcernCondition"
     },
     "fact_id": {
       "minLength": 1,
@@ -86,6 +94,11 @@
       "title": "Model Id",
       "type": "string"
     },
+    "pair_id": {
+      "pattern": "^CF\\d{3}_R[1-4]_P[12]$",
+      "title": "Pair Id",
+      "type": "string"
+    },
     "run_unit_id": {
       "pattern": "^RUN_[A-F0-9]{16}$",
       "title": "Run Unit Id",
@@ -97,7 +110,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -127,13 +140,15 @@
     "scenario_id",
     "use_case_id",
     "fact_id",
+    "pair_id",
     "fact_valence",
     "checkpoint",
     "disclosure_ordinal",
     "model_id",
     "source_order",
+    "cue_template_id",
     "word_budget",
-    "emotional_cue",
+    "expressed_concern",
     "integrity",
     "transcript_sha256",
     "scoring_result_sha256"

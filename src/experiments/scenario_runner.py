@@ -26,9 +26,18 @@ from src.data_models.experiments import (
     provider_request_sha256,
 )
 from src.data_models.manifests import EvaluatedModelSnapshot, FreezeStatus, WordBudgetManifest
-from src.data_models.prompt_controls import group_run_units_by_block, validate_prompt_factor_isolation
+from src.data_models.prompt_controls import group_run_units_by_block, validate_assigned_cue, validate_prompt_factor_isolation
 from src.data_models.scenarios import AcceptedScenario
-from src.data_models.study import AMPLE_WORD_LIMIT, SourceOrderVariant, WordBudgetCondition, primary_experiment_cells
+from src.data_models.study import (
+    AMPLE_WORD_LIMIT,
+    ExperimentCell,
+    ExperimentName,
+    SourceOrderVariant,
+    WordBudgetCondition,
+    brevity_locus_cells,
+    material_priority_cells,
+    primary_experiment_cells,
+)
 from src.llm.openrouter import ProviderTextResponse
 from src.prompts.experiment import compile_experiment_prompt
 from src.scenarios.word_count import count_words
@@ -68,6 +77,49 @@ def _tight_limit_by_use_case(manifest: WordBudgetManifest) -> Dict[str, int]:
     return {budget.use_case_id: budget.tight_word_limit for budget in manifest.use_case_budgets}
 
 
+def _build_run_unit(
+    scenario: AcceptedScenario,
+    model: EvaluatedModelSnapshot,
+    cell: ExperimentCell,
+    assigned_word_limit: Optional[int],
+    global_randomisation_seed: int,
+    block_id: str,
+    block_randomisation_seed: int,
+    randomised_position: int,
+    created_at: datetime,
+) -> RunUnit:
+    """Build one canonical-source run unit with authenticated prompt and follow-up bytes."""
+    packet = scenario.source_order_a
+    initial_messages, follow_up, initial_hash, follow_up_hash = compile_experiment_prompt(
+        scenario,
+        packet,
+        cell,
+        assigned_word_limit,
+    )
+    return RunUnit(
+        schema_version="2.0.0",
+        run_unit_id=_short_identifier("RUN", block_id, cell.cell_id),
+        block_id=block_id,
+        scenario_id=scenario.scenario_id,
+        use_case_id=scenario.use_case_id,
+        model_id=model.model_id,
+        expected_model_version=model.returned_model_version,
+        model_snapshot_sha256=artifact_sha256(model),
+        source_order=SourceOrderVariant.A,
+        cell=cell,
+        assigned_word_limit=assigned_word_limit,
+        global_randomisation_seed=global_randomisation_seed,
+        block_randomisation_seed=block_randomisation_seed,
+        randomised_position=randomised_position,
+        source_packet_sha256=packet.rendered_sha256,
+        initial_request_messages=initial_messages,
+        initial_request_sha256=initial_hash,
+        follow_up_message=follow_up,
+        follow_up_sha256=follow_up_hash,
+        created_at=created_at,
+    )
+
+
 def build_run_plan(
     scenarios: Sequence[AcceptedScenario],
     models: Sequence[EvaluatedModelSnapshot],
@@ -83,7 +135,6 @@ def build_run_plan(
             raise ValueError(f"missing frozen tight limit for {scenario.use_case_id}")
         for model in sorted(models, key=lambda item: item.model_id):
             source_order = SourceOrderVariant.A
-            packet = scenario.source_order_a
             block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id, source_order.value)
             block_randomisation_seed = _block_seed(randomisation_seed, block_id)
             cells = primary_experiment_cells()
@@ -91,34 +142,17 @@ def build_run_plan(
             block_units: List[RunUnit] = []
             for position, cell in enumerate(cells):
                 assigned_limit = AMPLE_WORD_LIMIT if cell.word_budget == WordBudgetCondition.AMPLE else tight_limits[scenario.use_case_id]
-                initial_messages, follow_up, initial_hash, follow_up_hash = compile_experiment_prompt(
-                    scenario=scenario,
-                    source_packet=packet,
-                    cell=cell,
-                    assigned_word_limit=assigned_limit,
-                )
                 block_units.append(
-                    RunUnit(
-                        schema_version="1.0.0",
-                        run_unit_id=_short_identifier("RUN", block_id, cell.cell_id),
-                        block_id=block_id,
-                        scenario_id=scenario.scenario_id,
-                        use_case_id=scenario.use_case_id,
-                        model_id=model.model_id,
-                        expected_model_version=model.returned_model_version,
-                        model_snapshot_sha256=artifact_sha256(model),
-                        source_order=source_order,
-                        cell=cell,
-                        assigned_word_limit=assigned_limit,
-                        global_randomisation_seed=randomisation_seed,
-                        block_randomisation_seed=block_randomisation_seed,
-                        randomised_position=position,
-                        source_packet_sha256=packet.rendered_sha256,
-                        initial_request_messages=initial_messages,
-                        initial_request_sha256=initial_hash,
-                        follow_up_message=follow_up,
-                        follow_up_sha256=follow_up_hash,
-                        created_at=created_at,
+                    _build_run_unit(
+                        scenario,
+                        model,
+                        cell,
+                        assigned_limit,
+                        randomisation_seed,
+                        block_id,
+                        block_randomisation_seed,
+                        position,
+                        created_at,
                     )
                 )
             validate_prompt_factor_isolation(block_units)
@@ -128,6 +162,125 @@ def build_run_plan(
     if len({run_unit.run_unit_id for run_unit in run_units}) != len(run_units):
         raise ValueError("run-unit identifiers must be globally unique")
     return run_units
+
+
+def _build_exploratory_run_plan(
+    scenarios: Sequence[AcceptedScenario],
+    models: Sequence[EvaluatedModelSnapshot],
+    cells: Sequence[ExperimentCell],
+    randomisation_seed: int,
+    created_at: datetime,
+    tight_limits: Optional[Dict[str, int]] = None,
+) -> List[RunUnit]:
+    """Build a separately identified exploratory plan without paid execution."""
+    run_units: List[RunUnit] = []
+    for scenario in sorted(scenarios, key=lambda item: item.scenario_id):
+        for model in sorted(models, key=lambda item: item.model_id):
+            block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id, cells[0].stage.value)
+            block_randomisation_seed = _block_seed(randomisation_seed, block_id)
+            ordered_cells = list(cells)
+            random.Random(block_randomisation_seed).shuffle(ordered_cells)
+            for position, cell in enumerate(ordered_cells):
+                if cell.word_budget == WordBudgetCondition.TIGHT:
+                    if tight_limits is None or scenario.use_case_id not in tight_limits:
+                        raise ValueError(f"missing tight limit for {scenario.use_case_id}")
+                    assigned_limit: Optional[int] = tight_limits[scenario.use_case_id]
+                else:
+                    assigned_limit = None
+                run_unit = _build_run_unit(
+                    scenario,
+                    model,
+                    cell,
+                    assigned_limit,
+                    randomisation_seed,
+                    block_id,
+                    block_randomisation_seed,
+                    position,
+                    created_at,
+                )
+                validate_assigned_cue(run_unit)
+                run_units.append(run_unit)
+    return run_units
+
+
+def build_material_priority_run_plan(
+    scenarios: Sequence[AcceptedScenario],
+    models: Sequence[EvaluatedModelSnapshot],
+    budget_manifest: WordBudgetManifest,
+    randomisation_seed: int,
+    created_at: datetime,
+) -> List[RunUnit]:
+    """Build all 240 tight-budget scenario–model–cue conversations."""
+    units = _build_exploratory_run_plan(
+        scenarios,
+        models,
+        material_priority_cells(),
+        randomisation_seed,
+        created_at,
+        _tight_limit_by_use_case(budget_manifest),
+    )
+    validate_exploratory_run_plan(units, expected_count=240, expected_cells=2)
+    return units
+
+
+def build_brevity_locus_run_plan(
+    scenarios: Sequence[AcceptedScenario],
+    models: Sequence[EvaluatedModelSnapshot],
+    randomisation_seed: int,
+    created_at: datetime,
+) -> List[RunUnit]:
+    """Build all 120 neutral, user-requested-brevity conversations without a system cap."""
+    units = _build_exploratory_run_plan(
+        scenarios,
+        models,
+        brevity_locus_cells(),
+        randomisation_seed,
+        created_at,
+    )
+    validate_exploratory_run_plan(units, expected_count=120, expected_cells=1)
+    return units
+
+
+def validate_exploratory_run_plan(run_units: Iterable[RunUnit], expected_count: int, expected_cells: int) -> None:
+    """Enforce exact exploratory dimensions, canonical source order, and prompt isolation."""
+    units = list(run_units)
+    if len(units) != expected_count:
+        raise ValueError(f"exploratory plan must contain exactly {expected_count} conversations")
+    if len({unit.scenario_id for unit in units}) != 40 or len({unit.model_id for unit in units}) != 3:
+        raise ValueError("exploratory plan requires 40 scenarios and three models")
+    if {unit.source_order for unit in units} != {SourceOrderVariant.A}:
+        raise ValueError("active exploratory plans use canonical source order only")
+    grouped = group_run_units_by_block(units)
+    if len(grouped) != 120 or any(len(block) != expected_cells for block in grouped.values()):
+        raise ValueError("exploratory plan has an invalid scenario–model cell matrix")
+    if len({unit.run_unit_id for unit in units}) != expected_count:
+        raise ValueError("exploratory run-unit ids must be unique")
+    for unit in units:
+        validate_assigned_cue(unit)
+
+
+def validate_exploratory_plan_against_frozen_inputs(
+    run_units: Iterable[RunUnit],
+    scenarios: Sequence[AcceptedScenario],
+    models: Sequence[EvaluatedModelSnapshot],
+    budget_manifest: WordBudgetManifest,
+    config: ExperimentConfig,
+) -> None:
+    """Rebuild one exploratory plan and require exact byte-equivalent assignments."""
+    units = list(run_units)
+    if config.experiment_name == ExperimentName.RISK_COMM_V1:
+        raise ValueError("primary plans use validate_run_plan_against_frozen_inputs")
+    validate_exploratory_run_plan(units, config.expected_conversation_count, config.cell_count)
+    created_at_values = {unit.created_at for unit in units}
+    if len(created_at_values) != 1:
+        raise ValueError("exploratory run units must share one plan-creation timestamp")
+    created_at = next(iter(created_at_values))
+    if config.experiment_name == ExperimentName.MATERIAL_PRIORITY_V1:
+        rebuilt = build_material_priority_run_plan(scenarios, models, budget_manifest, config.randomisation_seed, created_at)
+    else:
+        rebuilt = build_brevity_locus_run_plan(scenarios, models, config.randomisation_seed, created_at)
+    if [unit.model_dump(mode="json") for unit in units] != [unit.model_dump(mode="json") for unit in rebuilt]:
+        raise ValueError("exploratory plan is not the exact product of its frozen inputs")
 
 
 def build_calibration_run_plan(
@@ -151,31 +304,17 @@ def build_calibration_run_plan(
             block_units: List[RunUnit] = []
             for position, cell in enumerate(cells):
                 assigned_limit = AMPLE_WORD_LIMIT if cell.word_budget == WordBudgetCondition.AMPLE else tight_limits[scenario.use_case_id]
-                initial_messages, follow_up, initial_hash, follow_up_hash = compile_experiment_prompt(
-                    scenario, scenario.source_order_a, cell, assigned_limit
-                )
                 block_units.append(
-                    RunUnit(
-                        schema_version="1.0.0",
-                        run_unit_id=_short_identifier("RUN", block_id, cell.cell_id),
-                        block_id=block_id,
-                        scenario_id=scenario.scenario_id,
-                        use_case_id=scenario.use_case_id,
-                        model_id=model.model_id,
-                        expected_model_version=model.returned_model_version,
-                        model_snapshot_sha256=artifact_sha256(model),
-                        source_order=SourceOrderVariant.A,
-                        cell=cell,
-                        assigned_word_limit=assigned_limit,
-                        global_randomisation_seed=randomisation_seed,
-                        block_randomisation_seed=block_randomisation_seed,
-                        randomised_position=position,
-                        source_packet_sha256=scenario.source_order_a.rendered_sha256,
-                        initial_request_messages=initial_messages,
-                        initial_request_sha256=initial_hash,
-                        follow_up_message=follow_up,
-                        follow_up_sha256=follow_up_hash,
-                        created_at=created_at,
+                    _build_run_unit(
+                        scenario,
+                        model,
+                        cell,
+                        assigned_limit,
+                        randomisation_seed,
+                        block_id,
+                        block_randomisation_seed,
+                        position,
+                        created_at,
                     )
                 )
             validate_prompt_factor_isolation(block_units)
@@ -444,7 +583,7 @@ def execute_run_unit(
 ) -> ConversationTranscript:
     """Execute initial and cue-free follow-up turns for one immutable run unit."""
     initial_messages = _provider_messages(run_unit.initial_request_messages)
-    max_tokens = max(512, run_unit.assigned_word_limit * 4)
+    max_tokens = max(512, (run_unit.assigned_word_limit or AMPLE_WORD_LIMIT) * 4)
     initial_response, initial_attempts = _call_with_retries(
         provider=provider,
         run_unit=run_unit,
@@ -455,7 +594,7 @@ def execute_run_unit(
     )
     if initial_response is None:
         return _transcript(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             run_unit=run_unit,
             outcome_status=RunOutcomeStatus.FAILED,
             turns=[],
@@ -484,7 +623,7 @@ def execute_run_unit(
     ]
     if follow_up_response is None:
         return _transcript(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             run_unit=run_unit,
             outcome_status=RunOutcomeStatus.FAILED,
             turns=turns,
@@ -495,7 +634,7 @@ def execute_run_unit(
         )
     turns.append(_turn(3, MessageRole.ASSISTANT, follow_up_response.text))
     return _transcript(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         run_unit=run_unit,
         outcome_status=RunOutcomeStatus.COMPLETED,
         turns=turns,
@@ -519,7 +658,10 @@ def execute_run_plan(
     if isinstance(config, CalibrationExperimentConfig):
         validate_calibration_run_plan(run_units, config.randomisation_seed)
     else:
-        validate_complete_run_plan(run_units, config.randomisation_seed)
+        if config.experiment_name.value == "risk_comm_v1":
+            validate_complete_run_plan(run_units, config.randomisation_seed)
+        else:
+            validate_exploratory_run_plan(run_units, config.expected_conversation_count, config.cell_count)
     planned_by_id = {run_unit.run_unit_id: run_unit for run_unit in run_units}
     existing_ids = [transcript.run_unit.run_unit_id for transcript in existing_transcripts]
     if len(existing_ids) != len(set(existing_ids)):

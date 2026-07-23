@@ -1,5 +1,101 @@
 {
   "$defs": {
+    "PairDiagnostics": {
+      "additionalProperties": false,
+      "description": "Expose blinded descriptive pair-matching diagnostics without thresholds.",
+      "properties": {
+        "arithmetic_dependency": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "title": "Arithmetic Dependency",
+          "type": "object"
+        },
+        "blinded_materiality_ratings": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Blinded Materiality Ratings",
+          "type": "object"
+        },
+        "conditional_burden": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Conditional Burden",
+          "type": "object"
+        },
+        "evidence_word_counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Evidence Word Counts",
+          "type": "object"
+        },
+        "numeric_burden": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Numeric Burden",
+          "type": "object"
+        },
+        "pair_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_P[12]$",
+          "title": "Pair Id",
+          "type": "string"
+        },
+        "proposition_word_counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Proposition Word Counts",
+          "type": "object"
+        },
+        "readability": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ]
+          },
+          "title": "Readability",
+          "type": "object"
+        },
+        "shared_quantities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Shared Quantities",
+          "type": "array"
+        },
+        "source_positions": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Source Positions",
+          "type": "object"
+        }
+      },
+      "required": [
+        "pair_id",
+        "proposition_word_counts",
+        "evidence_word_counts",
+        "numeric_burden",
+        "conditional_burden",
+        "readability",
+        "source_positions",
+        "arithmetic_dependency",
+        "shared_quantities",
+        "blinded_materiality_ratings"
+      ],
+      "title": "PairDiagnostics",
+      "type": "object"
+    },
     "ReviewDecision": {
       "description": "Identify an automated or researcher scenario decision.",
       "enum": [
@@ -100,6 +196,14 @@
       "title": "Notes",
       "type": "string"
     },
+    "pair_diagnostics": {
+      "items": {
+        "$ref": "#/$defs/PairDiagnostics"
+      },
+      "maxItems": 2,
+      "title": "Pair Diagnostics",
+      "type": "array"
+    },
     "researcher_id": {
       "minLength": 1,
       "title": "Researcher Id",
@@ -125,7 +229,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     }

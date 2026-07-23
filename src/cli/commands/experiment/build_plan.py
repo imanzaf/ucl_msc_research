@@ -22,7 +22,7 @@ from src.experiments.io import load_accepted_evaluation_scenarios
 from src.experiments.layout import validate_experiment_path
 from src.experiments.scenario_runner import build_run_plan, validate_complete_run_plan
 from src.paths import REPO_ROOT
-from src.prompts.experiment import prompt_package_sha256
+from src.prompts.experiment import prompt_package_sha256, validate_complete_request_reviews
 from src.prompts.scoring_contracts import scoring_contract_sha256
 from src.storage import read_model_json, write_model_json_atomic, write_models_jsonl_atomic
 
@@ -30,7 +30,7 @@ from src.storage import read_model_json, write_model_json_atomic, write_models_j
 def parse_args() -> argparse.Namespace:
     """Parse frozen manifest and output paths."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--accepted-root", type=Path, default=REPO_ROOT / "data/inputs/scenarios/v0.5.1/accepted")
+    parser.add_argument("--accepted-root", type=Path, default=REPO_ROOT / "data/inputs/scenarios/v0.5.2/accepted")
     parser.add_argument("--experiment-manifest", type=Path, required=True)
     parser.add_argument("--accepted-scenario-manifest", type=Path, required=True)
     parser.add_argument("--evaluated-model-manifest", type=Path, required=True)
@@ -70,6 +70,8 @@ def main() -> None:
         raise ValueError("run-plan construction requires a frozen scoring-execution manifest")
     if prompt_review.decision != CueReviewDecision.APPROVE:
         raise ValueError("run-plan construction requires an approved cue review")
+    if prompt_review.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
+        raise ValueError("cue review does not bind the supplied accepted scenarios")
     if experiment_manifest.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
         raise ValueError("experiment manifest does not bind the supplied accepted-scenario manifest")
     if experiment_manifest.evaluated_model_manifest_sha256 != model_manifest.manifest_sha256:
@@ -98,9 +100,10 @@ def main() -> None:
         raise ValueError("accepted-scenario manifest does not match loaded evaluation scenarios")
     if any(evaluation_entries[scenario.scenario_id].artifact_sha256 != scenario.artifact_sha256 for scenario in scenarios):
         raise ValueError("accepted-scenario manifest contains an artifact hash mismatch")
+    validate_complete_request_reviews(prompt_review.request_reviews, scenarios)
     created_at = datetime.now(timezone.utc)
     config = ExperimentConfig(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         experiment_name="risk_comm_v1",
         experiment_manifest_sha256=experiment_manifest.manifest_sha256,
         randomisation_seed=experiment_manifest.randomisation_seed,

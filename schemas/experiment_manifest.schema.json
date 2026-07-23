@@ -55,6 +55,16 @@
       "title": "EvaluatedModelSnapshot",
       "type": "object"
     },
+    "ExperimentName": {
+      "description": "Identify one independently manifested conversation experiment.",
+      "enum": [
+        "risk_comm_v1",
+        "material_priority_v1",
+        "brevity_locus_v1"
+      ],
+      "title": "ExperimentName",
+      "type": "string"
+    },
     "FreezeStatus": {
       "description": "Identify whether a manifest remains draft or is immutable for downstream use.",
       "enum": [
@@ -130,10 +140,13 @@
       "title": "Evaluated Models",
       "type": "array"
     },
+    "expected_conversation_count": {
+      "minimum": 1,
+      "title": "Expected Conversation Count",
+      "type": "integer"
+    },
     "experiment_name": {
-      "pattern": "^risk_comm_v1$",
-      "title": "Experiment Name",
-      "type": "string"
+      "$ref": "#/$defs/ExperimentName"
     },
     "freeze_status": {
       "$ref": "#/$defs/FreezeStatus"
@@ -171,7 +184,7 @@
       "$ref": "#/$defs/RetryPolicy"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -199,6 +212,7 @@
   "required": [
     "schema_version",
     "experiment_name",
+    "expected_conversation_count",
     "freeze_status",
     "evaluated_models",
     "scoring_judge_model_ids",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, List
 
 import pytest
@@ -10,40 +11,49 @@ import pytest
 from src.data_models.common import artifact_sha256, sha256_bytes
 from src.data_models.experiments import CompletionFinishReason, ConversationTranscript, RetryPolicy
 from src.data_models.prompt_controls import validate_prompt_factor_isolation
-from src.data_models.study import GENERIC_FOLLOW_UP, NEUTRAL_CUE, WORRIED_CUE, IntegrityCondition, WordBudgetCondition, all_experiment_cells
+from src.data_models.study import ALL_CUE_PHRASES, BRIEF_REQUEST, WordBudgetCondition, all_experiment_cells, natural_follow_up
+from src.experiments.layout import validate_experiment_path
 from src.experiments.scenario_runner import (
+    build_brevity_locus_run_plan,
     build_calibration_run_plan,
+    build_material_priority_run_plan,
     build_run_plan,
     execute_run_unit,
     validate_calibration_run_plan,
     validate_complete_run_plan,
 )
 from src.llm.openrouter import ProviderTextResponse
-from src.scenarios.source_rendering import derive_secondary_source_order
 from src.scenarios.word_count import count_words
 from tests.factories import make_accepted_scenario, make_budget_manifest, make_models, make_transcript
 
 
 def test_all_cells_have_derived_stage_and_deterministic_ids() -> None:
-    """Require four primary and four matched mitigation cells with stable ids."""
+    """Require only the four active primary cells with V2 concern labels."""
     cells = all_experiment_cells()
-    assert len(cells) == 8
-    assert len({cell.cell_id for cell in cells}) == 8
-    assert sum(cell.integrity == IntegrityCondition.ABSENT for cell in cells) == 4
-    assert sum(cell.integrity == IntegrityCondition.TARGETED for cell in cells) == 4
-    assert all(cell.cell_id.startswith(cell.stage.value) for cell in cells)
+    assert len(cells) == 4
+    assert {cell.expressed_concern.value for cell in cells} == {"neutral", "concerned"}
+    assert all(cell.cell_id.startswith("primary__") for cell in cells)
 
 
-def test_source_order_b_changes_positions_without_changing_items_or_values() -> None:
-    """Derive an information-equivalent order B only when the secondary study needs it."""
-    scenario = make_accepted_scenario()
-    source_order_b = derive_secondary_source_order(scenario.source_order_a, scenario.source_order_plan)
-    ids_a = [item.source_item_id for item in scenario.source_order_a.items]
-    ids_b = [item.source_item_id for item in source_order_b.items]
-    assert ids_a != ids_b
-    assert {item.source_item_id: item.model_dump() for item in scenario.source_order_a.items} == {
-        item.source_item_id: item.model_dump() for item in source_order_b.items
+def test_domain_source_renderer_is_text_native_and_deterministic() -> None:
+    """Render all ten domains through distinct native formats with stable hashes."""
+    expected_formats = {
+        "cash_flow_statement",
+        "savings_comparison_table",
+        "card_statement_and_offer",
+        "loan_illustration",
+        "mortgage_illustration",
+        "support_option_summary",
+        "portfolio_statement",
+        "pension_illustration",
+        "insurance_comparison_table",
+        "security_timeline",
     }
+    first = [make_accepted_scenario(f"CF{index:03d}_R1") for index in range(1, 11)]
+    second = [make_accepted_scenario(f"CF{index:03d}_R1") for index in range(1, 11)]
+    assert {scenario.source_order_a.source_format.value for scenario in first} == expected_formats
+    assert [scenario.source_order_a.rendered_text for scenario in first] == [scenario.source_order_a.rendered_text for scenario in second]
+    assert [scenario.source_order_a.rendered_sha256 for scenario in first] == [scenario.source_order_a.rendered_sha256 for scenario in second]
 
 
 def test_full_run_plan_has_480_conversations_960_responses_and_reproducible_order() -> None:
@@ -96,15 +106,28 @@ def test_prompt_factor_isolation_one_cue_and_identical_follow_up() -> None:
     )
     block = [unit for unit in plan if unit.block_id == plan[0].block_id]
     validate_prompt_factor_isolation(block)
-    assert {unit.follow_up_message.content for unit in block} == {GENERIC_FOLLOW_UP}
+    assert {unit.follow_up_message.content for unit in block} == {natural_follow_up(block[0].use_case_id)}
     for unit in block:
         content = "\n".join(message.content for message in unit.initial_request_messages)
-        expected = WORRIED_CUE if unit.cell.emotional_cue.value == "worried" else NEUTRAL_CUE
-        assert content.count(expected) == 1
-        assert NEUTRAL_CUE not in unit.follow_up_message.content
-        assert WORRIED_CUE not in unit.follow_up_message.content
+        observed = [phrase for phrase in ALL_CUE_PHRASES if phrase in content]
+        assert len(observed) == 1
+        assert content.count(observed[0]) == 1
+        assert all(phrase not in unit.follow_up_message.content for phrase in ALL_CUE_PHRASES)
         expected_limit = 240 if unit.cell.word_budget == WordBudgetCondition.AMPLE else 90
         assert unit.assigned_word_limit == expected_limit
+
+
+def test_exploratory_plan_count_gates_and_brevity_locus() -> None:
+    """Enforce exact 240/120 matrices and no system cap in brevity_locus_v1."""
+    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 5)]
+    created_at = datetime(2026, 7, 19, tzinfo=timezone.utc)
+    material = build_material_priority_run_plan(scenarios, make_models(), make_budget_manifest(), 7, created_at)
+    brevity = build_brevity_locus_run_plan(scenarios, make_models(), 7, created_at)
+    assert len(material) == 240
+    assert len(brevity) == 120
+    assert all(unit.assigned_word_limit is None for unit in brevity)
+    assert all(BRIEF_REQUEST in unit.initial_request_messages[-1].content for unit in brevity)
+    assert all("Use no more than" not in unit.initial_request_messages[0].content for unit in brevity)
 
 
 def test_retry_attempts_reuse_identical_prompt_bytes() -> None:
@@ -214,3 +237,13 @@ def test_transcript_turns_are_authenticated_against_provider_attempts() -> None:
     payload["turns"] = [payload["turns"][0], changed_turn.model_dump(mode="json"), *payload["turns"][2:]]
     with pytest.raises(ValueError, match="provider responses"):
         ConversationTranscript.model_validate({**payload, "transcript_sha256": artifact_sha256(payload)})
+
+
+def test_experiment_layout_rejects_invalid_calendar_timestamps_and_manifest_trees(tmp_path: Path) -> None:
+    """Require real UTC timestamps and experiment-local manifest directories."""
+    invalid_result = tmp_path / "data/outputs/experiments/risk_comm_v1/results/20261340T256199_results.jsonl"
+    with pytest.raises(ValueError, match="invalid UTC timestamp"):
+        validate_experiment_path(invalid_result, tmp_path, "result", "risk_comm_v1")
+    wrong_manifest = tmp_path / "data/outputs/experiments/material_priority_v1/checkpoints/experiment_manifest.json"
+    with pytest.raises(ValueError, match="manifests directory"):
+        validate_experiment_path(wrong_manifest, tmp_path, "manifest", "material_priority_v1")

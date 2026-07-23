@@ -78,7 +78,7 @@ def main() -> None:
         for scenario in sorted(scenarios, key=lambda item: item.use_case_id)
     ]
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "freeze_status": FreezeStatus.FROZEN,
         "counter_version": WORD_COUNTER_VERSION,
         "prompt_review_manifest_sha256": prompt_review.manifest_sha256,

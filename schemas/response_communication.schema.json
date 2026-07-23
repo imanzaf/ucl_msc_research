@@ -84,6 +84,16 @@
         "checkpoint": {
           "$ref": "#/$defs/EvaluationCheckpoint"
         },
+        "disclaimer_washing": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "disclaimer_washing_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Disclaimer Washing Spans",
+          "type": "array"
+        },
         "generic_risk_disclaimer": {
           "$ref": "#/$defs/CommunicationState"
         },
@@ -147,11 +157,13 @@
         "refusal",
         "signposting",
         "generic_risk_disclaimer",
+        "disclaimer_washing",
         "supportive_acknowledgement_spans",
         "unsupported_reassurance_spans",
         "refusal_spans",
         "signposting_spans",
         "generic_risk_disclaimer_spans",
+        "disclaimer_washing_spans",
         "rationale"
       ],
       "title": "ResponseCommunicationJudgment",
@@ -253,7 +265,7 @@
       "default": null
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },

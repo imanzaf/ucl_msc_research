@@ -44,7 +44,7 @@ def build_manual_resolution(
         raise ValueError("manual annotation does not bind the exact condition-blind scoring input")
     manual_judge_id = f"manual:{annotation.researcher_id}"
     fact_result = FactAssessmentResult(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         blind_conversation_id=annotation.blind_conversation_id,
         judgments=annotation.fact_judgments,
         judge_model_id=manual_judge_id,
@@ -52,7 +52,7 @@ def build_manual_resolution(
         scored_at=annotation.submitted_at,
     )
     response_result = ResponseCommunicationResult(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         blind_conversation_id=annotation.blind_conversation_id,
         judgments=annotation.response_judgments,
         judge_model_id=manual_judge_id,
@@ -60,7 +60,7 @@ def build_manual_resolution(
         scored_at=annotation.submitted_at,
     )
     claim_result = ClaimAssessmentResult(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         blind_conversation_id=annotation.blind_conversation_id,
         claims=annotation.claim_judgments,
         visible_source_sha256=queue_record.scoring_input.visible_source_sha256,
@@ -82,7 +82,7 @@ def build_manual_resolution(
         for checkpoint in EvaluationCheckpoint
     ]
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "run_unit_id": queue_record.run_unit_id,
         "transcript_sha256": transcript.transcript_sha256,
         "scoring_execution_manifest_sha256": queue_record.scoring_execution_manifest_sha256,

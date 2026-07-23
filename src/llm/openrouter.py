@@ -31,7 +31,7 @@ def _strip_schema_defaults(value: Any) -> Any:
 class ProviderTextResponse(VersionedImmutableModel):
     """Return provider text and audit metadata without mutating the request."""
 
-    schema_version: str = Field(default="1.0.0", pattern=r"^1\.0\.0$")
+    schema_version: str = Field(default="2.0.0", pattern=r"^2\.0\.0$")
     text: str = Field(min_length=1)
     provider_request_id: str = Field(min_length=1)
     returned_model_version: str = Field(min_length=1)
@@ -43,7 +43,7 @@ class ProviderTextResponse(VersionedImmutableModel):
 class ProviderStructuredResponse(VersionedImmutableModel, Generic[StructuredT]):
     """Return validated structured output with complete provider-call provenance."""
 
-    schema_version: str = Field(default="1.0.0", pattern=r"^1\.0\.0$")
+    schema_version: str = Field(default="2.0.0", pattern=r"^2\.0\.0$")
     output: StructuredT
     provider_request_id: str = Field(min_length=1)
     returned_model_version: str = Field(min_length=1)
@@ -63,7 +63,7 @@ class ProviderStructuredResponse(VersionedImmutableModel, Generic[StructuredT]):
 class ProviderTextCacheRecord(VersionedImmutableModel):
     """Persist one exact-request text response in the local provider cache."""
 
-    schema_version: str = Field(default="1.0.0", pattern=r"^1\.0\.0$")
+    schema_version: str = Field(default="2.0.0", pattern=r"^2\.0\.0$")
     request_sha256: str
     response: ProviderTextResponse
     response_sha256: str
@@ -264,7 +264,7 @@ class OpenRouterClient:
         if path is None:
             return
         payload = {
-            "schema_version": "1.0.0",
+            "schema_version": "2.0.0",
             "request_sha256": request_hash,
             "response": result,
             "response_sha256": sha256_bytes(result.text.encode("utf-8")),

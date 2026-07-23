@@ -15,9 +15,10 @@ from src.data_models.experiments import ConversationTranscript, RunOutcomeStatus
 from src.data_models.manifests import AcceptedScenarioManifest, EvaluatedModelSnapshot, ExperimentManifest, FreezeStatus, ScoringExecutionManifest
 from src.data_models.scenarios import AcceptedScenario
 from src.data_models.scoring import ManualScoringQueueRecord, ScoredConversationBundle, ScoringAttemptStatus, ScoringExecutionAttempt
+from src.data_models.study import EXPERIMENT_DIMENSIONS, ExperimentName
 from src.experiments.io import load_accepted_evaluation_scenarios
 from src.experiments.layout import validate_experiment_path
-from src.experiments.scenario_runner import validate_complete_run_plan
+from src.experiments.scenario_runner import validate_complete_run_plan, validate_exploratory_run_plan
 from src.experiments.scoring_pipeline import ConditionBlindScoringBackend, build_condition_blind_input, score_condition_blind_input
 from src.paths import REPO_ROOT
 from src.prompts.scoring_contracts import scoring_contract_sha256
@@ -70,11 +71,11 @@ def main() -> None:
     args = parser.parse_args()
     if not args.execute_paid:
         raise PermissionError("automated scoring may call paid APIs and requires --execute-paid")
-    validate_experiment_path(args.transcripts, REPO_ROOT, "result")
-    validate_experiment_path(args.results_dir, REPO_ROOT, "results_tree")
-
     accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
     experiment_manifest = read_model_json(args.experiment_manifest, ExperimentManifest)
+    experiment_name = experiment_manifest.experiment_name.value
+    validate_experiment_path(args.transcripts, REPO_ROOT, "result", experiment_name)
+    validate_experiment_path(args.results_dir, REPO_ROOT, "results_tree", experiment_name)
     scoring_manifest = read_model_json(args.scoring_execution_manifest, ScoringExecutionManifest)
     validate_model_self_hash(accepted_manifest, "manifest_sha256")
     validate_model_self_hash(experiment_manifest, "manifest_sha256")
@@ -98,7 +99,12 @@ def main() -> None:
     transcript_ids = [transcript.run_unit.run_unit_id for transcript in transcripts]
     if len(transcript_ids) != len(set(transcript_ids)):
         raise ValueError("transcript results contain duplicate run-unit ids")
-    validate_complete_run_plan([transcript.run_unit for transcript in transcripts])
+    run_units = [transcript.run_unit for transcript in transcripts]
+    if experiment_manifest.experiment_name == ExperimentName.RISK_COMM_V1:
+        validate_complete_run_plan(run_units)
+    else:
+        dimensions = EXPERIMENT_DIMENSIONS[experiment_manifest.experiment_name]
+        validate_exploratory_run_plan(run_units, dimensions.conversation_count, dimensions.cell_count)
 
     bundle_path = args.results_dir / "scored_conversations.jsonl"
     attempt_path = args.results_dir / "failed_attempts.jsonl"
@@ -166,7 +172,7 @@ def main() -> None:
                     raise ValueError("scoring result does not bind the frozen returned judge snapshot")
             except Exception as error:
                 failed_attempt = ScoringExecutionAttempt(
-                    schema_version="1.0.0",
+                    schema_version="2.0.0",
                     attempt_id=_attempt_id(run_unit_id, attempt_number),
                     run_unit_id=run_unit_id,
                     blind_conversation_id=scoring_input.blind_conversation_id,
@@ -189,7 +195,7 @@ def main() -> None:
                 {"fact_result": fact_result, "response_result": response_result, "claim_result": claim_result, "metrics": metrics}
             )
             success_attempt = ScoringExecutionAttempt(
-                schema_version="1.0.0",
+                schema_version="2.0.0",
                 attempt_id=_attempt_id(run_unit_id, attempt_number),
                 run_unit_id=run_unit_id,
                 blind_conversation_id=scoring_input.blind_conversation_id,
@@ -201,7 +207,7 @@ def main() -> None:
                 completed_at=utc_now(),
             )
             bundle_payload = {
-                "schema_version": "1.0.0",
+                "schema_version": "2.0.0",
                 "run_unit_id": run_unit_id,
                 "transcript_sha256": transcript.transcript_sha256,
                 "scoring_execution_manifest_sha256": scoring_manifest.manifest_sha256,
@@ -221,7 +227,7 @@ def main() -> None:
         if succeeded:
             continue
         queue_payload = {
-            "schema_version": "1.0.0",
+            "schema_version": "2.0.0",
             "run_unit_id": run_unit_id,
             "transcript_sha256": transcript.transcript_sha256,
             "scoring_execution_manifest_sha256": scoring_manifest.manifest_sha256,

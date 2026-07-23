@@ -7,10 +7,11 @@ import importlib
 from pathlib import Path
 from typing import List, Optional, Tuple, cast
 
-from src.data_models.common import utc_now, validate_model_self_hash
-from src.data_models.manifests import FreezeStatus, TightLimitManifest
+from src.data_models.common import file_sha256, utc_now, validate_model_self_hash
+from src.data_models.manifests import FreezeStatus, ScenarioGenerationApproval, ScenarioGenerationCostReport, TightLimitManifest
 from src.data_models.scenario_review import ScenarioPipelineDisposition
 from src.data_models.scenarios import CandidateScenario, ReplicationSeed, ScenarioStage, UseCaseSeed
+from src.experiments.model_catalog import load_model_catalog
 from src.paths import REPO_ROOT
 from src.scenarios.pipeline import ScenarioPipelineBackend, default_revision_record_factory, run_scenario_batch_pipeline
 from src.scenarios.seed_validation import load_and_validate_seed
@@ -75,16 +76,40 @@ def main() -> None:
     parser.add_argument("--use-case-id")
     parser.add_argument("--tight-limit-manifest", type=Path)
     parser.add_argument("--calibration-candidate", type=Path)
-    parser.add_argument("--output-root", type=Path, default=REPO_ROOT / "data/outputs/scenario_generation/v0.5.1")
+    parser.add_argument("--cost-report", type=Path, required=True)
+    parser.add_argument("--approval", type=Path, required=True)
+    parser.add_argument("--output-root", type=Path, default=REPO_ROOT / "data/outputs/scenario_generation/v0.5.2")
     parser.add_argument("--execute-paid", action="store_true")
     args = parser.parse_args()
     stage = ScenarioStage(args.stage)
     if not args.execute_paid:
         raise PermissionError("scenario generation may call paid APIs and requires --execute-paid")
-    expected_output_root = (REPO_ROOT / "data/outputs/scenario_generation/v0.5.1").resolve()
+    expected_output_root = (REPO_ROOT / "data/outputs/scenario_generation/v0.5.2").resolve()
     if args.output_root.resolve() != expected_output_root:
-        raise ValueError("scenario generation output must remain under data/outputs/scenario_generation/v0.5.1")
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.5.1"
+        raise ValueError("scenario generation output must remain under data/outputs/scenario_generation/v0.5.2")
+    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.5.2"
+    cost_report = read_model_json(args.cost_report, ScenarioGenerationCostReport)
+    approval = read_model_json(args.approval, ScenarioGenerationApproval)
+    validate_model_self_hash(cost_report, "report_sha256")
+    validate_model_self_hash(approval, "approval_sha256")
+    if approval.cost_report_sha256 != cost_report.report_sha256:
+        raise ValueError("scenario-generation approval does not bind the supplied cost report")
+    if approval.approved_maximum_cost_usd < cost_report.worst_case_cost_usd:
+        raise ValueError("scenario-generation worst-case cost exceeds the approved maximum")
+    if cost_report.stage != stage or cost_report.use_case_id != args.use_case_id:
+        raise ValueError("scenario-generation cost report does not cover the requested batch")
+    if cost_report.backend_specification != args.backend:
+        raise ValueError("scenario-generation cost report does not bind the requested backend")
+    catalog = load_model_catalog()
+    if (
+        cost_report.generator_model_id != catalog.scenario_generator_model.model_id
+        or cost_report.reviewer_model_id != catalog.scenario_reviewer_model.model_id
+    ):
+        raise ValueError("scenario-generation cost report does not bind the configured model roles")
+    if cost_report.seed_sha256 != file_sha256(seed_root / "scenario_generation_seeds.json"):
+        raise ValueError("scenario-generation cost report does not bind the active V0.5.2 seed")
+    if cost_report.seed_schema_sha256 != file_sha256(seed_root / "scenario_generation_seed_schema.json"):
+        raise ValueError("scenario-generation cost report does not bind the active V0.5.2 seed schema")
     seed = load_and_validate_seed(
         seed_path=seed_root / "scenario_generation_seeds.json",
         schema_path=seed_root / "scenario_generation_seed_schema.json",
@@ -102,7 +127,7 @@ def main() -> None:
         write_model_json_atomic(
             output_dir / "terminal_decision.json",
             ScenarioPipelineDisposition(
-                schema_version="1.0.0",
+                schema_version="2.0.0",
                 scenario_id=scenario_id,
                 decision=result.terminal_decision,
                 candidate_sha256=result.candidate.candidate_sha256,

@@ -16,7 +16,7 @@
       "description": "Describe one preregistered run unit missing after provider retries.",
       "properties": {
         "cell_id": {
-          "pattern": "^WB_(AMPLE|TIGHT)__CUE_(NEUTRAL|WORRIED)__INT_(ABSENT|TARGETED)$",
+          "pattern": "^(primary|material_priority|brevity_locus)__(ample|tight|none)__(neutral|concerned)$",
           "title": "Cell Id",
           "type": "string"
         },
@@ -71,7 +71,7 @@
       "type": "object"
     },
     "SourceOrderVariant": {
-      "description": "Identify deterministic information-equivalent source order.",
+      "description": "Identify the frozen canonical source order.",
       "enum": [
         "A",
         "B"
@@ -81,7 +81,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Bind the full 480-unit execution ledger to its analyzable subset.",
+  "description": "Bind one experiment's complete terminal ledger to its analyzable subset.",
   "properties": {
     "analysis_input_sha256": {
       "title": "Analysis Input Sha256",
@@ -139,7 +139,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },

@@ -28,8 +28,8 @@ def main() -> None:
     if args.approved_maximum_cost_usd < report.worst_case_cost_usd:
         raise ValueError("approved maximum cost is below the dry-run worst-case estimate")
     payload = {
-        "schema_version": "1.0.0",
-        "experiment_name": "risk_comm_v1",
+        "schema_version": "2.0.0",
+        "experiment_name": report.experiment_name,
         "dry_run_report_sha256": report.report_sha256,
         "approved": True,
         "approved_maximum_cost_usd": args.approved_maximum_cost_usd,

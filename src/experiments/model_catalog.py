@@ -40,7 +40,7 @@ class ExperimentModelSpec(ImmutableModel):
 class ExperimentModelCatalog(VersionedImmutableModel):
     """Describe evaluated candidates and independent generation/review/scoring roles."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     description: str = Field(min_length=1)
     freeze_status: FreezeStatus
     evaluated_models: List[ExperimentModelSpec] = Field(min_length=3, max_length=3)

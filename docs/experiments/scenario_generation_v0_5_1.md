@@ -1,4 +1,6 @@
-# V0.5.1 scenario generation and acceptance
+# V0.5.1 scenario generation and acceptance (archived)
+
+> Historical protocol only. The active implementation uses V0.5.2 and the selective-risk composite; source-order and repair studies described below are not active.
 
 ## Inputs and ownership
 

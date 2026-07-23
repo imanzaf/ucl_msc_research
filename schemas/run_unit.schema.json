@@ -1,31 +1,24 @@
 {
   "$defs": {
-    "EmotionalCueCondition": {
-      "description": "Identify the single visible opening-cue condition.",
-      "enum": [
-        "neutral",
-        "worried"
-      ],
-      "title": "EmotionalCueCondition",
-      "type": "string"
-    },
     "ExperimentCell": {
       "additionalProperties": false,
       "description": "Represent one immutable treatment cell and its deterministic identifier.",
       "properties": {
         "cell_id": {
-          "pattern": "^(primary|mitigation)__(ample|tight)__(neutral|worried)$",
+          "pattern": "^(primary|material_priority|brevity_locus)__(ample|tight|none)__(neutral|concerned)$",
           "title": "Cell Id",
           "type": "string"
         },
-        "emotional_cue": {
-          "$ref": "#/$defs/EmotionalCueCondition"
+        "expressed_concern": {
+          "$ref": "#/$defs/ExpressedConcernCondition"
         },
         "integrity": {
-          "$ref": "#/$defs/IntegrityCondition"
+          "$ref": "#/$defs/IntegrityCondition",
+          "default": "absent"
         },
         "stage": {
-          "$ref": "#/$defs/StudyStage"
+          "$ref": "#/$defs/StudyStage",
+          "default": "primary"
         },
         "word_budget": {
           "$ref": "#/$defs/WordBudgetCondition"
@@ -33,16 +26,24 @@
       },
       "required": [
         "word_budget",
-        "emotional_cue",
-        "integrity",
-        "stage",
+        "expressed_concern",
         "cell_id"
       ],
       "title": "ExperimentCell",
       "type": "object"
     },
+    "ExpressedConcernCondition": {
+      "description": "Identify whether the user expresses concern in the opening cue.",
+      "enum": [
+        "neutral",
+        "concerned",
+        "concerned"
+      ],
+      "title": "ExpressedConcernCondition",
+      "type": "string"
+    },
     "IntegrityCondition": {
-      "description": "Identify whether the targeted mitigation is present.",
+      "description": "Retain the legacy field boundary without an active integrity treatment.",
       "enum": [
         "absent",
         "targeted"
@@ -81,7 +82,7 @@
       "type": "object"
     },
     "SourceOrderVariant": {
-      "description": "Identify deterministic information-equivalent source order.",
+      "description": "Identify the frozen canonical source order.",
       "enum": [
         "A",
         "B"
@@ -90,10 +91,11 @@
       "type": "string"
     },
     "StudyStage": {
-      "description": "Separate the primary mechanism study from secondary integrity runs.",
+      "description": "Identify primary and separately reported exploratory studies.",
       "enum": [
         "primary",
-        "mitigation"
+        "material_priority",
+        "brevity_locus"
       ],
       "title": "StudyStage",
       "type": "string"
@@ -102,7 +104,8 @@
       "description": "Identify the assigned response-length condition.",
       "enum": [
         "ample",
-        "tight"
+        "tight",
+        "none"
       ],
       "title": "WordBudgetCondition",
       "type": "string"
@@ -112,10 +115,18 @@
   "description": "Represent one randomised immutable scenario–model–order–cell assignment.",
   "properties": {
     "assigned_word_limit": {
-      "maximum": 240,
-      "minimum": 80,
-      "title": "Assigned Word Limit",
-      "type": "integer"
+      "anyOf": [
+        {
+          "maximum": 240,
+          "minimum": 80,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Assigned Word Limit"
     },
     "block_id": {
       "pattern": "^BLOCK_[A-F0-9]{16}$",
@@ -188,7 +199,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -216,7 +227,6 @@
     "model_snapshot_sha256",
     "source_order",
     "cell",
-    "assigned_word_limit",
     "global_randomisation_seed",
     "block_randomisation_seed",
     "randomised_position",

@@ -21,7 +21,7 @@ def main() -> None:
     args = parser.parse_args()
     snapshots = [read_model_json(path, EvaluatedModelSnapshot) for path in args.evaluated_snapshot]
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "freeze_status": FreezeStatus.FROZEN,
         "evaluated_models": snapshots,
         "scoring_judge_model_ids": args.scoring_judge_model_id,

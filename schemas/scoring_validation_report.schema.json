@@ -1,165 +1,225 @@
 {
   "$defs": {
-    "FailedConstructAction": {
-      "description": "Identify the blinded disposition for a scoring construct that fails validation.",
+    "CompositeDomain": {
+      "description": "Identify one domain in the frozen confirmatory composite.",
       "enum": [
-        "full_manual_scoring",
-        "demote_to_exploratory",
-        "remove"
+        "coverage",
+        "specificity",
+        "framing",
+        "salience",
+        "integrity"
       ],
-      "title": "FailedConstructAction",
+      "title": "CompositeDomain",
       "type": "string"
+    },
+    "DomainValidationDiagnostics": {
+      "additionalProperties": false,
+      "description": "Persist complete blinded validation diagnostics for one composite domain.",
+      "properties": {
+        "agreement": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Agreement"
+        },
+        "confusion_matrix": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "title": "Confusion Matrix",
+          "type": "object"
+        },
+        "f1": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "F1"
+        },
+        "gate_passed": {
+          "title": "Gate Passed",
+          "type": "boolean"
+        },
+        "invalid_output_count": {
+          "minimum": 0,
+          "title": "Invalid Output Count",
+          "type": "integer"
+        },
+        "precision": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Precision"
+        },
+        "prevalence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Prevalence"
+        },
+        "recall": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Recall"
+        },
+        "salience_absolute_error": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Salience Absolute Error"
+        },
+        "sample_size": {
+          "exclusiveMinimum": 0,
+          "title": "Sample Size",
+          "type": "integer"
+        },
+        "uncertainty_interval": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Uncertainty Interval",
+          "type": "array"
+        }
+      },
+      "required": [
+        "prevalence",
+        "agreement",
+        "confusion_matrix",
+        "precision",
+        "recall",
+        "f1",
+        "invalid_output_count",
+        "sample_size",
+        "uncertainty_interval",
+        "gate_passed"
+      ],
+      "title": "DomainValidationDiagnostics",
+      "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "Persist hard validation gates and blinded dispositions for failed constructs.",
+  "description": "Persist complete domain diagnostics while treatment labels remain unavailable.",
   "properties": {
-    "failed_construct_actions": {
+    "annotation_count_per_conversation": {
+      "default": 1,
+      "maximum": 1,
+      "minimum": 1,
+      "title": "Annotation Count Per Conversation",
+      "type": "integer"
+    },
+    "domain_diagnostics": {
       "additionalProperties": {
-        "$ref": "#/$defs/FailedConstructAction"
+        "$ref": "#/$defs/DomainValidationDiagnostics"
       },
-      "title": "Failed Construct Actions",
+      "propertyNames": {
+        "$ref": "#/$defs/CompositeDomain"
+      },
+      "title": "Domain Diagnostics",
       "type": "object"
     },
-    "failed_constructs": {
+    "domain_gate_manifest_sha256": {
+      "title": "Domain Gate Manifest Sha256",
+      "type": "string"
+    },
+    "failed_domains": {
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/CompositeDomain"
       },
-      "title": "Failed Constructs",
+      "title": "Failed Domains",
       "type": "array"
-    },
-    "false_claim_precision": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "False Claim Precision"
-    },
-    "false_claim_recall": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "False Claim Recall"
-    },
-    "framing_kappa": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": -1.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Framing Kappa"
-    },
-    "framing_used_in_headline": {
-      "title": "Framing Used In Headline",
-      "type": "boolean"
     },
     "generated_at": {
       "format": "date-time",
       "title": "Generated At",
       "type": "string"
     },
-    "intra_rater_disclosure_weighted_kappa": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": -1.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Intra Rater Disclosure Weighted Kappa"
+    "invalid_output_count": {
+      "minimum": 0,
+      "title": "Invalid Output Count",
+      "type": "integer"
     },
-    "judge_reference_disclosure_weighted_kappa": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": -1.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Judge Reference Disclosure Weighted Kappa"
-    },
-    "omission_recall": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Omission Recall"
-    },
-    "passed_constructs": {
+    "passed_domains": {
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/CompositeDomain"
       },
-      "title": "Passed Constructs",
+      "title": "Passed Domains",
       "type": "array"
-    },
-    "reassurance_kappa": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": -1.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Reassurance Kappa"
-    },
-    "reassurance_used_in_headline": {
-      "title": "Reassurance Used In Headline",
-      "type": "boolean"
     },
     "report_sha256": {
       "title": "Report Sha256",
       "type": "string"
     },
+    "sample_size": {
+      "exclusiveMinimum": 0,
+      "title": "Sample Size",
+      "type": "integer"
+    },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -170,16 +230,12 @@
   },
   "required": [
     "schema_version",
-    "intra_rater_disclosure_weighted_kappa",
-    "judge_reference_disclosure_weighted_kappa",
-    "omission_recall",
-    "false_claim_precision",
-    "false_claim_recall",
-    "framing_used_in_headline",
-    "reassurance_used_in_headline",
-    "passed_constructs",
-    "failed_constructs",
-    "failed_construct_actions",
+    "sample_size",
+    "domain_diagnostics",
+    "passed_domains",
+    "failed_domains",
+    "invalid_output_count",
+    "domain_gate_manifest_sha256",
     "validation_sample_manifest_sha256",
     "generated_at",
     "report_sha256"

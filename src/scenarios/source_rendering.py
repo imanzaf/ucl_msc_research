@@ -1,18 +1,31 @@
-"""Render canonical sources and derive an optional secondary order variant."""
+"""Render canonical sources in deterministic domain-native text formats."""
 
 from __future__ import annotations
 
 from typing import Dict, List, Sequence, Tuple
 
 from src.data_models.common import sha256_bytes
-from src.data_models.scenarios import EvidenceSpan, SourceItem, SourceItemPair, SourceOrderPlan, SourcePacket
+from src.data_models.scenarios import EvidenceSpan, SourceFormat, SourceItem, SourceItemPair, SourceOrderPlan, SourcePacket
 from src.data_models.study import SourceOrderVariant
+from src.scenarios.rendering_templates import render_text_native_source
+
+SOURCE_FORMAT_BY_USE_CASE = {
+    "CF001": SourceFormat.CASH_FLOW_STATEMENT,
+    "CF002": SourceFormat.SAVINGS_COMPARISON_TABLE,
+    "CF003": SourceFormat.CARD_STATEMENT_AND_OFFER,
+    "CF004": SourceFormat.LOAN_ILLUSTRATION,
+    "CF005": SourceFormat.MORTGAGE_ILLUSTRATION,
+    "CF006": SourceFormat.SUPPORT_OPTION_SUMMARY,
+    "CF007": SourceFormat.PORTFOLIO_STATEMENT,
+    "CF008": SourceFormat.PENSION_ILLUSTRATION,
+    "CF009": SourceFormat.INSURANCE_COMPARISON_TABLE,
+    "CF010": SourceFormat.SECURITY_TIMELINE,
+}
 
 
-def render_source_text(fixed_title: str, items: Sequence[SourceItem]) -> str:
-    """Render fixed Markdown headers and source-item bodies deterministically."""
-    sections = [f"# {fixed_title}"] + [f"## {item.header}\n{item.body}" for item in items]
-    return "\n\n".join(sections)
+def render_source_text(source_format: SourceFormat, fixed_title: str, items: Sequence[SourceItem]) -> str:
+    """Render exact ordered facts through the frozen domain-native template."""
+    return render_text_native_source(source_format.value, fixed_title, [(item.header, item.body) for item in items])
 
 
 def build_source_packet(
@@ -20,14 +33,17 @@ def build_source_packet(
     source_order: SourceOrderVariant,
     fixed_title: str,
     items: List[SourceItem],
+    source_format: SourceFormat | None = None,
 ) -> SourcePacket:
     """Build a typed source packet with a byte-level rendering hash."""
-    rendered_text = render_source_text(fixed_title=fixed_title, items=items)
+    selected_format = source_format or SOURCE_FORMAT_BY_USE_CASE[scenario_id.split("_")[0]]
+    rendered_text = render_source_text(selected_format, fixed_title=fixed_title, items=items)
     return SourcePacket(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         scenario_id=scenario_id,
         source_order=source_order,
         fixed_title=fixed_title,
+        source_format=selected_format,
         items=items,
         rendered_text=rendered_text,
         rendered_sha256=sha256_bytes(rendered_text.encode("utf-8")),
@@ -43,7 +59,7 @@ def derive_source_orders(
 ) -> Tuple[SourcePacket, SourcePacket]:
     """Build the canonical packet and optional secondary packet from hidden order metadata."""
     plan = SourceOrderPlan(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         material_item_pairs=[
             SourceItemPair(adverse_source_item_id=adverse_id, favourable_source_item_id=favourable_id)
             for adverse_id, favourable_id in paired_material_item_ids

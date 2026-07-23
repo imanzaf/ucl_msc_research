@@ -54,7 +54,7 @@ def main() -> None:
             )
         )
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "freeze_status": FreezeStatus.FROZEN,
         "counter_version": tight_manifest.counter_version,
         "tight_limit_manifest_sha256": tight_manifest.manifest_sha256,

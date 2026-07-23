@@ -17,6 +17,14 @@ class Command:
 COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
     "scenarios": {
         "generate": Command("src.cli.commands.scenarios.generate", "Generate and review scenario candidates."),
+        "dry-run-generation": Command(
+            "src.cli.commands.scenarios.dry_run_generation",
+            "Create a conservative scenario-generation cost report.",
+        ),
+        "approve-generation": Command(
+            "src.cli.commands.scenarios.approve_generation",
+            "Record explicit scenario-generation cost approval.",
+        ),
         "publish": Command("src.cli.commands.scenarios.publish", "Publish an accepted scenario revision."),
         "build-manifest": Command("src.cli.commands.scenarios.build_manifest", "Build the accepted-scenario manifest."),
         "freeze-tight-limits": Command("src.cli.commands.scenarios.freeze_tight_limits", "Freeze tight word limits from pilot outputs."),
@@ -33,6 +41,10 @@ COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
         "freeze-prompts": Command("src.cli.commands.experiment.freeze_prompts", "Freeze reviewed prompt packages."),
         "build-manifests": Command("src.cli.commands.experiment.build_manifests", "Build experiment manifests."),
         "build-plan": Command("src.cli.commands.experiment.build_plan", "Build the reviewed experiment run plan."),
+        "build-exploratory-plans": Command(
+            "src.cli.commands.experiment.build_exploratory_plans",
+            "Build the two separately manifested exploratory run plans.",
+        ),
         "preregister": Command("src.cli.commands.experiment.preregister", "Build the preregistration manifest."),
         "dry-run": Command("src.cli.commands.experiment.dry_run", "Create the dry-run cost report."),
         "approve": Command("src.cli.commands.experiment.approve", "Record paid-execution approval."),
@@ -45,6 +57,14 @@ COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
         "run": Command("src.cli.commands.scoring.run", "Score experiment outputs."),
         "resolve-manual": Command("src.cli.commands.scoring.resolve_manual", "Resolve records routed to manual scoring."),
         "validate": Command("src.cli.commands.scoring.validate", "Build the scoring validation report."),
+        "freeze-validation-gates": Command(
+            "src.cli.commands.scoring.freeze_validation_gates",
+            "Freeze calibration-derived domain validation gates.",
+        ),
+        "record-validation-disposition": Command(
+            "src.cli.commands.scoring.record_validation_disposition",
+            "Record blinded failed-domain contingencies.",
+        ),
         "sample-annotations": Command("src.cli.commands.scoring.sample_annotations", "Build the annotation sample."),
         "build-human-reference": Command("src.cli.commands.scoring.build_human_reference", "Build human-reference analysis inputs."),
     },
@@ -53,6 +73,10 @@ COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
         "simulate-power": Command("src.cli.commands.analysis.simulate_power", "Run the power simulation."),
         "build-inputs": Command("src.cli.commands.analysis.build_inputs", "Build analysis-ready inputs."),
         "run": Command("src.cli.commands.analysis.run", "Run the registered analysis."),
+        "run-exploratory": Command(
+            "src.cli.commands.analysis.run_exploratory",
+            "Run paired exploratory analyses without confirmatory p-values.",
+        ),
         "assets": Command("src.cli.commands.analysis.assets", "Generate paper-ready analysis assets."),
     },
     "maintenance": {

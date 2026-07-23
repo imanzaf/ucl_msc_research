@@ -18,6 +18,7 @@ from src.data_models.scenario_review import (
 )
 from src.data_models.scenarios import MinimalCompleteResponse
 from src.scenarios.acceptance import build_accepted_scenario, publish_accepted_scenario, validate_accepted_bundle
+from src.scenarios.pair_diagnostics import build_pair_diagnostics
 from src.scenarios.word_count import count_words
 from src.storage import read_model_json
 from tests.factories import ZERO_HASH, make_candidate_scenario
@@ -33,7 +34,7 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
     candidate = make_candidate_scenario()
     automated = [
         AutomatedScenarioReview(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             scenario_id=candidate.scenario_id,
             review_kind=kind,
             decision=ReviewDecision.ACCEPT,
@@ -47,19 +48,20 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
     ]
     initial_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
     initial = ResearcherScenarioReview(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         review_id="SCENARIO_INITIAL_ACCEPT",
         anonymised_item_id="S-001",
         scenario_id=candidate.scenario_id,
         decision=ReviewDecision.ACCEPT,
         labels=_passing_labels(),
+        pair_diagnostics=build_pair_diagnostics(candidate),
         reviewed_artifact_sha256=candidate.candidate_sha256,
         reviewed_at=initial_at,
         researcher_id="researcher",
         notes="Initial acceptance.",
     )
     history = ScenarioReviewHistory(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         scenario_id=candidate.scenario_id,
         automated_reviews=automated,
         revisions=[],

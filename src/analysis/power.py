@@ -1,4 +1,4 @@
-"""Calibration-based power simulation for the repeated, use-case-clustered design."""
+"""Power simulation for the complete composite-score repeated design."""
 
 from __future__ import annotations
 
@@ -8,14 +8,21 @@ from typing import Dict
 import numpy as np
 from scipy import stats
 
-CONFIRMATORY_NAMES = {"H1", "H2a", "H2b"}
+from src.analysis.estimands import CONFIRMATORY_NAMES
+from src.data_models.scoring import FROZEN_COMPOSITE_WEIGHTS, CompositeDomain
+
+DOMAIN_NAMES = ("coverage", "specificity", "framing", "salience", "integrity")
+WEIGHT_VECTOR = np.asarray([float(FROZEN_COMPOSITE_WEIGHTS[CompositeDomain(name)]) for name in DOMAIN_NAMES])
+BASE_DOMAIN_SCORE = 0.35
 
 
 @dataclass(frozen=True)
 class VarianceComponents:
-    """Represent calibrated heterogeneity at each repeated-design level."""
+    """Represent calibrated heterogeneity in the actual composite estimator."""
 
-    use_case_standard_deviation: float
+    cue_template_standard_deviation: float
+    pair_standard_deviation: float
+    fact_standard_deviation: float
     scenario_standard_deviation: float
     model_standard_deviation: float
     scoring_error_standard_deviation: float
@@ -23,7 +30,9 @@ class VarianceComponents:
     def validate(self) -> None:
         """Reject negative or entirely degenerate calibration components."""
         values = [
-            self.use_case_standard_deviation,
+            self.cue_template_standard_deviation,
+            self.pair_standard_deviation,
+            self.fact_standard_deviation,
             self.scenario_standard_deviation,
             self.model_standard_deviation,
             self.scoring_error_standard_deviation,
@@ -32,27 +41,69 @@ class VarianceComponents:
             raise ValueError("power variance components must be nonnegative and not all zero")
 
 
-def simulate_repeated_design_p_values(
-    effect: float,
+def _composite_contrasts(
+    effects: Dict[str, float],
     components: VarianceComponents,
     simulations: int,
     seed: int,
-) -> np.ndarray:
-    """Simulate clustered use-case tests after averaging repeated scenarios and models."""
+) -> Dict[str, np.ndarray]:
+    """Simulate five domains over 10×4×3×2×2 and apply the locked composite formula."""
     components.validate()
     if simulations < 1:
         raise ValueError("power simulation requires positive draws")
+    if set(effects) != CONFIRMATORY_NAMES:
+        raise ValueError("power effects must cover exactly H1 and H2")
     generator = np.random.default_rng(seed)
-    shape = (simulations, 10, 4, 3)
-    use_case_effect = generator.normal(0, components.use_case_standard_deviation, size=(simulations, 10, 1, 1))
-    scenario_effect = generator.normal(0, components.scenario_standard_deviation, size=(simulations, 10, 4, 1))
-    model_effect = generator.normal(0, components.model_standard_deviation, size=(simulations, 1, 1, 3))
-    scoring_error = generator.normal(0, components.scoring_error_standard_deviation, size=shape)
-    repeated_effects = effect + use_case_effect + scenario_effect + model_effect + scoring_error
-    use_case_means = repeated_effects.mean(axis=(2, 3))
-    standard_errors = use_case_means.std(axis=1, ddof=1) / np.sqrt(10)
-    statistics = np.divide(use_case_means.mean(axis=1), standard_errors, out=np.zeros(simulations), where=standard_errors > 0)
-    return 2 * stats.t.sf(np.abs(statistics), df=9)
+    # Axes: simulation, scenario (10 use cases × R1-R4), model, budget, cue, domain.
+    shape = (simulations, 40, 3, 2, 2, len(DOMAIN_NAMES))
+    template_ids = np.tile(np.arange(4), 10)
+    template = generator.normal(0, components.cue_template_standard_deviation, size=(simulations, 4))[:, template_ids]
+    template = template[:, :, None, None, None, None]
+    # Cell-varying components represent treatment-effect heterogeneity; pure random intercepts
+    # would cancel from the paired H1/H2 contrasts and therefore contribute no power uncertainty.
+    scenario = generator.normal(
+        0,
+        components.scenario_standard_deviation,
+        size=(simulations, 40, 1, 2, 2, len(DOMAIN_NAMES)),
+    )
+    model = generator.normal(
+        0,
+        components.model_standard_deviation,
+        size=(simulations, 1, 3, 2, 2, len(DOMAIN_NAMES)),
+    )
+    # Two pair and four fact draws enter each domain before the frozen weighting step.
+    pair = generator.normal(
+        0,
+        components.pair_standard_deviation,
+        size=(simulations, 40, 2, 1, 2, 2, len(DOMAIN_NAMES)),
+    ).mean(axis=2)
+    fact = generator.normal(
+        0,
+        components.fact_standard_deviation,
+        size=(simulations, 40, 4, 1, 2, 2, len(DOMAIN_NAMES)),
+    ).mean(axis=2)
+    scoring = generator.normal(0, components.scoring_error_standard_deviation, size=shape)
+    domains = BASE_DOMAIN_SCORE + scenario + model + pair + fact + scoring
+    domains[:, :, :, 1, :, :] += effects["H1"]
+    domains[:, :, :, :, 1, :] += effects["H2"] + template[:, :, 0, 0, 0, 0][:, :, None, None, None]
+    domains = np.clip(domains, 0.0, 1.0)
+    scores = np.tensordot(domains, WEIGHT_VECTOR, axes=([-1], [0]))
+    # Average nuisance factor and model within each scenario, matching the analysis estimator.
+    h1 = scores[:, :, :, 1, :].mean(axis=(2, 3)) - scores[:, :, :, 0, :].mean(axis=(2, 3))
+    h2 = scores[:, :, :, :, 1].mean(axis=(2, 3)) - scores[:, :, :, :, 0].mean(axis=(2, 3))
+    return {"H1": h1, "H2": h2}
+
+
+def _paired_p_values(scenario_effects: np.ndarray) -> np.ndarray:
+    """Return vectorised two-sided scenario-level paired-test approximations."""
+    standard_errors = scenario_effects.std(axis=1, ddof=1) / np.sqrt(scenario_effects.shape[1])
+    statistics = np.divide(
+        scenario_effects.mean(axis=1),
+        standard_errors,
+        out=np.zeros(scenario_effects.shape[0]),
+        where=standard_errors > 0,
+    )
+    return 2 * stats.t.sf(np.abs(statistics), df=scenario_effects.shape[1] - 1)
 
 
 def _holm_rejections(p_values: np.ndarray, alpha: float) -> np.ndarray:
@@ -68,19 +119,16 @@ def _holm_rejections(p_values: np.ndarray, alpha: float) -> np.ndarray:
 
 def simulate_holm_corrected_power(
     effects: Dict[str, float],
-    components: Dict[str, VarianceComponents],
+    components: VarianceComponents,
     simulations: int = 5_000,
     alpha: float = 0.05,
     seed: int = 7,
 ) -> Dict[str, float]:
-    """Estimate per-hypothesis rejection probability under the three-test Holm family."""
-    if set(effects) != CONFIRMATORY_NAMES or set(components) != CONFIRMATORY_NAMES:
-        raise ValueError("power inputs must cover exactly H1, H2a, and H2b")
+    """Estimate H1/H2 power using the complete design and actual composite contrasts."""
     if not 0 < alpha < 1:
         raise ValueError("power alpha must lie strictly between zero and one")
     names = sorted(CONFIRMATORY_NAMES)
-    p_values = np.column_stack(
-        [simulate_repeated_design_p_values(effects[name], components[name], simulations, seed + index) for index, name in enumerate(names)]
-    )
+    contrasts = _composite_contrasts(effects, components, simulations, seed)
+    p_values = np.column_stack([_paired_p_values(contrasts[name]) for name in names])
     rejected = _holm_rejections(p_values, alpha)
     return {name: float(rejected[:, index].mean()) for index, name in enumerate(names)}

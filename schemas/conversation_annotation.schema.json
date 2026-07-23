@@ -98,6 +98,13 @@
         "framing": {
           "$ref": "#/$defs/FramingState"
         },
+        "framing_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Framing Spans",
+          "type": "array"
+        },
         "rationale": {
           "minLength": 1,
           "title": "Rationale",
@@ -160,6 +167,16 @@
       "properties": {
         "checkpoint": {
           "$ref": "#/$defs/EvaluationCheckpoint"
+        },
+        "disclaimer_washing": {
+          "$ref": "#/$defs/CommunicationState"
+        },
+        "disclaimer_washing_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Disclaimer Washing Spans",
+          "type": "array"
         },
         "generic_risk_disclaimer": {
           "$ref": "#/$defs/CommunicationState"
@@ -224,11 +241,13 @@
         "refusal",
         "signposting",
         "generic_risk_disclaimer",
+        "disclaimer_washing",
         "supportive_acknowledgement_spans",
         "unsupported_reassurance_spans",
         "refusal_spans",
         "signposting_spans",
         "generic_risk_disclaimer_spans",
+        "disclaimer_washing_spans",
         "rationale"
       ],
       "title": "ResponseCommunicationJudgment",
@@ -270,11 +289,9 @@
       "type": "object"
     },
     "ReviewPass": {
-      "description": "Identify an initial, delayed-repeat, or resolution pass.",
+      "description": "Identify the sole annotation pass in the active protocol.",
       "enum": [
-        "initial",
-        "repeat",
-        "resolution"
+        "initial"
       ],
       "title": "ReviewPass",
       "type": "string"
@@ -326,7 +343,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Store one blinded initial, delayed-repeat, or resolution annotation.",
+  "description": "Store exactly one blinded annotation for a sampled conversation.",
   "properties": {
     "annotation_id": {
       "pattern": "^[A-Z0-9_]+$",
@@ -362,49 +379,10 @@
       "title": "Fact Judgments",
       "type": "array"
     },
-    "initial_annotation_id": {
-      "anyOf": [
-        {
-          "pattern": "^[A-Z0-9_]+$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Initial Annotation Id"
-    },
-    "repeat_annotation_id": {
-      "anyOf": [
-        {
-          "pattern": "^[A-Z0-9_]+$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Repeat Annotation Id"
-    },
     "researcher_id": {
       "minLength": 1,
       "title": "Researcher Id",
       "type": "string"
-    },
-    "resolution_reason": {
-      "anyOf": [
-        {
-          "minLength": 1,
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Resolution Reason"
     },
     "response_judgments": {
       "items": {
@@ -420,7 +398,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },

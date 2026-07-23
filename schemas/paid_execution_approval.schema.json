@@ -1,4 +1,16 @@
 {
+  "$defs": {
+    "ExperimentName": {
+      "description": "Identify one independently manifested conversation experiment.",
+      "enum": [
+        "risk_comm_v1",
+        "material_priority_v1",
+        "brevity_locus_v1"
+      ],
+      "title": "ExperimentName",
+      "type": "string"
+    }
+  },
   "additionalProperties": false,
   "description": "Bind explicit researcher approval to one immutable dry-run report.",
   "properties": {
@@ -38,12 +50,10 @@
       "type": "string"
     },
     "experiment_name": {
-      "pattern": "^risk_comm_v1$",
-      "title": "Experiment Name",
-      "type": "string"
+      "$ref": "#/$defs/ExperimentName"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     }

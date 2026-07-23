@@ -28,12 +28,14 @@ def main(argv: Optional[List[str]] = None) -> None:
         REPO_ROOT / "CHANGELOG.md",
         REPO_ROOT / "docs/research-plan/RESEARCH_PLAN.md",
         REPO_ROOT / "docs/research-plan/REFERENCE_AUDIT.md",
-        REPO_ROOT / "docs/experiments/scenario_generation_v0_5_1.md",
+        REPO_ROOT / "docs/experiments/scenario_generation_v0_5_2.md",
         REPO_ROOT / "docs/experiments/review_and_annotation.md",
         REPO_ROOT / "docs/experiments/scoring.md",
         REPO_ROOT / "docs/experiments/calibration.md",
         REPO_ROOT / "docs/experiments/analysis.md",
         REPO_ROOT / "docs/experiments/risk_comm_v1.md",
+        REPO_ROOT / "docs/experiments/material_priority_v1.md",
+        REPO_ROOT / "docs/experiments/brevity_locus_v1.md",
     ]
     missing = [str(path.relative_to(REPO_ROOT)) for path in required_documents if not path.exists()]
     unknown_commands = [
@@ -43,8 +45,8 @@ def main(argv: Optional[List[str]] = None) -> None:
     if missing:
         raise ValueError("documentation references missing paths or commands: " + ", ".join(sorted(set(missing))))
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    if "e6b83d2" not in readme or "480" not in readme or "960" not in readme:
-        raise ValueError("README must identify the legacy commit and exact target counts")
+    if any(value not in readme for value in ["480", "240", "120", "V0.5.2", "2.0.0"]):
+        raise ValueError("README must identify the active seed/schema and exact experiment counts")
     print(f"Documentation smoke test passed for {len(required_documents)} active documents.")
 
 

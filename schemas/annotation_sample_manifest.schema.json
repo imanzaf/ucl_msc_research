@@ -34,13 +34,6 @@
       "title": "Random Seed",
       "type": "integer"
     },
-    "repeat_conversation_ids": {
-      "items": {
-        "type": "string"
-      },
-      "title": "Repeat Conversation Ids",
-      "type": "array"
-    },
     "sample_id": {
       "minLength": 1,
       "title": "Sample Id",
@@ -50,7 +43,7 @@
       "$ref": "#/$defs/ScenarioStage"
     },
     "schema_version": {
-      "pattern": "^1\\.0\\.0$",
+      "pattern": "^2\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -91,7 +84,6 @@
     "sample_stage",
     "random_seed",
     "conversation_ids",
-    "repeat_conversation_ids",
     "strata_summary",
     "selection_probabilities",
     "scoring_execution_manifest_sha256",

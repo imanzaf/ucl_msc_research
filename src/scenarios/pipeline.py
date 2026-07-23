@@ -1,4 +1,4 @@
-"""Orchestrate integrated V0.5.1 generation, review, revision, and acceptance gates."""
+"""Orchestrate versioned scenario generation, review, revision, and acceptance gates."""
 
 from __future__ import annotations
 
@@ -240,7 +240,7 @@ def default_revision_record_factory(
     from src.data_models.common import utc_now
 
     return RevisionCycleRecord(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         scenario_id=revised_candidate.scenario_id,
         cycle_number=cycle_number,
         changes=changes,

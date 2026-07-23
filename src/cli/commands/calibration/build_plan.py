@@ -46,6 +46,8 @@ def main() -> None:
         raise ValueError("calibration planning requires frozen calibration and evaluated-model manifests")
     if budget.freeze_status != FreezeStatus.FROZEN or prompt_review.decision != CueReviewDecision.APPROVE:
         raise ValueError("calibration planning requires frozen budgets and an approved cue review")
+    if prompt_review.accepted_scenario_manifest_sha256 != accepted.manifest_sha256:
+        raise ValueError("prompt review does not bind the accepted scenarios used by calibration")
     links = [
         (calibration.accepted_scenario_manifest_sha256, accepted.manifest_sha256),
         (calibration.evaluated_model_manifest_sha256, models.manifest_sha256),
@@ -64,7 +66,7 @@ def main() -> None:
     experiment_dir = prepare_experiment_dir(REPO_ROOT / "data/outputs/experiments", "risk_comm_calibration_v1")
     created_at = datetime.now(timezone.utc)
     config = CalibrationExperimentConfig(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         experiment_name="risk_comm_calibration_v1",
         experiment_manifest_sha256=calibration.manifest_sha256,
         randomisation_seed=calibration.randomisation_seed,

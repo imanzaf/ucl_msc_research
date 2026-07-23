@@ -49,7 +49,7 @@ def main() -> None:
     if sample.scoring_execution_manifest_sha256 != scoring_manifest.manifest_sha256:
         raise ValueError("annotation sample does not bind the supplied scoring manifest")
     annotations = read_model_jsonl(args.annotations, ConversationAnnotation)
-    resolved_annotations, _repeat_pairs = final_annotations(sample, annotations)
+    resolved_annotations, _unused_pairs = final_annotations(sample, annotations)
     scenarios: Dict[str, AcceptedScenario] = {
         scenario.scenario_id: scenario for scenario in load_all_accepted_scenarios(args.accepted_root, accepted_manifest)
     }
@@ -74,7 +74,7 @@ def main() -> None:
         annotation = resolved_annotations[blind_id]
         manual_judge_id = f"manual:{annotation.researcher_id}"
         fact_result = FactAssessmentResult(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             blind_conversation_id=blind_id,
             judgments=annotation.fact_judgments,
             judge_model_id=manual_judge_id,
@@ -82,7 +82,7 @@ def main() -> None:
             scored_at=annotation.submitted_at,
         )
         response_result = ResponseCommunicationResult(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             blind_conversation_id=blind_id,
             judgments=annotation.response_judgments,
             judge_model_id=manual_judge_id,
@@ -90,7 +90,7 @@ def main() -> None:
             scored_at=annotation.submitted_at,
         )
         claim_result = ClaimAssessmentResult(
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             blind_conversation_id=blind_id,
             claims=annotation.claim_judgments,
             visible_source_sha256=scoring_input.visible_source_sha256,
@@ -113,14 +113,15 @@ def main() -> None:
             )
             rows.append(
                 AnalysisInputRow(
-                    schema_version="1.0.0",
+                    schema_version="2.0.0",
                     run_unit_id=run_unit.run_unit_id,
                     scenario_id=run_unit.scenario_id,
                     use_case_id=run_unit.use_case_id,
                     model_id=run_unit.model_id,
                     source_order=run_unit.source_order,
                     word_budget=run_unit.cell.word_budget,
-                    emotional_cue=run_unit.cell.emotional_cue,
+                    expressed_concern=run_unit.cell.expressed_concern,
+                    cue_template_id=int(run_unit.scenario_id[-1]),
                     integrity=run_unit.cell.integrity,
                     metrics=metrics,
                     transcript_sha256=transcript.transcript_sha256,

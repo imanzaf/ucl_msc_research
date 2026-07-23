@@ -1,8 +1,9 @@
-"""Strict automated and researcher review records for V0.5.1 scenarios."""
+"""Strict automated and researcher review records for versioned scenarios."""
 
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, Optional, Set
 
@@ -12,7 +13,6 @@ from src.data_models.common import ImmutableModel, VersionedImmutableModel, arti
 from src.data_models.experiments import ProviderCallProvenance
 
 MAX_AUTOMATED_REVISION_CYCLES = 2
-REPEAT_WASHOUT_DAYS = 14
 
 
 class AutomatedReviewKind(str, Enum):
@@ -40,11 +40,9 @@ class ReviewDecision(str, Enum):
 
 
 class ReviewPass(str, Enum):
-    """Identify an initial, delayed-repeat, or resolution pass."""
+    """Identify the sole annotation pass in the active protocol."""
 
     INITIAL = "initial"
-    REPEAT = "repeat"
-    RESOLUTION = "resolution"
 
 
 class FindingSeverity(str, Enum):
@@ -70,7 +68,7 @@ class ReviewFinding(ImmutableModel):
 class AutomatedScenarioReview(VersionedImmutableModel):
     """Store one condition-independent typed automated review."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     review_kind: AutomatedReviewKind
     decision: ReviewDecision
@@ -128,7 +126,7 @@ class ControlledFieldChange(ImmutableModel):
 class RevisionCycleRecord(VersionedImmutableModel):
     """Store one bounded automated revision and full dependency rebuild."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     cycle_number: int = Field(ge=1, le=MAX_AUTOMATED_REVISION_CYCLES)
     changes: List[ControlledFieldChange] = Field(min_length=1)
@@ -192,15 +190,49 @@ class ScenarioReviewLabels(ImmutableModel):
         return all(bool(value) for value in self.model_dump().values())
 
 
+class PairDiagnostics(ImmutableModel):
+    """Expose blinded descriptive pair-matching diagnostics without thresholds."""
+
+    pair_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_P[12]$")
+    proposition_word_counts: Dict[str, int]
+    evidence_word_counts: Dict[str, int]
+    numeric_burden: Dict[str, int]
+    conditional_burden: Dict[str, int]
+    readability: Dict[str, Decimal]
+    source_positions: Dict[str, int]
+    arithmetic_dependency: Dict[str, bool]
+    shared_quantities: List[str]
+    blinded_materiality_ratings: Dict[str, int]
+
+    @model_validator(mode="after")
+    def validate_sides(self) -> "PairDiagnostics":
+        """Require both opaque sides for every side-specific diagnostic."""
+        expected = {"side_a", "side_b"}
+        for field_name in [
+            "proposition_word_counts",
+            "evidence_word_counts",
+            "numeric_burden",
+            "conditional_burden",
+            "readability",
+            "source_positions",
+            "arithmetic_dependency",
+            "blinded_materiality_ratings",
+        ]:
+            if set(getattr(self, field_name)) != expected:
+                raise ValueError(f"{field_name} must contain blinded side_a and side_b entries")
+        return self
+
+
 class ResearcherScenarioReview(VersionedImmutableModel):
     """Store the single researcher review used for scenario acceptance."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     review_id: str = Field(pattern=r"^[A-Z0-9_]+$")
     anonymised_item_id: str = Field(min_length=1)
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     decision: ReviewDecision
     labels: ScenarioReviewLabels
+    pair_diagnostics: List[PairDiagnostics] = Field(default_factory=list, max_length=2)
     reviewed_artifact_sha256: str
     reviewed_at: datetime
     researcher_id: str = Field(min_length=1)
@@ -217,13 +249,15 @@ class ResearcherScenarioReview(VersionedImmutableModel):
         """Require every checklist label to pass when the researcher accepts a scenario."""
         if self.decision == ReviewDecision.ACCEPT and not self.labels.all_pass():
             raise ValueError("accepted scenario reviews require every checklist item to pass")
+        if self.decision == ReviewDecision.ACCEPT and len(self.pair_diagnostics) != 2:
+            raise ValueError("accepted scenario reviews require both pair diagnostics to be viewed and persisted")
         return self
 
 
 class ScenarioReviewHistory(VersionedImmutableModel):
     """Collect complete automated, revision, and researcher review provenance."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     automated_reviews: List[AutomatedScenarioReview] = Field(min_length=1)
     revisions: List[RevisionCycleRecord] = Field(max_length=MAX_AUTOMATED_REVISION_CYCLES)
@@ -262,7 +296,7 @@ class ScenarioReviewHistory(VersionedImmutableModel):
 class ScenarioAcceptanceRecord(VersionedImmutableModel):
     """Record the acyclic researcher acceptance decision before publishing an accepted artifact."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     artifact_version: str = Field(pattern=r"^v[1-9][0-9]*$")
     candidate_sha256: str
@@ -281,7 +315,7 @@ class ScenarioAcceptanceRecord(VersionedImmutableModel):
 class ScenarioPipelineDisposition(VersionedImmutableModel):
     """Persist the terminal automated-pipeline disposition for one candidate."""
 
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     decision: ReviewDecision
     candidate_sha256: str

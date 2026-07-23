@@ -20,8 +20,11 @@ from src.data_models.scoring import (
     MissingRunRecord,
     ScoredConversationBundle,
 )
+from src.data_models.study import EXPERIMENT_DIMENSIONS, ExperimentName, cue_template_id
 from src.experiments.io import load_accepted_evaluation_scenarios
-from src.experiments.scenario_runner import validate_complete_run_plan
+from src.experiments.layout import validate_experiment_path
+from src.experiments.scenario_runner import validate_complete_run_plan, validate_exploratory_run_plan
+from src.paths import REPO_ROOT
 from src.prompts.scoring_contracts import scoring_contract_sha256
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic, write_models_jsonl_atomic
 
@@ -45,17 +48,29 @@ def build_analysis_rows(
     manual_resolutions: List[ManualScoringResolution],
     scoring_manifest_sha256: str,
     scoring_contract_digest: str,
+    experiment_name: ExperimentName = ExperimentName.RISK_COMM_V1,
+    expected_conversation_count: int = EXPECTED_CONVERSATION_COUNT,
 ) -> Tuple[List[AnalysisInputRow], List[MissingRunRecord]]:
     """Join all completed outcomes and preserve exhausted provider calls as missing."""
-    if len(transcripts) != EXPECTED_CONVERSATION_COUNT:
-        raise ValueError("analysis input requires the complete 480-unit terminal transcript ledger")
+    if len(transcripts) != expected_conversation_count:
+        raise ValueError(
+            f"{experiment_name.value} analysis input requires the complete " f"{expected_conversation_count}-unit terminal transcript ledger"
+        )
     transcript_by_id: Dict[str, ConversationTranscript] = {}
     for transcript in transcripts:
         run_unit_id = transcript.run_unit.run_unit_id
         if run_unit_id in transcript_by_id:
             raise ValueError(f"duplicate transcript run-unit id: {run_unit_id}")
         transcript_by_id[run_unit_id] = transcript
-    validate_complete_run_plan([transcript.run_unit for transcript in transcripts])
+    run_units = [transcript.run_unit for transcript in transcripts]
+    if experiment_name == ExperimentName.RISK_COMM_V1:
+        validate_complete_run_plan(run_units)
+    else:
+        validate_exploratory_run_plan(
+            run_units,
+            expected_conversation_count,
+            expected_cells=EXPERIMENT_DIMENSIONS[experiment_name].cell_count,
+        )
 
     metric_by_id: Dict[str, Tuple[List[ConversationMetrics], str, str]] = {}
     for bundle in bundles:
@@ -102,14 +117,15 @@ def build_analysis_rows(
         for metric in sorted(metrics, key=lambda item: item.checkpoint.value):
             rows.append(
                 AnalysisInputRow(
-                    schema_version="1.0.0",
+                    schema_version="2.0.0",
                     run_unit_id=run_unit_id,
                     scenario_id=run_unit.scenario_id,
                     use_case_id=run_unit.use_case_id,
                     model_id=run_unit.model_id,
                     source_order=run_unit.source_order,
+                    cue_template_id=cue_template_id(run_unit.scenario_id),
                     word_budget=run_unit.cell.word_budget,
-                    emotional_cue=run_unit.cell.emotional_cue,
+                    expressed_concern=run_unit.cell.expressed_concern,
                     integrity=run_unit.cell.integrity,
                     metrics=metric,
                     transcript_sha256=transcript.transcript_sha256,
@@ -142,7 +158,7 @@ def build_fact_analysis_rows(
     transcripts: List[ConversationTranscript],
     bundles: List[ScoredConversationBundle],
     manual_resolutions: List[ManualScoringResolution],
-    fact_valence_by_scenario: Dict[str, Dict[str, FactValence]],
+    fact_metadata_by_scenario: Dict[str, Dict[str, Tuple[FactValence, str]]],
 ) -> List[FactAnalysisInputRow]:
     """Join material-fact judgments to immutable conditions for ordinal R robustness."""
     result_by_id = {bundle.run_unit_id: bundle.fact_result for bundle in bundles}
@@ -157,24 +173,27 @@ def build_fact_analysis_rows(
     for run_unit_id in sorted(result_by_id):
         transcript = transcript_by_id[run_unit_id]
         run_unit = transcript.run_unit
-        valence_by_fact = fact_valence_by_scenario[run_unit.scenario_id]
+        metadata_by_fact = fact_metadata_by_scenario[run_unit.scenario_id]
         for judgment in result_by_id[run_unit_id].judgments:
-            if judgment.fact_id not in valence_by_fact:
+            if judgment.fact_id not in metadata_by_fact:
                 continue
+            fact_valence, pair_id = metadata_by_fact[judgment.fact_id]
             rows.append(
                 FactAnalysisInputRow(
-                    schema_version="1.0.0",
+                    schema_version="2.0.0",
                     run_unit_id=run_unit_id,
                     scenario_id=run_unit.scenario_id,
                     use_case_id=run_unit.use_case_id,
                     fact_id=judgment.fact_id,
-                    fact_valence=valence_by_fact[judgment.fact_id],
+                    pair_id=pair_id,
+                    fact_valence=fact_valence,
                     checkpoint=judgment.checkpoint,
                     disclosure_ordinal=disclosure_ordinal[judgment.disclosure],
                     model_id=run_unit.model_id,
                     source_order=run_unit.source_order,
+                    cue_template_id=cue_template_id(run_unit.scenario_id),
                     word_budget=run_unit.cell.word_budget,
-                    emotional_cue=run_unit.cell.emotional_cue,
+                    expressed_concern=run_unit.cell.expressed_concern,
                     integrity=run_unit.cell.integrity,
                     transcript_sha256=transcript.transcript_sha256,
                     scoring_result_sha256=hash_by_id[run_unit_id],
@@ -186,7 +205,7 @@ def build_fact_analysis_rows(
 
 
 def main() -> None:
-    """Write the analyzable subset and a self-hashed full-ledger missingness report."""
+    """Write one experiment's analyzable subset and self-hashed missingness report."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--transcripts", type=Path, required=True)
     parser.add_argument("--scored-bundles", type=Path, required=True)
@@ -200,6 +219,11 @@ def main() -> None:
     parser.add_argument("--missingness-report", type=Path, required=True)
     args = parser.parse_args()
     experiment_manifest = read_model_json(args.experiment_manifest, ExperimentManifest)
+    experiment_name = experiment_manifest.experiment_name
+    expected_count = EXPERIMENT_DIMENSIONS[experiment_name].conversation_count
+    validate_experiment_path(args.transcripts, REPO_ROOT, "result", experiment_name.value)
+    for output_path in [args.output, args.fact_analysis_output, args.missingness_report]:
+        validate_experiment_path(output_path, REPO_ROOT, "results_tree", experiment_name.value)
     accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
     scoring_manifest = read_model_json(args.scoring_execution_manifest, ScoringExecutionManifest)
     validate_model_self_hash(experiment_manifest, "manifest_sha256")
@@ -222,6 +246,8 @@ def main() -> None:
         manual_resolutions,
         scoring_manifest.manifest_sha256,
         scoring_manifest.scoring_contract_sha256,
+        experiment_name,
+        expected_count,
     )
     write_models_jsonl_atomic(args.output, rows)
     scenarios = load_accepted_evaluation_scenarios(args.accepted_root, accepted_manifest)
@@ -229,12 +255,12 @@ def main() -> None:
         transcripts,
         bundles,
         manual_resolutions,
-        {scenario.scenario_id: {fact.fact_id: fact.valence for fact in scenario.material_facts} for scenario in scenarios},
+        {scenario.scenario_id: {fact.fact_id: (fact.valence, fact.pair_id) for fact in scenario.material_facts} for scenario in scenarios},
     )
     write_models_jsonl_atomic(args.fact_analysis_output, fact_rows)
     payload = {
-        "schema_version": "1.0.0",
-        "expected_run_count": EXPECTED_CONVERSATION_COUNT,
+        "schema_version": "2.0.0",
+        "expected_run_count": expected_count,
         "completed_run_count": len({row.run_unit_id for row in rows}),
         "failed_run_count": len(missing_runs),
         "manually_resolved_count": len(manual_resolutions),
