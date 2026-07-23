@@ -38,9 +38,6 @@
           "title": "Scenario Id",
           "type": "string"
         },
-        "source_order": {
-          "$ref": "#/$defs/SourceOrderVariant"
-        },
         "terminal_attempt_count": {
           "minimum": 1,
           "title": "Terminal Attempt Count",
@@ -61,7 +58,6 @@
         "scenario_id",
         "use_case_id",
         "model_id",
-        "source_order",
         "cell_id",
         "failure_reason",
         "transcript_sha256",
@@ -69,15 +65,6 @@
       ],
       "title": "MissingRunRecord",
       "type": "object"
-    },
-    "SourceOrderVariant": {
-      "description": "Identify the frozen canonical source order.",
-      "enum": [
-        "A",
-        "B"
-      ],
-      "title": "SourceOrderVariant",
-      "type": "string"
     }
   },
   "additionalProperties": false,

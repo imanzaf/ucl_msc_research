@@ -240,7 +240,7 @@ def default_revision_record_factory(
     from src.data_models.common import utc_now
 
     return RevisionCycleRecord(
-        schema_version="2.0.0",
+        schema_version="3.0.0",
         scenario_id=revised_candidate.scenario_id,
         cycle_number=cycle_number,
         changes=changes,
@@ -248,8 +248,7 @@ def default_revision_record_factory(
         output_artifact_sha256=revised_candidate.candidate_sha256,
         rebuilt_dependency_sha256={
             "numeric_registry": artifact_sha256(revised_candidate.numeric_registry),
-            "source_order_a": artifact_sha256(revised_candidate.source_order_a),
-            "source_order_plan": artifact_sha256(revised_candidate.source_order_plan),
+            "source_packet": artifact_sha256(revised_candidate.source_packet),
             "material_facts": artifact_sha256(revised_candidate.material_facts),
             "neutral_facts": artifact_sha256(revised_candidate.neutral_facts),
             "fact_pairs": artifact_sha256(revised_candidate.fact_pairs),

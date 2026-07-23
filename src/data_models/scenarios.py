@@ -1,4 +1,4 @@
-"""Strict archived seeds and active V0.7.0 scenario-artifact models."""
+"""Strict archived seeds and active V0.8.0 scenario-artifact models."""
 
 from __future__ import annotations
 
@@ -6,13 +6,12 @@ import re
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import Field, field_validator, model_validator
 
 from src.data_models.common import ImmutableModel, VersionedImmutableModel, artifact_sha256, sha256_bytes, validate_sha256
 from src.data_models.experiments import ProviderCallProvenance
-from src.data_models.study import SourceOrderVariant
 from src.paths import ACTIVE_SCENARIO_SET_ID
 from src.scenarios.rendering_templates import SOURCE_FORMAT_BY_USE_CASE, SourceFormat, render_text_native_source
 from src.scenarios.word_count import count_words
@@ -55,10 +54,38 @@ class ScenarioStage(str, Enum):
 
 
 class FactValence(str, Enum):
-    """Identify material-fact valence without encoding it in visible sources."""
+    """Read the adverse/favourable labels used by pre-V0.8 artifacts."""
 
     ADVERSE = "adverse"
     FAVOURABLE = "favourable"
+
+
+class DecisionOption(str, Enum):
+    """Identify which hidden decision option a material fact describes."""
+
+    PROVIDER_PREFERRED = "provider_preferred"
+    CUSTOMER_PREFERRED = "customer_preferred"
+
+
+class FactPolarity(str, Enum):
+    """Identify whether a material fact is a benefit or downside of its option."""
+
+    BENEFIT = "benefit"
+    DOWNSIDE = "downside"
+
+
+class DecisionAlignment(str, Enum):
+    """Identify whose preferred decision a fact supports."""
+
+    PROVIDER_SUPPORTING = "provider_supporting"
+    CUSTOMER_SUPPORTING = "customer_supporting"
+
+
+class EvidencePairType(str, Enum):
+    """Identify the two polarity-matched evidence comparisons."""
+
+    BENEFIT_COMPARISON = "benefit_comparison"
+    DOWNSIDE_COMPARISON = "downside_comparison"
 
 
 class ScenarioSeedVersion(str, Enum):
@@ -68,6 +95,7 @@ class ScenarioSeedVersion(str, Enum):
     V0_5_2 = "0.5.2"
     V0_6_0 = "0.6.0"
     V0_7_0 = "0.7.0"
+    V0_8_0 = "0.8.0"
 
 
 class ScenarioSetId(str, Enum):
@@ -76,7 +104,8 @@ class ScenarioSetId(str, Enum):
     V0_5_1 = "customer_finance_pressure_emotion_v0.5.1"
     V0_5_2 = "customer_finance_pressure_concern_v0.5.2"
     V0_6_0 = "customer_finance_decision_conflict_v0.6.0"
-    V0_7_0 = ACTIVE_SCENARIO_SET_ID
+    V0_7_0 = "customer_finance_deployment_context_v0.7.0"
+    V0_8_0 = ACTIVE_SCENARIO_SET_ID
 
 
 class SpecificityElementType(str, Enum):
@@ -320,8 +349,8 @@ class ScenarioGenerationDesign(ImmutableModel):
     replications: List[ReplicationSeed] = Field(min_length=5, max_length=5)
 
 
-class UseCaseSeed(ImmutableModel):
-    """Represent one active deployment-realistic V0.7.0 use-case seed."""
+class V07UseCaseSeed(ImmutableModel):
+    """Read one archived deployment-realistic V0.7.0 use-case seed."""
 
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     deployment_context: DeploymentContext
@@ -331,10 +360,84 @@ class UseCaseSeed(ImmutableModel):
     scenario_generation: ScenarioGenerationDesign
 
     @model_validator(mode="after")
-    def validate_structure(self) -> "UseCaseSeed":
-        """Require C1 and R1-R4 generation briefs for the use case."""
+    def validate_structure(self) -> "V07UseCaseSeed":
+        """Require C1 and R1-R4 generation briefs for the archived use case."""
         expected_ids = {f"{self.use_case_id}_C1", *{f"{self.use_case_id}_R{index}" for index in range(1, 5)}}
         actual_ids = {replication.scenario_id for replication in self.scenario_generation.replications}
+        if actual_ids != expected_ids:
+            raise ValueError("scenario generation must contain C1 and R1-R4 for the use case")
+        return self
+
+
+class DecisionDesign(ImmutableModel):
+    """Store the compact hidden customer/provider decision conflict."""
+
+    customer_goal: str = Field(min_length=1, pattern=r"\S")
+    customer_preferred_option: str = Field(min_length=1, pattern=r"\S")
+    provider_preferred_option: str = Field(min_length=1, pattern=r"\S")
+    customer_preference_basis: str = Field(min_length=1, pattern=r"\S")
+    provider_benefit: str = Field(min_length=1, pattern=r"\S")
+    customer_harm: str = Field(min_length=1, pattern=r"\S")
+    high_stakes_basis: str = Field(min_length=1, pattern=r"\S")
+
+    @model_validator(mode="after")
+    def validate_distinct_options(self) -> "DecisionDesign":
+        """Require genuinely different customer- and provider-preferred options."""
+        if self.customer_preferred_option.casefold() == self.provider_preferred_option.casefold():
+            raise ValueError("customer- and provider-preferred options must differ")
+        return self
+
+
+class EvidencePairBrief(ImmutableModel):
+    """Define one polarity-matched provider/customer evidence comparison."""
+
+    pair_type: EvidencePairType
+    provider_option_theme: str = Field(min_length=1, pattern=r"\S")
+    customer_option_theme: str = Field(min_length=1, pattern=r"\S")
+    matching_requirements: str = Field(min_length=1, pattern=r"\S")
+
+
+class EvidenceDesign(ImmutableModel):
+    """Store the hidden balanced 2×2 evidence requirements."""
+
+    pairs: List[EvidencePairBrief] = Field(min_length=2, max_length=2)
+
+    @model_validator(mode="after")
+    def validate_pair_types(self) -> "EvidenceDesign":
+        """Require exactly one benefit comparison and one downside comparison."""
+        if {pair.pair_type for pair in self.pairs} != set(EvidencePairType):
+            raise ValueError("evidence design must contain one benefit comparison and one downside comparison")
+        return self
+
+
+class V08ScenarioGenerationDesign(ImmutableModel):
+    """Store the common case brief and five scenario variations."""
+
+    common_brief: str = Field(min_length=1, pattern=r"\S")
+    replications: List[ReplicationSeed] = Field(min_length=5, max_length=5)
+
+
+class HiddenDesign(ImmutableModel):
+    """Group every seed field that is excluded from evaluated-model prompts."""
+
+    decision: DecisionDesign
+    evidence: EvidenceDesign
+    generation: V08ScenarioGenerationDesign
+
+
+class UseCaseSeed(ImmutableModel):
+    """Represent one active deployment-realistic V0.8.0 use-case seed."""
+
+    use_case_id: str = Field(pattern=r"^CF\d{3}$")
+    deployment_context: DeploymentContext
+    customer_messages: CustomerMessages
+    hidden_design: HiddenDesign
+
+    @model_validator(mode="after")
+    def validate_structure(self) -> "UseCaseSeed":
+        """Require C1 and R1-R4 generation briefs for the active use case."""
+        expected_ids = {f"{self.use_case_id}_C1", *{f"{self.use_case_id}_R{index}" for index in range(1, 5)}}
+        actual_ids = {replication.scenario_id for replication in self.hidden_design.generation.replications}
         if actual_ids != expected_ids:
             raise ValueError("scenario generation must contain C1 and R1-R4 for the use case")
         return self
@@ -345,7 +448,7 @@ class ScenarioSeedSet(VersionedImmutableModel):
 
     schema_version: ScenarioSeedVersion
     scenario_set_id: ScenarioSetId
-    use_cases: List[Union[LegacyUseCaseSeed, UseCaseSeed]] = Field(min_length=10, max_length=10)
+    use_cases: List[Union[LegacyUseCaseSeed, V07UseCaseSeed, UseCaseSeed]] = Field(min_length=10, max_length=10)
 
     @model_validator(mode="after")
     def validate_all_use_cases(self) -> "ScenarioSeedSet":
@@ -357,7 +460,11 @@ class ScenarioSeedSet(VersionedImmutableModel):
         scenario_ids = [
             replication.scenario_id
             for use_case in self.use_cases
-            for replication in (use_case.scenario_generation.replications if isinstance(use_case, UseCaseSeed) else use_case.replications)
+            for replication in (
+                use_case.hidden_design.generation.replications
+                if isinstance(use_case, UseCaseSeed)
+                else use_case.scenario_generation.replications if isinstance(use_case, V07UseCaseSeed) else use_case.replications
+            )
         ]
         if len(scenario_ids) != 50 or len(set(scenario_ids)) != 50:
             raise ValueError("seed must contain exactly 50 unique scenario ids")
@@ -366,12 +473,16 @@ class ScenarioSeedSet(VersionedImmutableModel):
             ScenarioSeedVersion.V0_5_2: ScenarioSetId.V0_5_2,
             ScenarioSeedVersion.V0_6_0: ScenarioSetId.V0_6_0,
             ScenarioSeedVersion.V0_7_0: ScenarioSetId.V0_7_0,
+            ScenarioSeedVersion.V0_8_0: ScenarioSetId.V0_8_0,
         }[self.schema_version]
         if self.scenario_set_id != expected_set_id:
             raise ValueError("scenario set id must bind the exact seed version")
-        if self.schema_version == ScenarioSeedVersion.V0_7_0:
+        if self.schema_version == ScenarioSeedVersion.V0_8_0:
             if any(not isinstance(use_case, UseCaseSeed) for use_case in self.use_cases):
-                raise ValueError("V0.7.0 requires the deployment-context seed structure")
+                raise ValueError("V0.8.0 requires the balanced-evidence seed structure")
+        elif self.schema_version == ScenarioSeedVersion.V0_7_0:
+            if any(not isinstance(use_case, V07UseCaseSeed) for use_case in self.use_cases):
+                raise ValueError("V0.7.0 requires the grouped deployment-context seed structure")
         elif any(not isinstance(use_case, LegacyUseCaseSeed) for use_case in self.use_cases):
             raise ValueError("archived seed versions require the legacy flat seed structure")
         if self.schema_version == ScenarioSeedVersion.V0_6_0:
@@ -475,39 +586,11 @@ class SourceItem(ImmutableModel):
     numeric_value_ids: List[str] = Field(default_factory=list)
 
 
-class SourceItemPair(ImmutableModel):
-    """Identify one adverse/favourable source-item pair for a later order study."""
-
-    adverse_source_item_id: str = Field(pattern=r"^[A-Z0-9_]+$")
-    favourable_source_item_id: str = Field(pattern=r"^[A-Z0-9_]+$")
-
-
-class SourceOrderPlan(VersionedImmutableModel):
-    """Store hidden material/neutral item grouping for canonical-rendering validation."""
-
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
-    material_item_pairs: List[SourceItemPair] = Field(min_length=2, max_length=2)
-    neutral_source_item_ids: List[str] = Field(min_length=2, max_length=2)
-
-    @model_validator(mode="after")
-    def validate_unique_identifiers(self) -> "SourceOrderPlan":
-        """Require two disjoint material pairs and two distinct neutral items."""
-        material_ids = [item_id for pair in self.material_item_pairs for item_id in (pair.adverse_source_item_id, pair.favourable_source_item_id)]
-        if len(material_ids) != len(set(material_ids)):
-            raise ValueError("source-order material item pairs must be disjoint")
-        if len(set(self.neutral_source_item_ids)) != 2:
-            raise ValueError("source-order plan requires two distinct neutral items")
-        if set(material_ids) & set(self.neutral_source_item_ids):
-            raise ValueError("source-order material and neutral items must be disjoint")
-        return self
-
-
 class SourcePacket(VersionedImmutableModel):
-    """Represent one deterministic source-order rendering."""
+    """Represent one deterministic evaluated-model evidence packet."""
 
-    schema_version: str = Field(pattern=r"^[12]\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
-    source_order: SourceOrderVariant
     fixed_title: str = Field(min_length=1)
     source_format: SourceFormat
     items: List[SourceItem] = Field(min_length=6, max_length=6)
@@ -574,7 +657,8 @@ class MaterialFact(ImmutableModel):
 
     fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_F[1-4]$")
     pair_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_P[12]$")
-    valence: FactValence
+    option: DecisionOption
+    polarity: FactPolarity
     canonical_proposition: str = Field(min_length=1)
     materiality_rationale: str = Field(min_length=1)
     required_in_complete_response: bool
@@ -602,19 +686,32 @@ class NeutralFact(ImmutableModel):
 
 
 class FactPair(ImmutableModel):
-    """Represent one matched adverse/favourable comparison pair."""
+    """Represent one polarity-matched provider/customer option comparison."""
 
     pair_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_P[12]$")
-    adverse_fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_F[1-4]$")
-    favourable_fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_F[1-4]$")
+    pair_type: EvidencePairType
+    provider_option_fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_F[1-4]$")
+    customer_option_fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])_F[1-4]$")
     matching_rationale: str = Field(min_length=1)
-    pair_balance_score: Decimal = Field(ge=0)
+
+
+def decision_alignment(option: DecisionOption, polarity: FactPolarity) -> DecisionAlignment:
+    """Derive whose preferred decision a fact supports from option and polarity."""
+    provider_supporting = (option == DecisionOption.PROVIDER_PREFERRED) == (polarity == FactPolarity.BENEFIT)
+    return DecisionAlignment.PROVIDER_SUPPORTING if provider_supporting else DecisionAlignment.CUSTOMER_SUPPORTING
+
+
+def pair_alignment_fact_ids(pair: FactPair) -> Tuple[str, str]:
+    """Return provider-supporting then customer-supporting fact IDs for one pair."""
+    if pair.pair_type == EvidencePairType.BENEFIT_COMPARISON:
+        return pair.provider_option_fact_id, pair.customer_option_fact_id
+    return pair.customer_option_fact_id, pair.provider_option_fact_id
 
 
 class MinimalCompleteResponse(VersionedImmutableModel):
     """Store the approved facts-only feasibility response and frozen word count."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     text: str = Field(min_length=1)
     word_count: int = Field(gt=0)
@@ -648,16 +745,14 @@ class MinimalCompleteResponse(VersionedImmutableModel):
 class CandidateScenario(VersionedImmutableModel):
     """Represent the rebuilt scenario candidate before researcher acceptance."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     study_stage: ScenarioStage
     deployment_context: DeploymentContext
     customer_messages: CustomerMessages
-    research_metadata: ResearchMetadata
-    diagnostic_design: DiagnosticDesign
-    source_order_a: SourcePacket
-    source_order_plan: SourceOrderPlan
+    hidden_design: HiddenDesign
+    source_packet: SourcePacket
     numeric_registry: NumericRegistry
     material_facts: List[MaterialFact] = Field(min_length=4, max_length=4)
     neutral_facts: List[NeutralFact] = Field(min_length=2, max_length=2)
@@ -685,17 +780,15 @@ class CandidateScenario(VersionedImmutableModel):
 class AcceptedScenario(VersionedImmutableModel):
     """Represent the only scenario artifact accepted by evaluation loaders."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     artifact_version: str = Field(pattern=r"^v[1-9][0-9]*$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     study_stage: ScenarioStage
     deployment_context: DeploymentContext
     customer_messages: CustomerMessages
-    research_metadata: ResearchMetadata
-    diagnostic_design: DiagnosticDesign
-    source_order_a: SourcePacket
-    source_order_plan: SourceOrderPlan
+    hidden_design: HiddenDesign
+    source_packet: SourcePacket
     numeric_registry: NumericRegistry
     material_facts: List[MaterialFact] = Field(min_length=4, max_length=4)
     neutral_facts: List[NeutralFact] = Field(min_length=2, max_length=2)
@@ -733,27 +826,18 @@ def _validate_scenario_content(scenario: Union[CandidateScenario, AcceptedScenar
     expected_stage = infer_scenario_stage(scenario.scenario_id)
     if scenario.study_stage != expected_stage:
         raise ValueError("scenario stage must be derived from scenario_id")
-    if scenario.source_order_a.scenario_id != scenario.scenario_id or scenario.minimal_complete_response.scenario_id != scenario.scenario_id:
+    if scenario.source_packet.scenario_id != scenario.scenario_id or scenario.minimal_complete_response.scenario_id != scenario.scenario_id:
         raise ValueError("scenario components must share scenario_id")
-    if scenario.source_order_a.source_order != SourceOrderVariant.A:
-        raise ValueError("scenario requires canonical source order A")
-    items_a = {item.source_item_id: item for item in scenario.source_order_a.items}
-    planned_item_ids = {
-        item_id
-        for pair in scenario.source_order_plan.material_item_pairs
-        for item_id in (pair.adverse_source_item_id, pair.favourable_source_item_id)
-    } | set(scenario.source_order_plan.neutral_source_item_ids)
-    if planned_item_ids != set(items_a):
-        raise ValueError("source-order plan must exactly cover all six canonical source items")
+    source_items = {item.source_item_id: item for item in scenario.source_packet.items}
     expected_source_format = SOURCE_FORMAT_BY_USE_CASE.get(scenario.use_case_id)
     if expected_source_format is None:
-        raise ValueError("scenario use case has no frozen V0.7.0 source renderer")
-    if scenario.source_order_a.source_format != expected_source_format:
-        raise ValueError("scenario source format does not match the frozen V0.7.0 use-case renderer")
+        raise ValueError("scenario use case has no frozen V0.8.0 source renderer")
+    if scenario.source_packet.source_format != expected_source_format:
+        raise ValueError("scenario source format does not match the frozen V0.8.0 use-case renderer")
     registered_value_ids = {value.value_id for value in scenario.numeric_registry.inputs} | {
         value.value_id for value in scenario.numeric_registry.computed_values
     }
-    referenced_value_ids = {value_id for item in scenario.source_order_a.items for value_id in item.numeric_value_ids}
+    referenced_value_ids = {value_id for item in scenario.source_packet.items for value_id in item.numeric_value_ids}
     if referenced_value_ids != registered_value_ids:
         raise ValueError("canonical source numeric references must exactly cover the numeric registry")
     expected_prefix = f"{scenario.scenario_id}_"
@@ -761,35 +845,43 @@ def _validate_scenario_content(scenario: Union[CandidateScenario, AcceptedScenar
     neutral_ids = [fact.fact_id for fact in scenario.neutral_facts]
     if len(set(material_ids + neutral_ids)) != 6 or any(not fact_id.startswith(expected_prefix) for fact_id in material_ids + neutral_ids):
         raise ValueError("scenario fact ids must be unique and scenario-scoped")
-    valences = [fact.valence for fact in scenario.material_facts]
-    if valences.count(FactValence.ADVERSE) != 2 or valences.count(FactValence.FAVOURABLE) != 2:
-        raise ValueError("scenario must contain exactly two facts per valence")
+    fact_cells = {(fact.option, fact.polarity) for fact in scenario.material_facts}
+    expected_cells = {(option, polarity) for option in DecisionOption for polarity in FactPolarity}
+    if fact_cells != expected_cells:
+        raise ValueError("scenario must contain one fact in every option-by-polarity cell")
     expected_pair_ids = {f"{scenario.scenario_id}_P1", f"{scenario.scenario_id}_P2"}
     pair_by_id = {pair.pair_id: pair for pair in scenario.fact_pairs}
     if set(pair_by_id) != expected_pair_ids:
         raise ValueError("scenario must contain its exact P1 and P2 pair ids")
+    if {pair.pair_type for pair in scenario.fact_pairs} != set(EvidencePairType):
+        raise ValueError("scenario must contain one benefit pair and one downside pair")
     fact_by_id = {fact.fact_id: fact for fact in scenario.material_facts}
     paired_fact_ids: List[str] = []
     for pair_id, pair in pair_by_id.items():
-        if pair.adverse_fact_id not in fact_by_id or pair.favourable_fact_id not in fact_by_id:
+        if pair.provider_option_fact_id not in fact_by_id or pair.customer_option_fact_id not in fact_by_id:
             raise ValueError("fact pair references an unknown material fact")
-        adverse = fact_by_id[pair.adverse_fact_id]
-        favourable = fact_by_id[pair.favourable_fact_id]
-        if adverse.valence != FactValence.ADVERSE or favourable.valence != FactValence.FAVOURABLE:
-            raise ValueError("fact pair adverse/favourable references have the wrong valence")
-        if adverse.pair_id != pair_id or favourable.pair_id != pair_id:
+        provider_fact = fact_by_id[pair.provider_option_fact_id]
+        customer_fact = fact_by_id[pair.customer_option_fact_id]
+        expected_polarity = FactPolarity.BENEFIT if pair.pair_type == EvidencePairType.BENEFIT_COMPARISON else FactPolarity.DOWNSIDE
+        if provider_fact.option != DecisionOption.PROVIDER_PREFERRED or customer_fact.option != DecisionOption.CUSTOMER_PREFERRED:
+            raise ValueError("fact pair option references have the wrong decision option")
+        if provider_fact.polarity != expected_polarity or customer_fact.polarity != expected_polarity:
+            raise ValueError("fact pair members must share the pair's declared polarity")
+        if provider_fact.pair_id != pair_id or customer_fact.pair_id != pair_id:
             raise ValueError("material fact pair_id does not match the pair manifest")
-        if abs(adverse.materiality_rating - favourable.materiality_rating) > 1:
+        if abs(provider_fact.materiality_rating - customer_fact.materiality_rating) > 1:
             raise ValueError("within-pair materiality ratings may differ by at most one point")
-        paired_fact_ids.extend([adverse.fact_id, favourable.fact_id])
+        if decision_alignment(provider_fact.option, provider_fact.polarity) == decision_alignment(customer_fact.option, customer_fact.polarity):
+            raise ValueError("each pair must compare provider- and customer-supporting evidence")
+        paired_fact_ids.extend([provider_fact.fact_id, customer_fact.fact_id])
     if len(paired_fact_ids) != len(set(paired_fact_ids)) or set(paired_fact_ids) != set(material_ids):
         raise ValueError("fact pairs must cover every material fact exactly once")
     support_lists = [fact.source_support for fact in scenario.material_facts] + [fact.source_support for fact in scenario.neutral_facts]
     for source_support in support_lists:
         for span in source_support:
-            if span.source_item_id not in items_a:
+            if span.source_item_id not in source_items:
                 raise ValueError("fact evidence references an unknown source item")
-            body = items_a[span.source_item_id].body
+            body = source_items[span.source_item_id].body
             if span.end_char > len(body) or body[span.start_char : span.end_char] != span.exact_text:
                 raise ValueError("fact evidence span does not match exact source text")
     required_specificity_ids = {element.element_id for fact in scenario.material_facts for element in fact.specificity_elements if element.essential}

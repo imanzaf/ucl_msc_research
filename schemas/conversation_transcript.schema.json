@@ -252,7 +252,7 @@
     },
     "RunUnit": {
       "additionalProperties": false,
-      "description": "Represent one randomised immutable scenario–model–order–cell assignment.",
+      "description": "Represent one randomised immutable scenario–model–cell assignment.",
       "properties": {
         "assigned_word_limit": {
           "anyOf": [
@@ -343,9 +343,6 @@
           "title": "Schema Version",
           "type": "string"
         },
-        "source_order": {
-          "$ref": "#/$defs/SourceOrderVariant"
-        },
         "source_packet_sha256": {
           "title": "Source Packet Sha256",
           "type": "string"
@@ -365,7 +362,6 @@
         "model_id",
         "expected_model_version",
         "model_snapshot_sha256",
-        "source_order",
         "cell",
         "global_randomisation_seed",
         "block_randomisation_seed",
@@ -379,15 +375,6 @@
       ],
       "title": "RunUnit",
       "type": "object"
-    },
-    "SourceOrderVariant": {
-      "description": "Identify the frozen canonical source order.",
-      "enum": [
-        "A",
-        "B"
-      ],
-      "title": "SourceOrderVariant",
-      "type": "string"
     },
     "StudyStage": {
       "description": "Identify primary and separately reported exploratory studies.",

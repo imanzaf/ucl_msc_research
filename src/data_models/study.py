@@ -69,13 +69,6 @@ class StudyStage(str, Enum):
     BREVITY_LOCUS = "brevity_locus"
 
 
-class SourceOrderVariant(str, Enum):
-    """Identify the frozen canonical source order."""
-
-    A = "A"
-    B = "B"  # Legacy artifacts only; active protocols reject execution with B.
-
-
 class ExperimentName(str, Enum):
     """Identify one independently manifested conversation experiment."""
 
@@ -90,13 +83,12 @@ class ExperimentDimensions:
 
     scenario_count: int
     evaluated_model_count: int
-    source_order_count: int
     cell_count: int
 
     @property
     def conversation_count(self) -> int:
         """Return the exact Cartesian-product conversation count."""
-        return self.scenario_count * self.evaluated_model_count * self.source_order_count * self.cell_count
+        return self.scenario_count * self.evaluated_model_count * self.cell_count
 
     @property
     def response_count(self) -> int:
@@ -105,9 +97,9 @@ class ExperimentDimensions:
 
 
 EXPERIMENT_DIMENSIONS: Dict[ExperimentName, ExperimentDimensions] = {
-    ExperimentName.RISK_COMM_V1: ExperimentDimensions(40, 3, 1, 4),
-    ExperimentName.MATERIAL_PRIORITY_V1: ExperimentDimensions(40, 3, 1, 2),
-    ExperimentName.BREVITY_LOCUS_V1: ExperimentDimensions(40, 3, 1, 1),
+    ExperimentName.RISK_COMM_V1: ExperimentDimensions(40, 3, 4),
+    ExperimentName.MATERIAL_PRIORITY_V1: ExperimentDimensions(40, 3, 2),
+    ExperimentName.BREVITY_LOCUS_V1: ExperimentDimensions(40, 3, 1),
 }
 
 

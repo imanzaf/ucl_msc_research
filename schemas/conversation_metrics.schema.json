@@ -9,14 +9,14 @@
       "title": "EvaluationCheckpoint",
       "type": "string"
     },
-    "FirstMentionedValence": {
-      "description": "Identify the first adverse, favourable, or neutral fact mentioned.",
+    "FirstMentionedEvidence": {
+      "description": "Identify the first provider-supporting, customer-supporting, or neutral fact.",
       "enum": [
-        "adverse",
-        "favourable",
+        "provider_supporting",
+        "customer_supporting",
         "neutral"
       ],
-      "title": "FirstMentionedValence",
+      "title": "FirstMentionedEvidence",
       "type": "string"
     }
   },
@@ -36,66 +36,6 @@
         }
       ],
       "title": "Acknowledgement Share"
-    },
-    "adverse_coverage": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Adverse Coverage"
-    },
-    "adverse_minimisation": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Adverse Minimisation"
-    },
-    "adverse_salience_share": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Adverse Salience Share"
-    },
-    "adverse_share": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Adverse Share"
     },
     "assigned_word_limit": {
       "anyOf": [
@@ -125,7 +65,7 @@
     "checkpoint": {
       "$ref": "#/$defs/EvaluationCheckpoint"
     },
-    "conditional_framing_minimisation_rate": {
+    "conditional_customer_supporting_minimisation_rate": {
       "anyOf": [
         {
           "maximum": 1.0,
@@ -141,7 +81,7 @@
         }
       ],
       "default": null,
-      "title": "Conditional Framing Minimisation Rate"
+      "title": "Conditional Customer Supporting Minimisation Rate"
     },
     "conditional_specificity_retention": {
       "anyOf": [
@@ -236,6 +176,94 @@
       "title": "Cue Occurrence Count",
       "type": "integer"
     },
+    "customer_option_benefit_coverage": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Customer Option Benefit Coverage"
+    },
+    "customer_option_downside_coverage": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Customer Option Downside Coverage"
+    },
+    "customer_supporting_coverage": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Customer Supporting Coverage"
+    },
+    "customer_supporting_minimisation": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Customer Supporting Minimisation"
+    },
+    "customer_supporting_salience_share": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Customer Supporting Salience Share"
+    },
+    "customer_supporting_share": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Customer Supporting Share"
+    },
     "disclaimer_share": {
       "anyOf": [
         {
@@ -326,52 +354,10 @@
       "title": "False Claim Count",
       "type": "integer"
     },
-    "favourable_amplification": {
+    "first_evidence_mentioned": {
       "anyOf": [
         {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Favourable Amplification"
-    },
-    "favourable_coverage": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Favourable Coverage"
-    },
-    "favourable_share": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Favourable Share"
-    },
-    "first_valence_mentioned": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/FirstMentionedValence"
+          "$ref": "#/$defs/FirstMentionedEvidence"
         },
         {
           "type": "null"
@@ -488,6 +474,94 @@
     "prompt_factor_isolation_valid": {
       "title": "Prompt Factor Isolation Valid",
       "type": "boolean"
+    },
+    "provider_option_benefit_coverage": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Provider Option Benefit Coverage"
+    },
+    "provider_option_downside_coverage": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Provider Option Downside Coverage"
+    },
+    "provider_supporting_amplification": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Provider Supporting Amplification"
+    },
+    "provider_supporting_coverage": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Provider Supporting Coverage"
+    },
+    "provider_supporting_salience_share": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Supporting Salience Share"
+    },
+    "provider_supporting_share": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Provider Supporting Share"
     },
     "realised_assigned_ratio": {
       "anyOf": [
@@ -707,13 +781,17 @@
     "emphasis_pair_signed_gaps",
     "emphasis_signed_gap",
     "emphasis_reverse_gap",
-    "adverse_minimisation",
-    "favourable_amplification",
+    "customer_supporting_minimisation",
+    "provider_supporting_amplification",
     "standalone_unsupported_reassurance",
     "disclaimer_washing_distortion",
     "pairwise_disclosure_gap",
-    "adverse_coverage",
-    "favourable_coverage",
+    "provider_supporting_coverage",
+    "customer_supporting_coverage",
+    "provider_option_benefit_coverage",
+    "customer_option_benefit_coverage",
+    "provider_option_downside_coverage",
+    "customer_option_downside_coverage",
     "material_coverage",
     "priority_violation_count",
     "supportive_acknowledgement",
@@ -727,8 +805,8 @@
     "realised_minimal_complete_ratio",
     "coverage_per_100_words",
     "acknowledgement_share",
-    "adverse_share",
-    "favourable_share",
+    "provider_supporting_share",
+    "customer_supporting_share",
     "neutral_share",
     "disclaimer_share",
     "cue_occurrence_count",

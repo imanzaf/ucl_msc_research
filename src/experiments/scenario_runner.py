@@ -32,7 +32,6 @@ from src.data_models.study import (
     AMPLE_WORD_LIMIT,
     ExperimentCell,
     ExperimentName,
-    SourceOrderVariant,
     WordBudgetCondition,
     brevity_locus_cells,
     material_priority_cells,
@@ -88,8 +87,8 @@ def _build_run_unit(
     randomised_position: int,
     created_at: datetime,
 ) -> RunUnit:
-    """Build one canonical-source run unit with authenticated prompt and follow-up bytes."""
-    packet = scenario.source_order_a
+    """Build one evidence-packet run unit with authenticated prompt and follow-up bytes."""
+    packet = scenario.source_packet
     initial_messages, follow_up, initial_hash, follow_up_hash = compile_experiment_prompt(
         scenario,
         packet,
@@ -105,7 +104,6 @@ def _build_run_unit(
         model_id=model.model_id,
         expected_model_version=model.returned_model_version,
         model_snapshot_sha256=artifact_sha256(model),
-        source_order=SourceOrderVariant.A,
         cell=cell,
         assigned_word_limit=assigned_word_limit,
         global_randomisation_seed=global_randomisation_seed,
@@ -127,15 +125,14 @@ def build_run_plan(
     randomisation_seed: int,
     created_at: datetime,
 ) -> List[RunUnit]:
-    """Construct and randomise four canonical-order primary cells per scenario–model block."""
+    """Construct and randomise four primary cells per scenario–model block."""
     tight_limits = _tight_limit_by_use_case(budget_manifest)
     run_units: List[RunUnit] = []
     for scenario in sorted(scenarios, key=lambda item: item.scenario_id):
         if scenario.use_case_id not in tight_limits:
             raise ValueError(f"missing frozen tight limit for {scenario.use_case_id}")
         for model in sorted(models, key=lambda item: item.model_id):
-            source_order = SourceOrderVariant.A
-            block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id, source_order.value)
+            block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id)
             block_randomisation_seed = _block_seed(randomisation_seed, block_id)
             cells = primary_experiment_cells()
             random.Random(block_randomisation_seed).shuffle(cells)
@@ -242,14 +239,12 @@ def build_brevity_locus_run_plan(
 
 
 def validate_exploratory_run_plan(run_units: Iterable[RunUnit], expected_count: int, expected_cells: int) -> None:
-    """Enforce exact exploratory dimensions, canonical source order, and prompt isolation."""
+    """Enforce exact exploratory dimensions and prompt isolation."""
     units = list(run_units)
     if len(units) != expected_count:
         raise ValueError(f"exploratory plan must contain exactly {expected_count} conversations")
     if len({unit.scenario_id for unit in units}) != 40 or len({unit.model_id for unit in units}) != 3:
         raise ValueError("exploratory plan requires 40 scenarios and three models")
-    if {unit.source_order for unit in units} != {SourceOrderVariant.A}:
-        raise ValueError("active exploratory plans use canonical source order only")
     grouped = group_run_units_by_block(units)
     if len(grouped) != 120 or any(len(block) != expected_cells for block in grouped.values()):
         raise ValueError("exploratory plan has an invalid scenario–model cell matrix")
@@ -290,14 +285,14 @@ def build_calibration_run_plan(
     randomisation_seed: int,
     created_at: datetime,
 ) -> List[RunUnit]:
-    """Construct the 120 canonical-order calibration conversations across four primary cells."""
+    """Construct the 120 calibration conversations across four primary cells."""
     tight_limits = _tight_limit_by_use_case(budget_manifest)
     if len(scenarios) != 10 or any(not scenario.scenario_id.endswith("_C1") for scenario in scenarios):
         raise ValueError("calibration plan requires exactly the ten accepted C1 scenarios")
     run_units: List[RunUnit] = []
     for scenario in sorted(scenarios, key=lambda item: item.scenario_id):
         for model in sorted(models, key=lambda item: item.model_id):
-            block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id, SourceOrderVariant.A.value)
+            block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id)
             block_randomisation_seed = _block_seed(randomisation_seed, block_id)
             cells = primary_experiment_cells()
             random.Random(block_randomisation_seed).shuffle(cells)
@@ -324,7 +319,7 @@ def build_calibration_run_plan(
 
 
 def validate_calibration_run_plan(run_units: Iterable[RunUnit], global_randomisation_seed: int | None = None) -> None:
-    """Validate all 30 four-cell C1/model blocks at canonical source order A."""
+    """Validate all 30 four-cell C1/model blocks."""
     units = list(run_units)
     if len(units) != 120:
         raise ValueError("calibration run plan must contain exactly 120 conversations")
@@ -332,8 +327,8 @@ def validate_calibration_run_plan(run_units: Iterable[RunUnit], global_randomisa
     expected_scenarios = {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
     if {unit.scenario_id for unit in units} != expected_scenarios or len({unit.model_id for unit in units}) != 3:
         raise ValueError("calibration plan requires ten C1 scenarios and three evaluated models")
-    if {unit.source_order for unit in units} != {SourceOrderVariant.A} or len(grouped) != 30:
-        raise ValueError("calibration plan requires 30 canonical-order four-cell blocks")
+    if len(grouped) != 30:
+        raise ValueError("calibration plan requires 30 four-cell blocks")
     stored_seeds = {unit.global_randomisation_seed for unit in units}
     if len(stored_seeds) != 1:
         raise ValueError("calibration run units must share one global randomisation seed")
@@ -349,7 +344,7 @@ def validate_calibration_run_plan(run_units: Iterable[RunUnit], global_randomisa
         if len(scenario_model) != 1:
             raise ValueError("calibration block must share one scenario and model")
         scenario_id, model_id = next(iter(scenario_model))
-        expected_block_id = _short_identifier("BLOCK", scenario_id, model_id, SourceOrderVariant.A.value)
+        expected_block_id = _short_identifier("BLOCK", scenario_id, model_id)
         if block_id != expected_block_id or {unit.block_randomisation_seed for unit in block_units} != {_block_seed(stored_seed, block_id)}:
             raise ValueError("calibration block id or seed does not derive from its assignment")
         if len({unit.source_packet_sha256 for unit in block_units}) != 1:
@@ -403,8 +398,6 @@ def validate_complete_run_plan(run_units: Iterable[RunUnit], global_randomisatio
     model_ids = {unit.model_id for unit in units}
     if len(scenario_ids) != 40 or len(model_ids) != 3:
         raise ValueError("complete run plan requires exactly 40 scenarios and three evaluated models")
-    if {unit.source_order for unit in units} != {SourceOrderVariant.A}:
-        raise ValueError("complete run plan requires canonical source order A only")
     expected_scenario_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 5)}
     if scenario_ids != expected_scenario_ids:
         raise ValueError("complete run plan scenario IDs must be CF001-CF010 R1-R4")
@@ -420,11 +413,11 @@ def validate_complete_run_plan(run_units: Iterable[RunUnit], global_randomisatio
     for block_id, block_units in grouped.items():
         if len(block_units) != 4:
             raise ValueError("each run-plan block must contain exactly four units")
-        scenario_model_orders = {(unit.scenario_id, unit.model_id, unit.source_order) for unit in block_units}
-        if len(scenario_model_orders) != 1:
-            raise ValueError("block units must share scenario, model, and source order")
-        scenario_id, model_id, source_order = next(iter(scenario_model_orders))
-        expected_block_id = _short_identifier("BLOCK", scenario_id, model_id, source_order.value)
+        scenario_models = {(unit.scenario_id, unit.model_id) for unit in block_units}
+        if len(scenario_models) != 1:
+            raise ValueError("block units must share one scenario and model")
+        scenario_id, model_id = next(iter(scenario_models))
+        expected_block_id = _short_identifier("BLOCK", scenario_id, model_id)
         if block_id != expected_block_id:
             raise ValueError("block ID does not match its immutable assignment")
         expected_block_seed = _block_seed(stored_global_seed, block_id)

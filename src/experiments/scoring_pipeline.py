@@ -18,8 +18,6 @@ from src.data_models.scoring import (
     ResponseCommunicationResult,
     ScoringTranscriptTurn,
 )
-from src.data_models.study import SourceOrderVariant
-from src.scenarios.source_rendering import derive_secondary_source_order
 from src.scoring.metrics import compute_conversation_metrics
 from src.scoring.validation import validate_scoring_results
 
@@ -48,11 +46,7 @@ def build_condition_blind_input(
     """Hide treatment/model labels and randomise fact order before scoring."""
     if transcript.outcome_status != RunOutcomeStatus.COMPLETED:
         raise ValueError("only completed transcripts can be scored")
-    packet = (
-        scenario.source_order_a
-        if transcript.run_unit.source_order == SourceOrderVariant.A
-        else derive_secondary_source_order(scenario.source_order_a, scenario.source_order_plan)
-    )
+    packet = scenario.source_packet
     facts = [
         BlindFactReference(
             fact_id=fact.fact_id,

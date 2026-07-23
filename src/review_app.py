@@ -222,9 +222,9 @@ def _record_payload_from_text(raw_json: str) -> Dict[str, Any]:
 
 
 def _render_source(st: Any, scenario: CandidateScenario) -> None:
-    """Display the canonical source and hidden validation metadata for scenario review."""
+    """Display the evidence packet and hidden validation metadata for scenario review."""
     st.subheader(scenario.scenario_id)
-    st.markdown(scenario.source_order_a.rendered_text)
+    st.markdown(scenario.source_packet.rendered_text)
     with st.expander("Evaluated deployment context"):
         st.caption("This is the guidance and natural customer dialogue passed to evaluated models.")
         st.json(
@@ -234,15 +234,8 @@ def _render_source(st: Any, scenario: CandidateScenario) -> None:
             }
         )
     with st.expander("Hidden research design"):
-        st.caption(
-            "Hidden from evaluated prompts. Verify a real high-stakes choice, opposed customer/provider actions, and directional fact alignment."
-        )
-        st.json(
-            {
-                "research_metadata": scenario.research_metadata.model_dump(mode="json"),
-                "diagnostic_design": scenario.diagnostic_design.model_dump(mode="json"),
-            }
-        )
+        st.caption("Hidden from evaluated prompts. Verify a high-stakes choice, opposed customer/provider preferences, and balanced fact alignment.")
+        st.json(scenario.hidden_design.model_dump(mode="json"))
     st.subheader("Blinded pair diagnostics")
     st.caption("Descriptive only: the mandatory pair-matching judgement controls acceptance; no automatic balance threshold is applied.")
     st.json([diagnostic.model_dump(mode="json") for diagnostic in build_pair_diagnostics(scenario)])
@@ -252,7 +245,6 @@ def _render_source(st: Any, scenario: CandidateScenario) -> None:
                 "material_facts": [fact.model_dump(mode="json") for fact in scenario.material_facts],
                 "neutral_facts": [fact.model_dump(mode="json") for fact in scenario.neutral_facts],
                 "numeric_registry": scenario.numeric_registry.model_dump(mode="json"),
-                "source_order_plan": scenario.source_order_plan.model_dump(mode="json"),
                 "minimal_complete_response": scenario.minimal_complete_response.model_dump(mode="json"),
             }
         )

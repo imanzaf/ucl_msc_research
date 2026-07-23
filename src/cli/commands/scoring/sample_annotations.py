@@ -80,14 +80,13 @@ def _select_evaluation(
 
 
 def _strata_summary(transcripts: List[ConversationTranscript]) -> Dict[str, int]:
-    """Count the locked sample across scenario, model, order, and treatment strata."""
+    """Count the locked sample across scenario, model, and treatment strata."""
     summary: Dict[str, int] = {"total": len(transcripts)}
     for transcript in transcripts:
         unit = transcript.run_unit
         for key in [
             f"use_case:{unit.use_case_id}",
             f"model:{unit.model_id}",
-            f"source_order:{unit.source_order.value}",
             f"cell:{unit.cell.cell_id}",
         ]:
             summary[key] = summary.get(key, 0) + 1

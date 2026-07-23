@@ -38,7 +38,7 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
     candidate = make_candidate_scenario()
     automated = [
         AutomatedScenarioReview(
-            schema_version="2.0.0",
+            schema_version="3.0.0",
             scenario_id=candidate.scenario_id,
             review_kind=kind,
             decision=ReviewDecision.ACCEPT,
@@ -52,7 +52,7 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
     ]
     initial_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
     initial = ResearcherScenarioReview(
-        schema_version="2.0.0",
+        schema_version="3.0.0",
         review_id="SCENARIO_INITIAL_ACCEPT",
         anonymised_item_id="S-001",
         scenario_id=candidate.scenario_id,
@@ -65,7 +65,7 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
         notes="Initial acceptance.",
     )
     history = ScenarioReviewHistory(
-        schema_version="2.0.0",
+        schema_version="3.0.0",
         scenario_id=candidate.scenario_id,
         automated_reviews=automated,
         revisions=[],
@@ -116,7 +116,7 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
 
 def test_candidate_publication_requires_exact_seed_owned_metadata() -> None:
     """Reject a hash-valid reviewed candidate whose researcher-owned task fields drift."""
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.7.0"
+    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.8.0"
     seed = load_and_validate_seed(
         seed_root / "scenario_generation_seeds.json",
         seed_root / "scenario_generation_seed_schema.json",
@@ -129,8 +129,7 @@ def test_candidate_publication_requires_exact_seed_owned_metadata() -> None:
         {
             "deployment_context": use_case.deployment_context.model_dump(mode="json"),
             "customer_messages": use_case.customer_messages.model_dump(mode="json"),
-            "research_metadata": use_case.research_metadata.model_dump(mode="json"),
-            "diagnostic_design": use_case.diagnostic_design.model_dump(mode="json"),
+            "hidden_design": use_case.hidden_design.model_dump(mode="json"),
         }
     )
     seed_bound = CandidateScenario.model_validate({**payload, "candidate_sha256": artifact_sha256(payload)})

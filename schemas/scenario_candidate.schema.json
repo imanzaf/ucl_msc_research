@@ -141,64 +141,73 @@
       "title": "CustomerMessages",
       "type": "object"
     },
-    "DecisionConflict": {
+    "DecisionDesign": {
       "additionalProperties": false,
-      "description": "Record the latent customer/provider conflict excluded from evaluated prompts.",
+      "description": "Store the compact hidden customer/provider decision conflict.",
       "properties": {
-        "customer_aligned_action": {
+        "customer_goal": {
           "minLength": 1,
           "pattern": "\\S",
-          "title": "Customer Aligned Action",
+          "title": "Customer Goal",
           "type": "string"
         },
-        "customer_objective_basis": {
+        "customer_harm": {
           "minLength": 1,
           "pattern": "\\S",
-          "title": "Customer Objective Basis",
+          "title": "Customer Harm",
           "type": "string"
         },
-        "decision_horizon": {
+        "customer_preference_basis": {
           "minLength": 1,
           "pattern": "\\S",
-          "title": "Decision Horizon",
+          "title": "Customer Preference Basis",
           "type": "string"
         },
-        "financial_stake": {
+        "customer_preferred_option": {
           "minLength": 1,
           "pattern": "\\S",
-          "title": "Financial Stake",
+          "title": "Customer Preferred Option",
           "type": "string"
         },
-        "material_customer_harm": {
+        "high_stakes_basis": {
           "minLength": 1,
           "pattern": "\\S",
-          "title": "Material Customer Harm",
+          "title": "High Stakes Basis",
           "type": "string"
         },
-        "provider_aligned_action": {
+        "provider_benefit": {
           "minLength": 1,
           "pattern": "\\S",
-          "title": "Provider Aligned Action",
+          "title": "Provider Benefit",
           "type": "string"
         },
-        "provider_benefit_mechanism": {
+        "provider_preferred_option": {
           "minLength": 1,
           "pattern": "\\S",
-          "title": "Provider Benefit Mechanism",
+          "title": "Provider Preferred Option",
           "type": "string"
         }
       },
       "required": [
-        "customer_aligned_action",
-        "provider_aligned_action",
-        "customer_objective_basis",
-        "provider_benefit_mechanism",
-        "material_customer_harm",
-        "decision_horizon",
-        "financial_stake"
+        "customer_goal",
+        "customer_preferred_option",
+        "provider_preferred_option",
+        "customer_preference_basis",
+        "provider_benefit",
+        "customer_harm",
+        "high_stakes_basis"
       ],
-      "title": "DecisionConflict",
+      "title": "DecisionDesign",
       "type": "object"
+    },
+    "DecisionOption": {
+      "description": "Identify which hidden decision option a material fact describes.",
+      "enum": [
+        "provider_preferred",
+        "customer_preferred"
+      ],
+      "title": "DecisionOption",
+      "type": "string"
     },
     "DeploymentContext": {
       "additionalProperties": false,
@@ -232,25 +241,69 @@
       "title": "DeploymentContext",
       "type": "object"
     },
-    "DiagnosticDesign": {
+    "EvidenceDesign": {
       "additionalProperties": false,
-      "description": "Store hidden matched-pair requirements used to validate the communication construct.",
+      "description": "Store the hidden balanced 2×2 evidence requirements.",
       "properties": {
-        "material_fact_pair_briefs": {
+        "pairs": {
           "items": {
-            "$ref": "#/$defs/MaterialFactPairBriefSeed"
+            "$ref": "#/$defs/EvidencePairBrief"
           },
           "maxItems": 2,
           "minItems": 2,
-          "title": "Material Fact Pair Briefs",
+          "title": "Pairs",
           "type": "array"
         }
       },
       "required": [
-        "material_fact_pair_briefs"
+        "pairs"
       ],
-      "title": "DiagnosticDesign",
+      "title": "EvidenceDesign",
       "type": "object"
+    },
+    "EvidencePairBrief": {
+      "additionalProperties": false,
+      "description": "Define one polarity-matched provider/customer evidence comparison.",
+      "properties": {
+        "customer_option_theme": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Option Theme",
+          "type": "string"
+        },
+        "matching_requirements": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Matching Requirements",
+          "type": "string"
+        },
+        "pair_type": {
+          "$ref": "#/$defs/EvidencePairType"
+        },
+        "provider_option_theme": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Provider Option Theme",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pair_type",
+        "provider_option_theme",
+        "customer_option_theme",
+        "matching_requirements"
+      ],
+      "title": "EvidencePairBrief",
+      "type": "object"
+    },
+    "EvidencePairType": {
+      "description": "Identify the two polarity-matched evidence comparisons.",
+      "enum": [
+        "benefit_comparison",
+        "downside_comparison"
+      ],
+      "title": "EvidencePairType",
+      "type": "string"
     },
     "EvidenceSpan": {
       "additionalProperties": false,
@@ -288,16 +341,11 @@
     },
     "FactPair": {
       "additionalProperties": false,
-      "description": "Represent one matched adverse/favourable comparison pair.",
+      "description": "Represent one polarity-matched provider/customer option comparison.",
       "properties": {
-        "adverse_fact_id": {
+        "customer_option_fact_id": {
           "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]$",
-          "title": "Adverse Fact Id",
-          "type": "string"
-        },
-        "favourable_fact_id": {
-          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]$",
-          "title": "Favourable Fact Id",
+          "title": "Customer Option Fact Id",
           "type": "string"
         },
         "matching_rationale": {
@@ -305,42 +353,37 @@
           "title": "Matching Rationale",
           "type": "string"
         },
-        "pair_balance_score": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Pair Balance Score"
-        },
         "pair_id": {
           "pattern": "^CF\\d{3}_(C1|R[1-4])_P[12]$",
           "title": "Pair Id",
+          "type": "string"
+        },
+        "pair_type": {
+          "$ref": "#/$defs/EvidencePairType"
+        },
+        "provider_option_fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]$",
+          "title": "Provider Option Fact Id",
           "type": "string"
         }
       },
       "required": [
         "pair_id",
-        "adverse_fact_id",
-        "favourable_fact_id",
-        "matching_rationale",
-        "pair_balance_score"
+        "pair_type",
+        "provider_option_fact_id",
+        "customer_option_fact_id",
+        "matching_rationale"
       ],
       "title": "FactPair",
       "type": "object"
     },
-    "FactValence": {
-      "description": "Identify material-fact valence without encoding it in visible sources.",
+    "FactPolarity": {
+      "description": "Identify whether a material fact is a benefit or downside of its option.",
       "enum": [
-        "adverse",
-        "favourable"
+        "benefit",
+        "downside"
       ],
-      "title": "FactValence",
+      "title": "FactPolarity",
       "type": "string"
     },
     "FinanceAgentRole": {
@@ -375,6 +418,28 @@
       "title": "FinanceEntityType",
       "type": "string"
     },
+    "HiddenDesign": {
+      "additionalProperties": false,
+      "description": "Group every seed field that is excluded from evaluated-model prompts.",
+      "properties": {
+        "decision": {
+          "$ref": "#/$defs/DecisionDesign"
+        },
+        "evidence": {
+          "$ref": "#/$defs/EvidenceDesign"
+        },
+        "generation": {
+          "$ref": "#/$defs/V08ScenarioGenerationDesign"
+        }
+      },
+      "required": [
+        "decision",
+        "evidence",
+        "generation"
+      ],
+      "title": "HiddenDesign",
+      "type": "object"
+    },
     "MaterialFact": {
       "additionalProperties": false,
       "description": "Represent one equally required decision-material fact.",
@@ -400,10 +465,16 @@
           "title": "Materiality Rationale",
           "type": "string"
         },
+        "option": {
+          "$ref": "#/$defs/DecisionOption"
+        },
         "pair_id": {
           "pattern": "^CF\\d{3}_(C1|R[1-4])_P[12]$",
           "title": "Pair Id",
           "type": "string"
+        },
+        "polarity": {
+          "$ref": "#/$defs/FactPolarity"
         },
         "required_in_complete_response": {
           "title": "Required In Complete Response",
@@ -423,15 +494,13 @@
           },
           "title": "Specificity Elements",
           "type": "array"
-        },
-        "valence": {
-          "$ref": "#/$defs/FactValence"
         }
       },
       "required": [
         "fact_id",
         "pair_id",
-        "valence",
+        "option",
+        "polarity",
         "canonical_proposition",
         "materiality_rationale",
         "required_in_complete_response",
@@ -440,38 +509,6 @@
         "specificity_elements"
       ],
       "title": "MaterialFact",
-      "type": "object"
-    },
-    "MaterialFactPairBriefSeed": {
-      "additionalProperties": false,
-      "description": "Represent one researcher-owned adverse/favourable pair brief.",
-      "properties": {
-        "adverse_theme": {
-          "minLength": 1,
-          "title": "Adverse Theme",
-          "type": "string"
-        },
-        "favorable_theme": {
-          "minLength": 1,
-          "title": "Favorable Theme",
-          "type": "string"
-        },
-        "matching_requirements": {
-          "minLength": 1,
-          "title": "Matching Requirements",
-          "type": "string"
-        },
-        "pair_slot": {
-          "$ref": "#/$defs/PairSlot"
-        }
-      },
-      "required": [
-        "pair_slot",
-        "adverse_theme",
-        "favorable_theme",
-        "matching_requirements"
-      ],
-      "title": "MaterialFactPairBriefSeed",
       "type": "object"
     },
     "MinimalCompleteResponse": {
@@ -530,7 +567,7 @@
           "type": "string"
         },
         "schema_version": {
-          "pattern": "^2\\.0\\.0$",
+          "pattern": "^3\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
         },
@@ -735,15 +772,6 @@
       "title": "NumericRegistry",
       "type": "object"
     },
-    "PairSlot": {
-      "description": "Identify one of the two matched material-fact pairs.",
-      "enum": [
-        "P1",
-        "P2"
-      ],
-      "title": "PairSlot",
-      "type": "string"
-    },
     "ProviderCallProvenance": {
       "additionalProperties": false,
       "description": "Bind a structured model artifact to its exact provider request and returned snapshot.",
@@ -790,25 +818,26 @@
       "title": "ProviderCallProvenance",
       "type": "object"
     },
-    "ResearchMetadata": {
+    "ReplicationSeed": {
       "additionalProperties": false,
-      "description": "Store hidden decision-ground-truth metadata used for design and review.",
+      "description": "Represent one calibration or held-out scenario brief.",
       "properties": {
-        "customer_goal": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Customer Goal",
+        "scenario_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+          "title": "Scenario Id",
           "type": "string"
         },
-        "decision_conflict": {
-          "$ref": "#/$defs/DecisionConflict"
+        "variation_brief": {
+          "minLength": 1,
+          "title": "Variation Brief",
+          "type": "string"
         }
       },
       "required": [
-        "customer_goal",
-        "decision_conflict"
+        "scenario_id",
+        "variation_brief"
       ],
-      "title": "ResearchMetadata",
+      "title": "ReplicationSeed",
       "type": "object"
     },
     "ScenarioStage": {
@@ -821,7 +850,7 @@
       "type": "string"
     },
     "SourceFormat": {
-      "description": "Identify one active deterministic V0.7.0 source presentation.",
+      "description": "Identify one active deterministic V0.8.0 evidence-packet presentation.",
       "enum": [
         "overdraft_decision_statement",
         "lifetime_mortgage_illustration",
@@ -872,76 +901,9 @@
       "title": "SourceItem",
       "type": "object"
     },
-    "SourceItemPair": {
-      "additionalProperties": false,
-      "description": "Identify one adverse/favourable source-item pair for a later order study.",
-      "properties": {
-        "adverse_source_item_id": {
-          "pattern": "^[A-Z0-9_]+$",
-          "title": "Adverse Source Item Id",
-          "type": "string"
-        },
-        "favourable_source_item_id": {
-          "pattern": "^[A-Z0-9_]+$",
-          "title": "Favourable Source Item Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "adverse_source_item_id",
-        "favourable_source_item_id"
-      ],
-      "title": "SourceItemPair",
-      "type": "object"
-    },
-    "SourceOrderPlan": {
-      "additionalProperties": false,
-      "description": "Store hidden material/neutral item grouping for canonical-rendering validation.",
-      "properties": {
-        "material_item_pairs": {
-          "items": {
-            "$ref": "#/$defs/SourceItemPair"
-          },
-          "maxItems": 2,
-          "minItems": 2,
-          "title": "Material Item Pairs",
-          "type": "array"
-        },
-        "neutral_source_item_ids": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 2,
-          "minItems": 2,
-          "title": "Neutral Source Item Ids",
-          "type": "array"
-        },
-        "schema_version": {
-          "pattern": "^2\\.0\\.0$",
-          "title": "Schema Version",
-          "type": "string"
-        }
-      },
-      "required": [
-        "schema_version",
-        "material_item_pairs",
-        "neutral_source_item_ids"
-      ],
-      "title": "SourceOrderPlan",
-      "type": "object"
-    },
-    "SourceOrderVariant": {
-      "description": "Identify the frozen canonical source order.",
-      "enum": [
-        "A",
-        "B"
-      ],
-      "title": "SourceOrderVariant",
-      "type": "string"
-    },
     "SourcePacket": {
       "additionalProperties": false,
-      "description": "Represent one deterministic source-order rendering.",
+      "description": "Represent one deterministic evaluated-model evidence packet.",
       "properties": {
         "fixed_title": {
           "minLength": 1,
@@ -972,21 +934,17 @@
           "type": "string"
         },
         "schema_version": {
-          "pattern": "^[12]\\.0\\.0$",
+          "pattern": "^3\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
         },
         "source_format": {
           "$ref": "#/$defs/SourceFormat"
-        },
-        "source_order": {
-          "$ref": "#/$defs/SourceOrderVariant"
         }
       },
       "required": [
         "schema_version",
         "scenario_id",
-        "source_order",
         "fixed_title",
         "source_format",
         "items",
@@ -1117,6 +1075,33 @@
       },
       "title": "TokenUsage",
       "type": "object"
+    },
+    "V08ScenarioGenerationDesign": {
+      "additionalProperties": false,
+      "description": "Store the common case brief and five scenario variations.",
+      "properties": {
+        "common_brief": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Common Brief",
+          "type": "string"
+        },
+        "replications": {
+          "items": {
+            "$ref": "#/$defs/ReplicationSeed"
+          },
+          "maxItems": 5,
+          "minItems": 5,
+          "title": "Replications",
+          "type": "array"
+        }
+      },
+      "required": [
+        "common_brief",
+        "replications"
+      ],
+      "title": "V08ScenarioGenerationDesign",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -1132,9 +1117,6 @@
     "deployment_context": {
       "$ref": "#/$defs/DeploymentContext"
     },
-    "diagnostic_design": {
-      "$ref": "#/$defs/DiagnosticDesign"
-    },
     "fact_pairs": {
       "items": {
         "$ref": "#/$defs/FactPair"
@@ -1143,6 +1125,9 @@
       "minItems": 2,
       "title": "Fact Pairs",
       "type": "array"
+    },
+    "hidden_design": {
+      "$ref": "#/$defs/HiddenDesign"
     },
     "material_facts": {
       "items": {
@@ -1171,24 +1156,18 @@
     "provenance": {
       "$ref": "#/$defs/ArtifactProvenance"
     },
-    "research_metadata": {
-      "$ref": "#/$defs/ResearchMetadata"
-    },
     "scenario_id": {
       "pattern": "^CF\\d{3}_(C1|R[1-4])$",
       "title": "Scenario Id",
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
-    "source_order_a": {
+    "source_packet": {
       "$ref": "#/$defs/SourcePacket"
-    },
-    "source_order_plan": {
-      "$ref": "#/$defs/SourceOrderPlan"
     },
     "study_stage": {
       "$ref": "#/$defs/ScenarioStage"
@@ -1206,10 +1185,8 @@
     "study_stage",
     "deployment_context",
     "customer_messages",
-    "research_metadata",
-    "diagnostic_design",
-    "source_order_a",
-    "source_order_plan",
+    "hidden_design",
+    "source_packet",
     "numeric_registry",
     "material_facts",
     "neutral_facts",

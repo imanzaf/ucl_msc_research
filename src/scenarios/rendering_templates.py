@@ -7,7 +7,7 @@ from typing import Dict, Sequence, Tuple
 
 
 class SourceFormat(str, Enum):
-    """Identify one active deterministic V0.7.0 source presentation."""
+    """Identify one active deterministic V0.8.0 evidence-packet presentation."""
 
     OVERDRAFT_DECISION_STATEMENT = "overdraft_decision_statement"
     LIFETIME_MORTGAGE_ILLUSTRATION = "lifetime_mortgage_illustration"

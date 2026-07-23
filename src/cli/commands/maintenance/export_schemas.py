@@ -127,8 +127,12 @@ def _add_seed_version_conditionals(schema: Dict[str, object]) -> Dict[str, objec
     """Bind each immutable seed version to its exact active or archived use-case structure."""
     schema["allOf"] = [
         {
-            "if": {"properties": {"schema_version": {"const": "0.7.0"}}, "required": ["schema_version"]},
+            "if": {"properties": {"schema_version": {"const": "0.8.0"}}, "required": ["schema_version"]},
             "then": {"properties": {"use_cases": {"items": {"$ref": "#/$defs/UseCaseSeed"}}}},
+        },
+        {
+            "if": {"properties": {"schema_version": {"const": "0.7.0"}}, "required": ["schema_version"]},
+            "then": {"properties": {"use_cases": {"items": {"$ref": "#/$defs/V07UseCaseSeed"}}}},
         },
         {
             "if": {"properties": {"schema_version": {"const": "0.6.0"}}, "required": ["schema_version"]},

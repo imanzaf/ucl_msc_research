@@ -44,7 +44,7 @@
     "AcceptedScenarioSetId": {
       "description": "Identify the active accepted scenario family.",
       "enum": [
-        "customer_finance_deployment_context_v0.7.0"
+        "customer_finance_balanced_decision_evidence_v0.8.0"
       ],
       "title": "AcceptedScenarioSetId",
       "type": "string"

@@ -41,7 +41,6 @@ def simulated_frame() -> pd.DataFrame:
                                 "scenario_id": scenario_id,
                                 "use_case_id": f"CF{use_case:03d}",
                                 "model_id": model_id,
-                                "source_order": "A",
                                 "word_budget": budget,
                                 "expressed_concern": concern,
                                 "selective_risk_communication_score": score,

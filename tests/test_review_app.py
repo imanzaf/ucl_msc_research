@@ -64,7 +64,7 @@ def test_scenario_review_requires_pair_diagnostics_and_rejects_a_duplicate(tmp_p
     store, accepted, _ = make_store(tmp_path)
     candidate = store.list_candidates()[0]
     common = {
-        "schema_version": "2.0.0",
+        "schema_version": "3.0.0",
         "review_id": "SCENARIO_INITIAL_1",
         "anonymised_item_id": "S-001",
         "scenario_id": accepted.scenario_id,
@@ -132,7 +132,7 @@ def test_invalid_review_forms_are_rejected_before_write(tmp_path: Path) -> None:
     labels = all_pass_labels().model_copy(update={"pair_matching_acceptable": False})
     with pytest.raises(ValidationError):
         ResearcherScenarioReview(
-            schema_version="2.0.0",
+            schema_version="3.0.0",
             review_id="INVALID_1",
             anonymised_item_id="S-002",
             scenario_id=accepted.scenario_id,

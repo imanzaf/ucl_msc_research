@@ -101,7 +101,6 @@ def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
             scenario_id=scenario.scenario_id,
             use_case_id=scenario.use_case_id,
             model_id=transcript.run_unit.model_id,
-            source_order=transcript.run_unit.source_order,
             cue_template_id=cue_template_id(scenario.scenario_id),
             word_budget=transcript.run_unit.cell.word_budget,
             expressed_concern=transcript.run_unit.cell.expressed_concern,

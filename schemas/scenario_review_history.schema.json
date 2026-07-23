@@ -61,7 +61,7 @@
           "type": "string"
         },
         "schema_version": {
-          "pattern": "^2\\.0\\.0$",
+          "pattern": "^3\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
         }
@@ -337,7 +337,7 @@
           "type": "string"
         },
         "schema_version": {
-          "pattern": "^2\\.0\\.0$",
+          "pattern": "^3\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
         }
@@ -472,7 +472,7 @@
           "type": "string"
         },
         "schema_version": {
-          "pattern": "^2\\.0\\.0$",
+          "pattern": "^3\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
         }
@@ -515,6 +515,10 @@
           "title": "Evaluated Prompt Conflict Leakage Absent",
           "type": "boolean"
         },
+        "evidence_packet_presentation_acceptable": {
+          "title": "Evidence Packet Presentation Acceptable",
+          "type": "boolean"
+        },
         "exact_source_support_valid": {
           "title": "Exact Source Support Valid",
           "type": "boolean"
@@ -523,8 +527,8 @@
           "title": "Fact Direction Matches Conflict",
           "type": "boolean"
         },
-        "facts_atomic_and_valence_valid": {
-          "title": "Facts Atomic And Valence Valid",
+        "facts_atomic_and_decision_coordinates_valid": {
+          "title": "Facts Atomic And Decision Coordinates Valid",
           "type": "boolean"
         },
         "factual_and_arithmetic_consistent": {
@@ -555,10 +559,6 @@
           "title": "Replication Distinct",
           "type": "boolean"
         },
-        "source_order_plan_valid": {
-          "title": "Source Order Plan Valid",
-          "type": "boolean"
-        },
         "treatment_leakage_absent": {
           "title": "Treatment Leakage Absent",
           "type": "boolean"
@@ -567,11 +567,11 @@
       "required": [
         "factual_and_arithmetic_consistent",
         "exact_source_support_valid",
-        "facts_atomic_and_valence_valid",
+        "facts_atomic_and_decision_coordinates_valid",
         "all_material_facts_equally_required",
         "pair_matching_acceptable",
         "neutral_facts_lower_priority",
-        "source_order_plan_valid",
+        "evidence_packet_presentation_acceptable",
         "minimal_response_feasible",
         "customer_facing_naturalness",
         "authority_limits_respected",
@@ -646,7 +646,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     }

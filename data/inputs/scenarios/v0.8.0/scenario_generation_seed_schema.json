@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/customer-finance-balanced-decision-evidence-v0.8.0.json",
+  "title": "Customer Finance Balanced Decision Evidence Seeds V0.8.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scenario_set_id", "use_cases"],
+  "properties": {
+    "schema_version": {"const": "0.8.0"},
+    "scenario_set_id": {"const": "customer_finance_balanced_decision_evidence_v0.8.0"},
+    "use_cases": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {"$ref": "#/$defs/use_case"}
+    }
+  },
+  "$defs": {
+    "non_blank_string": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "deployment_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "entity_type", "task", "authority_limits"],
+      "properties": {
+        "role": {
+          "enum": [
+            "current account support assistant",
+            "mortgage support assistant",
+            "credit-card support assistant",
+            "borrowing support assistant",
+            "payment-difficulty support assistant",
+            "investment support assistant",
+            "pension support assistant",
+            "claims support assistant",
+            "payments support assistant"
+          ]
+        },
+        "entity_type": {
+          "enum": [
+            "bank",
+            "mortgage lender",
+            "credit-card provider",
+            "personal lender",
+            "loan servicer",
+            "investment platform",
+            "pension provider",
+            "insurance provider",
+            "payment provider"
+          ]
+        },
+        "task": {"$ref": "#/$defs/non_blank_string"},
+        "authority_limits": {"$ref": "#/$defs/non_blank_string"}
+      }
+    },
+    "customer_messages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["initial_message", "follow_up_message"],
+      "properties": {
+        "initial_message": {"$ref": "#/$defs/non_blank_string"},
+        "follow_up_message": {"$ref": "#/$defs/non_blank_string"}
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "customer_goal",
+        "customer_preferred_option",
+        "provider_preferred_option",
+        "customer_preference_basis",
+        "provider_benefit",
+        "customer_harm",
+        "high_stakes_basis"
+      ],
+      "properties": {
+        "customer_goal": {"$ref": "#/$defs/non_blank_string"},
+        "customer_preferred_option": {"$ref": "#/$defs/non_blank_string"},
+        "provider_preferred_option": {"$ref": "#/$defs/non_blank_string"},
+        "customer_preference_basis": {"$ref": "#/$defs/non_blank_string"},
+        "provider_benefit": {"$ref": "#/$defs/non_blank_string"},
+        "customer_harm": {"$ref": "#/$defs/non_blank_string"},
+        "high_stakes_basis": {"$ref": "#/$defs/non_blank_string"}
+      }
+    },
+    "evidence_pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pair_type", "provider_option_theme", "customer_option_theme", "matching_requirements"],
+      "properties": {
+        "pair_type": {"enum": ["benefit_comparison", "downside_comparison"]},
+        "provider_option_theme": {"$ref": "#/$defs/non_blank_string"},
+        "customer_option_theme": {"$ref": "#/$defs/non_blank_string"},
+        "matching_requirements": {"$ref": "#/$defs/non_blank_string"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pairs"],
+      "properties": {
+        "pairs": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/evidence_pair"}
+        }
+      }
+    },
+    "replication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenario_id", "variation_brief"],
+      "properties": {
+        "scenario_id": {"type": "string", "pattern": "^CF\\d{3}_(C1|R[1-4])$"},
+        "variation_brief": {"$ref": "#/$defs/non_blank_string"}
+      }
+    },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["common_brief", "replications"],
+      "properties": {
+        "common_brief": {"$ref": "#/$defs/non_blank_string"},
+        "replications": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {"$ref": "#/$defs/replication"}
+        }
+      }
+    },
+    "hidden_design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "evidence", "generation"],
+      "properties": {
+        "decision": {"$ref": "#/$defs/decision"},
+        "evidence": {"$ref": "#/$defs/evidence"},
+        "generation": {"$ref": "#/$defs/generation"}
+      }
+    },
+    "use_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["use_case_id", "deployment_context", "customer_messages", "hidden_design"],
+      "properties": {
+        "use_case_id": {"type": "string", "pattern": "^CF\\d{3}$"},
+        "deployment_context": {"$ref": "#/$defs/deployment_context"},
+        "customer_messages": {"$ref": "#/$defs/customer_messages"},
+        "hidden_design": {"$ref": "#/$defs/hidden_design"}
+      }
+    }
+  }
+}

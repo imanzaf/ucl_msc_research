@@ -83,6 +83,65 @@
       "title": "DecisionConflict",
       "type": "object"
     },
+    "DecisionDesign": {
+      "additionalProperties": false,
+      "description": "Store the compact hidden customer/provider decision conflict.",
+      "properties": {
+        "customer_goal": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Goal",
+          "type": "string"
+        },
+        "customer_harm": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Harm",
+          "type": "string"
+        },
+        "customer_preference_basis": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Preference Basis",
+          "type": "string"
+        },
+        "customer_preferred_option": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Preferred Option",
+          "type": "string"
+        },
+        "high_stakes_basis": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "High Stakes Basis",
+          "type": "string"
+        },
+        "provider_benefit": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Provider Benefit",
+          "type": "string"
+        },
+        "provider_preferred_option": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Provider Preferred Option",
+          "type": "string"
+        }
+      },
+      "required": [
+        "customer_goal",
+        "customer_preferred_option",
+        "provider_preferred_option",
+        "customer_preference_basis",
+        "provider_benefit",
+        "customer_harm",
+        "high_stakes_basis"
+      ],
+      "title": "DecisionDesign",
+      "type": "object"
+    },
     "DeploymentContext": {
       "additionalProperties": false,
       "description": "Store only the broad real-world guidance passed to the evaluated assistant.",
@@ -135,6 +194,70 @@
       "title": "DiagnosticDesign",
       "type": "object"
     },
+    "EvidenceDesign": {
+      "additionalProperties": false,
+      "description": "Store the hidden balanced 2×2 evidence requirements.",
+      "properties": {
+        "pairs": {
+          "items": {
+            "$ref": "#/$defs/EvidencePairBrief"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Pairs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "pairs"
+      ],
+      "title": "EvidenceDesign",
+      "type": "object"
+    },
+    "EvidencePairBrief": {
+      "additionalProperties": false,
+      "description": "Define one polarity-matched provider/customer evidence comparison.",
+      "properties": {
+        "customer_option_theme": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Option Theme",
+          "type": "string"
+        },
+        "matching_requirements": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Matching Requirements",
+          "type": "string"
+        },
+        "pair_type": {
+          "$ref": "#/$defs/EvidencePairType"
+        },
+        "provider_option_theme": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Provider Option Theme",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pair_type",
+        "provider_option_theme",
+        "customer_option_theme",
+        "matching_requirements"
+      ],
+      "title": "EvidencePairBrief",
+      "type": "object"
+    },
+    "EvidencePairType": {
+      "description": "Identify the two polarity-matched evidence comparisons.",
+      "enum": [
+        "benefit_comparison",
+        "downside_comparison"
+      ],
+      "title": "EvidencePairType",
+      "type": "string"
+    },
     "FinanceAgentRole": {
       "description": "Identify the broad operational role assigned to the evaluated assistant.",
       "enum": [
@@ -166,6 +289,28 @@
       ],
       "title": "FinanceEntityType",
       "type": "string"
+    },
+    "HiddenDesign": {
+      "additionalProperties": false,
+      "description": "Group every seed field that is excluded from evaluated-model prompts.",
+      "properties": {
+        "decision": {
+          "$ref": "#/$defs/DecisionDesign"
+        },
+        "evidence": {
+          "$ref": "#/$defs/EvidenceDesign"
+        },
+        "generation": {
+          "$ref": "#/$defs/V08ScenarioGenerationDesign"
+        }
+      },
+      "required": [
+        "decision",
+        "evidence",
+        "generation"
+      ],
+      "title": "HiddenDesign",
+      "type": "object"
     },
     "LegacyDecisionConflict": {
       "additionalProperties": false,
@@ -450,7 +595,8 @@
         "0.5.1",
         "0.5.2",
         "0.6.0",
-        "0.7.0"
+        "0.7.0",
+        "0.8.0"
       ],
       "title": "ScenarioSeedVersion",
       "type": "string"
@@ -461,7 +607,8 @@
         "customer_finance_pressure_emotion_v0.5.1",
         "customer_finance_pressure_concern_v0.5.2",
         "customer_finance_decision_conflict_v0.6.0",
-        "customer_finance_deployment_context_v0.7.0"
+        "customer_finance_deployment_context_v0.7.0",
+        "customer_finance_balanced_decision_evidence_v0.8.0"
       ],
       "title": "ScenarioSetId",
       "type": "string"
@@ -526,7 +673,35 @@
     },
     "UseCaseSeed": {
       "additionalProperties": false,
-      "description": "Represent one active deployment-realistic V0.7.0 use-case seed.",
+      "description": "Represent one active deployment-realistic V0.8.0 use-case seed.",
+      "properties": {
+        "customer_messages": {
+          "$ref": "#/$defs/CustomerMessages"
+        },
+        "deployment_context": {
+          "$ref": "#/$defs/DeploymentContext"
+        },
+        "hidden_design": {
+          "$ref": "#/$defs/HiddenDesign"
+        },
+        "use_case_id": {
+          "pattern": "^CF\\d{3}$",
+          "title": "Use Case Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "use_case_id",
+        "deployment_context",
+        "customer_messages",
+        "hidden_design"
+      ],
+      "title": "UseCaseSeed",
+      "type": "object"
+    },
+    "V07UseCaseSeed": {
+      "additionalProperties": false,
+      "description": "Read one archived deployment-realistic V0.7.0 use-case seed.",
       "properties": {
         "customer_messages": {
           "$ref": "#/$defs/CustomerMessages"
@@ -557,12 +732,60 @@
         "diagnostic_design",
         "scenario_generation"
       ],
-      "title": "UseCaseSeed",
+      "title": "V07UseCaseSeed",
+      "type": "object"
+    },
+    "V08ScenarioGenerationDesign": {
+      "additionalProperties": false,
+      "description": "Store the common case brief and five scenario variations.",
+      "properties": {
+        "common_brief": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Common Brief",
+          "type": "string"
+        },
+        "replications": {
+          "items": {
+            "$ref": "#/$defs/ReplicationSeed"
+          },
+          "maxItems": 5,
+          "minItems": 5,
+          "title": "Replications",
+          "type": "array"
+        }
+      },
+      "required": [
+        "common_brief",
+        "replications"
+      ],
+      "title": "V08ScenarioGenerationDesign",
       "type": "object"
     }
   },
   "additionalProperties": false,
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "0.8.0"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "properties": {
+          "use_cases": {
+            "items": {
+              "$ref": "#/$defs/UseCaseSeed"
+            }
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {
@@ -578,7 +801,7 @@
         "properties": {
           "use_cases": {
             "items": {
-              "$ref": "#/$defs/UseCaseSeed"
+              "$ref": "#/$defs/V07UseCaseSeed"
             }
           }
         }
@@ -671,6 +894,9 @@
         "anyOf": [
           {
             "$ref": "#/$defs/LegacyUseCaseSeed"
+          },
+          {
+            "$ref": "#/$defs/V07UseCaseSeed"
           },
           {
             "$ref": "#/$defs/UseCaseSeed"

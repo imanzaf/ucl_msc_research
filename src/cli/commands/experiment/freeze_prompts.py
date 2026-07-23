@@ -30,7 +30,7 @@ def main() -> None:
     expected_manifest = ACTIVE_SCENARIO_INPUT_ROOT / "accepted_scenario_manifest.json"
     expected_output = RISK_COMM_V1_MANIFEST_ROOT / "prompt_review.json"
     if args.accepted_root.resolve() != ACTIVE_SCENARIO_ACCEPTED_ROOT.resolve():
-        raise ValueError("prompt review must use the active V0.7.0 accepted root")
+        raise ValueError("prompt review must use the active V0.8.0 accepted root")
     if args.accepted_scenario_manifest.resolve() != expected_manifest.resolve():
         raise ValueError("prompt review must use the fixed complete accepted-set manifest")
     if args.output.resolve() != expected_output.resolve():

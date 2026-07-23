@@ -570,7 +570,7 @@ class AcceptedScenarioManifest(VersionedImmutableModel):
     def validate_complete_scenario_set(self) -> "AcceptedScenarioManifest":
         """Require exactly C1 and R1-R4 for every one of the ten use cases."""
         if self.seed_sha256 != ACTIVE_SCENARIO_SEED_SHA256 or self.seed_schema_sha256 != ACTIVE_SCENARIO_SEED_SCHEMA_SHA256:
-            raise ValueError("accepted-scenario manifest must bind the approved immutable V0.7.0 seed and schema")
+            raise ValueError("accepted-scenario manifest must bind the approved immutable V0.8.0 seed and schema")
         calibration_ids = {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
         evaluation_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 5)}
         expected_ids = calibration_ids if self.manifest_scope == ScenarioManifestScope.CALIBRATION else calibration_ids | evaluation_ids

@@ -25,13 +25,15 @@ All three use separate manifests, configs, run plans, outputs, logs, checkpoints
 - `data/inputs/scenarios/v0.5.1/` is preserved unchanged.
 - `data/inputs/scenarios/v0.5.2/` is preserved unchanged as the prior corrected seed.
 - `data/inputs/scenarios/v0.6.0/` is preserved unchanged as the prior high-stakes decision-support seed.
-- `data/inputs/scenarios/v0.7.0/` contains the active deployment-realistic seed and JSON Schema.
-- V2 persisted artifacts use schema `2.0.0` and the labels `expressed_concern` / `concerned`.
+- `data/inputs/scenarios/v0.7.0/` is preserved unchanged as the prior deployment-context seed.
+- `data/inputs/scenarios/v0.8.0/` contains the active balanced-evidence seed and JSON Schema.
+- Generated and accepted V0.8 scenario artifacts use schema `3.0.0`; study artifacts retain `expressed_concern` / `concerned`.
 - Four cue pairs map R1–R4 to templates 1–4; calibration C1 cases are round-robin. A twenty-request C1 review gates the ample pilot and R generation, while a separate 80-request review gates paid evaluation.
 - Each seed owns one natural initial customer question and one frozen non-leading follow-up.
-- Evaluated prompts contain an explicit broad role/entity/task/authority deployment contract, the customer turns, and the source packet. Research metadata, diagnostic design, and generation inputs are structurally hidden.
-- Every scenario contains a latent conflict between a customer-aligned action and a finance-provider-aligned action. This research metadata is preserved for audit but excluded from evaluated prompts.
-- Source packets use ten deterministic domain-native statements, comparisons, illustrations, and summaries.
+- Evaluated prompts contain a broad role/entity/task/authority deployment contract, one fixed evidence packet, and natural customer turns. The hidden decision/evidence/generation design is structurally excluded.
+- Every scenario contains a latent conflict between a customer-preferred option and a finance-provider-preferred option. The conflict is used only for generation, review, and scoring direction; it never appears in evaluated prompts.
+- Every packet contains a balanced 2×2 set: a genuine benefit and downside for each option. Signed gaps consistently compare provider-supporting with customer-supporting evidence.
+- Evidence packets use ten deterministic domain-native statements, comparisons, illustrations, and summaries. Source-order manipulation has been retired.
 
 The scenario viewer shows the research-only decision design and descriptive pair diagnostics before the researcher can record the mandatory high-stakes, conflict, direction, prompt-isolation, and pair-matching judgements. No automatic balance threshold is used.
 
@@ -56,7 +58,7 @@ Experiment procedures are documented in:
 - [risk_comm_v1](docs/experiments/risk_comm_v1.md)
 - [material_priority_v1](docs/experiments/material_priority_v1.md)
 - [brevity_locus_v1](docs/experiments/brevity_locus_v1.md)
-- [scenario generation V0.7.0](docs/experiments/scenario_generation_v0_7_0.md)
+- [scenario generation V0.8.0](docs/experiments/scenario_generation_v0_8_0.md)
 - [scoring](docs/experiments/scoring.md)
 - [analysis](docs/experiments/analysis.md)
 

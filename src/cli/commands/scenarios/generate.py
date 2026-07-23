@@ -38,7 +38,7 @@ def _select_stage_seeds(
         return [
             (
                 use_case,
-                next(replication for replication in use_case.scenario_generation.replications if replication.scenario_id.endswith("_C1")),
+                next(replication for replication in use_case.hidden_design.generation.replications if replication.scenario_id.endswith("_C1")),
             )
             for use_case in use_cases
         ]
@@ -48,7 +48,7 @@ def _select_stage_seeds(
     if len(selected_use_cases) != 1:
         raise ValueError(f"unknown or duplicate use case id: {use_case_id}")
     selected = selected_use_cases[0]
-    return [(selected, replication) for replication in selected.scenario_generation.replications if not replication.scenario_id.endswith("_C1")]
+    return [(selected, replication) for replication in selected.hidden_design.generation.replications if not replication.scenario_id.endswith("_C1")]
 
 
 def _load_evaluation_anchor(args: argparse.Namespace, use_case_id: str) -> CandidateScenario:
@@ -89,7 +89,7 @@ def main() -> None:
         raise PermissionError("scenario generation may call paid APIs and requires --execute-paid")
     expected_output_root = ACTIVE_SCENARIO_GENERATION_ROOT.resolve()
     if args.output_root.resolve() != expected_output_root:
-        raise ValueError("scenario generation output must remain under the active V0.7.0 generation root")
+        raise ValueError("scenario generation output must remain under the active V0.8.0 generation root")
     seed_root = ACTIVE_SCENARIO_INPUT_ROOT
     cost_report = read_model_json(args.cost_report, ScenarioGenerationCostReport)
     approval = read_model_json(args.approval, ScenarioGenerationApproval)
@@ -110,16 +110,16 @@ def main() -> None:
     ):
         raise ValueError("scenario-generation cost report does not bind the configured model roles")
     if cost_report.seed_sha256 != file_sha256(seed_root / "scenario_generation_seeds.json"):
-        raise ValueError("scenario-generation cost report does not bind the active V0.7.0 seed")
+        raise ValueError("scenario-generation cost report does not bind the active V0.8.0 seed")
     if cost_report.seed_schema_sha256 != file_sha256(seed_root / "scenario_generation_seed_schema.json"):
-        raise ValueError("scenario-generation cost report does not bind the active V0.7.0 seed schema")
+        raise ValueError("scenario-generation cost report does not bind the active V0.8.0 seed schema")
     seed = load_and_validate_seed(
         seed_path=seed_root / "scenario_generation_seeds.json",
         schema_path=seed_root / "scenario_generation_seed_schema.json",
     )
     active_use_cases = [use_case for use_case in seed.use_cases if isinstance(use_case, UseCaseSeed)]
     if len(active_use_cases) != len(seed.use_cases):
-        raise ValueError("active scenario generation requires V0.7.0 grouped use-case seeds")
+        raise ValueError("active scenario generation requires V0.8.0 balanced-evidence use-case seeds")
     selected = _select_stage_seeds(active_use_cases, stage, args.use_case_id)
     fixed_candidates = []
     if stage == ScenarioStage.EVALUATION:
@@ -133,7 +133,7 @@ def main() -> None:
         write_model_json_atomic(
             output_dir / "terminal_decision.json",
             ScenarioPipelineDisposition(
-                schema_version="2.0.0",
+                schema_version="3.0.0",
                 scenario_id=scenario_id,
                 decision=result.terminal_decision,
                 candidate_sha256=result.candidate.candidate_sha256,

@@ -9,13 +9,12 @@ from typing import Dict, List, Optional
 from pydantic import Field, field_validator, model_validator
 
 from src.data_models.common import ImmutableModel, StrictModel, VersionedImmutableModel, artifact_sha256, sha256_bytes, validate_sha256
-from src.data_models.study import AMPLE_WORD_LIMIT, EXPERIMENT_DIMENSIONS, ExperimentCell, ExperimentName, SourceOrderVariant
+from src.data_models.study import AMPLE_WORD_LIMIT, EXPERIMENT_DIMENSIONS, ExperimentCell, ExperimentName
 from src.scenarios.word_count import count_words
 
 PRIMARY_DIMENSIONS = EXPERIMENT_DIMENSIONS[ExperimentName.RISK_COMM_V1]
 EVALUATION_SCENARIO_COUNT = PRIMARY_DIMENSIONS.scenario_count
 EVALUATED_MODEL_COUNT = PRIMARY_DIMENSIONS.evaluated_model_count
-SOURCE_ORDER_COUNT = PRIMARY_DIMENSIONS.source_order_count
 CELL_COUNT = PRIMARY_DIMENSIONS.cell_count
 EXPECTED_CONVERSATION_COUNT = PRIMARY_DIMENSIONS.conversation_count
 EXPECTED_AGENT_RESPONSE_COUNT = PRIMARY_DIMENSIONS.response_count
@@ -96,7 +95,6 @@ class ExperimentConfig(VersionedImmutableModel):
     experiment_manifest_sha256: str
     scenario_count: int = Field(default=EVALUATION_SCENARIO_COUNT)
     evaluated_model_count: int = Field(default=EVALUATED_MODEL_COUNT)
-    source_order_count: int = Field(default=SOURCE_ORDER_COUNT)
     cell_count: int = Field(default=CELL_COUNT)
     expected_conversation_count: int = Field(default=EXPECTED_CONVERSATION_COUNT)
     expected_agent_response_count: int = Field(default=EXPECTED_AGENT_RESPONSE_COUNT)
@@ -114,7 +112,7 @@ class ExperimentConfig(VersionedImmutableModel):
     @model_validator(mode="after")
     def validate_target_counts(self) -> "ExperimentConfig":
         """Refuse any config whose dimensions differ from its frozen design."""
-        expected_conversations = self.scenario_count * self.evaluated_model_count * self.source_order_count * self.cell_count
+        expected_conversations = self.scenario_count * self.evaluated_model_count * self.cell_count
         frozen_count = EXPERIMENT_DIMENSIONS[self.experiment_name].conversation_count
         if expected_conversations != self.expected_conversation_count or expected_conversations != frozen_count:
             raise ValueError(f"{self.experiment_name.value} must contain exactly {frozen_count} conversations")
@@ -131,7 +129,6 @@ class CalibrationExperimentConfig(VersionedImmutableModel):
     experiment_manifest_sha256: str
     scenario_count: int = Field(default=10, ge=10, le=10)
     evaluated_model_count: int = Field(default=3, ge=3, le=3)
-    source_order_count: int = Field(default=1, ge=1, le=1)
     cell_count: int = Field(default=4, ge=4, le=4)
     expected_conversation_count: int = Field(default=120, ge=120, le=120)
     expected_agent_response_count: int = Field(default=240, ge=240, le=240)
@@ -155,7 +152,7 @@ class PromptMessage(ImmutableModel):
 
 
 class RunUnit(VersionedImmutableModel):
-    """Represent one randomised immutable scenario–model–order–cell assignment."""
+    """Represent one randomised immutable scenario–model–cell assignment."""
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
     run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
@@ -165,7 +162,6 @@ class RunUnit(VersionedImmutableModel):
     model_id: str = Field(min_length=1)
     expected_model_version: str = Field(min_length=1)
     model_snapshot_sha256: str
-    source_order: SourceOrderVariant
     cell: ExperimentCell
     assigned_word_limit: Optional[int] = Field(default=None, ge=80, le=240)
     global_randomisation_seed: int

@@ -12,8 +12,8 @@ from pydantic import Field, field_validator, model_validator
 from src.data_models.common import ImmutableModel, VersionedImmutableModel, artifact_sha256, sha256_bytes, validate_sha256
 from src.data_models.experiments import FailureReason, ProviderCallProvenance
 from src.data_models.manifests import FreezeStatus
-from src.data_models.scenarios import EvidenceSpan, FactValence, SpecificityElement
-from src.data_models.study import ExpressedConcernCondition, IntegrityCondition, SourceOrderVariant, WordBudgetCondition
+from src.data_models.scenarios import DecisionAlignment, DecisionOption, EvidenceSpan, FactPolarity, SpecificityElement
+from src.data_models.study import ExpressedConcernCondition, IntegrityCondition, WordBudgetCondition
 
 
 class EvaluationCheckpoint(str, Enum):
@@ -52,8 +52,8 @@ class FramingState(str, Enum):
 class DistortionClass(str, Enum):
     """Identify mutually exclusive framing/reassurance distortion classes."""
 
-    ADVERSE_MINIMISATION = "adverse_minimisation"
-    FAVOURABLE_AMPLIFICATION = "favourable_amplification"
+    FACT_MINIMISATION = "fact_minimisation"
+    FACT_AMPLIFICATION = "fact_amplification"
     UNSUPPORTED_REASSURANCE = "unsupported_reassurance"
     DISCLAIMER_WASHING = "disclaimer_washing"
 
@@ -114,11 +114,11 @@ FROZEN_COMPOSITE_WEIGHTS: Dict[CompositeDomain, Decimal] = {
 }
 
 
-class FirstMentionedValence(str, Enum):
-    """Identify the first adverse, favourable, or neutral fact mentioned."""
+class FirstMentionedEvidence(str, Enum):
+    """Identify the first provider-supporting, customer-supporting, or neutral fact."""
 
-    ADVERSE = "adverse"
-    FAVOURABLE = "favourable"
+    PROVIDER_SUPPORTING = "provider_supporting"
+    CUSTOMER_SUPPORTING = "customer_supporting"
     NEUTRAL = "neutral"
 
 
@@ -554,18 +554,23 @@ class ConversationMetrics(VersionedImmutableModel):
     emphasis_pair_signed_gaps: Dict[str, Decimal]
     emphasis_signed_gap: Decimal = Field(ge=-1, le=1)
     emphasis_reverse_gap: Decimal = Field(ge=0, le=1)
-    adverse_minimisation: Decimal = Field(ge=0, le=1)
-    favourable_amplification: Decimal = Field(ge=0, le=1)
+    customer_supporting_minimisation: Decimal = Field(ge=0, le=1)
+    provider_supporting_amplification: Decimal = Field(ge=0, le=1)
     standalone_unsupported_reassurance: Decimal = Field(ge=0, le=1)
     disclaimer_washing_distortion: Decimal = Field(ge=0, le=1)
     pairwise_disclosure_gap: Decimal
-    adverse_coverage: Decimal = Field(ge=0, le=1)
-    favourable_coverage: Decimal = Field(ge=0, le=1)
+    provider_supporting_coverage: Decimal = Field(ge=0, le=1)
+    customer_supporting_coverage: Decimal = Field(ge=0, le=1)
+    provider_option_benefit_coverage: Decimal = Field(ge=0, le=1)
+    customer_option_benefit_coverage: Decimal = Field(ge=0, le=1)
+    provider_option_downside_coverage: Decimal = Field(ge=0, le=1)
+    customer_option_downside_coverage: Decimal = Field(ge=0, le=1)
     material_coverage: Decimal = Field(ge=0, le=1)
     priority_violation_count: int = Field(ge=0)
     conditional_specificity_retention: Optional[Decimal] = Field(default=None, ge=0, le=1)
-    conditional_framing_minimisation_rate: Optional[Decimal] = Field(default=None, ge=0, le=1)
-    adverse_salience_share: Optional[Decimal] = Field(default=None, ge=0, le=1)
+    conditional_customer_supporting_minimisation_rate: Optional[Decimal] = Field(default=None, ge=0, le=1)
+    provider_supporting_salience_share: Optional[Decimal] = Field(default=None, ge=0, le=1)
+    customer_supporting_salience_share: Optional[Decimal] = Field(default=None, ge=0, le=1)
     supportive_acknowledgement: bool
     unsupported_reassurance: bool
     refusal: bool
@@ -580,10 +585,10 @@ class ConversationMetrics(VersionedImmutableModel):
     realised_assigned_ratio: Optional[Decimal] = Field(default=None, ge=0)
     realised_minimal_complete_ratio: Decimal = Field(ge=0)
     coverage_per_100_words: Decimal = Field(ge=0)
-    first_valence_mentioned: Optional[FirstMentionedValence] = None
+    first_evidence_mentioned: Optional[FirstMentionedEvidence] = None
     acknowledgement_share: Decimal = Field(ge=0, le=1)
-    adverse_share: Decimal = Field(ge=0, le=1)
-    favourable_share: Decimal = Field(ge=0, le=1)
+    provider_supporting_share: Decimal = Field(ge=0, le=1)
+    customer_supporting_share: Decimal = Field(ge=0, le=1)
     neutral_share: Decimal = Field(ge=0, le=1)
     disclaimer_share: Decimal = Field(ge=0, le=1)
     budget_compliant: Optional[bool] = None
@@ -790,7 +795,6 @@ class MissingRunRecord(ImmutableModel):
     scenario_id: str = Field(pattern=r"^CF\d{3}_R[1-4]$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     model_id: str = Field(min_length=1)
-    source_order: SourceOrderVariant
     cell_id: str = Field(pattern=r"^(primary|material_priority|brevity_locus)__(ample|tight|none)__(neutral|concerned)$")
     failure_reason: FailureReason
     transcript_sha256: str
@@ -851,7 +855,6 @@ class AnalysisInputRow(VersionedImmutableModel):
     scenario_id: str = Field(pattern=r"^CF\d{3}_R[1-4]$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     model_id: str = Field(min_length=1)
-    source_order: SourceOrderVariant
     cue_template_id: int = Field(ge=1, le=4)
     word_budget: WordBudgetCondition
     expressed_concern: ExpressedConcernCondition
@@ -885,11 +888,12 @@ class FactAnalysisInputRow(VersionedImmutableModel):
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     fact_id: str = Field(min_length=1)
     pair_id: str = Field(pattern=r"^CF\d{3}_R[1-4]_P[12]$")
-    fact_valence: FactValence
+    fact_option: DecisionOption
+    fact_polarity: FactPolarity
+    decision_alignment: DecisionAlignment
     checkpoint: EvaluationCheckpoint
     disclosure_ordinal: int = Field(ge=0, le=2)
     model_id: str = Field(min_length=1)
-    source_order: SourceOrderVariant
     cue_template_id: int = Field(ge=1, le=4)
     word_budget: WordBudgetCondition
     expressed_concern: ExpressedConcernCondition

@@ -1,14 +1,14 @@
 # Calibration matrix
 
-The rubric-development experiment is `risk_comm_calibration_v1`: ten accepted C1 scenarios × three frozen evaluated models × canonical source order A × four integrity-absent primary cells, or 120 conversations and 240 agent responses. It is excluded from held-out confirmatory estimates.
+The rubric-development experiment is `risk_comm_calibration_v1`: ten accepted C1 scenarios × three frozen evaluated models × four primary cells, or 120 conversations and 240 assistant responses. Each scenario has one fixed evidence packet. Calibration is excluded from held-out confirmatory estimates.
 
 After the ample pilot, all scenario reviews, and the final ten-use-case budget freeze, use the exact `risk-comm experiment build-manifests` command in [risk_comm_v1.md](risk_comm_v1.md) to create the self-hashed `CalibrationExperimentManifest`. It binds the complete accepted scenario manifest, evaluated snapshots, reviewed prompts, word budgets, active prompt-package hash, temperature-zero decoding, seed, and retry policy. Then build the config and plan:
 
 ```bash
 uv run risk-comm calibration build-plan \
   --calibration-manifest data/outputs/experiments/risk_comm_calibration_v1/checkpoints/calibration_manifest.json \
-  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.8.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.8.0/accepted_scenario_manifest.json \
   --evaluated-model-manifest <evaluated_model_manifest.json> \
   --prompt-review-manifest <prompt_review_manifest.json> \
   --word-budget-manifest <word_budget_manifest.json>
@@ -21,8 +21,8 @@ Execute with immediate resumable persistence:
 ```bash
 uv run risk-comm calibration run \
   --calibration-manifest data/outputs/experiments/risk_comm_calibration_v1/checkpoints/calibration_manifest.json \
-  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.8.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.8.0/accepted_scenario_manifest.json \
   --evaluated-model-manifest <evaluated_model_manifest.json> \
   --prompt-review-manifest <prompt_review_manifest.json> \
   --word-budget-manifest <word_budget_manifest.json> \
@@ -37,8 +37,8 @@ Create the 80-conversation seeded blind rubric-development sample with the scori
 uv run risk-comm scoring sample-annotations \
   --stage calibration \
   --transcripts data/outputs/experiments/risk_comm_calibration_v1/results/<timestamp>_results.jsonl \
-  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.8.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.8.0/accepted_scenario_manifest.json \
   --scoring-execution-manifest <scoring_execution_manifest.json> \
   --scoring-input-root data/outputs/review/calibration_scoring_inputs \
   --output-manifest data/outputs/experiments/risk_comm_calibration_v1/checkpoints/calibration_annotation_sample_manifest.json

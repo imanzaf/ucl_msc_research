@@ -32,7 +32,7 @@ def main() -> None:
     if args.cost_report.resolve() != (OUTPUT_ROOT / f"{expected_stem}_cost_report.json").resolve():
         raise ValueError("scenario-generation approval requires the fixed cost-report path")
     if args.output.resolve() != (OUTPUT_ROOT / f"{expected_stem}_approval.json").resolve():
-        raise ValueError("scenario-generation approval must use the fixed V0.7.0 checkpoint path")
+        raise ValueError("scenario-generation approval must use the fixed V0.8.0 checkpoint path")
     if args.output.exists():
         raise FileExistsError("the scenario-generation approval already exists and cannot be replaced")
     if args.approved_maximum_cost_usd < report.worst_case_cost_usd:

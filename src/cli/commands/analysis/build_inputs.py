@@ -9,7 +9,7 @@ from typing import Dict, List, Tuple
 from src.data_models.common import artifact_sha256, file_sha256, utc_now, validate_model_self_hash
 from src.data_models.experiments import EXPECTED_CONVERSATION_COUNT, ConversationTranscript, RunOutcomeStatus
 from src.data_models.manifests import AcceptedScenarioManifest, ExperimentManifest, FreezeStatus, ScoringExecutionManifest
-from src.data_models.scenarios import FactValence
+from src.data_models.scenarios import DecisionOption, FactPolarity, decision_alignment
 from src.data_models.scoring import (
     AnalysisInputRow,
     AnalysisMissingnessReport,
@@ -122,7 +122,6 @@ def build_analysis_rows(
                     scenario_id=run_unit.scenario_id,
                     use_case_id=run_unit.use_case_id,
                     model_id=run_unit.model_id,
-                    source_order=run_unit.source_order,
                     cue_template_id=cue_template_id(run_unit.scenario_id),
                     word_budget=run_unit.cell.word_budget,
                     expressed_concern=run_unit.cell.expressed_concern,
@@ -144,7 +143,6 @@ def build_analysis_rows(
                 scenario_id=transcript.run_unit.scenario_id,
                 use_case_id=transcript.run_unit.use_case_id,
                 model_id=transcript.run_unit.model_id,
-                source_order=transcript.run_unit.source_order,
                 cell_id=transcript.run_unit.cell.cell_id,
                 failure_reason=transcript.failure_reason,
                 transcript_sha256=transcript.transcript_sha256,
@@ -158,7 +156,7 @@ def build_fact_analysis_rows(
     transcripts: List[ConversationTranscript],
     bundles: List[ScoredConversationBundle],
     manual_resolutions: List[ManualScoringResolution],
-    fact_metadata_by_scenario: Dict[str, Dict[str, Tuple[FactValence, str]]],
+    fact_metadata_by_scenario: Dict[str, Dict[str, Tuple[DecisionOption, FactPolarity, str]]],
 ) -> List[FactAnalysisInputRow]:
     """Join material-fact judgments to immutable conditions for ordinal R robustness."""
     result_by_id = {bundle.run_unit_id: bundle.fact_result for bundle in bundles}
@@ -177,7 +175,7 @@ def build_fact_analysis_rows(
         for judgment in result_by_id[run_unit_id].judgments:
             if judgment.fact_id not in metadata_by_fact:
                 continue
-            fact_valence, pair_id = metadata_by_fact[judgment.fact_id]
+            fact_option, fact_polarity, pair_id = metadata_by_fact[judgment.fact_id]
             rows.append(
                 FactAnalysisInputRow(
                     schema_version="2.0.0",
@@ -186,11 +184,12 @@ def build_fact_analysis_rows(
                     use_case_id=run_unit.use_case_id,
                     fact_id=judgment.fact_id,
                     pair_id=pair_id,
-                    fact_valence=fact_valence,
+                    fact_option=fact_option,
+                    fact_polarity=fact_polarity,
+                    decision_alignment=decision_alignment(fact_option, fact_polarity),
                     checkpoint=judgment.checkpoint,
                     disclosure_ordinal=disclosure_ordinal[judgment.disclosure],
                     model_id=run_unit.model_id,
-                    source_order=run_unit.source_order,
                     cue_template_id=cue_template_id(run_unit.scenario_id),
                     word_budget=run_unit.cell.word_budget,
                     expressed_concern=run_unit.cell.expressed_concern,
@@ -255,7 +254,10 @@ def main() -> None:
         transcripts,
         bundles,
         manual_resolutions,
-        {scenario.scenario_id: {fact.fact_id: (fact.valence, fact.pair_id) for fact in scenario.material_facts} for scenario in scenarios},
+        {
+            scenario.scenario_id: {fact.fact_id: (fact.option, fact.polarity, fact.pair_id) for fact in scenario.material_facts}
+            for scenario in scenarios
+        },
     )
     write_models_jsonl_atomic(args.fact_analysis_output, fact_rows)
     payload = {

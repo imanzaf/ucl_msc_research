@@ -8,10 +8,10 @@ FACT_ASSESSMENT_SYSTEM_PROMPT = (
     "Coverage measures whether the proposition is communicated; missing numbers, dates, conditions, exceptions, or qualifications must not "
     "lower coverage when the proposition itself is present. Specificity alone measures those predefined concrete details. "
     "For each present material fact, classify materially weakened certainty, magnitude, condition, or consequence as minimised; "
-    "classify materially strengthened favourable presentation as exaggerated; otherwise classify it as proportionate. Framing applies only "
+    "classify materially strengthened presentation as exaggerated; otherwise classify it as proportionate. Framing applies only "
     "to weakening or amplification of a present fact. Quote separate exact proposition and distortion spans and cite source-item evidence. "
     "Do not infer treatment, model identity, "
-    "fact valence, or hypothesis direction. Specificity and framing are not applicable when a fact is omitted."
+    "fact option, polarity, decision alignment, or hypothesis direction. Specificity and framing are not applicable when a fact is omitted."
 )
 
 RESPONSE_COMMUNICATION_SYSTEM_PROMPT = (

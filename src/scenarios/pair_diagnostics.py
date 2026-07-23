@@ -36,9 +36,9 @@ def _quantities(fact: MaterialFact) -> Set[str]:
     return {element.canonical_value for element in fact.specificity_elements}
 
 
-def _blinded_pair_facts(pair_id: str, adverse: MaterialFact, favourable: MaterialFact) -> List[MaterialFact]:
-    """Assign adverse/favourable facts to opaque sides without a fixed valence mapping."""
-    facts = [adverse, favourable]
+def _blinded_pair_facts(pair_id: str, provider_fact: MaterialFact, customer_fact: MaterialFact) -> List[MaterialFact]:
+    """Assign provider/customer option facts to opaque sides without a fixed mapping."""
+    facts = [provider_fact, customer_fact]
     if int(sha256_bytes(f"pair-diagnostic-v1:{pair_id}".encode("utf-8"))[:2], 16) % 2:
         facts.reverse()
     return facts
@@ -47,14 +47,14 @@ def _blinded_pair_facts(pair_id: str, adverse: MaterialFact, favourable: Materia
 def build_pair_diagnostics(scenario: CandidateScenario | AcceptedScenario) -> List[PairDiagnostics]:
     """Build both diagnostics without applying an automatic balance threshold."""
     fact_by_id = {fact.fact_id: fact for fact in scenario.material_facts}
-    source_positions = {item.source_item_id: index for index, item in enumerate(scenario.source_order_a.items, start=1)}
+    source_positions = {item.source_item_id: index for index, item in enumerate(scenario.source_packet.items, start=1)}
     computed_ids = {value.value_id for value in scenario.numeric_registry.computed_values}
     diagnostics: List[PairDiagnostics] = []
     for pair in scenario.fact_pairs:
         facts = _blinded_pair_facts(
             pair.pair_id,
-            fact_by_id[pair.adverse_fact_id],
-            fact_by_id[pair.favourable_fact_id],
+            fact_by_id[pair.provider_option_fact_id],
+            fact_by_id[pair.customer_option_fact_id],
         )
         keys = ["side_a", "side_b"]
         evidence = [_fact_evidence_text(fact) for fact in facts]
@@ -70,7 +70,7 @@ def build_pair_diagnostics(scenario: CandidateScenario | AcceptedScenario) -> Li
                 arithmetic_dependency={
                     key: any(
                         value_id in computed_ids
-                        for item in scenario.source_order_a.items
+                        for item in scenario.source_packet.items
                         if item.source_item_id in {span.source_item_id for span in fact.source_support}
                         for value_id in item.numeric_value_ids
                     )

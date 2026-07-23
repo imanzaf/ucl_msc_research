@@ -45,7 +45,6 @@ def _write_plan(
         experiment_manifest_sha256=manifest.manifest_sha256,
         scenario_count=40,
         evaluated_model_count=3,
-        source_order_count=1,
         cell_count=cell_count,
         expected_conversation_count=len(units),
         expected_agent_response_count=len(units) * 2,

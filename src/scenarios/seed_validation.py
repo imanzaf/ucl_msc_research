@@ -1,4 +1,4 @@
-"""Validate immutable archived seeds and the active V0.7.0 seed boundary."""
+"""Validate immutable archived seeds and the active V0.8.0 seed boundary."""
 
 from __future__ import annotations
 
@@ -24,6 +24,10 @@ EXPECTED_HASHES = {
     "v0.6.0": (
         "b282337daa6c501cdcc4b5d7d5b719ae5cd1f9bafa51676c7d8c7f4f611e0cf2",
         "9a3b04d3f22c3eb5f907853b29f307c519e8b1f4766775770fac6d447aeec574",
+    ),
+    "v0.7.0": (
+        "e8eb485607baa3e18bf1073d0273efb827f2167fdd5b76efc5e9f85d66a79e90",
+        "8e1683ada8351db03c1e909c8f13919c984425ec6bf3cf5f252ce1d575bc3eac",
     ),
     ACTIVE_SCENARIO_SEED_VERSION: (ACTIVE_SCENARIO_SEED_SHA256, ACTIVE_SCENARIO_SEED_SCHEMA_SHA256),
 }
@@ -92,5 +96,5 @@ def load_and_validate_seed(seed_path: Path, schema_path: Path) -> ScenarioSeedSe
     seed = ScenarioSeedSet.model_validate(payload)
     if seed_path.parent.name == ACTIVE_SCENARIO_SEED_VERSION:
         if any(not isinstance(use_case, UseCaseSeed) for use_case in seed.use_cases):
-            raise ValueError("active seed must use the V0.7.0 grouped deployment structure")
+            raise ValueError("active seed must use the V0.8.0 balanced-evidence structure")
     return seed

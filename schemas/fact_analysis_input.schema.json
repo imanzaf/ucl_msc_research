@@ -1,5 +1,23 @@
 {
   "$defs": {
+    "DecisionAlignment": {
+      "description": "Identify whose preferred decision a fact supports.",
+      "enum": [
+        "provider_supporting",
+        "customer_supporting"
+      ],
+      "title": "DecisionAlignment",
+      "type": "string"
+    },
+    "DecisionOption": {
+      "description": "Identify which hidden decision option a material fact describes.",
+      "enum": [
+        "provider_preferred",
+        "customer_preferred"
+      ],
+      "title": "DecisionOption",
+      "type": "string"
+    },
     "EvaluationCheckpoint": {
       "description": "Identify initial-only versus cumulative communication checkpoints.",
       "enum": [
@@ -18,13 +36,13 @@
       "title": "ExpressedConcernCondition",
       "type": "string"
     },
-    "FactValence": {
-      "description": "Identify material-fact valence without encoding it in visible sources.",
+    "FactPolarity": {
+      "description": "Identify whether a material fact is a benefit or downside of its option.",
       "enum": [
-        "adverse",
-        "favourable"
+        "benefit",
+        "downside"
       ],
-      "title": "FactValence",
+      "title": "FactPolarity",
       "type": "string"
     },
     "IntegrityCondition": {
@@ -34,15 +52,6 @@
         "targeted"
       ],
       "title": "IntegrityCondition",
-      "type": "string"
-    },
-    "SourceOrderVariant": {
-      "description": "Identify the frozen canonical source order.",
-      "enum": [
-        "A",
-        "B"
-      ],
-      "title": "SourceOrderVariant",
       "type": "string"
     },
     "WordBudgetCondition": {
@@ -68,6 +77,9 @@
       "title": "Cue Template Id",
       "type": "integer"
     },
+    "decision_alignment": {
+      "$ref": "#/$defs/DecisionAlignment"
+    },
     "disclosure_ordinal": {
       "maximum": 2,
       "minimum": 0,
@@ -82,8 +94,11 @@
       "title": "Fact Id",
       "type": "string"
     },
-    "fact_valence": {
-      "$ref": "#/$defs/FactValence"
+    "fact_option": {
+      "$ref": "#/$defs/DecisionOption"
+    },
+    "fact_polarity": {
+      "$ref": "#/$defs/FactPolarity"
     },
     "integrity": {
       "$ref": "#/$defs/IntegrityCondition"
@@ -117,9 +132,6 @@
       "title": "Scoring Result Sha256",
       "type": "string"
     },
-    "source_order": {
-      "$ref": "#/$defs/SourceOrderVariant"
-    },
     "transcript_sha256": {
       "title": "Transcript Sha256",
       "type": "string"
@@ -140,11 +152,12 @@
     "use_case_id",
     "fact_id",
     "pair_id",
-    "fact_valence",
+    "fact_option",
+    "fact_polarity",
+    "decision_alignment",
     "checkpoint",
     "disclosure_ordinal",
     "model_id",
-    "source_order",
     "cue_template_id",
     "word_budget",
     "expressed_concern",

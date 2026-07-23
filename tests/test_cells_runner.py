@@ -55,9 +55,9 @@ def test_domain_source_renderer_is_text_native_and_deterministic() -> None:
     }
     first = [make_accepted_scenario(f"CF{index:03d}_R1") for index in range(1, 11)]
     second = [make_accepted_scenario(f"CF{index:03d}_R1") for index in range(1, 11)]
-    assert {scenario.source_order_a.source_format.value for scenario in first} == expected_formats
-    assert [scenario.source_order_a.rendered_text for scenario in first] == [scenario.source_order_a.rendered_text for scenario in second]
-    assert [scenario.source_order_a.rendered_sha256 for scenario in first] == [scenario.source_order_a.rendered_sha256 for scenario in second]
+    assert {scenario.source_packet.source_format.value for scenario in first} == expected_formats
+    assert [scenario.source_packet.rendered_text for scenario in first] == [scenario.source_packet.rendered_text for scenario in second]
+    assert [scenario.source_packet.rendered_sha256 for scenario in first] == [scenario.source_packet.rendered_sha256 for scenario in second]
 
 
 def test_scenario_rejects_extra_source_items_and_wrong_use_case_renderer() -> None:
@@ -66,20 +66,18 @@ def test_scenario_rejects_extra_source_items_and_wrong_use_case_renderer() -> No
     with pytest.raises(ValueError, match="at most 6"):
         build_source_packet(
             scenario.scenario_id,
-            scenario.source_order_a.source_order,
-            scenario.source_order_a.fixed_title,
-            [*scenario.source_order_a.items, SourceItem(source_item_id="EXTRA", header="Extra", body="Unscored material claim.")],
+            scenario.source_packet.fixed_title,
+            [*scenario.source_packet.items, SourceItem(source_item_id="EXTRA", header="Extra", body="Unscored material claim.")],
         )
     wrong_source = build_source_packet(
         scenario.scenario_id,
-        scenario.source_order_a.source_order,
-        scenario.source_order_a.fixed_title,
-        scenario.source_order_a.items,
+        scenario.source_packet.fixed_title,
+        scenario.source_packet.items,
         source_format=SourceFormat.TRANSFER_OFFER_COMPARISON,
     )
     payload = scenario.model_dump(mode="json", exclude={"artifact_sha256"})
-    payload["source_order_a"] = wrong_source.model_dump(mode="json")
-    with pytest.raises(ValueError, match="frozen V0.7.0 use-case renderer"):
+    payload["source_packet"] = wrong_source.model_dump(mode="json")
+    with pytest.raises(ValueError, match="frozen V0.8.0 use-case renderer"):
         AcceptedScenario.model_validate({**payload, "artifact_sha256": artifact_sha256(payload)})
 
 
@@ -93,7 +91,6 @@ def test_full_run_plan_has_480_conversations_960_responses_and_reproducible_orde
 
     assert len(first) == 480
     assert len(first) * 2 == 960
-    assert {unit.source_order.value for unit in first} == {"A"}
     assert [unit.run_unit_id for unit in first] == [unit.run_unit_id for unit in second]
     assert [unit.cell.cell_id for unit in first] == [unit.cell.cell_id for unit in second]
     tampered = list(first)
@@ -105,8 +102,8 @@ def test_full_run_plan_has_480_conversations_960_responses_and_reproducible_orde
         validate_complete_run_plan(tampered)
 
 
-def test_calibration_plan_has_120_canonical_order_conversations() -> None:
-    """Build ten C1 × three-model × four-cell blocks with only source order A."""
+def test_calibration_plan_has_120_conversations() -> None:
+    """Build ten C1 × three-model × four-cell blocks."""
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_C1") for use_case in range(1, 11)]
     plan = build_calibration_run_plan(
         scenarios,
@@ -117,7 +114,6 @@ def test_calibration_plan_has_120_canonical_order_conversations() -> None:
     )
     validate_calibration_run_plan(plan, 19)
     assert len(plan) == 120
-    assert {unit.source_order.value for unit in plan} == {"A"}
     assert {unit.scenario_id for unit in plan} == {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
 
 
@@ -141,7 +137,7 @@ def test_prompt_factor_isolation_one_cue_and_identical_follow_up() -> None:
         assert len(observed) == 1
         assert content.count(observed[0]) == 1
         assert all(phrase not in unit.follow_up_message.content for phrase in ALL_CUE_PHRASES)
-        hidden_values = make_accepted_scenario(unit.scenario_id).research_metadata.decision_conflict.model_dump(mode="json").values()
+        hidden_values = make_accepted_scenario(unit.scenario_id).hidden_design.decision.model_dump(mode="json").values()
         assert all(value not in content for value in hidden_values)
         assert "decision_conflict" not in content
         assert "customer-aligned" not in content
@@ -155,7 +151,7 @@ def test_prompt_contains_only_broad_deployment_guidance_and_seeded_dialogue() ->
     scenario = make_accepted_scenario()
     initial, follow_up, _, _ = compile_experiment_prompt(
         scenario,
-        scenario.source_order_a,
+        scenario.source_packet,
         all_experiment_cells()[0],
         assigned_word_limit=240,
     )
@@ -195,7 +191,7 @@ def test_prompt_compilation_rejects_simulation_framing_even_if_model_validation_
     with pytest.raises(ValueError, match="simulation or research framing"):
         compile_experiment_prompt(
             leaked_scenario,
-            leaked_scenario.source_order_a,
+            leaked_scenario.source_packet,
             all_experiment_cells()[0],
             assigned_word_limit=240,
         )
@@ -204,27 +200,27 @@ def test_prompt_compilation_rejects_simulation_framing_even_if_model_validation_
 def test_prompt_compilation_rejects_hidden_decision_conflict_leakage() -> None:
     """Reject a research-only action even after punctuation-only changes."""
     scenario = make_accepted_scenario()
-    hidden_action = scenario.research_metadata.decision_conflict.provider_aligned_action
+    hidden_action = scenario.hidden_design.decision.provider_preferred_option
     for leaked_action in [hidden_action, hidden_action.rstrip(".")]:
         leaked_messages = scenario.customer_messages.model_copy(update={"initial_message": f"{leaked_action}?"})
         leaked_scenario = scenario.model_copy(update={"customer_messages": leaked_messages})
         with pytest.raises(ValueError, match="decision-conflict metadata"):
             compile_experiment_prompt(
                 leaked_scenario,
-                leaked_scenario.source_order_a,
+                leaked_scenario.source_packet,
                 all_experiment_cells()[0],
                 assigned_word_limit=240,
             )
     punctuated_action = "Choose the provider's lower-cost option."
     compact_leak = "Choose the providers lower cost option"
-    conflict = scenario.research_metadata.decision_conflict.model_copy(update={"provider_aligned_action": punctuated_action})
-    metadata = scenario.research_metadata.model_copy(update={"decision_conflict": conflict})
+    decision = scenario.hidden_design.decision.model_copy(update={"provider_preferred_option": punctuated_action})
+    hidden_design = scenario.hidden_design.model_copy(update={"decision": decision})
     leaked_messages = scenario.customer_messages.model_copy(update={"initial_message": f"{compact_leak}?"})
-    leaked_scenario = scenario.model_copy(update={"research_metadata": metadata, "customer_messages": leaked_messages})
+    leaked_scenario = scenario.model_copy(update={"hidden_design": hidden_design, "customer_messages": leaked_messages})
     with pytest.raises(ValueError, match="decision-conflict metadata"):
         compile_experiment_prompt(
             leaked_scenario,
-            leaked_scenario.source_order_a,
+            leaked_scenario.source_packet,
             all_experiment_cells()[0],
             assigned_word_limit=240,
         )
@@ -234,10 +230,10 @@ def test_prompt_compilation_rejects_hidden_decision_conflict_leakage() -> None:
     "reserved_label",
     [
         "decision conflict",
-        "customer_aligned_action",
+        "customer_preferred_option",
         "provider aligned",
-        "provider_benefit_mechanism",
-        "material_customer_harm",
+        "provider_benefit",
+        "customer_harm",
         "provider-aligned",
         "latent conflict",
     ],
@@ -250,7 +246,7 @@ def test_prompt_compilation_rejects_reserved_conflict_labels(reserved_label: str
     with pytest.raises(ValueError, match="decision-conflict metadata"):
         compile_experiment_prompt(
             leaked_scenario,
-            leaked_scenario.source_order_a,
+            leaked_scenario.source_packet,
             all_experiment_cells()[0],
             assigned_word_limit=240,
         )

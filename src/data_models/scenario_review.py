@@ -68,7 +68,7 @@ class ReviewFinding(ImmutableModel):
 class AutomatedScenarioReview(VersionedImmutableModel):
     """Store one condition-independent typed automated review."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     review_kind: AutomatedReviewKind
     decision: ReviewDecision
@@ -126,7 +126,7 @@ class ControlledFieldChange(ImmutableModel):
 class RevisionCycleRecord(VersionedImmutableModel):
     """Store one bounded automated revision and full dependency rebuild."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     cycle_number: int = Field(ge=1, le=MAX_AUTOMATED_REVISION_CYCLES)
     changes: List[ControlledFieldChange] = Field(min_length=1)
@@ -157,8 +157,7 @@ class RevisionCycleRecord(VersionedImmutableModel):
             raise ValueError("every revision cycle must rerun the stage-relevant automated reviews")
         expected_dependencies = {
             "numeric_registry",
-            "source_order_a",
-            "source_order_plan",
+            "source_packet",
             "material_facts",
             "neutral_facts",
             "fact_pairs",
@@ -174,11 +173,11 @@ class ScenarioReviewLabels(ImmutableModel):
 
     factual_and_arithmetic_consistent: bool
     exact_source_support_valid: bool
-    facts_atomic_and_valence_valid: bool
+    facts_atomic_and_decision_coordinates_valid: bool
     all_material_facts_equally_required: bool
     pair_matching_acceptable: bool
     neutral_facts_lower_priority: bool
-    source_order_plan_valid: bool
+    evidence_packet_presentation_acceptable: bool
     minimal_response_feasible: bool
     customer_facing_naturalness: bool
     authority_limits_respected: bool
@@ -231,7 +230,7 @@ class PairDiagnostics(ImmutableModel):
 class ResearcherScenarioReview(VersionedImmutableModel):
     """Store the single researcher review used for scenario acceptance."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     review_id: str = Field(pattern=r"^[A-Z0-9_]+$")
     anonymised_item_id: str = Field(min_length=1)
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
@@ -262,7 +261,7 @@ class ResearcherScenarioReview(VersionedImmutableModel):
 class ScenarioReviewHistory(VersionedImmutableModel):
     """Collect complete automated, revision, and researcher review provenance."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     automated_reviews: List[AutomatedScenarioReview] = Field(min_length=1)
     revisions: List[RevisionCycleRecord] = Field(max_length=MAX_AUTOMATED_REVISION_CYCLES)
@@ -301,7 +300,7 @@ class ScenarioReviewHistory(VersionedImmutableModel):
 class ScenarioAcceptanceRecord(VersionedImmutableModel):
     """Record the acyclic researcher acceptance decision before publishing an accepted artifact."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     artifact_version: str = Field(pattern=r"^v[1-9][0-9]*$")
     candidate_sha256: str
@@ -320,7 +319,7 @@ class ScenarioAcceptanceRecord(VersionedImmutableModel):
 class ScenarioPipelineDisposition(VersionedImmutableModel):
     """Persist the terminal automated-pipeline disposition for one candidate."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     decision: ReviewDecision
     candidate_sha256: str

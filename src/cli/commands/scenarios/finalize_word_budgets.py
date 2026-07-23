@@ -30,7 +30,7 @@ def main() -> None:
         (args.output, WORD_BUDGET_MANIFEST_PATH),
     ]
     if any(supplied.resolve() != expected.resolve() for supplied, expected in expected_paths):
-        raise ValueError("word-budget finalization must use the fixed V0.7.0 lifecycle paths")
+        raise ValueError("word-budget finalization must use the fixed V0.8.0 lifecycle paths")
     if args.output.exists():
         raise FileExistsError("the frozen word-budget manifest already exists and cannot be replaced")
 

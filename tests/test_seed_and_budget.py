@@ -33,7 +33,7 @@ from src.data_models.manifests import (
     ScenarioGenerationCostReport,
     ScenarioManifestScope,
 )
-from src.data_models.scenarios import DecisionConflict, LegacyUseCaseSeed, ScenarioSeedSet, ScenarioStage, UseCaseSeed
+from src.data_models.scenarios import DecisionDesign, EvidencePairType, LegacyUseCaseSeed, ScenarioSeedSet, ScenarioStage, UseCaseSeed, V07UseCaseSeed
 from src.data_models.study import CUE_PAIRS, PROMPT_PACKAGE_VERSION, ExpressedConcernCondition, IntegrityCondition, assigned_cue, cue_template_id
 from src.llm.openrouter import OpenRouterClient, ProviderTextResponse
 from src.prompts.experiment import render_reviewed_user_request, validate_complete_request_reviews
@@ -43,12 +43,12 @@ from src.scenarios.word_count import count_words, tokenize_words
 from tests.factories import ZERO_HASH, make_accepted_scenario
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SEED_ROOTS = {version: REPO_ROOT / "data/inputs/scenarios" / version for version in ["v0.5.1", "v0.5.2", "v0.6.0", "v0.7.0"]}
+SEED_ROOTS = {version: REPO_ROOT / "data/inputs/scenarios" / version for version in ["v0.5.1", "v0.5.2", "v0.6.0", "v0.7.0", "v0.8.0"]}
 
 
-@pytest.mark.parametrize("version", ["v0.5.1", "v0.5.2", "v0.6.0", "v0.7.0"])
+@pytest.mark.parametrize("version", ["v0.5.1", "v0.5.2", "v0.6.0", "v0.7.0", "v0.8.0"])
 def test_immutable_seed_versions_have_approved_bytes_and_exact_structure(version: str) -> None:
-    """Preserve every archived seed and authenticate the active V0.7.0 family."""
+    """Preserve every archived seed and authenticate the active V0.8.0 family."""
     root = SEED_ROOTS[version]
     hashes = validate_seed_hashes(root / "scenario_generation_seeds.json", root / "scenario_generation_seed_schema.json")
     seed = load_and_validate_seed(root / "scenario_generation_seeds.json", root / "scenario_generation_seed_schema.json")
@@ -56,22 +56,34 @@ def test_immutable_seed_versions_have_approved_bytes_and_exact_structure(version
     assert hashes == {"seed_sha256": expected_seed, "schema_sha256": expected_schema}
     assert len(seed.use_cases) == 10
     replication_counts = [
-        len(use_case.scenario_generation.replications) if isinstance(use_case, UseCaseSeed) else len(use_case.replications)
+        (
+            len(use_case.hidden_design.generation.replications)
+            if isinstance(use_case, UseCaseSeed)
+            else len(use_case.scenario_generation.replications) if isinstance(use_case, V07UseCaseSeed) else len(use_case.replications)
+        )
         for use_case in seed.use_cases
     ]
     pair_counts = [
-        len(use_case.diagnostic_design.material_fact_pair_briefs) if isinstance(use_case, UseCaseSeed) else len(use_case.material_fact_pair_briefs)
+        (
+            len(use_case.hidden_design.evidence.pairs)
+            if isinstance(use_case, UseCaseSeed)
+            else (
+                len(use_case.diagnostic_design.material_fact_pair_briefs)
+                if isinstance(use_case, V07UseCaseSeed)
+                else len(use_case.material_fact_pair_briefs)
+            )
+        )
         for use_case in seed.use_cases
     ]
     assert sum(replication_counts) == 50
     assert pair_counts == [2] * 10
 
 
-def test_v070_separates_evaluated_deployment_content_from_hidden_design() -> None:
-    """Lock the grouped boundary, natural dialogue, generic entities, and absence of simulation framing."""
+def test_v080_separates_evaluated_content_and_balances_hidden_decision_evidence() -> None:
+    """Lock the compact hidden boundary, balanced 2×2 evidence, and natural evaluated content."""
     seed = load_and_validate_seed(
-        SEED_ROOTS["v0.7.0"] / "scenario_generation_seeds.json",
-        SEED_ROOTS["v0.7.0"] / "scenario_generation_seed_schema.json",
+        SEED_ROOTS["v0.8.0"] / "scenario_generation_seeds.json",
+        SEED_ROOTS["v0.8.0"] / "scenario_generation_seed_schema.json",
     )
     forbidden_old_fields = {
         "segment",
@@ -84,7 +96,7 @@ def test_v070_separates_evaluated_deployment_content_from_hidden_design() -> Non
         "response_genre",
         "reference_format",
     }
-    payload = json.loads((SEED_ROOTS["v0.7.0"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
+    payload = json.loads((SEED_ROOTS["v0.8.0"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
     assert all(not forbidden_old_fields.intersection(use_case) for use_case in payload["use_cases"])
     for raw_use_case, use_case in zip(payload["use_cases"], seed.use_cases):
         assert isinstance(use_case, UseCaseSeed)
@@ -92,9 +104,7 @@ def test_v070_separates_evaluated_deployment_content_from_hidden_design() -> Non
             "use_case_id",
             "deployment_context",
             "customer_messages",
-            "research_metadata",
-            "diagnostic_design",
-            "scenario_generation",
+            "hidden_design",
         }
         evaluated_text = " ".join(
             [
@@ -109,9 +119,10 @@ def test_v070_separates_evaluated_deployment_content_from_hidden_design() -> Non
         assert all(term not in evaluated_text for term in ["fictional", "synthetic", "simulated", "research", "test case"])
         assert use_case.customer_messages.initial_message.endswith("?")
         assert use_case.customer_messages.follow_up_message.endswith("?")
-        conflict = use_case.research_metadata.decision_conflict
-        assert conflict.customer_aligned_action != conflict.provider_aligned_action
-        assert len(use_case.diagnostic_design.material_fact_pair_briefs) == 2
+        decision = use_case.hidden_design.decision
+        assert decision.customer_preferred_option != decision.provider_preferred_option
+        assert {pair.pair_type for pair in use_case.hidden_design.evidence.pairs} == set(EvidencePairType)
+        assert len(use_case.hidden_design.generation.replications) == 5
 
 
 def test_v060_requires_high_stakes_decisions_and_latent_opposed_actions() -> None:
@@ -153,20 +164,20 @@ def test_v060_requires_high_stakes_decisions_and_latent_opposed_actions() -> Non
 
 
 def test_exported_seed_schema_matches_version_specific_runtime_boundaries() -> None:
-    """Require grouped V0.7.0 fields and preserve both archived legacy boundaries."""
+    """Require the V0.8.0 boundary and preserve every archived seed structure."""
     exported_schema = json.loads((REPO_ROOT / "schemas/scenario_seed_set.schema.json").read_text(encoding="utf-8"))
-    active_schema = json.loads((SEED_ROOTS["v0.7.0"] / "scenario_generation_seed_schema.json").read_text(encoding="utf-8"))
-    active_payload = json.loads((SEED_ROOTS["v0.7.0"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
+    active_schema = json.loads((SEED_ROOTS["v0.8.0"] / "scenario_generation_seed_schema.json").read_text(encoding="utf-8"))
+    active_payload = json.loads((SEED_ROOTS["v0.8.0"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
     v060_payload = json.loads((SEED_ROOTS["v0.6.0"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
     legacy_payload = json.loads((SEED_ROOTS["v0.5.2"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
     validator = Draft202012Validator(exported_schema)
     assert not list(validator.iter_errors(active_payload))
     assert not list(validator.iter_errors(v060_payload))
     assert not list(validator.iter_errors(legacy_payload))
-    blank_conflict_payload = json.loads(json.dumps(active_payload))
-    blank_conflict_payload["use_cases"][0]["research_metadata"]["decision_conflict"]["financial_stake"] = "   "
-    assert list(validator.iter_errors(blank_conflict_payload))
-    assert list(Draft202012Validator(active_schema).iter_errors(blank_conflict_payload))
+    blank_design_payload = json.loads(json.dumps(active_payload))
+    blank_design_payload["use_cases"][0]["hidden_design"]["decision"]["high_stakes_basis"] = "   "
+    assert list(validator.iter_errors(blank_design_payload))
+    assert list(Draft202012Validator(active_schema).iter_errors(blank_design_payload))
     active_payload["use_cases"][0].pop("deployment_context")
     assert list(validator.iter_errors(active_payload))
     legacy_payload["use_cases"][0]["decision_conflict"] = {
@@ -193,22 +204,22 @@ def test_seed_runtime_rejects_cross_version_fields_even_when_null() -> None:
         ScenarioSeedSet.model_validate(legacy_payload)
 
 
-def test_decision_conflict_strips_text_and_rejects_blank_or_equivalent_actions() -> None:
-    """Require substantive, genuinely opposed hidden action metadata."""
+def test_decision_design_rejects_blank_or_equivalent_options() -> None:
+    """Require substantive, genuinely opposed hidden option metadata."""
     payload = {
-        "customer_aligned_action": "  Choose A.  ",
-        "provider_aligned_action": "Choose B.",
-        "customer_objective_basis": "Customer basis.",
-        "provider_benefit_mechanism": "Provider basis.",
-        "material_customer_harm": "Material harm.",
-        "decision_horizon": "Long horizon.",
-        "financial_stake": "Material stake.",
+        "customer_goal": "Choose well.",
+        "customer_preferred_option": "Choose A.",
+        "provider_preferred_option": "Choose B.",
+        "customer_preference_basis": "Customer basis.",
+        "provider_benefit": "Provider basis.",
+        "customer_harm": "Material harm.",
+        "high_stakes_basis": "Long horizon and material stake.",
     }
-    assert DecisionConflict.model_validate(payload).customer_aligned_action == "Choose A."
-    with pytest.raises(ValidationError, match="non-whitespace"):
-        DecisionConflict.model_validate({**payload, "financial_stake": "   "})
+    assert DecisionDesign.model_validate(payload).customer_preferred_option == "Choose A."
+    with pytest.raises(ValidationError):
+        DecisionDesign.model_validate({**payload, "high_stakes_basis": "   "})
     with pytest.raises(ValidationError, match="must differ"):
-        DecisionConflict.model_validate({**payload, "provider_aligned_action": " choose a. "})
+        DecisionDesign.model_validate({**payload, "provider_preferred_option": "choose a."})
 
 
 def test_v052_contains_all_ten_expert_corrections_without_expansion() -> None:
@@ -235,8 +246,8 @@ def test_v052_contains_all_ten_expert_corrections_without_expansion() -> None:
 
 def test_seed_tampering_is_rejected_before_use(tmp_path: Path) -> None:
     """Reject any changed byte in the active immutable seed."""
-    root = SEED_ROOTS["v0.7.0"]
-    version_root = tmp_path / "v0.7.0"
+    root = SEED_ROOTS["v0.8.0"]
+    version_root = tmp_path / "v0.8.0"
     version_root.mkdir()
     payload = json.loads((root / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
     payload["use_cases"][0]["word_budget"] = 100
@@ -417,8 +428,8 @@ def test_prompt_review_freezes_all_80_requests_and_exact_cue_mapping() -> None:
     """Require the four cue pairs, R mapping, C1 round-robin, and no alternatives."""
     assert [cue_template_id(f"CF{index:03d}_C1") for index in range(1, 11)] == [1, 2, 3, 4, 1, 2, 3, 4, 1, 2]
     active_seed = load_and_validate_seed(
-        SEED_ROOTS["v0.7.0"] / "scenario_generation_seeds.json",
-        SEED_ROOTS["v0.7.0"] / "scenario_generation_seed_schema.json",
+        SEED_ROOTS["v0.8.0"] / "scenario_generation_seeds.json",
+        SEED_ROOTS["v0.8.0"] / "scenario_generation_seed_schema.json",
     )
     assert len({use_case.customer_messages.follow_up_message for use_case in active_seed.use_cases if isinstance(use_case, UseCaseSeed)}) == 10
     reviews = _complete_request_reviews()
@@ -644,11 +655,11 @@ def test_successful_ample_pilot_attempt_recovers_only_from_matching_cache() -> N
 
 
 def test_accepted_manifest_rejects_unapproved_seed_hashes_before_publication() -> None:
-    """Prevent a self-hashed accepted set from blessing altered V0.7.0 seed bytes."""
-    with pytest.raises(ValidationError, match="approved immutable V0.7.0 seed"):
+    """Prevent a self-hashed accepted set from blessing altered V0.8.0 seed bytes."""
+    with pytest.raises(ValidationError, match="approved immutable V0.8.0 seed"):
         AcceptedScenarioManifest(
             schema_version="2.0.0",
-            scenario_set_id="customer_finance_deployment_context_v0.7.0",
+            scenario_set_id="customer_finance_balanced_decision_evidence_v0.8.0",
             manifest_scope=ScenarioManifestScope.COMPLETE,
             seed_sha256=ZERO_HASH,
             seed_schema_sha256=ZERO_HASH,

@@ -84,14 +84,16 @@ def _normalise_conflict_label(value: str) -> str:
 def _validate_decision_conflict_isolation(scenario: AcceptedScenario, rendered_prompt: str) -> None:
     """Reject any exact researcher-only conflict field or research label in an evaluated prompt."""
     normalised_prompt = _normalise_conflict_label(rendered_prompt)
-    conflict = scenario.research_metadata.decision_conflict
+    conflict = scenario.hidden_design.decision
     hidden_values = conflict.model_dump(mode="json").values()
     leaked_values = [value for value in hidden_values if _normalise_conflict_label(value) in normalised_prompt]
     raw_reserved_labels = [
         *type(conflict).model_fields,
         "customer aligned",
+        "customer preferred",
         "institution aligned",
         "provider aligned",
+        "provider preferred",
         "model owner aligned",
         "decision conflict",
         "latent conflict",

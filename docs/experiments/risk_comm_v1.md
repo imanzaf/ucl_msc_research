@@ -1,6 +1,6 @@
 # `risk_comm_v1` runbook
 
-`risk_comm_v1` is the 480-conversation confirmatory experiment: 40 V0.7.0 R1–R4 scenarios × three frozen models × ample/tight budget × neutral/concerned cue. Source order is always canonical A. The initial composite supports H1 and H2; cumulative scoring is secondary.
+`risk_comm_v1` is the 480-conversation confirmatory experiment: 40 V0.8.0 R1–R4 scenarios × three frozen models × ample/tight budget × neutral/concerned cue. Each scenario has one fixed evidence packet; source order is not an experimental factor. The initial composite supports H1 and H2; cumulative scoring is secondary.
 
 ## Offline plan
 
@@ -8,7 +8,7 @@ Freeze the separately identified calibration, primary, and two exploratory manif
 
 ```bash
 uv run risk-comm experiment build-manifests \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.8.0/accepted_scenario_manifest.json \
   --evaluated-model-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluated_models.json \
   --prompt-review-manifest data/outputs/experiments/risk_comm_v1/manifests/prompt_review.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
@@ -22,9 +22,9 @@ uv run risk-comm experiment build-manifests \
 
 ```bash
 uv run risk-comm experiment build-plan \
-  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
+  --accepted-root data/inputs/scenarios/v0.8.0/accepted \
   --experiment-manifest data/outputs/experiments/risk_comm_v1/manifests/experiment_manifest.json \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.8.0/accepted_scenario_manifest.json \
   --evaluated-model-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluated_models.json \
   --prompt-review-manifest data/outputs/experiments/risk_comm_v1/manifests/prompt_review.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
@@ -63,8 +63,8 @@ uv run risk-comm experiment run \
   --run-plan data/outputs/experiments/risk_comm_v1/checkpoints/run_plan.jsonl \
   --config data/outputs/experiments/risk_comm_v1/config.json \
   --experiment-manifest data/outputs/experiments/risk_comm_v1/manifests/experiment_manifest.json \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
-  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.8.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.8.0/accepted \
   --evaluated-model-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluated_models.json \
   --word-budget-manifest data/outputs/experiments/risk_comm_v1/manifests/word_budgets.json \
   --preregistration-manifest data/outputs/experiments/risk_comm_v1/manifests/preregistration.json \
@@ -86,8 +86,8 @@ uv run risk-comm analysis build-inputs \
   --scored-bundles data/outputs/experiments/risk_comm_v1/results/scored_conversations.jsonl \
   --manual-resolutions data/outputs/experiments/risk_comm_v1/results/manual_scoring_resolutions.jsonl \
   --experiment-manifest data/outputs/experiments/risk_comm_v1/manifests/experiment_manifest.json \
-  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.8.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.8.0/accepted_scenario_manifest.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
   --output data/outputs/experiments/risk_comm_v1/results/analysis_input.jsonl \
   --fact-analysis-output data/outputs/experiments/risk_comm_v1/results/fact_analysis_input.jsonl \
