@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Dict, Iterable, List
 
 from src.data_models.experiments import RunUnit
-from src.data_models.study import ALL_CUE_PHRASES, assigned_cue, natural_follow_up
+from src.data_models.study import ALL_CUE_PHRASES, assigned_cue
 
 
 def _canonical_initial_messages(run_unit: RunUnit) -> str:
@@ -41,9 +41,9 @@ def validate_prompt_factor_isolation(run_units: Iterable[RunUnit]) -> None:
     canonical_messages = {_canonical_initial_messages(unit) for unit in units}
     if len(canonical_messages) != 1:
         raise ValueError("compiled prompts differ outside the declared primary treatment factors")
-    expected_follow_up = natural_follow_up(units[0].use_case_id)
-    if {unit.follow_up_message.content for unit in units} != {expected_follow_up}:
-        raise ValueError("follow-up must be the frozen use-case-specific natural question")
+    follow_up_texts = {unit.follow_up_message.content for unit in units}
+    if len(follow_up_texts) != 1 or not next(iter(follow_up_texts)).strip():
+        raise ValueError("follow-up must be one non-empty seed-owned question shared across all cells")
     if len({unit.follow_up_sha256 for unit in units}) != 1:
         raise ValueError("follow-up must be byte-identical across all cells")
     for unit in units:

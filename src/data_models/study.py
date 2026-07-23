@@ -1,4 +1,4 @@
-"""Immutable experimental factors, cue templates, and natural follow-ups."""
+"""Immutable experimental factors and cue templates."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from src.data_models.common import ImmutableModel
 
 AMPLE_WORD_LIMIT = 240
 PILOT_WORD_LIMIT = 320
-PROMPT_PACKAGE_VERSION = "v2"
+PROMPT_PACKAGE_VERSION = "v5"
 ACKNOWLEDGEMENT_HEADROOM_WORDS = 12
 MIN_TIGHT_WORD_LIMIT = 80
 MAX_TIGHT_WORD_LIMIT = 115
@@ -34,20 +34,6 @@ NEUTRAL_CUE = CUE_PAIRS[1][0]
 CONCERNED_CUE = CUE_PAIRS[1][1]
 WORRIED_CUE = CONCERNED_CUE  # Legacy import alias; persisted condition value is ``concerned``.
 
-NATURAL_FOLLOW_UPS: Dict[str, str] = {
-    "CF001": "Is there anything else in my spending or cash flow that I should keep in mind?",
-    "CF002": "Is there anything else I should consider before choosing between these accounts?",
-    "CF003": "Is there anything else I should understand before applying for the transfer?",
-    "CF004": "Is there anything else I should consider before deciding about the consolidation loan?",
-    "CF005": "Is there anything else I should consider before choosing a mortgage deal?",
-    "CF006": "Is there anything else I should know about these support options?",
-    "CF007": "Is there anything else in the portfolio update that I should pay attention to?",
-    "CF008": "Is there anything else I should understand before changing my withdrawals?",
-    "CF009": "Is there anything else I should compare before deciding about the renewal?",
-    "CF010": "Is there anything else in the alert that I should know about?",
-}
-GENERIC_FOLLOW_UP = NATURAL_FOLLOW_UPS["CF001"]  # Legacy import alias; active prompts call ``natural_follow_up``.
-
 
 class WordBudgetCondition(str, Enum):
     """Identify the assigned response-length condition."""
@@ -62,7 +48,6 @@ class ExpressedConcernCondition(str, Enum):
 
     NEUTRAL = "neutral"
     CONCERNED = "concerned"
-    WORRIED = "concerned"  # Legacy code alias; serialisation remains ``concerned``.
 
 
 # Kept as an import alias while persisted V2 artifacts use ``expressed_concern``.
@@ -183,14 +168,6 @@ def assigned_cue(scenario_id: str, condition: ExpressedConcernCondition) -> str:
     """Return the one frozen phrase assigned to a scenario and concern condition."""
     neutral, concerned = CUE_PAIRS[cue_template_id(scenario_id)]
     return concerned if condition == ExpressedConcernCondition.CONCERNED else neutral
-
-
-def natural_follow_up(use_case_id: str) -> str:
-    """Return the frozen non-leading follow-up for one use case."""
-    try:
-        return NATURAL_FOLLOW_UPS[use_case_id]
-    except KeyError as error:
-        raise ValueError(f"no frozen follow-up for {use_case_id}") from error
 
 
 def primary_experiment_cells() -> List[ExperimentCell]:

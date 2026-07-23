@@ -9,10 +9,10 @@ from pathlib import Path
 
 from src.data_models.common import artifact_sha256, validate_model_self_hash
 from src.data_models.manifests import ScenarioGenerationApproval, ScenarioGenerationCostReport
-from src.paths import REPO_ROOT
+from src.paths import ACTIVE_SCENARIO_CHECKPOINT_ROOT
 from src.storage import read_model_json, write_model_json_atomic
 
-OUTPUT_ROOT = REPO_ROOT / "data/outputs/scenario_generation/v0.5.2/checkpoints"
+OUTPUT_ROOT = ACTIVE_SCENARIO_CHECKPOINT_ROOT
 
 
 def main() -> None:
@@ -32,7 +32,9 @@ def main() -> None:
     if args.cost_report.resolve() != (OUTPUT_ROOT / f"{expected_stem}_cost_report.json").resolve():
         raise ValueError("scenario-generation approval requires the fixed cost-report path")
     if args.output.resolve() != (OUTPUT_ROOT / f"{expected_stem}_approval.json").resolve():
-        raise ValueError("scenario-generation approval must use the fixed V0.5.2 checkpoint path")
+        raise ValueError("scenario-generation approval must use the fixed V0.7.0 checkpoint path")
+    if args.output.exists():
+        raise FileExistsError("the scenario-generation approval already exists and cannot be replaced")
     if args.approved_maximum_cost_usd < report.worst_case_cost_usd:
         raise ValueError("approved maximum is below the scenario-generation worst-case cost")
     payload = {

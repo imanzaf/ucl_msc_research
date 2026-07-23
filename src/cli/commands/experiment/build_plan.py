@@ -21,7 +21,7 @@ from src.data_models.manifests import (
 from src.experiments.io import load_accepted_evaluation_scenarios
 from src.experiments.layout import validate_experiment_path
 from src.experiments.scenario_runner import build_run_plan, validate_complete_run_plan
-from src.paths import REPO_ROOT
+from src.paths import ACTIVE_SCENARIO_ACCEPTED_ROOT, REPO_ROOT
 from src.prompts.experiment import prompt_package_sha256, validate_complete_request_reviews
 from src.prompts.scoring_contracts import scoring_contract_sha256
 from src.storage import read_model_json, write_model_json_atomic, write_models_jsonl_atomic
@@ -30,7 +30,7 @@ from src.storage import read_model_json, write_model_json_atomic, write_models_j
 def parse_args() -> argparse.Namespace:
     """Parse frozen manifest and output paths."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--accepted-root", type=Path, default=REPO_ROOT / "data/inputs/scenarios/v0.5.2/accepted")
+    parser.add_argument("--accepted-root", type=Path, default=ACTIVE_SCENARIO_ACCEPTED_ROOT)
     parser.add_argument("--experiment-manifest", type=Path, required=True)
     parser.add_argument("--accepted-scenario-manifest", type=Path, required=True)
     parser.add_argument("--evaluated-model-manifest", type=Path, required=True)

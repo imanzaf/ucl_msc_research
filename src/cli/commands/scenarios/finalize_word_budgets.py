@@ -9,6 +9,7 @@ from pathlib import Path
 from src.data_models.common import artifact_sha256, validate_model_self_hash
 from src.data_models.manifests import AcceptedScenarioManifest, FreezeStatus, TightLimitManifest, UseCaseBudget, WordBudgetManifest
 from src.experiments.io import load_all_accepted_scenarios
+from src.paths import ACTIVE_SCENARIO_ACCEPTED_ROOT, ACTIVE_SCENARIO_CHECKPOINT_ROOT, ACTIVE_SCENARIO_INPUT_ROOT, WORD_BUDGET_MANIFEST_PATH
 from src.scenarios.budgets import validate_evaluation_headroom
 from src.storage import read_model_json, write_model_json_atomic
 
@@ -22,9 +23,20 @@ def main() -> None:
     parser.add_argument("--frozen-by", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    expected_paths = [
+        (args.accepted_root, ACTIVE_SCENARIO_ACCEPTED_ROOT),
+        (args.accepted_scenario_manifest, ACTIVE_SCENARIO_INPUT_ROOT / "accepted_scenario_manifest.json"),
+        (args.tight_limit_manifest, ACTIVE_SCENARIO_CHECKPOINT_ROOT / "tight_limit_manifest.json"),
+        (args.output, WORD_BUDGET_MANIFEST_PATH),
+    ]
+    if any(supplied.resolve() != expected.resolve() for supplied, expected in expected_paths):
+        raise ValueError("word-budget finalization must use the fixed V0.7.0 lifecycle paths")
+    if args.output.exists():
+        raise FileExistsError("the frozen word-budget manifest already exists and cannot be replaced")
 
     accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
     tight_manifest = read_model_json(args.tight_limit_manifest, TightLimitManifest)
+    validate_model_self_hash(accepted_manifest, "manifest_sha256")
     validate_model_self_hash(tight_manifest, "manifest_sha256")
     if tight_manifest.freeze_status != FreezeStatus.FROZEN:
         raise ValueError("final budget validation requires a previously frozen tight-limit manifest")
@@ -58,6 +70,7 @@ def main() -> None:
         "freeze_status": FreezeStatus.FROZEN,
         "counter_version": tight_manifest.counter_version,
         "tight_limit_manifest_sha256": tight_manifest.manifest_sha256,
+        "evaluated_model_manifest_sha256": tight_manifest.evaluated_model_manifest_sha256,
         "use_case_budgets": budgets,
         "ample_pilot": tight_manifest.ample_pilot,
         "frozen_at": datetime.now(timezone.utc),

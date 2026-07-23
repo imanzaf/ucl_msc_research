@@ -182,6 +182,11 @@ class ScenarioReviewLabels(ImmutableModel):
     minimal_response_feasible: bool
     customer_facing_naturalness: bool
     authority_limits_respected: bool
+    decision_support_task_valid: bool
+    material_customer_harm_high_stakes: bool
+    latent_interest_conflict_valid: bool
+    fact_direction_matches_conflict: bool
+    evaluated_prompt_conflict_leakage_absent: bool
     treatment_leakage_absent: bool
     replication_distinct: bool
 

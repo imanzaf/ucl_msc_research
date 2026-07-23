@@ -48,7 +48,6 @@
       "description": "Identify whether the user expresses concern in the opening cue.",
       "enum": [
         "neutral",
-        "concerned",
         "concerned"
       ],
       "title": "ExpressedConcernCondition",

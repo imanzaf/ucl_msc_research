@@ -262,10 +262,10 @@ def test_numeric_engine_uses_decimal_and_rejects_division_by_zero() -> None:
 
 def test_openrouter_backend_generates_complete_candidate_in_one_call() -> None:
     """Return source, hidden facts, verified arithmetic, and minimal response together."""
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.5.1"
+    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.7.0"
     seed = load_and_validate_seed(seed_root / "scenario_generation_seeds.json", seed_root / "scenario_generation_seed_schema.json")
-    use_case = seed.use_cases[0]
-    replication = next(item for item in use_case.replications if item.scenario_id == "CF001_R1")
+    use_case = cast(UseCaseSeed, seed.use_cases[0])
+    replication = next(item for item in use_case.scenario_generation.replications if item.scenario_id == "CF001_R1")
     client = IntegratedGenerationClient(make_integrated_draft())
     backend = OpenRouterScenarioBackend(
         generation_client=cast(OpenRouterClient, client),
@@ -286,10 +286,10 @@ def test_openrouter_backend_generates_complete_candidate_in_one_call() -> None:
 
 def test_openrouter_backend_rejects_model_returned_arithmetic_mismatch() -> None:
     """Recompute the integrated call's claimed results before candidate construction."""
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.5.1"
+    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.7.0"
     seed = load_and_validate_seed(seed_root / "scenario_generation_seeds.json", seed_root / "scenario_generation_seed_schema.json")
-    use_case = seed.use_cases[0]
-    replication = next(item for item in use_case.replications if item.scenario_id == "CF001_R1")
+    use_case = cast(UseCaseSeed, seed.use_cases[0])
+    replication = next(item for item in use_case.scenario_generation.replications if item.scenario_id == "CF001_R1")
     draft = make_integrated_draft()
     wrong_value = draft.numeric_registry.computed_values[0].model_copy(update={"value": Decimal("24.0")})
     wrong_registry = draft.numeric_registry.model_copy(update={"computed_values": [wrong_value]})
@@ -318,10 +318,10 @@ def test_exact_source_span_validation() -> None:
 
 def test_pipeline_reruns_all_reviews_and_caps_revision_at_two() -> None:
     """Stop unresolved automation after two complete rebuild/review cycles."""
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.5.1"
+    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.7.0"
     seed = load_and_validate_seed(seed_root / "scenario_generation_seeds.json", seed_root / "scenario_generation_seed_schema.json")
-    use_case = seed.use_cases[0]
-    replication = next(item for item in use_case.replications if item.scenario_id == "CF001_R1")
+    use_case = cast(UseCaseSeed, seed.use_cases[0])
+    replication = next(item for item in use_case.scenario_generation.replications if item.scenario_id == "CF001_R1")
     result = run_scenario_batch_pipeline(
         [(use_case, replication)],
         AlwaysReviseBackend(),
@@ -337,13 +337,13 @@ def test_pipeline_reruns_all_reviews_and_caps_revision_at_two() -> None:
 
 def test_batch_diversity_review_receives_all_five_use_case_candidates() -> None:
     """Make the diversity contract compare C1 and R1-R4 together, never one candidate alone."""
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.5.1"
+    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.7.0"
     seed = load_and_validate_seed(seed_root / "scenario_generation_seeds.json", seed_root / "scenario_generation_seed_schema.json")
     backend = BatchAcceptBackend()
-    use_case = seed.use_cases[0]
-    calibration_seed = next(item for item in use_case.replications if item.scenario_id.endswith("_C1"))
+    use_case = cast(UseCaseSeed, seed.use_cases[0])
+    calibration_seed = next(item for item in use_case.scenario_generation.replications if item.scenario_id.endswith("_C1"))
     calibration_candidate = backend.generate_candidate(use_case, calibration_seed)
-    evaluation_seeds = [(use_case, item) for item in use_case.replications if not item.scenario_id.endswith("_C1")]
+    evaluation_seeds = [(use_case, item) for item in use_case.scenario_generation.replications if not item.scenario_id.endswith("_C1")]
     results = run_scenario_batch_pipeline(
         evaluation_seeds,
         backend,
@@ -358,10 +358,17 @@ def test_batch_diversity_review_receives_all_five_use_case_candidates() -> None:
 
 def test_calibration_candidates_skip_batch_diversity() -> None:
     """Review each C1 for quality without comparing unrelated use cases for diversity."""
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.5.1"
+    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.7.0"
     seed = load_and_validate_seed(seed_root / "scenario_generation_seeds.json", seed_root / "scenario_generation_seed_schema.json")
     backend = BatchAcceptBackend()
-    calibration_seeds = [(use_case, next(item for item in use_case.replications if item.scenario_id.endswith("_C1"))) for use_case in seed.use_cases]
+    use_cases = [cast(UseCaseSeed, use_case) for use_case in seed.use_cases]
+    calibration_seeds = [
+        (
+            use_case,
+            next(item for item in use_case.scenario_generation.replications if item.scenario_id.endswith("_C1")),
+        )
+        for use_case in use_cases
+    ]
     results = run_scenario_batch_pipeline(calibration_seeds, backend, default_revision_record_factory)
     assert len(results) == 10
     assert backend.observed_batches == []

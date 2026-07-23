@@ -8,6 +8,7 @@ from pathlib import Path
 
 from src.data_models.common import artifact_sha256
 from src.data_models.manifests import EvaluatedModelManifest, EvaluatedModelSnapshot, FreezeStatus
+from src.paths import EVALUATED_MODEL_MANIFEST_PATH
 from src.storage import read_model_json, write_model_json_atomic
 
 
@@ -19,6 +20,10 @@ def main() -> None:
     parser.add_argument("--frozen-by", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.output.resolve() != EVALUATED_MODEL_MANIFEST_PATH.resolve():
+        raise ValueError("evaluated models must freeze at the canonical risk_comm_v1 manifest path")
+    if args.output.exists():
+        raise FileExistsError("the frozen evaluated-model manifest already exists and cannot be replaced")
     snapshots = [read_model_json(path, EvaluatedModelSnapshot) for path in args.evaluated_snapshot]
     payload = {
         "schema_version": "2.0.0",

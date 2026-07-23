@@ -8,8 +8,8 @@ This separately reported exploratory experiment runs all 40 scenarios × three m
 
 ```bash
 uv run risk-comm experiment build-exploratory-plans \
-  --accepted-root data/inputs/scenarios/v0.5.2/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.5.2/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
   --word-budget-manifest data/outputs/experiments/risk_comm_v1/manifests/word_budgets.json \
   --material-priority-manifest data/outputs/experiments/material_priority_v1/manifests/experiment_manifest.json \
   --material-priority-config data/outputs/experiments/material_priority_v1/config.json \
@@ -45,8 +45,8 @@ uv run risk-comm experiment run \
   --run-plan data/outputs/experiments/material_priority_v1/checkpoints/run_plan.jsonl \
   --config data/outputs/experiments/material_priority_v1/config.json \
   --experiment-manifest data/outputs/experiments/material_priority_v1/manifests/experiment_manifest.json \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.5.2/accepted_scenario_manifest.json \
-  --accepted-root data/inputs/scenarios/v0.5.2/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
   --evaluated-model-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluated_models.json \
   --word-budget-manifest data/outputs/experiments/risk_comm_v1/manifests/word_budgets.json \
   --dry-run-report data/outputs/experiments/material_priority_v1/checkpoints/dry_run_cost.json \
@@ -65,8 +65,8 @@ Score under the shared frozen condition-blind scoring contract, then join both c
 uv run risk-comm scoring run \
   --backend src.experiments.openrouter_scoring:create_openrouter_scoring_backend \
   --transcripts data/outputs/experiments/material_priority_v1/results/<YYYYMMDDTHHMMSS>_results.jsonl \
-  --accepted-root data/inputs/scenarios/v0.5.2/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.5.2/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
   --experiment-manifest data/outputs/experiments/material_priority_v1/manifests/experiment_manifest.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
   --results-dir data/outputs/experiments/material_priority_v1/results \
@@ -77,8 +77,8 @@ uv run risk-comm analysis build-inputs \
   --scored-bundles data/outputs/experiments/material_priority_v1/results/scored_conversations.jsonl \
   --manual-resolutions data/outputs/experiments/material_priority_v1/results/manual_scoring_resolutions.jsonl \
   --experiment-manifest data/outputs/experiments/material_priority_v1/manifests/experiment_manifest.json \
-  --accepted-root data/inputs/scenarios/v0.5.2/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.5.2/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
   --output data/outputs/experiments/material_priority_v1/results/analysis_input.jsonl \
   --fact-analysis-output data/outputs/experiments/material_priority_v1/results/fact_analysis_input.jsonl \

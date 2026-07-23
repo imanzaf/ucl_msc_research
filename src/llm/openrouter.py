@@ -132,7 +132,7 @@ class OpenRouterClient:
         if self.paid_calls_disabled:
             raise PermissionError("external paid API calls are disabled")
         request_hash = provider_request_sha256(messages, model_id, temperature, max_tokens, seed)
-        cached = self._read_cache(request_hash)
+        cached = self.read_cached_text_response(request_hash)
         if cached is not None:
             return cached
         response = self.client.chat.completions.create(
@@ -248,8 +248,8 @@ class OpenRouterClient:
         """Return the cache path for one exact request hash."""
         return self.cache_dir / f"{request_hash}.json" if self.cache_dir is not None else None
 
-    def _read_cache(self, request_hash: str) -> Optional[ProviderTextResponse]:
-        """Read an exact text-response cache record when present."""
+    def read_cached_text_response(self, request_hash: str) -> Optional[ProviderTextResponse]:
+        """Read a successful exact-request response without making a provider call."""
         path = self._cache_path(request_hash)
         if path is None or not path.exists():
             return None

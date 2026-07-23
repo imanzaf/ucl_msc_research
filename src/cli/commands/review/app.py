@@ -3,14 +3,14 @@
 import argparse
 from pathlib import Path
 
-from src.paths import REPO_ROOT
+from src.paths import ACTIVE_SCENARIO_GENERATION_ROOT, REPO_ROOT
 from src.review_app import ReviewStore, run_streamlit_app
 
 
 def main() -> None:
     """Render generated candidates, blinded inputs, and ignored review output storage."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--candidate-root", type=Path, default=REPO_ROOT / "data/outputs/scenario_generation/v0.5.2")
+    parser.add_argument("--candidate-root", type=Path, default=ACTIVE_SCENARIO_GENERATION_ROOT)
     parser.add_argument("--scoring-input-root", type=Path, default=REPO_ROOT / "data/outputs/review/evaluation_scoring_inputs")
     parser.add_argument(
         "--annotation-sample-manifest",

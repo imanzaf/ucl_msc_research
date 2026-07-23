@@ -12,13 +12,13 @@ from src.data_models.common import artifact_sha256, file_sha256
 from src.data_models.manifests import ModelPricingAssumption, PricingAssumptionInput, ScenarioGenerationCostReport
 from src.data_models.scenarios import ScenarioStage
 from src.experiments.model_catalog import load_model_catalog
-from src.paths import REPO_ROOT
+from src.paths import ACTIVE_SCENARIO_CHECKPOINT_ROOT, ACTIVE_SCENARIO_INPUT_ROOT
 from src.scenarios.seed_validation import load_and_validate_seed
 from src.storage import read_model_json, write_model_json_atomic
 
 SCENARIO_BACKEND = "src.scenarios.openrouter_backend:create_openrouter_scenario_backend"
-SEED_ROOT = REPO_ROOT / "data/inputs/scenarios/v0.5.2"
-OUTPUT_ROOT = REPO_ROOT / "data/outputs/scenario_generation/v0.5.2/checkpoints"
+SEED_ROOT = ACTIVE_SCENARIO_INPUT_ROOT
+OUTPUT_ROOT = ACTIVE_SCENARIO_CHECKPOINT_ROOT
 
 
 def _call_counts(stage: ScenarioStage) -> Tuple[int, int, int, int, int]:
@@ -51,7 +51,7 @@ def _pricing_payload(pricing: Dict[str, ModelPricingAssumption]) -> Dict[str, De
 
 
 def main() -> None:
-    """Authenticate the V0.5.2 batch and write its offline cost report."""
+    """Authenticate the V0.7.0 batch and write its offline cost report."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--stage", choices=[stage.value for stage in ScenarioStage], required=True)
     parser.add_argument("--use-case-id")
@@ -65,7 +65,9 @@ def main() -> None:
         raise ValueError("calibration omits --use-case-id; evaluation requires exactly one use case")
     expected_name = "calibration_cost_report.json" if stage == ScenarioStage.CALIBRATION else f"{args.use_case_id}_cost_report.json"
     if args.output.resolve() != (OUTPUT_ROOT / expected_name).resolve():
-        raise ValueError("scenario-generation cost reports must use the fixed V0.5.2 checkpoint path")
+        raise ValueError("scenario-generation cost reports must use the fixed V0.7.0 checkpoint path")
+    if args.output.exists():
+        raise FileExistsError("the scenario-generation cost report already exists and cannot be replaced")
     seed_path = SEED_ROOT / "scenario_generation_seeds.json"
     schema_path = SEED_ROOT / "scenario_generation_seed_schema.json"
     seed = load_and_validate_seed(seed_path, schema_path)

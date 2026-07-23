@@ -7,20 +7,26 @@ All notable changes to the active research implementation are recorded here. The
 ### Added
 
 - Added the preregistered 0–1 `selective_risk_communication_score`, combining coverage, specificity, framing/reassurance, salience, and factual integrity with frozen 30/15/20/15/20 weights.
-- Added V0.5.2 corrected scenario seeds, ten deterministic text-native source renderers, pair diagnostics, four cue pairs, and ten use-case-specific natural follow-ups.
+- Added immutable V0.7.0 deployment-realistic seeds with generic finance-entity contexts, natural initial/follow-up customer messages, and explicit hidden research, diagnostic, and generation groups.
+- Added a calibration-only twenty-request prompt review so the ample pilot and tight-limit freeze occur before R1–R4 generation without depending on the final 80-request evaluation review.
 - Added two-test scenario sign-flip inference, use-case-stratified scenario bootstrap intervals, cluster-aware equivalence, five-domain composite power simulation, and prespecified composite sensitivities.
 - Added one-pass domain validation diagnostics, calibration-frozen gates, and the hashed failed-domain disposition contingency.
 - Added separate 240-conversation `material_priority_v1` and 120-conversation `brevity_locus_v1` exploratory plans, manifests, layouts, analyses, and stable paper assets.
-- Added batch-bound scenario-generation cost reports and researcher approvals that authenticate the V0.5.2 seed, model roles, backend, stage, and use-case scope before provider access.
+- Added batch-bound scenario-generation cost reports and researcher approvals that authenticate the V0.7.0 seed, model roles, backend, stage, and use-case scope before provider access.
+- Added a separate hash-linked ample-pilot cost report and researcher approval that bind all 60 exact provider requests to the prompt package, seed, accepted C1 set, frozen model snapshots, reviewed prompts, retry policy, and pricing assumptions, with persisted success/failure attempts.
 - Added exact-span adversarial fixtures and an offline plan-to-scoring-to-analysis workflow test.
 
 ### Changed
 
 - Retained `risk_comm_v1` as the 480-conversation primary 2×2 design while making the initial composite the confirmatory outcome for H1 budget and H2 expressed-concern effects.
 - Renamed persisted emotional/worried fields to `expressed_concern`/`concerned` and moved incompatible persisted artifacts to schema 2.0.0 while retaining software release 0.1.0.
+- Incremented the frozen prompt package to V5 for the explicit V0.7.0 role/entity/task/Guidance contract and seed-owned customer turns.
+- Replaced legacy bespoke role/task context with explicit broad `deployment_context.role` and `deployment_context.task` fields, while removing named model-owner, response-genre, and redundant context fields.
+- Added runtime rejection of simulation/research framing and hidden-design leakage in evaluated prompt content.
+- Retained the three V1 experiment identities and schema 2.0.0 because the redesign occurred before any accepted scenario artifact, frozen experiment manifest, paid run, result, or paper asset existed.
 - Made cumulative scoring a secondary measure of spontaneous additional communication after a natural follow-up.
 - Generalised cost reports, approvals, scoring, analysis-input joining, and experiment layouts across the primary and both exploratory studies.
-- Preserved V0.5.1 unchanged and archived the predecessor research plan.
+- Preserved V0.5.1, V0.5.2, and V0.6.0 unchanged, archived their scenario-generation runbooks, and made V0.7.0 active.
 
 ### Removed
 

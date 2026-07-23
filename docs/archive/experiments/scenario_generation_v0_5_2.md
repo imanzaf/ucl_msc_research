@@ -1,5 +1,7 @@
 # Scenario generation V0.5.2
 
+> Historical protocol only. V0.5.2 is preserved unchanged; the active implementation uses V0.6.0.
+
 V0.5.2 is a corrected immutable derivative of V0.5.1. It preserves ten use cases and C1/R1–R4 identifiers. The V0.5.1 files remain unchanged and are independently hash-validatable.
 
 Offline validation:

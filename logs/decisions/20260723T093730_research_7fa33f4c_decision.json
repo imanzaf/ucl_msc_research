@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-07-23T09:37:30",
+  "decision_type": "research",
+  "author": "codex",
+  "content": "Use V0.6.0 as the active immutable scenario seed and require every CF001-CF010 family to be a high-stakes customer-facing finance decision-support task in which the response can change a concrete action and a poorly informed choice can cause material financial harm; preserve the ten-family and C1/R1-R4 structure.",
+  "source": "user_prompt",
+  "content_hash": "7fa33f4cdf68b949f8e08ea6817031cf732a7bc3b6f13143b439d9831cc55563"
+}

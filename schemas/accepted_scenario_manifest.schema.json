@@ -41,6 +41,14 @@
       "title": "AcceptedScenarioEntry",
       "type": "object"
     },
+    "AcceptedScenarioSetId": {
+      "description": "Identify the active accepted scenario family.",
+      "enum": [
+        "customer_finance_deployment_context_v0.7.0"
+      ],
+      "title": "AcceptedScenarioSetId",
+      "type": "string"
+    },
     "ScenarioManifestScope": {
       "description": "Identify a calibration-only checkpoint versus the final complete scenario set.",
       "enum": [
@@ -88,9 +96,7 @@
       "type": "string"
     },
     "scenario_set_id": {
-      "pattern": "^customer_finance_pressure_concern_v0\\.5\\.2$",
-      "title": "Scenario Set Id",
-      "type": "string"
+      "$ref": "#/$defs/AcceptedScenarioSetId"
     },
     "schema_version": {
       "pattern": "^2\\.0\\.0$",

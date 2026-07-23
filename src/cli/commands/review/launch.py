@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import List
 
-from src.paths import REPO_ROOT
+from src.paths import ACTIVE_SCENARIO_GENERATION_ROOT, REPO_ROOT
 
 
 def _application_arguments(args: argparse.Namespace) -> List[str]:
@@ -28,7 +28,7 @@ def _application_arguments(args: argparse.Namespace) -> List[str]:
 def main() -> None:
     """Parse review storage paths and start a local-only Streamlit process."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--candidate-root", type=Path, default=REPO_ROOT / "data/outputs/scenario_generation/v0.5.2")
+    parser.add_argument("--candidate-root", type=Path, default=ACTIVE_SCENARIO_GENERATION_ROOT)
     parser.add_argument("--scoring-input-root", type=Path, default=REPO_ROOT / "data/outputs/review/evaluation_scoring_inputs")
     parser.add_argument(
         "--annotation-sample-manifest",

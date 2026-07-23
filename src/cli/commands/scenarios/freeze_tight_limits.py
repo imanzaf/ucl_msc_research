@@ -10,14 +10,22 @@ from src.data_models.common import artifact_sha256, validate_model_self_hash
 from src.data_models.manifests import (
     AcceptedScenarioManifest,
     AmplePilotRecord,
+    CalibrationPromptReviewManifest,
     CalibrationUseCaseBudget,
+    CueReviewDecision,
     EvaluatedModelManifest,
     FreezeStatus,
-    PromptReviewManifest,
     TightLimitManifest,
 )
 from src.data_models.scenario_review import ScenarioAcceptanceRecord
 from src.experiments.io import load_accepted_calibration_scenarios
+from src.paths import (
+    ACTIVE_SCENARIO_ACCEPTED_ROOT,
+    ACTIVE_SCENARIO_CHECKPOINT_ROOT,
+    ACTIVE_SCENARIO_INPUT_ROOT,
+    AMPLE_PILOT_RECORDS_PATH,
+    EVALUATED_MODEL_MANIFEST_PATH,
+)
 from src.scenarios.budgets import build_ample_pilot_summary, calculate_tight_word_limit
 from src.scenarios.word_count import WORD_COUNTER_VERSION
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic
@@ -34,14 +42,32 @@ def main() -> None:
     parser.add_argument("--frozen-by", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    expected_calibration_manifest = ACTIVE_SCENARIO_INPUT_ROOT / "calibration_accepted_scenario_manifest.json"
+    expected_prompt_review = ACTIVE_SCENARIO_CHECKPOINT_ROOT / "calibration_prompt_review.json"
+    expected_output = ACTIVE_SCENARIO_CHECKPOINT_ROOT / "tight_limit_manifest.json"
+    fixed_paths = [
+        (args.accepted_root, ACTIVE_SCENARIO_ACCEPTED_ROOT),
+        (args.calibration_scenario_manifest, expected_calibration_manifest),
+        (args.evaluated_model_manifest, EVALUATED_MODEL_MANIFEST_PATH),
+        (args.prompt_review_manifest, expected_prompt_review),
+        (args.pilot_records, AMPLE_PILOT_RECORDS_PATH),
+        (args.output, expected_output),
+    ]
+    if any(supplied.resolve() != expected.resolve() for supplied, expected in fixed_paths):
+        raise ValueError("tight-limit freezing must use the fixed V0.7.0 lifecycle paths")
+    if args.output.exists():
+        raise FileExistsError("the frozen tight-limit manifest already exists and cannot be replaced")
 
     accepted_manifest = read_model_json(args.calibration_scenario_manifest, AcceptedScenarioManifest)
     model_manifest = read_model_json(args.evaluated_model_manifest, EvaluatedModelManifest)
-    prompt_review = read_model_json(args.prompt_review_manifest, PromptReviewManifest)
+    prompt_review = read_model_json(args.prompt_review_manifest, CalibrationPromptReviewManifest)
+    validate_model_self_hash(accepted_manifest, "manifest_sha256")
     validate_model_self_hash(model_manifest, "manifest_sha256")
     validate_model_self_hash(prompt_review, "manifest_sha256")
-    if model_manifest.freeze_status != FreezeStatus.FROZEN:
-        raise ValueError("tight limits require frozen evaluated-model snapshots")
+    if model_manifest.freeze_status != FreezeStatus.FROZEN or prompt_review.decision != CueReviewDecision.APPROVE:
+        raise ValueError("tight limits require frozen evaluated-model snapshots and an approved C1 prompt review")
+    if prompt_review.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
+        raise ValueError("C1 prompt review does not bind the supplied calibration scenario manifest")
     scenarios = load_accepted_calibration_scenarios(args.accepted_root, accepted_manifest)
     scenario_by_id = {scenario.scenario_id: scenario for scenario in scenarios}
     candidate_hash_by_id = {
@@ -82,6 +108,7 @@ def main() -> None:
         "freeze_status": FreezeStatus.FROZEN,
         "counter_version": WORD_COUNTER_VERSION,
         "prompt_review_manifest_sha256": prompt_review.manifest_sha256,
+        "evaluated_model_manifest_sha256": model_manifest.manifest_sha256,
         "use_case_budgets": budgets,
         "ample_pilot": pilot_summary,
         "frozen_at": datetime.now(timezone.utc),

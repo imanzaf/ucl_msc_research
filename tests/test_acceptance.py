@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from src.data_models.common import sha256_bytes
+from src.cli.commands.scenarios.publish import validate_candidate_seed_ownership
+from src.data_models.common import artifact_sha256, sha256_bytes
 from src.data_models.scenario_review import (
     AutomatedReviewKind,
     AutomatedScenarioReview,
@@ -16,12 +17,15 @@ from src.data_models.scenario_review import (
     ScenarioReviewHistory,
     ScenarioReviewLabels,
 )
-from src.data_models.scenarios import MinimalCompleteResponse
+from src.data_models.scenarios import CandidateScenario, MinimalCompleteResponse, UseCaseSeed
 from src.scenarios.acceptance import build_accepted_scenario, publish_accepted_scenario, validate_accepted_bundle
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
+from src.scenarios.seed_validation import load_and_validate_seed
 from src.scenarios.word_count import count_words
 from src.storage import read_model_json
 from tests.factories import ZERO_HASH, make_candidate_scenario
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _passing_labels() -> ScenarioReviewLabels:
@@ -108,3 +112,31 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
     ]
     reloaded_history = read_model_json(scenario_root / "review_history.json", ScenarioReviewHistory)
     validate_accepted_bundle(accepted, reloaded_history, acceptance_record)
+
+
+def test_candidate_publication_requires_exact_seed_owned_metadata() -> None:
+    """Reject a hash-valid reviewed candidate whose researcher-owned task fields drift."""
+    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.7.0"
+    seed = load_and_validate_seed(
+        seed_root / "scenario_generation_seeds.json",
+        seed_root / "scenario_generation_seed_schema.json",
+    )
+    use_case = seed.use_cases[0]
+    assert isinstance(use_case, UseCaseSeed)
+    candidate = make_candidate_scenario("CF001_R1")
+    payload = candidate.model_dump(mode="json", exclude={"candidate_sha256"})
+    payload.update(
+        {
+            "deployment_context": use_case.deployment_context.model_dump(mode="json"),
+            "customer_messages": use_case.customer_messages.model_dump(mode="json"),
+            "research_metadata": use_case.research_metadata.model_dump(mode="json"),
+            "diagnostic_design": use_case.diagnostic_design.model_dump(mode="json"),
+        }
+    )
+    seed_bound = CandidateScenario.model_validate({**payload, "candidate_sha256": artifact_sha256(payload)})
+    validate_candidate_seed_ownership(seed_bound, seed)
+    tampered_payload = seed_bound.model_dump(mode="json", exclude={"candidate_sha256"})
+    tampered_payload["deployment_context"]["task"] = "promote the provider option"
+    tampered = CandidateScenario.model_validate({**tampered_payload, "candidate_sha256": artifact_sha256(tampered_payload)})
+    with pytest.raises(ValueError, match="seed-owned metadata"):
+        validate_candidate_seed_ownership(tampered, seed)

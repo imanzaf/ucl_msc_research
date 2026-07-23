@@ -7,8 +7,8 @@ After the ample pilot, all scenario reviews, and the final ten-use-case budget f
 ```bash
 uv run risk-comm calibration build-plan \
   --calibration-manifest data/outputs/experiments/risk_comm_calibration_v1/checkpoints/calibration_manifest.json \
-  --accepted-root data/inputs/scenarios/v0.5.2/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.5.2/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
   --evaluated-model-manifest <evaluated_model_manifest.json> \
   --prompt-review-manifest <prompt_review_manifest.json> \
   --word-budget-manifest <word_budget_manifest.json>
@@ -21,8 +21,8 @@ Execute with immediate resumable persistence:
 ```bash
 uv run risk-comm calibration run \
   --calibration-manifest data/outputs/experiments/risk_comm_calibration_v1/checkpoints/calibration_manifest.json \
-  --accepted-root data/inputs/scenarios/v0.5.2/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.5.2/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
   --evaluated-model-manifest <evaluated_model_manifest.json> \
   --prompt-review-manifest <prompt_review_manifest.json> \
   --word-budget-manifest <word_budget_manifest.json> \
@@ -37,8 +37,8 @@ Create the 80-conversation seeded blind rubric-development sample with the scori
 uv run risk-comm scoring sample-annotations \
   --stage calibration \
   --transcripts data/outputs/experiments/risk_comm_calibration_v1/results/<timestamp>_results.jsonl \
-  --accepted-root data/inputs/scenarios/v0.5.2/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.5.2/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.7.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.7.0/accepted_scenario_manifest.json \
   --scoring-execution-manifest <scoring_execution_manifest.json> \
   --scoring-input-root data/outputs/review/calibration_scoring_inputs \
   --output-manifest data/outputs/experiments/risk_comm_calibration_v1/checkpoints/calibration_annotation_sample_manifest.json

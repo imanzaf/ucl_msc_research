@@ -114,6 +114,10 @@
       "title": "Counter Version",
       "type": "string"
     },
+    "evaluated_model_manifest_sha256": {
+      "title": "Evaluated Model Manifest Sha256",
+      "type": "string"
+    },
     "freeze_status": {
       "$ref": "#/$defs/FreezeStatus"
     },
@@ -171,6 +175,7 @@
     "freeze_status",
     "counter_version",
     "prompt_review_manifest_sha256",
+    "evaluated_model_manifest_sha256",
     "use_case_budgets",
     "ample_pilot",
     "manifest_sha256"

@@ -5,27 +5,14 @@ from __future__ import annotations
 from typing import Dict, List, Sequence, Tuple
 
 from src.data_models.common import sha256_bytes
-from src.data_models.scenarios import EvidenceSpan, SourceFormat, SourceItem, SourceItemPair, SourceOrderPlan, SourcePacket
+from src.data_models.scenarios import EvidenceSpan, SourceItem, SourceItemPair, SourceOrderPlan, SourcePacket
 from src.data_models.study import SourceOrderVariant
-from src.scenarios.rendering_templates import render_text_native_source
-
-SOURCE_FORMAT_BY_USE_CASE = {
-    "CF001": SourceFormat.CASH_FLOW_STATEMENT,
-    "CF002": SourceFormat.SAVINGS_COMPARISON_TABLE,
-    "CF003": SourceFormat.CARD_STATEMENT_AND_OFFER,
-    "CF004": SourceFormat.LOAN_ILLUSTRATION,
-    "CF005": SourceFormat.MORTGAGE_ILLUSTRATION,
-    "CF006": SourceFormat.SUPPORT_OPTION_SUMMARY,
-    "CF007": SourceFormat.PORTFOLIO_STATEMENT,
-    "CF008": SourceFormat.PENSION_ILLUSTRATION,
-    "CF009": SourceFormat.INSURANCE_COMPARISON_TABLE,
-    "CF010": SourceFormat.SECURITY_TIMELINE,
-}
+from src.scenarios.rendering_templates import SOURCE_FORMAT_BY_USE_CASE, SourceFormat, render_text_native_source
 
 
 def render_source_text(source_format: SourceFormat, fixed_title: str, items: Sequence[SourceItem]) -> str:
     """Render exact ordered facts through the frozen domain-native template."""
-    return render_text_native_source(source_format.value, fixed_title, [(item.header, item.body) for item in items])
+    return render_text_native_source(source_format, fixed_title, [(item.header, item.body) for item in items])
 
 
 def build_source_packet(

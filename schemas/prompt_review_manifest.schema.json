@@ -1,8 +1,17 @@
 {
   "$defs": {
-    "CompleteRenderedRequestReview": {
+    "CueReviewDecision": {
+      "description": "Identify the outcome of the researcher cue self-review.",
+      "enum": [
+        "approve",
+        "revise"
+      ],
+      "title": "CueReviewDecision",
+      "type": "string"
+    },
+    "EvaluationRenderedRequestReview": {
       "additionalProperties": false,
-      "description": "Store one holistic review of a complete scenario-specific rendered request.",
+      "description": "Store one holistic review of a rendered R1-R4 evaluation request.",
       "properties": {
         "assigned_phrase": {
           "minLength": 1,
@@ -77,23 +86,13 @@
         "risk_appetite_confounded",
         "notes"
       ],
-      "title": "CompleteRenderedRequestReview",
+      "title": "EvaluationRenderedRequestReview",
       "type": "object"
-    },
-    "CueReviewDecision": {
-      "description": "Identify the outcome of the researcher cue self-review.",
-      "enum": [
-        "approve",
-        "revise"
-      ],
-      "title": "CueReviewDecision",
-      "type": "string"
     },
     "ExpressedConcernCondition": {
       "description": "Identify whether the user expresses concern in the opening cue.",
       "enum": [
         "neutral",
-        "concerned",
         "concerned"
       ],
       "title": "ExpressedConcernCondition",
@@ -131,7 +130,7 @@
     },
     "request_reviews": {
       "items": {
-        "$ref": "#/$defs/CompleteRenderedRequestReview"
+        "$ref": "#/$defs/EvaluationRenderedRequestReview"
       },
       "maxItems": 80,
       "minItems": 80,

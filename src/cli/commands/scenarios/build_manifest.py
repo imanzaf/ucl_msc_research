@@ -1,4 +1,4 @@
-"""Build the self-hashed 50-scenario V0.5.2 accepted-set manifest."""
+"""Build the self-hashed 50-scenario V0.7.0 accepted-set manifest."""
 
 from __future__ import annotations
 
@@ -10,8 +10,9 @@ from src.data_models.common import artifact_sha256, file_sha256
 from src.data_models.manifests import AcceptedScenarioEntry, AcceptedScenarioManifest, ScenarioManifestScope
 from src.data_models.scenario_review import ScenarioAcceptanceRecord, ScenarioReviewHistory
 from src.data_models.scenarios import AcceptedScenario
-from src.paths import REPO_ROOT
+from src.paths import ACTIVE_SCENARIO_ACCEPTED_ROOT, ACTIVE_SCENARIO_INPUT_ROOT, ACTIVE_SCENARIO_SET_ID
 from src.scenarios.acceptance import validate_accepted_bundle
+from src.scenarios.seed_validation import load_and_validate_seed
 from src.storage import read_model_json, write_model_json_atomic
 
 
@@ -25,6 +26,21 @@ def main() -> None:
     args = parser.parse_args()
 
     scope = ScenarioManifestScope(args.scope)
+    if args.accepted_root.resolve() != ACTIVE_SCENARIO_ACCEPTED_ROOT.resolve():
+        raise ValueError("accepted-set manifests must read only the active V0.7.0 accepted root")
+    expected_output_name = (
+        "calibration_accepted_scenario_manifest.json" if scope == ScenarioManifestScope.CALIBRATION else "accepted_scenario_manifest.json"
+    )
+    expected_output = ACTIVE_SCENARIO_INPUT_ROOT / expected_output_name
+    if args.output.resolve() != expected_output.resolve():
+        raise ValueError(f"{scope.value} accepted-set manifest must use {expected_output}")
+    if args.output.exists():
+        raise FileExistsError(f"accepted-set manifests are immutable and already exist: {args.output}")
+    seed_root = ACTIVE_SCENARIO_INPUT_ROOT
+    load_and_validate_seed(
+        seed_path=seed_root / "scenario_generation_seeds.json",
+        schema_path=seed_root / "scenario_generation_seed_schema.json",
+    )
     entries = []
     for artifact_path in sorted(args.accepted_root.glob("CF???_*/accepted_scenario.json")):
         accepted = read_model_json(artifact_path, AcceptedScenario)
@@ -43,10 +59,9 @@ def main() -> None:
                 acceptance_record_sha256=acceptance.record_sha256,
             )
         )
-    seed_root = REPO_ROOT / "data" / "inputs" / "scenarios" / "v0.5.2"
     payload = {
         "schema_version": "2.0.0",
-        "scenario_set_id": "customer_finance_pressure_concern_v0.5.2",
+        "scenario_set_id": ACTIVE_SCENARIO_SET_ID,
         "manifest_scope": scope,
         "seed_sha256": file_sha256(seed_root / "scenario_generation_seeds.json"),
         "seed_schema_sha256": file_sha256(seed_root / "scenario_generation_seed_schema.json"),

@@ -1,5 +1,331 @@
 {
   "$defs": {
+    "CustomerMessages": {
+      "additionalProperties": false,
+      "description": "Store the natural initial question and non-leading follow-up shown to the assistant.",
+      "properties": {
+        "follow_up_message": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Follow Up Message",
+          "type": "string"
+        },
+        "initial_message": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Initial Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "initial_message",
+        "follow_up_message"
+      ],
+      "title": "CustomerMessages",
+      "type": "object"
+    },
+    "DecisionConflict": {
+      "additionalProperties": false,
+      "description": "Record the latent customer/provider conflict excluded from evaluated prompts.",
+      "properties": {
+        "customer_aligned_action": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Aligned Action",
+          "type": "string"
+        },
+        "customer_objective_basis": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Objective Basis",
+          "type": "string"
+        },
+        "decision_horizon": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Decision Horizon",
+          "type": "string"
+        },
+        "financial_stake": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Financial Stake",
+          "type": "string"
+        },
+        "material_customer_harm": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Material Customer Harm",
+          "type": "string"
+        },
+        "provider_aligned_action": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Provider Aligned Action",
+          "type": "string"
+        },
+        "provider_benefit_mechanism": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Provider Benefit Mechanism",
+          "type": "string"
+        }
+      },
+      "required": [
+        "customer_aligned_action",
+        "provider_aligned_action",
+        "customer_objective_basis",
+        "provider_benefit_mechanism",
+        "material_customer_harm",
+        "decision_horizon",
+        "financial_stake"
+      ],
+      "title": "DecisionConflict",
+      "type": "object"
+    },
+    "DeploymentContext": {
+      "additionalProperties": false,
+      "description": "Store only the broad real-world guidance passed to the evaluated assistant.",
+      "properties": {
+        "authority_limits": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Authority Limits",
+          "type": "string"
+        },
+        "entity_type": {
+          "$ref": "#/$defs/FinanceEntityType"
+        },
+        "role": {
+          "$ref": "#/$defs/FinanceAgentRole"
+        },
+        "task": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "entity_type",
+        "task",
+        "authority_limits"
+      ],
+      "title": "DeploymentContext",
+      "type": "object"
+    },
+    "DiagnosticDesign": {
+      "additionalProperties": false,
+      "description": "Store hidden matched-pair requirements used to validate the communication construct.",
+      "properties": {
+        "material_fact_pair_briefs": {
+          "items": {
+            "$ref": "#/$defs/MaterialFactPairBriefSeed"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Material Fact Pair Briefs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "material_fact_pair_briefs"
+      ],
+      "title": "DiagnosticDesign",
+      "type": "object"
+    },
+    "FinanceAgentRole": {
+      "description": "Identify the broad operational role assigned to the evaluated assistant.",
+      "enum": [
+        "current account support assistant",
+        "mortgage support assistant",
+        "credit-card support assistant",
+        "borrowing support assistant",
+        "payment-difficulty support assistant",
+        "investment support assistant",
+        "pension support assistant",
+        "claims support assistant",
+        "payments support assistant"
+      ],
+      "title": "FinanceAgentRole",
+      "type": "string"
+    },
+    "FinanceEntityType": {
+      "description": "Identify the generic finance-domain entity deploying the evaluated assistant.",
+      "enum": [
+        "bank",
+        "mortgage lender",
+        "credit-card provider",
+        "personal lender",
+        "loan servicer",
+        "investment platform",
+        "pension provider",
+        "insurance provider",
+        "payment provider"
+      ],
+      "title": "FinanceEntityType",
+      "type": "string"
+    },
+    "LegacyDecisionConflict": {
+      "additionalProperties": false,
+      "description": "Read the institution-labelled conflict metadata used by the archived V0.6 seed.",
+      "properties": {
+        "customer_aligned_action": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Aligned Action",
+          "type": "string"
+        },
+        "customer_objective_basis": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Objective Basis",
+          "type": "string"
+        },
+        "decision_horizon": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Decision Horizon",
+          "type": "string"
+        },
+        "financial_stake": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Financial Stake",
+          "type": "string"
+        },
+        "institution_aligned_action": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Institution Aligned Action",
+          "type": "string"
+        },
+        "institution_benefit_mechanism": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Institution Benefit Mechanism",
+          "type": "string"
+        },
+        "material_customer_harm": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Material Customer Harm",
+          "type": "string"
+        }
+      },
+      "required": [
+        "customer_aligned_action",
+        "institution_aligned_action",
+        "customer_objective_basis",
+        "institution_benefit_mechanism",
+        "material_customer_harm",
+        "decision_horizon",
+        "financial_stake"
+      ],
+      "title": "LegacyDecisionConflict",
+      "type": "object"
+    },
+    "LegacyUseCaseSeed": {
+      "additionalProperties": false,
+      "description": "Read one flat use-case seed from the archived V0.5-V0.6 formats.",
+      "properties": {
+        "agent_role": {
+          "minLength": 1,
+          "title": "Agent Role",
+          "type": "string"
+        },
+        "agent_task": {
+          "minLength": 1,
+          "title": "Agent Task",
+          "type": "string"
+        },
+        "customer_journey": {
+          "minLength": 1,
+          "title": "Customer Journey",
+          "type": "string"
+        },
+        "decision_conflict": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LegacyDecisionConflict"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "material_fact_pair_briefs": {
+          "items": {
+            "$ref": "#/$defs/MaterialFactPairBriefSeed"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Material Fact Pair Briefs",
+          "type": "array"
+        },
+        "model_owner": {
+          "minLength": 1,
+          "title": "Model Owner",
+          "type": "string"
+        },
+        "potential_harm_pathway": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Potential Harm Pathway"
+        },
+        "replications": {
+          "items": {
+            "$ref": "#/$defs/ReplicationSeed"
+          },
+          "maxItems": 5,
+          "minItems": 5,
+          "title": "Replications",
+          "type": "array"
+        },
+        "segment": {
+          "minLength": 1,
+          "title": "Segment",
+          "type": "string"
+        },
+        "task_context": {
+          "$ref": "#/$defs/TaskContextSeed"
+        },
+        "use_case_id": {
+          "pattern": "^CF\\d{3}$",
+          "title": "Use Case Id",
+          "type": "string"
+        },
+        "user_role": {
+          "minLength": 1,
+          "title": "User Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "use_case_id",
+        "segment",
+        "customer_journey",
+        "agent_role",
+        "model_owner",
+        "user_role",
+        "agent_task",
+        "task_context",
+        "material_fact_pair_briefs",
+        "replications"
+      ],
+      "title": "LegacyUseCaseSeed",
+      "type": "object"
+    },
     "MaterialFactPairBriefSeed": {
       "additionalProperties": false,
       "description": "Represent one researcher-owned adverse/favourable pair brief.",
@@ -63,9 +389,86 @@
       "title": "ReplicationSeed",
       "type": "object"
     },
+    "ResearchMetadata": {
+      "additionalProperties": false,
+      "description": "Store hidden decision-ground-truth metadata used for design and review.",
+      "properties": {
+        "customer_goal": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Goal",
+          "type": "string"
+        },
+        "decision_conflict": {
+          "$ref": "#/$defs/DecisionConflict"
+        }
+      },
+      "required": [
+        "customer_goal",
+        "decision_conflict"
+      ],
+      "title": "ResearchMetadata",
+      "type": "object"
+    },
+    "ScenarioGenerationDesign": {
+      "additionalProperties": false,
+      "description": "Store hidden content-generation inputs that never enter evaluated prompts.",
+      "properties": {
+        "customer_profile": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Profile",
+          "type": "string"
+        },
+        "replications": {
+          "items": {
+            "$ref": "#/$defs/ReplicationSeed"
+          },
+          "maxItems": 5,
+          "minItems": 5,
+          "title": "Replications",
+          "type": "array"
+        },
+        "source_content_brief": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Source Content Brief",
+          "type": "string"
+        }
+      },
+      "required": [
+        "customer_profile",
+        "source_content_brief",
+        "replications"
+      ],
+      "title": "ScenarioGenerationDesign",
+      "type": "object"
+    },
+    "ScenarioSeedVersion": {
+      "description": "Identify one immutable researcher seed format.",
+      "enum": [
+        "0.5.1",
+        "0.5.2",
+        "0.6.0",
+        "0.7.0"
+      ],
+      "title": "ScenarioSeedVersion",
+      "type": "string"
+    },
+    "ScenarioSetId": {
+      "description": "Identify the scenario family bound to each immutable seed version.",
+      "enum": [
+        "customer_finance_pressure_emotion_v0.5.1",
+        "customer_finance_pressure_concern_v0.5.2",
+        "customer_finance_decision_conflict_v0.6.0",
+        "customer_finance_deployment_context_v0.7.0"
+      ],
+      "title": "ScenarioSetId",
+      "type": "string"
+    },
     "TaskContextSeed": {
       "additionalProperties": false,
-      "description": "Represent researcher-owned task context from the immutable seed.",
+      "description": "Read the legacy flat task context used by archived V0.5-V0.6 seeds.",
       "properties": {
         "authority_limits": {
           "minLength": 1,
@@ -123,103 +526,156 @@
     },
     "UseCaseSeed": {
       "additionalProperties": false,
-      "description": "Represent one V0.5.1 use case while excluding its unused legacy extension.",
+      "description": "Represent one active deployment-realistic V0.7.0 use-case seed.",
       "properties": {
-        "agent_role": {
-          "minLength": 1,
-          "title": "Agent Role",
-          "type": "string"
+        "customer_messages": {
+          "$ref": "#/$defs/CustomerMessages"
         },
-        "agent_task": {
-          "minLength": 1,
-          "title": "Agent Task",
-          "type": "string"
+        "deployment_context": {
+          "$ref": "#/$defs/DeploymentContext"
         },
-        "customer_journey": {
-          "minLength": 1,
-          "title": "Customer Journey",
-          "type": "string"
+        "diagnostic_design": {
+          "$ref": "#/$defs/DiagnosticDesign"
         },
-        "material_fact_pair_briefs": {
-          "items": {
-            "$ref": "#/$defs/MaterialFactPairBriefSeed"
-          },
-          "maxItems": 2,
-          "minItems": 2,
-          "title": "Material Fact Pair Briefs",
-          "type": "array"
+        "research_metadata": {
+          "$ref": "#/$defs/ResearchMetadata"
         },
-        "model_owner": {
-          "minLength": 1,
-          "title": "Model Owner",
-          "type": "string"
-        },
-        "potential_harm_pathway": {
-          "additionalProperties": true,
-          "title": "Potential Harm Pathway",
-          "type": "object"
-        },
-        "replications": {
-          "items": {
-            "$ref": "#/$defs/ReplicationSeed"
-          },
-          "maxItems": 5,
-          "minItems": 5,
-          "title": "Replications",
-          "type": "array"
-        },
-        "segment": {
-          "minLength": 1,
-          "title": "Segment",
-          "type": "string"
-        },
-        "task_context": {
-          "$ref": "#/$defs/TaskContextSeed"
+        "scenario_generation": {
+          "$ref": "#/$defs/ScenarioGenerationDesign"
         },
         "use_case_id": {
           "pattern": "^CF\\d{3}$",
           "title": "Use Case Id",
           "type": "string"
-        },
-        "user_role": {
-          "minLength": 1,
-          "title": "User Role",
-          "type": "string"
         }
       },
       "required": [
         "use_case_id",
-        "segment",
-        "customer_journey",
-        "agent_role",
-        "model_owner",
-        "user_role",
-        "agent_task",
-        "task_context",
-        "material_fact_pair_briefs",
-        "potential_harm_pathway",
-        "replications"
+        "deployment_context",
+        "customer_messages",
+        "research_metadata",
+        "diagnostic_design",
+        "scenario_generation"
       ],
       "title": "UseCaseSeed",
       "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "Represent a complete immutable V0.5.1 or derived V0.5.2 seed document.",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "0.7.0"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "properties": {
+          "use_cases": {
+            "items": {
+              "$ref": "#/$defs/UseCaseSeed"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "0.6.0"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "properties": {
+          "use_cases": {
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/LegacyUseCaseSeed"
+                },
+                {
+                  "not": {
+                    "required": [
+                      "potential_harm_pathway"
+                    ]
+                  },
+                  "required": [
+                    "decision_conflict"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "enum": [
+              "0.5.1",
+              "0.5.2"
+            ]
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "properties": {
+          "use_cases": {
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/LegacyUseCaseSeed"
+                },
+                {
+                  "not": {
+                    "required": [
+                      "decision_conflict"
+                    ]
+                  },
+                  "required": [
+                    "potential_harm_pathway"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "description": "Represent a complete archived or active immutable seed document.",
   "properties": {
     "scenario_set_id": {
-      "pattern": "^customer_finance_pressure_(emotion_v0\\.5\\.1|concern_v0\\.5\\.2)$",
-      "title": "Scenario Set Id",
-      "type": "string"
+      "$ref": "#/$defs/ScenarioSetId"
     },
     "schema_version": {
-      "pattern": "^0\\.5\\.[12]$",
-      "title": "Schema Version",
-      "type": "string"
+      "$ref": "#/$defs/ScenarioSeedVersion"
     },
     "use_cases": {
       "items": {
-        "$ref": "#/$defs/UseCaseSeed"
+        "anyOf": [
+          {
+            "$ref": "#/$defs/LegacyUseCaseSeed"
+          },
+          {
+            "$ref": "#/$defs/UseCaseSeed"
+          }
+        ]
       },
       "maxItems": 10,
       "minItems": 10,

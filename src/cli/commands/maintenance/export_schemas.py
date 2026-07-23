@@ -12,11 +12,14 @@ from src.data_models.annotations import ConversationAnnotation
 from src.data_models.experiments import CalibrationExperimentConfig, ConversationTranscript, ExperimentConfig, ModelSummary, RunUnit
 from src.data_models.manifests import (
     AcceptedScenarioManifest,
+    AmplePilotApproval,
     AmplePilotAttempt,
+    AmplePilotCostReport,
     AmplePilotRecord,
     AnalysisAssumptionInput,
     AnnotationSampleManifest,
     CalibrationExperimentManifest,
+    CalibrationPromptReviewManifest,
     DryRunCostReport,
     EvaluatedModelManifest,
     ExperimentManifest,
@@ -61,6 +64,8 @@ from src.paths import REPO_ROOT
 SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
     "accepted_scenario": AcceptedScenario,
     "accepted_scenario_manifest": AcceptedScenarioManifest,
+    "ample_pilot_approval": AmplePilotApproval,
+    "ample_pilot_cost_report": AmplePilotCostReport,
     "ample_pilot_record": AmplePilotRecord,
     "ample_pilot_attempt": AmplePilotAttempt,
     "analysis_input": AnalysisInputRow,
@@ -71,6 +76,7 @@ SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
     "claim_assessment": ClaimAssessmentResult,
     "calibration_experiment_config": CalibrationExperimentConfig,
     "calibration_experiment_manifest": CalibrationExperimentManifest,
+    "calibration_prompt_review_manifest": CalibrationPromptReviewManifest,
     "condition_blind_scoring_input": ConditionBlindScoringInput,
     "conversation_annotation": ConversationAnnotation,
     "conversation_metrics": ConversationMetrics,
@@ -117,6 +123,47 @@ SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
 }
 
 
+def _add_seed_version_conditionals(schema: Dict[str, object]) -> Dict[str, object]:
+    """Bind each immutable seed version to its exact active or archived use-case structure."""
+    schema["allOf"] = [
+        {
+            "if": {"properties": {"schema_version": {"const": "0.7.0"}}, "required": ["schema_version"]},
+            "then": {"properties": {"use_cases": {"items": {"$ref": "#/$defs/UseCaseSeed"}}}},
+        },
+        {
+            "if": {"properties": {"schema_version": {"const": "0.6.0"}}, "required": ["schema_version"]},
+            "then": {
+                "properties": {
+                    "use_cases": {
+                        "items": {
+                            "allOf": [
+                                {"$ref": "#/$defs/LegacyUseCaseSeed"},
+                                {"required": ["decision_conflict"], "not": {"required": ["potential_harm_pathway"]}},
+                            ]
+                        }
+                    }
+                }
+            },
+        },
+        {
+            "if": {"properties": {"schema_version": {"enum": ["0.5.1", "0.5.2"]}}, "required": ["schema_version"]},
+            "then": {
+                "properties": {
+                    "use_cases": {
+                        "items": {
+                            "allOf": [
+                                {"$ref": "#/$defs/LegacyUseCaseSeed"},
+                                {"required": ["potential_harm_pathway"], "not": {"required": ["decision_conflict"]}},
+                            ]
+                        }
+                    }
+                }
+            },
+        },
+    ]
+    return schema
+
+
 def main() -> None:
     """Write each strict boundary schema under schemas/."""
     argparse.ArgumentParser().parse_args()
@@ -124,7 +171,10 @@ def main() -> None:
     output_root.mkdir(parents=True, exist_ok=True)
     for name, model in SCHEMA_MODELS.items():
         path = output_root / f"{name}.schema.json"
-        payload = json.dumps(model.model_json_schema(), ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+        schema = model.model_json_schema()
+        if model is ScenarioSeedSet:
+            schema = _add_seed_version_conditionals(schema)
+        payload = json.dumps(schema, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
         path.write_text(payload, encoding="utf-8")
     print(f"Exported {len(SCHEMA_MODELS)} schemas to {output_root}")
 

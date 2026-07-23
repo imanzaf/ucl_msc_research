@@ -507,8 +507,20 @@
           "title": "Customer Facing Naturalness",
           "type": "boolean"
         },
+        "decision_support_task_valid": {
+          "title": "Decision Support Task Valid",
+          "type": "boolean"
+        },
+        "evaluated_prompt_conflict_leakage_absent": {
+          "title": "Evaluated Prompt Conflict Leakage Absent",
+          "type": "boolean"
+        },
         "exact_source_support_valid": {
           "title": "Exact Source Support Valid",
+          "type": "boolean"
+        },
+        "fact_direction_matches_conflict": {
+          "title": "Fact Direction Matches Conflict",
           "type": "boolean"
         },
         "facts_atomic_and_valence_valid": {
@@ -517,6 +529,14 @@
         },
         "factual_and_arithmetic_consistent": {
           "title": "Factual And Arithmetic Consistent",
+          "type": "boolean"
+        },
+        "latent_interest_conflict_valid": {
+          "title": "Latent Interest Conflict Valid",
+          "type": "boolean"
+        },
+        "material_customer_harm_high_stakes": {
+          "title": "Material Customer Harm High Stakes",
           "type": "boolean"
         },
         "minimal_response_feasible": {
@@ -555,6 +575,11 @@
         "minimal_response_feasible",
         "customer_facing_naturalness",
         "authority_limits_respected",
+        "decision_support_task_valid",
+        "material_customer_harm_high_stakes",
+        "latent_interest_conflict_valid",
+        "fact_direction_matches_conflict",
+        "evaluated_prompt_conflict_leakage_absent",
         "treatment_leakage_absent",
         "replication_distinct"
       ],

@@ -1,4 +1,4 @@
-"""Validate immutable V0.5.2 sources, model catalog, schemas, and active protocol."""
+"""Validate immutable V0.7.0 sources, model catalog, schemas, and active protocol."""
 
 from __future__ import annotations
 
@@ -8,13 +8,18 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+from src.data_models.scenarios import UseCaseSeed
 from src.experiments.model_catalog import load_model_catalog
-from src.paths import REPO_ROOT
+from src.paths import ACTIVE_SCENARIO_INPUT_ROOT, REPO_ROOT
+from src.scenarios.rendering_templates import SOURCE_FORMAT_BY_USE_CASE, SOURCE_LAYOUT_BY_FORMAT, SourceFormat
 from src.scenarios.seed_validation import load_and_validate_seed
-from src.scenarios.source_rendering import SOURCE_FORMAT_BY_USE_CASE
 
-SEED_ROOT = REPO_ROOT / "data" / "inputs" / "scenarios" / "v0.5.2"
-LEGACY_SEED_ROOT = REPO_ROOT / "data" / "inputs" / "scenarios" / "v0.5.1"
+SEED_ROOT = ACTIVE_SCENARIO_INPUT_ROOT
+LEGACY_SEED_ROOTS = [
+    REPO_ROOT / "data" / "inputs" / "scenarios" / "v0.5.1",
+    REPO_ROOT / "data" / "inputs" / "scenarios" / "v0.5.2",
+    REPO_ROOT / "data" / "inputs" / "scenarios" / "v0.6.0",
+]
 
 
 def validate_exported_schemas(schema_root: Path) -> int:
@@ -46,21 +51,33 @@ def main() -> None:
         seed_path=SEED_ROOT / "scenario_generation_seeds.json",
         schema_path=SEED_ROOT / "scenario_generation_seed_schema.json",
     )
-    legacy_seed = load_and_validate_seed(
-        seed_path=LEGACY_SEED_ROOT / "scenario_generation_seeds.json",
-        schema_path=LEGACY_SEED_ROOT / "scenario_generation_seed_schema.json",
-    )
+    legacy_seeds = [
+        load_and_validate_seed(
+            seed_path=legacy_root / "scenario_generation_seeds.json",
+            schema_path=legacy_root / "scenario_generation_seed_schema.json",
+        )
+        for legacy_root in LEGACY_SEED_ROOTS
+    ]
     expected_use_cases = {f"CF{index:03d}" for index in range(1, 11)}
-    if set(SOURCE_FORMAT_BY_USE_CASE) != expected_use_cases or len(set(SOURCE_FORMAT_BY_USE_CASE.values())) != 10:
-        raise ValueError("V0.5.2 requires one distinct deterministic source format for each use case")
-    if {item.use_case_id for item in seed.use_cases} != {item.use_case_id for item in legacy_seed.use_cases}:
-        raise ValueError("V0.5.2 must preserve the ten V0.5.1 use-case identifiers")
+    if (
+        set(SOURCE_FORMAT_BY_USE_CASE) != expected_use_cases
+        or set(SOURCE_FORMAT_BY_USE_CASE.values()) != set(SourceFormat)
+        or set(SOURCE_LAYOUT_BY_FORMAT) != set(SourceFormat)
+    ):
+        raise ValueError("V0.7.0 requires one distinct deterministic source format for each use case")
+    if any({item.use_case_id for item in seed.use_cases} != {item.use_case_id for item in legacy_seed.use_cases} for legacy_seed in legacy_seeds):
+        raise ValueError("V0.7.0 must preserve the CF001-CF010 identifiers used by all archived seed families")
+    active_use_cases = [use_case for use_case in seed.use_cases if isinstance(use_case, UseCaseSeed)]
+    if len(active_use_cases) != 10:
+        raise ValueError("V0.7.0 requires the grouped deployment-context structure for every use case")
+    if any(use_case.research_metadata.decision_conflict is None for use_case in active_use_cases):
+        raise ValueError("V0.7.0 requires a latent decision conflict for every use case")
     catalog = load_model_catalog()
     schema_count = validate_exported_schemas(REPO_ROOT / "schemas")
     validate_removed_active_interfaces()
     print(
         f"Protocol valid: {len(seed.use_cases)} use cases, "
-        f"{sum(len(use_case.replications) for use_case in seed.use_cases)} seeds, "
+        f"{sum(len(use_case.scenario_generation.replications) for use_case in active_use_cases)} seeds, "
         f"{len(catalog.evaluated_models)} model candidates, {schema_count} exported schemas."
     )
 

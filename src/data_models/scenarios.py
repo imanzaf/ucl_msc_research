@@ -1,4 +1,4 @@
-"""Strict V0.5.2 seed, generated-scenario, and accepted-artifact models."""
+"""Strict archived seeds and active V0.7.0 scenario-artifact models."""
 
 from __future__ import annotations
 
@@ -13,11 +13,31 @@ from pydantic import Field, field_validator, model_validator
 from src.data_models.common import ImmutableModel, VersionedImmutableModel, artifact_sha256, sha256_bytes, validate_sha256
 from src.data_models.experiments import ProviderCallProvenance
 from src.data_models.study import SourceOrderVariant
-from src.scenarios.rendering_templates import render_text_native_source
+from src.paths import ACTIVE_SCENARIO_SET_ID
+from src.scenarios.rendering_templates import SOURCE_FORMAT_BY_USE_CASE, SourceFormat, render_text_native_source
 from src.scenarios.word_count import count_words
 
 SCENARIO_ID_PATTERN = re.compile(r"^CF\d{3}_(C1|R[1-4])$")
 USE_CASE_ID_PATTERN = re.compile(r"^CF\d{3}$")
+DEPLOYMENT_FRAMING_TERMS = (
+    "fictional",
+    "synthetic",
+    "simulated",
+    "mock data",
+    "test case",
+    "evaluation case",
+    "research study",
+    "research purpose",
+    "scenario-specific",
+)
+
+
+def _validate_no_deployment_framing(values: List[str]) -> None:
+    """Reject language that would identify evaluated content as constructed for research."""
+    combined = " ".join(values).casefold()
+    matches = [term for term in DEPLOYMENT_FRAMING_TERMS if term in combined]
+    if matches:
+        raise ValueError("evaluated deployment fields must not contain simulation or research framing")
 
 
 class PairSlot(str, Enum):
@@ -41,20 +61,22 @@ class FactValence(str, Enum):
     FAVOURABLE = "favourable"
 
 
-class SourceFormat(str, Enum):
-    """Identify one deterministic domain-native source presentation."""
+class ScenarioSeedVersion(str, Enum):
+    """Identify one immutable researcher seed format."""
 
-    CASH_FLOW_STATEMENT = "cash_flow_statement"
-    SAVINGS_COMPARISON_TABLE = "savings_comparison_table"
-    CARD_STATEMENT_AND_OFFER = "card_statement_and_offer"
-    LOAN_ILLUSTRATION = "loan_illustration"
-    MORTGAGE_ILLUSTRATION = "mortgage_illustration"
-    SUPPORT_OPTION_SUMMARY = "support_option_summary"
-    PORTFOLIO_STATEMENT = "portfolio_statement"
-    PENSION_ILLUSTRATION = "pension_illustration"
-    INSURANCE_COMPARISON_TABLE = "insurance_comparison_table"
-    SECURITY_TIMELINE = "security_timeline"
-    LEGACY_MARKDOWN = "legacy_markdown"
+    V0_5_1 = "0.5.1"
+    V0_5_2 = "0.5.2"
+    V0_6_0 = "0.6.0"
+    V0_7_0 = "0.7.0"
+
+
+class ScenarioSetId(str, Enum):
+    """Identify the scenario family bound to each immutable seed version."""
+
+    V0_5_1 = "customer_finance_pressure_emotion_v0.5.1"
+    V0_5_2 = "customer_finance_pressure_concern_v0.5.2"
+    V0_6_0 = "customer_finance_decision_conflict_v0.6.0"
+    V0_7_0 = ACTIVE_SCENARIO_SET_ID
 
 
 class SpecificityElementType(str, Enum):
@@ -82,7 +104,7 @@ class NumericOperation(str, Enum):
 
 
 class TaskContextSeed(ImmutableModel):
-    """Represent researcher-owned task context from the immutable seed."""
+    """Read the legacy flat task context used by archived V0.5-V0.6 seeds."""
 
     evidence_basis: str = Field(min_length=1)
     authority_limits: str = Field(min_length=1)
@@ -92,6 +114,138 @@ class TaskContextSeed(ImmutableModel):
     customer_goal: str = Field(min_length=1)
     core_initial_request: str = Field(min_length=1)
     decision_context: str = Field(min_length=1)
+
+
+class LegacyDecisionConflict(ImmutableModel):
+    """Read the institution-labelled conflict metadata used by the archived V0.6 seed."""
+
+    customer_aligned_action: str = Field(min_length=1, pattern=r"\S")
+    institution_aligned_action: str = Field(min_length=1, pattern=r"\S")
+    customer_objective_basis: str = Field(min_length=1, pattern=r"\S")
+    institution_benefit_mechanism: str = Field(min_length=1, pattern=r"\S")
+    material_customer_harm: str = Field(min_length=1, pattern=r"\S")
+    decision_horizon: str = Field(min_length=1, pattern=r"\S")
+    financial_stake: str = Field(min_length=1, pattern=r"\S")
+
+    @field_validator(
+        "customer_aligned_action",
+        "institution_aligned_action",
+        "customer_objective_basis",
+        "institution_benefit_mechanism",
+        "material_customer_harm",
+        "decision_horizon",
+        "financial_stake",
+        mode="before",
+    )
+    @classmethod
+    def strip_nonempty_text(cls, value: str) -> str:
+        """Strip conflict text and reject values that contain only whitespace."""
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("decision-conflict text must contain non-whitespace characters")
+        return value.strip()
+
+    @model_validator(mode="after")
+    def validate_opposed_actions(self) -> "LegacyDecisionConflict":
+        """Require genuinely distinct customer- and institution-aligned actions."""
+        if self.customer_aligned_action.casefold() == self.institution_aligned_action.casefold():
+            raise ValueError("customer- and institution-aligned actions must differ")
+        return self
+
+
+class FinanceEntityType(str, Enum):
+    """Identify the generic finance-domain entity deploying the evaluated assistant."""
+
+    BANK = "bank"
+    MORTGAGE_LENDER = "mortgage lender"
+    CREDIT_CARD_PROVIDER = "credit-card provider"
+    PERSONAL_LENDER = "personal lender"
+    LOAN_SERVICER = "loan servicer"
+    INVESTMENT_PLATFORM = "investment platform"
+    PENSION_PROVIDER = "pension provider"
+    INSURANCE_PROVIDER = "insurance provider"
+    PAYMENT_PROVIDER = "payment provider"
+
+
+class FinanceAgentRole(str, Enum):
+    """Identify the broad operational role assigned to the evaluated assistant."""
+
+    CURRENT_ACCOUNT_SUPPORT = "current account support assistant"
+    MORTGAGE_SUPPORT = "mortgage support assistant"
+    CREDIT_CARD_SUPPORT = "credit-card support assistant"
+    BORROWING_SUPPORT = "borrowing support assistant"
+    PAYMENT_DIFFICULTY_SUPPORT = "payment-difficulty support assistant"
+    INVESTMENT_SUPPORT = "investment support assistant"
+    PENSION_SUPPORT = "pension support assistant"
+    CLAIMS_SUPPORT = "claims support assistant"
+    PAYMENTS_SUPPORT = "payments support assistant"
+
+
+class DeploymentContext(ImmutableModel):
+    """Store only the broad real-world guidance passed to the evaluated assistant."""
+
+    role: FinanceAgentRole
+    entity_type: FinanceEntityType
+    task: str = Field(min_length=1, pattern=r"\S")
+    authority_limits: str = Field(min_length=1, pattern=r"\S")
+
+    @model_validator(mode="after")
+    def validate_deployment_language(self) -> "DeploymentContext":
+        """Exclude simulation framing from guidance passed to evaluated assistants."""
+        _validate_no_deployment_framing([self.role.value, self.entity_type.value, self.task, self.authority_limits])
+        return self
+
+
+class CustomerMessages(ImmutableModel):
+    """Store the natural initial question and non-leading follow-up shown to the assistant."""
+
+    initial_message: str = Field(min_length=1, pattern=r"\S")
+    follow_up_message: str = Field(min_length=1, pattern=r"\S")
+
+    @model_validator(mode="after")
+    def validate_distinct_messages(self) -> "CustomerMessages":
+        """Require two distinct customer turns without embedded treatment cues."""
+        if self.initial_message.casefold() == self.follow_up_message.casefold():
+            raise ValueError("initial and follow-up customer messages must differ")
+        if not self.initial_message.rstrip().endswith("?") or not self.follow_up_message.rstrip().endswith("?"):
+            raise ValueError("customer messages must be natural questions")
+        _validate_no_deployment_framing([self.initial_message, self.follow_up_message])
+        return self
+
+
+class DecisionConflict(ImmutableModel):
+    """Record the latent customer/provider conflict excluded from evaluated prompts."""
+
+    customer_aligned_action: str = Field(min_length=1, pattern=r"\S")
+    provider_aligned_action: str = Field(min_length=1, pattern=r"\S")
+    customer_objective_basis: str = Field(min_length=1, pattern=r"\S")
+    provider_benefit_mechanism: str = Field(min_length=1, pattern=r"\S")
+    material_customer_harm: str = Field(min_length=1, pattern=r"\S")
+    decision_horizon: str = Field(min_length=1, pattern=r"\S")
+    financial_stake: str = Field(min_length=1, pattern=r"\S")
+
+    @field_validator(
+        "customer_aligned_action",
+        "provider_aligned_action",
+        "customer_objective_basis",
+        "provider_benefit_mechanism",
+        "material_customer_harm",
+        "decision_horizon",
+        "financial_stake",
+        mode="before",
+    )
+    @classmethod
+    def strip_nonempty_text(cls, value: str) -> str:
+        """Strip conflict text and reject values that contain only whitespace."""
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("decision-conflict text must contain non-whitespace characters")
+        return value.strip()
+
+    @model_validator(mode="after")
+    def validate_opposed_actions(self) -> "DecisionConflict":
+        """Require genuinely distinct customer- and provider-aligned actions."""
+        if self.customer_aligned_action.casefold() == self.provider_aligned_action.casefold():
+            raise ValueError("customer- and provider-aligned actions must differ")
+        return self
 
 
 class MaterialFactPairBriefSeed(ImmutableModel):
@@ -110,8 +264,8 @@ class ReplicationSeed(ImmutableModel):
     variation_brief: str = Field(min_length=1)
 
 
-class UseCaseSeed(ImmutableModel):
-    """Represent one V0.5.1 use case while excluding its unused legacy extension."""
+class LegacyUseCaseSeed(ImmutableModel):
+    """Read one flat use-case seed from the archived V0.5-V0.6 formats."""
 
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     segment: str = Field(min_length=1)
@@ -121,12 +275,13 @@ class UseCaseSeed(ImmutableModel):
     user_role: str = Field(min_length=1)
     agent_task: str = Field(min_length=1)
     task_context: TaskContextSeed
+    decision_conflict: Optional[LegacyDecisionConflict] = None
     material_fact_pair_briefs: List[MaterialFactPairBriefSeed] = Field(min_length=2, max_length=2)
-    legacy_seed_extension: Dict[str, Any] = Field(alias="potential_harm_pathway", exclude=True)
+    legacy_seed_extension: Optional[Dict[str, Any]] = Field(default=None, alias="potential_harm_pathway", exclude=True)
     replications: List[ReplicationSeed] = Field(min_length=5, max_length=5)
 
     @model_validator(mode="after")
-    def validate_structure(self) -> "UseCaseSeed":
+    def validate_structure(self) -> "LegacyUseCaseSeed":
         """Require exact pair slots and C1/R1–R4 identifiers for this use case."""
         if {brief.pair_slot for brief in self.material_fact_pair_briefs} != {PairSlot.P1, PairSlot.P2}:
             raise ValueError("material_fact_pair_briefs must contain exactly P1 and P2")
@@ -137,12 +292,60 @@ class UseCaseSeed(ImmutableModel):
         return self
 
 
-class ScenarioSeedSet(VersionedImmutableModel):
-    """Represent a complete immutable V0.5.1 or derived V0.5.2 seed document."""
+class ResearchMetadata(ImmutableModel):
+    """Store hidden decision-ground-truth metadata used for design and review."""
 
-    schema_version: str = Field(pattern=r"^0\.5\.[12]$")
-    scenario_set_id: str = Field(pattern=r"^customer_finance_pressure_(emotion_v0\.5\.1|concern_v0\.5\.2)$")
-    use_cases: List[UseCaseSeed] = Field(min_length=10, max_length=10)
+    customer_goal: str = Field(min_length=1, pattern=r"\S")
+    decision_conflict: DecisionConflict
+
+
+class DiagnosticDesign(ImmutableModel):
+    """Store hidden matched-pair requirements used to validate the communication construct."""
+
+    material_fact_pair_briefs: List[MaterialFactPairBriefSeed] = Field(min_length=2, max_length=2)
+
+    @model_validator(mode="after")
+    def validate_pair_slots(self) -> "DiagnosticDesign":
+        """Require exactly one P1 brief and one P2 brief."""
+        if {brief.pair_slot for brief in self.material_fact_pair_briefs} != {PairSlot.P1, PairSlot.P2}:
+            raise ValueError("diagnostic design must contain exactly P1 and P2")
+        return self
+
+
+class ScenarioGenerationDesign(ImmutableModel):
+    """Store hidden content-generation inputs that never enter evaluated prompts."""
+
+    customer_profile: str = Field(min_length=1, pattern=r"\S")
+    source_content_brief: str = Field(min_length=1, pattern=r"\S")
+    replications: List[ReplicationSeed] = Field(min_length=5, max_length=5)
+
+
+class UseCaseSeed(ImmutableModel):
+    """Represent one active deployment-realistic V0.7.0 use-case seed."""
+
+    use_case_id: str = Field(pattern=r"^CF\d{3}$")
+    deployment_context: DeploymentContext
+    customer_messages: CustomerMessages
+    research_metadata: ResearchMetadata
+    diagnostic_design: DiagnosticDesign
+    scenario_generation: ScenarioGenerationDesign
+
+    @model_validator(mode="after")
+    def validate_structure(self) -> "UseCaseSeed":
+        """Require C1 and R1-R4 generation briefs for the use case."""
+        expected_ids = {f"{self.use_case_id}_C1", *{f"{self.use_case_id}_R{index}" for index in range(1, 5)}}
+        actual_ids = {replication.scenario_id for replication in self.scenario_generation.replications}
+        if actual_ids != expected_ids:
+            raise ValueError("scenario generation must contain C1 and R1-R4 for the use case")
+        return self
+
+
+class ScenarioSeedSet(VersionedImmutableModel):
+    """Represent a complete archived or active immutable seed document."""
+
+    schema_version: ScenarioSeedVersion
+    scenario_set_id: ScenarioSetId
+    use_cases: List[Union[LegacyUseCaseSeed, UseCaseSeed]] = Field(min_length=10, max_length=10)
 
     @model_validator(mode="after")
     def validate_all_use_cases(self) -> "ScenarioSeedSet":
@@ -151,11 +354,44 @@ class ScenarioSeedSet(VersionedImmutableModel):
         actual_use_case_ids = {use_case.use_case_id for use_case in self.use_cases}
         if actual_use_case_ids != expected_use_case_ids:
             raise ValueError("use_cases must contain exactly CF001-CF010")
-        scenario_ids = [replication.scenario_id for use_case in self.use_cases for replication in use_case.replications]
+        scenario_ids = [
+            replication.scenario_id
+            for use_case in self.use_cases
+            for replication in (use_case.scenario_generation.replications if isinstance(use_case, UseCaseSeed) else use_case.replications)
+        ]
         if len(scenario_ids) != 50 or len(set(scenario_ids)) != 50:
             raise ValueError("seed must contain exactly 50 unique scenario ids")
-        if not self.scenario_set_id.endswith(self.schema_version):
+        expected_set_id = {
+            ScenarioSeedVersion.V0_5_1: ScenarioSetId.V0_5_1,
+            ScenarioSeedVersion.V0_5_2: ScenarioSetId.V0_5_2,
+            ScenarioSeedVersion.V0_6_0: ScenarioSetId.V0_6_0,
+            ScenarioSeedVersion.V0_7_0: ScenarioSetId.V0_7_0,
+        }[self.schema_version]
+        if self.scenario_set_id != expected_set_id:
             raise ValueError("scenario set id must bind the exact seed version")
+        if self.schema_version == ScenarioSeedVersion.V0_7_0:
+            if any(not isinstance(use_case, UseCaseSeed) for use_case in self.use_cases):
+                raise ValueError("V0.7.0 requires the deployment-context seed structure")
+        elif any(not isinstance(use_case, LegacyUseCaseSeed) for use_case in self.use_cases):
+            raise ValueError("archived seed versions require the legacy flat seed structure")
+        if self.schema_version == ScenarioSeedVersion.V0_6_0:
+            if any(
+                not isinstance(use_case, LegacyUseCaseSeed)
+                or use_case.decision_conflict is None
+                or "decision_conflict" not in use_case.model_fields_set
+                or "legacy_seed_extension" in use_case.model_fields_set
+                for use_case in self.use_cases
+            ):
+                raise ValueError("V0.6.0 requires decision-conflict metadata and forbids the legacy harm extension")
+        elif self.schema_version in {ScenarioSeedVersion.V0_5_1, ScenarioSeedVersion.V0_5_2} and any(
+            not isinstance(use_case, LegacyUseCaseSeed)
+            or use_case.decision_conflict is not None
+            or "decision_conflict" in use_case.model_fields_set
+            or use_case.legacy_seed_extension is None
+            or "legacy_seed_extension" not in use_case.model_fields_set
+            for use_case in self.use_cases
+        ):
+            raise ValueError("V0.5.x requires the legacy harm extension and forbids V0.6.0 decision-conflict metadata")
         return self
 
 
@@ -274,7 +510,7 @@ class SourcePacket(VersionedImmutableModel):
     source_order: SourceOrderVariant
     fixed_title: str = Field(min_length=1)
     source_format: SourceFormat
-    items: List[SourceItem] = Field(min_length=6)
+    items: List[SourceItem] = Field(min_length=6, max_length=6)
     rendered_text: str = Field(min_length=1)
     rendered_sha256: str
 
@@ -291,7 +527,7 @@ class SourcePacket(VersionedImmutableModel):
         if len(item_ids) != len(set(item_ids)):
             raise ValueError("source packet item ids must be unique")
         expected_text = render_text_native_source(
-            self.source_format.value,
+            self.source_format,
             self.fixed_title,
             [(item.header, item.body) for item in self.items],
         )
@@ -416,10 +652,10 @@ class CandidateScenario(VersionedImmutableModel):
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     study_stage: ScenarioStage
-    agent_role: str = Field(min_length=1)
-    model_owner: str = Field(min_length=1)
-    agent_task: str = Field(min_length=1)
-    task_context: TaskContextSeed
+    deployment_context: DeploymentContext
+    customer_messages: CustomerMessages
+    research_metadata: ResearchMetadata
+    diagnostic_design: DiagnosticDesign
     source_order_a: SourcePacket
     source_order_plan: SourceOrderPlan
     numeric_registry: NumericRegistry
@@ -454,10 +690,10 @@ class AcceptedScenario(VersionedImmutableModel):
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     study_stage: ScenarioStage
-    agent_role: str = Field(min_length=1)
-    model_owner: str = Field(min_length=1)
-    agent_task: str = Field(min_length=1)
-    task_context: TaskContextSeed
+    deployment_context: DeploymentContext
+    customer_messages: CustomerMessages
+    research_metadata: ResearchMetadata
+    diagnostic_design: DiagnosticDesign
     source_order_a: SourcePacket
     source_order_plan: SourceOrderPlan
     numeric_registry: NumericRegistry
@@ -507,8 +743,13 @@ def _validate_scenario_content(scenario: Union[CandidateScenario, AcceptedScenar
         for pair in scenario.source_order_plan.material_item_pairs
         for item_id in (pair.adverse_source_item_id, pair.favourable_source_item_id)
     } | set(scenario.source_order_plan.neutral_source_item_ids)
-    if not planned_item_ids.issubset(items_a):
-        raise ValueError("source-order plan references an unknown canonical source item")
+    if planned_item_ids != set(items_a):
+        raise ValueError("source-order plan must exactly cover all six canonical source items")
+    expected_source_format = SOURCE_FORMAT_BY_USE_CASE.get(scenario.use_case_id)
+    if expected_source_format is None:
+        raise ValueError("scenario use case has no frozen V0.7.0 source renderer")
+    if scenario.source_order_a.source_format != expected_source_format:
+        raise ValueError("scenario source format does not match the frozen V0.7.0 use-case renderer")
     registered_value_ids = {value.value_id for value in scenario.numeric_registry.inputs} | {
         value.value_id for value in scenario.numeric_registry.computed_values
     }
@@ -561,5 +802,5 @@ def _validate_scenario_content(scenario: Union[CandidateScenario, AcceptedScenar
 def infer_scenario_stage(scenario_id: str) -> ScenarioStage:
     """Derive calibration or evaluation stage from a validated scenario identifier."""
     if SCENARIO_ID_PATTERN.fullmatch(scenario_id) is None:
-        raise ValueError(f"invalid V0.5.1 scenario id: {scenario_id}")
+        raise ValueError(f"invalid scenario id: {scenario_id}")
     return ScenarioStage.CALIBRATION if scenario_id.endswith("_C1") else ScenarioStage.EVALUATION

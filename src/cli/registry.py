@@ -31,6 +31,14 @@ COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
         "finalize-word-budgets": Command("src.cli.commands.scenarios.finalize_word_budgets", "Finalize the word-budget manifest."),
     },
     "calibration": {
+        "dry-run-ample-pilot": Command(
+            "src.cli.commands.calibration.dry_run_ample_pilot",
+            "Create the ample-pilot cost report.",
+        ),
+        "approve-ample-pilot": Command(
+            "src.cli.commands.calibration.approve_ample_pilot",
+            "Record explicit ample-pilot cost approval.",
+        ),
         "run-ample-pilot": Command("src.cli.commands.calibration.run_ample_pilot", "Run the ample-condition pilot."),
         "build-plan": Command("src.cli.commands.calibration.build_plan", "Build the calibration run plan."),
         "run": Command("src.cli.commands.calibration.run", "Run the calibration experiment."),
@@ -38,6 +46,10 @@ COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
     },
     "experiment": {
         "freeze-models": Command("src.cli.commands.experiment.freeze_models", "Freeze evaluated model metadata."),
+        "freeze-calibration-prompts": Command(
+            "src.cli.commands.experiment.freeze_calibration_prompts",
+            "Freeze the twenty reviewed C1 requests before the ample pilot.",
+        ),
         "freeze-prompts": Command("src.cli.commands.experiment.freeze_prompts", "Freeze reviewed prompt packages."),
         "build-manifests": Command("src.cli.commands.experiment.build_manifests", "Build experiment manifests."),
         "build-plan": Command("src.cli.commands.experiment.build_plan", "Build the reviewed experiment run plan."),

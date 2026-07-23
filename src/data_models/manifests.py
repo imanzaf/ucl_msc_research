@@ -23,7 +23,9 @@ from src.data_models.study import (
     ExpressedConcernCondition,
     IntegrityCondition,
     assigned_cue,
+    cue_template_id,
 )
+from src.paths import ACTIVE_SCENARIO_SEED_SCHEMA_SHA256, ACTIVE_SCENARIO_SEED_SHA256, ACTIVE_SCENARIO_SET_ID
 from src.scenarios.word_count import count_words
 
 
@@ -51,7 +53,7 @@ class ModelWeightType(str, Enum):
 class CompleteRenderedRequestReview(ImmutableModel):
     """Store one holistic review of a complete scenario-specific rendered request."""
 
-    scenario_id: str = Field(pattern=r"^CF\d{3}_R[1-4]$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
     expressed_concern: ExpressedConcernCondition
     cue_template_id: int = Field(ge=1, le=4)
     assigned_phrase: str = Field(min_length=1)
@@ -76,13 +78,80 @@ class CompleteRenderedRequestReview(ImmutableModel):
         """Bind the exact assigned phrase, template, and complete rendered bytes."""
         if self.assigned_phrase != assigned_cue(self.scenario_id, self.expressed_concern):
             raise ValueError("request review does not use the assigned cue phrase")
-        if self.cue_template_id != int(self.scenario_id[-1]):
-            raise ValueError("R1-R4 must map directly to cue templates 1-4")
+        if self.cue_template_id != cue_template_id(self.scenario_id):
+            raise ValueError("request review cue template does not match the frozen scenario mapping")
         if self.rendered_request_sha256 != sha256_bytes(self.rendered_request_text.encode("utf-8")):
             raise ValueError("rendered-request hash does not match exact text")
         observed = [phrase for phrase in ALL_CUE_PHRASES if phrase in self.rendered_request_text]
         if observed != [self.assigned_phrase] or self.rendered_request_text.count(self.assigned_phrase) != 1:
             raise ValueError("rendered request must contain exactly its assigned cue and no alternative phrase")
+        return self
+
+
+class CalibrationRenderedRequestReview(CompleteRenderedRequestReview):
+    """Store one holistic review of a rendered C1 calibration request."""
+
+    scenario_id: str = Field(pattern=r"^CF\d{3}_C1$")
+
+
+class EvaluationRenderedRequestReview(CompleteRenderedRequestReview):
+    """Store one holistic review of a rendered R1-R4 evaluation request."""
+
+    scenario_id: str = Field(pattern=r"^CF\d{3}_R[1-4]$")
+
+
+def _request_reviews_are_acceptable(request_reviews: List[CompleteRenderedRequestReview]) -> bool:
+    """Return whether every complete request passes the frozen holistic review gates."""
+    return all(
+        review.natural
+        and review.semantically_equivalent
+        and not any(
+            [
+                review.urgency_confounded,
+                review.desired_detail_confounded,
+                review.decision_preference_confounded,
+                review.risk_appetite_confounded,
+            ]
+        )
+        for review in request_reviews
+    )
+
+
+class CalibrationPromptReviewManifest(VersionedImmutableModel):
+    """Freeze holistic researcher review of the twenty C1 pilot requests."""
+
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    prompt_version: str = Field(pattern=r"^v[1-9][0-9]*$")
+    accepted_scenario_manifest_sha256: str
+    cue_pairs: Dict[int, List[str]]
+    request_reviews: List[CalibrationRenderedRequestReview] = Field(min_length=20, max_length=20)
+    researcher_notes: str = Field(min_length=1)
+    decision: CueReviewDecision
+    reviewed_by: str = Field(min_length=1)
+    reviewed_at: datetime
+    manifest_sha256: str
+
+    @field_validator("accepted_scenario_manifest_sha256", "manifest_sha256")
+    @classmethod
+    def validate_hash(cls, value: str) -> str:
+        """Validate the calibration scenario and self-hash digests."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_approval(self) -> "CalibrationPromptReviewManifest":
+        """Permit approval only after every C1-by-concern request passes review."""
+        expected_pairs = {index: list(pair) for index, pair in CUE_PAIRS.items()}
+        if self.prompt_version != PROMPT_PACKAGE_VERSION or self.cue_pairs != expected_pairs:
+            raise ValueError("calibration prompt review must bind the active prompt version and cue pairs")
+        expected_keys = {(f"CF{use_case:03d}_C1", condition) for use_case in range(1, 11) for condition in ExpressedConcernCondition}
+        observed_keys = {(review.scenario_id, review.expressed_concern) for review in self.request_reviews}
+        if observed_keys != expected_keys or len(observed_keys) != len(self.request_reviews):
+            raise ValueError("calibration prompt review must contain each of the twenty C1-by-concern requests exactly once")
+        if self.decision == CueReviewDecision.APPROVE and not _request_reviews_are_acceptable(self.request_reviews):
+            raise ValueError("calibration prompts cannot be approved while a complete-request review fails")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"manifest_sha256"}))
+        if self.manifest_sha256 != expected_hash:
+            raise ValueError("calibration prompt-review digest does not match canonical content")
         return self
 
 
@@ -93,7 +162,7 @@ class PromptReviewManifest(VersionedImmutableModel):
     prompt_version: str = Field(pattern=r"^v[1-9][0-9]*$")
     accepted_scenario_manifest_sha256: str
     cue_pairs: Dict[int, List[str]]
-    request_reviews: List[CompleteRenderedRequestReview] = Field(min_length=80, max_length=80)
+    request_reviews: List[EvaluationRenderedRequestReview] = Field(min_length=80, max_length=80)
     researcher_notes: str = Field(min_length=1)
     decision: CueReviewDecision
     reviewed_by: str = Field(min_length=1)
@@ -121,20 +190,7 @@ class PromptReviewManifest(VersionedImmutableModel):
         observed_keys = {(review.scenario_id, review.expressed_concern) for review in self.request_reviews}
         if observed_keys != expected_keys or len(observed_keys) != len(self.request_reviews):
             raise ValueError("prompt review must contain each of the 80 scenario-by-concern requests exactly once")
-        acceptable = all(
-            review.natural
-            and review.semantically_equivalent
-            and not any(
-                [
-                    review.urgency_confounded,
-                    review.desired_detail_confounded,
-                    review.decision_preference_confounded,
-                    review.risk_appetite_confounded,
-                ]
-            )
-            for review in self.request_reviews
-        )
-        if self.decision == CueReviewDecision.APPROVE and not acceptable:
+        if self.decision == CueReviewDecision.APPROVE and not _request_reviews_are_acceptable(self.request_reviews):
             raise ValueError("cue wording cannot be approved while any complete-request review fails")
         expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"manifest_sha256"}))
         if self.manifest_sha256 != expected_hash:
@@ -349,13 +405,14 @@ class WordBudgetManifest(VersionedImmutableModel):
     freeze_status: FreezeStatus
     counter_version: str = Field(min_length=1)
     tight_limit_manifest_sha256: str
+    evaluated_model_manifest_sha256: str
     use_case_budgets: List[UseCaseBudget] = Field(min_length=10, max_length=10)
     ample_pilot: AmplePilotSummary
     frozen_at: Optional[datetime] = None
     frozen_by: Optional[str] = Field(default=None, min_length=1)
     manifest_sha256: str
 
-    @field_validator("tight_limit_manifest_sha256", "manifest_sha256")
+    @field_validator("tight_limit_manifest_sha256", "evaluated_model_manifest_sha256", "manifest_sha256")
     @classmethod
     def validate_hash(cls, value: str) -> str:
         """Validate the word-budget manifest digest."""
@@ -381,13 +438,14 @@ class TightLimitManifest(VersionedImmutableModel):
     freeze_status: FreezeStatus
     counter_version: str = Field(min_length=1)
     prompt_review_manifest_sha256: str
+    evaluated_model_manifest_sha256: str
     use_case_budgets: List[CalibrationUseCaseBudget] = Field(min_length=10, max_length=10)
     ample_pilot: AmplePilotSummary
     frozen_at: Optional[datetime] = None
     frozen_by: Optional[str] = Field(default=None, min_length=1)
     manifest_sha256: str
 
-    @field_validator("prompt_review_manifest_sha256", "manifest_sha256")
+    @field_validator("prompt_review_manifest_sha256", "evaluated_model_manifest_sha256", "manifest_sha256")
     @classmethod
     def validate_hash(cls, value: str) -> str:
         """Validate the provisional tight-limit manifest digest."""
@@ -483,11 +541,17 @@ class ScenarioManifestScope(str, Enum):
     COMPLETE = "complete"
 
 
+class AcceptedScenarioSetId(str, Enum):
+    """Identify the active accepted scenario family."""
+
+    V0_7_0 = ACTIVE_SCENARIO_SET_ID
+
+
 class AcceptedScenarioManifest(VersionedImmutableModel):
     """Publish the accepted-only scenario set with source provenance."""
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
-    scenario_set_id: str = Field(pattern=r"^customer_finance_pressure_concern_v0\.5\.2$")
+    scenario_set_id: AcceptedScenarioSetId
     manifest_scope: ScenarioManifestScope
     seed_sha256: str
     seed_schema_sha256: str
@@ -505,6 +569,8 @@ class AcceptedScenarioManifest(VersionedImmutableModel):
     @model_validator(mode="after")
     def validate_complete_scenario_set(self) -> "AcceptedScenarioManifest":
         """Require exactly C1 and R1-R4 for every one of the ten use cases."""
+        if self.seed_sha256 != ACTIVE_SCENARIO_SEED_SHA256 or self.seed_schema_sha256 != ACTIVE_SCENARIO_SEED_SCHEMA_SHA256:
+            raise ValueError("accepted-scenario manifest must bind the approved immutable V0.7.0 seed and schema")
         calibration_ids = {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
         evaluation_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 5)}
         expected_ids = calibration_ids if self.manifest_scope == ScenarioManifestScope.CALIBRATION else calibration_ids | evaluation_ids
@@ -955,6 +1021,99 @@ class PricingAssumptionInput(VersionedImmutableModel):
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
     models: Dict[str, ModelPricingAssumption] = Field(min_length=1)
+
+
+class AmplePilotCostReport(VersionedImmutableModel):
+    """Bind the exact 60-response ample pilot to an offline cost estimate."""
+
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    accepted_scenario_manifest_sha256: str
+    evaluated_model_manifest_sha256: str
+    prompt_review_manifest_sha256: str
+    prompt_package_sha256: str
+    retry_policy_sha256: str
+    pricing_file_sha256: str
+    randomisation_seed: int
+    provider_request_sha256s: List[str] = Field(min_length=60, max_length=60)
+    pilot_responses: int = Field(gt=0)
+    maximum_attempts_including_retries: int = Field(gt=0)
+    estimated_input_tokens: int = Field(ge=0)
+    estimated_output_tokens: int = Field(ge=0)
+    estimated_cost_usd: Decimal = Field(ge=0)
+    worst_case_input_tokens: int = Field(ge=0)
+    worst_case_output_tokens: int = Field(ge=0)
+    worst_case_cost_usd: Decimal = Field(ge=0)
+    pricing_assumptions: Dict[str, Decimal]
+    generated_at: datetime
+    report_sha256: str
+
+    @field_validator(
+        "accepted_scenario_manifest_sha256",
+        "evaluated_model_manifest_sha256",
+        "prompt_review_manifest_sha256",
+        "prompt_package_sha256",
+        "retry_policy_sha256",
+        "pricing_file_sha256",
+        "report_sha256",
+    )
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate every pilot input digest and the report self-digest."""
+        return validate_sha256(value)
+
+    @field_validator("provider_request_sha256s")
+    @classmethod
+    def validate_request_hashes(cls, value: List[str]) -> List[str]:
+        """Validate and require sixty unique, canonically ordered request digests."""
+        for digest in value:
+            validate_sha256(digest)
+        if len(set(value)) != 60 or value != sorted(value):
+            raise ValueError("ample-pilot request digests must contain sixty unique hashes in canonical order")
+        return value
+
+    @model_validator(mode="after")
+    def validate_cost_report(self) -> "AmplePilotCostReport":
+        """Require the frozen response count, conservative totals, and exact self-hash."""
+        if self.pilot_responses != 60:
+            raise ValueError("ample-pilot cost report must cover exactly 60 responses")
+        if self.maximum_attempts_including_retries < self.pilot_responses:
+            raise ValueError("ample-pilot maximum attempts cannot be below the response count")
+        if self.worst_case_input_tokens < self.estimated_input_tokens or self.worst_case_output_tokens < self.estimated_output_tokens:
+            raise ValueError("ample-pilot worst-case tokens cannot be below estimated tokens")
+        if self.worst_case_cost_usd < self.estimated_cost_usd:
+            raise ValueError("ample-pilot worst-case cost cannot be below estimated cost")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"report_sha256"}))
+        if self.report_sha256 != expected_hash:
+            raise ValueError("ample-pilot cost-report digest does not match canonical content")
+        return self
+
+
+class AmplePilotApproval(VersionedImmutableModel):
+    """Bind explicit researcher cost approval to one ample-pilot report."""
+
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    cost_report_sha256: str
+    approved: bool
+    approved_maximum_cost_usd: Decimal = Field(gt=0)
+    approved_by: str = Field(min_length=1)
+    approved_at: datetime
+    approval_sha256: str
+
+    @field_validator("cost_report_sha256", "approval_sha256")
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate the pilot cost-report and approval digests."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_approval(self) -> "AmplePilotApproval":
+        """Require explicit approval and an exact canonical self-hash."""
+        if not self.approved:
+            raise ValueError("ample-pilot approval must be explicitly true")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"approval_sha256"}))
+        if self.approval_sha256 != expected_hash:
+            raise ValueError("ample-pilot approval digest does not match canonical content")
+        return self
 
 
 class ScenarioGenerationCostReport(VersionedImmutableModel):

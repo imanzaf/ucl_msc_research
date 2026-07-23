@@ -21,7 +21,7 @@ from src.data_models.manifests import (
 )
 from src.data_models.study import EXPERIMENT_DIMENSIONS, ExperimentName
 from src.experiments.layout import validate_experiment_path
-from src.paths import REPO_ROOT
+from src.paths import EVALUATED_MODEL_MANIFEST_PATH, REPO_ROOT, WORD_BUDGET_MANIFEST_PATH
 from src.prompts.experiment import prompt_package_sha256
 from src.prompts.scoring_contracts import scoring_contract_sha256
 from src.storage import read_model_json, write_model_json_atomic
@@ -44,6 +44,10 @@ def main() -> None:
     parser.add_argument("--material-priority-output", type=Path, required=True)
     parser.add_argument("--brevity-locus-output", type=Path, required=True)
     args = parser.parse_args()
+    if args.evaluated_model_manifest.resolve() != EVALUATED_MODEL_MANIFEST_PATH.resolve():
+        raise ValueError("experiment manifests must use the canonical frozen evaluated-model manifest")
+    if args.word_budget_manifest.resolve() != WORD_BUDGET_MANIFEST_PATH.resolve():
+        raise ValueError("experiment manifests must use the canonical V0.7.0 word-budget manifest")
     calibration_path = REPO_ROOT / "data/outputs/experiments/risk_comm_calibration_v1/checkpoints/calibration_manifest.json"
     if args.calibration_output.resolve() != calibration_path.resolve():
         raise ValueError("calibration manifest must use the fixed risk_comm_calibration_v1 checkpoint path")
@@ -63,6 +67,8 @@ def main() -> None:
         raise ValueError("experiment manifests require an approved prompt self-review")
     if prompt_review.accepted_scenario_manifest_sha256 != accepted.manifest_sha256:
         raise ValueError("prompt review does not bind the accepted scenarios used by the experiment")
+    if budget.evaluated_model_manifest_sha256 != models.manifest_sha256:
+        raise ValueError("word-budget feasibility was not established with the evaluated models used by the experiment")
     if scoring.scoring_contract_sha256 != scoring_contract_sha256():
         raise ValueError("scoring manifest does not bind the active contracts")
     retry = RetryPolicy(max_retries=args.max_retries, backoff_seconds=args.backoff_seconds, reuse_identical_prompt_bytes=True)

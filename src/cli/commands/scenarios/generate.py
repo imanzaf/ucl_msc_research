@@ -12,7 +12,7 @@ from src.data_models.manifests import FreezeStatus, ScenarioGenerationApproval, 
 from src.data_models.scenario_review import ScenarioPipelineDisposition
 from src.data_models.scenarios import CandidateScenario, ReplicationSeed, ScenarioStage, UseCaseSeed
 from src.experiments.model_catalog import load_model_catalog
-from src.paths import REPO_ROOT
+from src.paths import ACTIVE_SCENARIO_GENERATION_ROOT, ACTIVE_SCENARIO_INPUT_ROOT
 from src.scenarios.pipeline import ScenarioPipelineBackend, default_revision_record_factory, run_scenario_batch_pipeline
 from src.scenarios.seed_validation import load_and_validate_seed
 from src.storage import read_model_json, write_model_json_atomic, write_models_jsonl_atomic
@@ -36,7 +36,10 @@ def _select_stage_seeds(
         if use_case_id is not None:
             raise ValueError("calibration generation operates across all ten use cases; omit --use-case-id")
         return [
-            (use_case, next(replication for replication in use_case.replications if replication.scenario_id.endswith("_C1")))
+            (
+                use_case,
+                next(replication for replication in use_case.scenario_generation.replications if replication.scenario_id.endswith("_C1")),
+            )
             for use_case in use_cases
         ]
     if use_case_id is None:
@@ -45,7 +48,7 @@ def _select_stage_seeds(
     if len(selected_use_cases) != 1:
         raise ValueError(f"unknown or duplicate use case id: {use_case_id}")
     selected = selected_use_cases[0]
-    return [(selected, replication) for replication in selected.replications if not replication.scenario_id.endswith("_C1")]
+    return [(selected, replication) for replication in selected.scenario_generation.replications if not replication.scenario_id.endswith("_C1")]
 
 
 def _load_evaluation_anchor(args: argparse.Namespace, use_case_id: str) -> CandidateScenario:
@@ -78,16 +81,16 @@ def main() -> None:
     parser.add_argument("--calibration-candidate", type=Path)
     parser.add_argument("--cost-report", type=Path, required=True)
     parser.add_argument("--approval", type=Path, required=True)
-    parser.add_argument("--output-root", type=Path, default=REPO_ROOT / "data/outputs/scenario_generation/v0.5.2")
+    parser.add_argument("--output-root", type=Path, default=ACTIVE_SCENARIO_GENERATION_ROOT)
     parser.add_argument("--execute-paid", action="store_true")
     args = parser.parse_args()
     stage = ScenarioStage(args.stage)
     if not args.execute_paid:
         raise PermissionError("scenario generation may call paid APIs and requires --execute-paid")
-    expected_output_root = (REPO_ROOT / "data/outputs/scenario_generation/v0.5.2").resolve()
+    expected_output_root = ACTIVE_SCENARIO_GENERATION_ROOT.resolve()
     if args.output_root.resolve() != expected_output_root:
-        raise ValueError("scenario generation output must remain under data/outputs/scenario_generation/v0.5.2")
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.5.2"
+        raise ValueError("scenario generation output must remain under the active V0.7.0 generation root")
+    seed_root = ACTIVE_SCENARIO_INPUT_ROOT
     cost_report = read_model_json(args.cost_report, ScenarioGenerationCostReport)
     approval = read_model_json(args.approval, ScenarioGenerationApproval)
     validate_model_self_hash(cost_report, "report_sha256")
@@ -107,14 +110,17 @@ def main() -> None:
     ):
         raise ValueError("scenario-generation cost report does not bind the configured model roles")
     if cost_report.seed_sha256 != file_sha256(seed_root / "scenario_generation_seeds.json"):
-        raise ValueError("scenario-generation cost report does not bind the active V0.5.2 seed")
+        raise ValueError("scenario-generation cost report does not bind the active V0.7.0 seed")
     if cost_report.seed_schema_sha256 != file_sha256(seed_root / "scenario_generation_seed_schema.json"):
-        raise ValueError("scenario-generation cost report does not bind the active V0.5.2 seed schema")
+        raise ValueError("scenario-generation cost report does not bind the active V0.7.0 seed schema")
     seed = load_and_validate_seed(
         seed_path=seed_root / "scenario_generation_seeds.json",
         schema_path=seed_root / "scenario_generation_seed_schema.json",
     )
-    selected = _select_stage_seeds(seed.use_cases, stage, args.use_case_id)
+    active_use_cases = [use_case for use_case in seed.use_cases if isinstance(use_case, UseCaseSeed)]
+    if len(active_use_cases) != len(seed.use_cases):
+        raise ValueError("active scenario generation requires V0.7.0 grouped use-case seeds")
+    selected = _select_stage_seeds(active_use_cases, stage, args.use_case_id)
     fixed_candidates = []
     if stage == ScenarioStage.EVALUATION:
         fixed_candidates = [_load_evaluation_anchor(args, selected[0][0].use_case_id)]

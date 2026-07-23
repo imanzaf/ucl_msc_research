@@ -39,6 +39,141 @@
       "title": "ComputedNumericValue",
       "type": "object"
     },
+    "CustomerMessages": {
+      "additionalProperties": false,
+      "description": "Store the natural initial question and non-leading follow-up shown to the assistant.",
+      "properties": {
+        "follow_up_message": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Follow Up Message",
+          "type": "string"
+        },
+        "initial_message": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Initial Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "initial_message",
+        "follow_up_message"
+      ],
+      "title": "CustomerMessages",
+      "type": "object"
+    },
+    "DecisionConflict": {
+      "additionalProperties": false,
+      "description": "Record the latent customer/provider conflict excluded from evaluated prompts.",
+      "properties": {
+        "customer_aligned_action": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Aligned Action",
+          "type": "string"
+        },
+        "customer_objective_basis": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Objective Basis",
+          "type": "string"
+        },
+        "decision_horizon": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Decision Horizon",
+          "type": "string"
+        },
+        "financial_stake": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Financial Stake",
+          "type": "string"
+        },
+        "material_customer_harm": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Material Customer Harm",
+          "type": "string"
+        },
+        "provider_aligned_action": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Provider Aligned Action",
+          "type": "string"
+        },
+        "provider_benefit_mechanism": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Provider Benefit Mechanism",
+          "type": "string"
+        }
+      },
+      "required": [
+        "customer_aligned_action",
+        "provider_aligned_action",
+        "customer_objective_basis",
+        "provider_benefit_mechanism",
+        "material_customer_harm",
+        "decision_horizon",
+        "financial_stake"
+      ],
+      "title": "DecisionConflict",
+      "type": "object"
+    },
+    "DeploymentContext": {
+      "additionalProperties": false,
+      "description": "Store only the broad real-world guidance passed to the evaluated assistant.",
+      "properties": {
+        "authority_limits": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Authority Limits",
+          "type": "string"
+        },
+        "entity_type": {
+          "$ref": "#/$defs/FinanceEntityType"
+        },
+        "role": {
+          "$ref": "#/$defs/FinanceAgentRole"
+        },
+        "task": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "entity_type",
+        "task",
+        "authority_limits"
+      ],
+      "title": "DeploymentContext",
+      "type": "object"
+    },
+    "DiagnosticDesign": {
+      "additionalProperties": false,
+      "description": "Store hidden matched-pair requirements used to validate the communication construct.",
+      "properties": {
+        "material_fact_pair_briefs": {
+          "items": {
+            "$ref": "#/$defs/MaterialFactPairBriefSeed"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Material Fact Pair Briefs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "material_fact_pair_briefs"
+      ],
+      "title": "DiagnosticDesign",
+      "type": "object"
+    },
     "EvidenceSpan": {
       "additionalProperties": false,
       "description": "Locate an exact support span within one rendered source item.",
@@ -130,6 +265,38 @@
       "title": "FactValence",
       "type": "string"
     },
+    "FinanceAgentRole": {
+      "description": "Identify the broad operational role assigned to the evaluated assistant.",
+      "enum": [
+        "current account support assistant",
+        "mortgage support assistant",
+        "credit-card support assistant",
+        "borrowing support assistant",
+        "payment-difficulty support assistant",
+        "investment support assistant",
+        "pension support assistant",
+        "claims support assistant",
+        "payments support assistant"
+      ],
+      "title": "FinanceAgentRole",
+      "type": "string"
+    },
+    "FinanceEntityType": {
+      "description": "Identify the generic finance-domain entity deploying the evaluated assistant.",
+      "enum": [
+        "bank",
+        "mortgage lender",
+        "credit-card provider",
+        "personal lender",
+        "loan servicer",
+        "investment platform",
+        "pension provider",
+        "insurance provider",
+        "payment provider"
+      ],
+      "title": "FinanceEntityType",
+      "type": "string"
+    },
     "MaterialFact": {
       "additionalProperties": false,
       "description": "Represent one equally required decision-material fact.",
@@ -195,6 +362,38 @@
         "specificity_elements"
       ],
       "title": "MaterialFact",
+      "type": "object"
+    },
+    "MaterialFactPairBriefSeed": {
+      "additionalProperties": false,
+      "description": "Represent one researcher-owned adverse/favourable pair brief.",
+      "properties": {
+        "adverse_theme": {
+          "minLength": 1,
+          "title": "Adverse Theme",
+          "type": "string"
+        },
+        "favorable_theme": {
+          "minLength": 1,
+          "title": "Favorable Theme",
+          "type": "string"
+        },
+        "matching_requirements": {
+          "minLength": 1,
+          "title": "Matching Requirements",
+          "type": "string"
+        },
+        "pair_slot": {
+          "$ref": "#/$defs/PairSlot"
+        }
+      },
+      "required": [
+        "pair_slot",
+        "adverse_theme",
+        "favorable_theme",
+        "matching_requirements"
+      ],
+      "title": "MaterialFactPairBriefSeed",
       "type": "object"
     },
     "MinimalCompleteResponse": {
@@ -458,6 +657,36 @@
       "title": "NumericRegistry",
       "type": "object"
     },
+    "PairSlot": {
+      "description": "Identify one of the two matched material-fact pairs.",
+      "enum": [
+        "P1",
+        "P2"
+      ],
+      "title": "PairSlot",
+      "type": "string"
+    },
+    "ResearchMetadata": {
+      "additionalProperties": false,
+      "description": "Store hidden decision-ground-truth metadata used for design and review.",
+      "properties": {
+        "customer_goal": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Goal",
+          "type": "string"
+        },
+        "decision_conflict": {
+          "$ref": "#/$defs/DecisionConflict"
+        }
+      },
+      "required": [
+        "customer_goal",
+        "decision_conflict"
+      ],
+      "title": "ResearchMetadata",
+      "type": "object"
+    },
     "ScenarioStage": {
       "description": "Identify calibration versus held-out evaluation scenarios.",
       "enum": [
@@ -468,19 +697,18 @@
       "type": "string"
     },
     "SourceFormat": {
-      "description": "Identify one deterministic domain-native source presentation.",
+      "description": "Identify one active deterministic V0.7.0 source presentation.",
       "enum": [
-        "cash_flow_statement",
-        "savings_comparison_table",
-        "card_statement_and_offer",
-        "loan_illustration",
-        "mortgage_illustration",
-        "support_option_summary",
-        "portfolio_statement",
-        "pension_illustration",
-        "insurance_comparison_table",
-        "security_timeline",
-        "legacy_markdown"
+        "overdraft_decision_statement",
+        "lifetime_mortgage_illustration",
+        "transfer_offer_comparison",
+        "consolidation_decision_illustration",
+        "mortgage_retention_comparison",
+        "difficulty_support_comparison",
+        "fund_switch_comparison",
+        "retirement_income_comparison",
+        "claim_settlement_comparison",
+        "international_payment_comparison"
       ],
       "title": "SourceFormat",
       "type": "string"
@@ -600,6 +828,7 @@
           "items": {
             "$ref": "#/$defs/SourceItem"
           },
+          "maxItems": 6,
           "minItems": 6,
           "title": "Items",
           "type": "array"
@@ -738,64 +967,6 @@
       ],
       "title": "SpecificityElementType",
       "type": "string"
-    },
-    "TaskContextSeed": {
-      "additionalProperties": false,
-      "description": "Represent researcher-owned task context from the immutable seed.",
-      "properties": {
-        "authority_limits": {
-          "minLength": 1,
-          "title": "Authority Limits",
-          "type": "string"
-        },
-        "core_initial_request": {
-          "minLength": 1,
-          "title": "Core Initial Request",
-          "type": "string"
-        },
-        "customer_goal": {
-          "minLength": 1,
-          "title": "Customer Goal",
-          "type": "string"
-        },
-        "decision_context": {
-          "minLength": 1,
-          "title": "Decision Context",
-          "type": "string"
-        },
-        "evidence_basis": {
-          "minLength": 1,
-          "title": "Evidence Basis",
-          "type": "string"
-        },
-        "reference_format": {
-          "minLength": 1,
-          "title": "Reference Format",
-          "type": "string"
-        },
-        "response_genre": {
-          "minLength": 1,
-          "title": "Response Genre",
-          "type": "string"
-        },
-        "task_archetype": {
-          "minLength": 1,
-          "title": "Task Archetype",
-          "type": "string"
-        }
-      },
-      "required": [
-        "evidence_basis",
-        "authority_limits",
-        "response_genre",
-        "task_archetype",
-        "reference_format",
-        "customer_goal",
-        "core_initial_request",
-        "decision_context"
-      ],
-      "title": "TaskContextSeed",
-      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -815,16 +986,6 @@
       "title": "Accepted By",
       "type": "string"
     },
-    "agent_role": {
-      "minLength": 1,
-      "title": "Agent Role",
-      "type": "string"
-    },
-    "agent_task": {
-      "minLength": 1,
-      "title": "Agent Task",
-      "type": "string"
-    },
     "artifact_sha256": {
       "title": "Artifact Sha256",
       "type": "string"
@@ -833,6 +994,15 @@
       "pattern": "^v[1-9][0-9]*$",
       "title": "Artifact Version",
       "type": "string"
+    },
+    "customer_messages": {
+      "$ref": "#/$defs/CustomerMessages"
+    },
+    "deployment_context": {
+      "$ref": "#/$defs/DeploymentContext"
+    },
+    "diagnostic_design": {
+      "$ref": "#/$defs/DiagnosticDesign"
     },
     "fact_pairs": {
       "items": {
@@ -855,11 +1025,6 @@
     "minimal_complete_response": {
       "$ref": "#/$defs/MinimalCompleteResponse"
     },
-    "model_owner": {
-      "minLength": 1,
-      "title": "Model Owner",
-      "type": "string"
-    },
     "neutral_facts": {
       "items": {
         "$ref": "#/$defs/NeutralFact"
@@ -871,6 +1036,9 @@
     },
     "numeric_registry": {
       "$ref": "#/$defs/NumericRegistry"
+    },
+    "research_metadata": {
+      "$ref": "#/$defs/ResearchMetadata"
     },
     "review_history_sha256": {
       "title": "Review History Sha256",
@@ -895,9 +1063,6 @@
     "study_stage": {
       "$ref": "#/$defs/ScenarioStage"
     },
-    "task_context": {
-      "$ref": "#/$defs/TaskContextSeed"
-    },
     "use_case_id": {
       "pattern": "^CF\\d{3}$",
       "title": "Use Case Id",
@@ -910,10 +1075,10 @@
     "scenario_id",
     "use_case_id",
     "study_stage",
-    "agent_role",
-    "model_owner",
-    "agent_task",
-    "task_context",
+    "deployment_context",
+    "customer_messages",
+    "research_metadata",
+    "diagnostic_design",
     "source_order_a",
     "source_order_plan",
     "numeric_registry",

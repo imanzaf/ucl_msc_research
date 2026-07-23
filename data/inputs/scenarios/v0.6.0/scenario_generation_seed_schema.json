@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/customer-finance-decision-conflict-v0.6.0.json",
+  "title": "Customer Finance Decision Conflict Scenario Seeds V0.6.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scenario_set_id", "use_cases"],
+  "properties": {
+    "schema_version": {"const": "0.6.0"},
+    "scenario_set_id": {"const": "customer_finance_decision_conflict_v0.6.0"},
+    "use_cases": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {"$ref": "#/$defs/use_case"}
+    }
+  },
+  "$defs": {
+    "non_empty_string": {"type": "string", "minLength": 1},
+    "non_blank_string": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "task_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_basis",
+        "authority_limits",
+        "response_genre",
+        "task_archetype",
+        "reference_format",
+        "customer_goal",
+        "core_initial_request",
+        "decision_context"
+      ],
+      "properties": {
+        "evidence_basis": {"$ref": "#/$defs/non_empty_string"},
+        "authority_limits": {"$ref": "#/$defs/non_empty_string"},
+        "response_genre": {"$ref": "#/$defs/non_empty_string"},
+        "task_archetype": {"$ref": "#/$defs/non_empty_string"},
+        "reference_format": {"$ref": "#/$defs/non_empty_string"},
+        "customer_goal": {"$ref": "#/$defs/non_empty_string"},
+        "core_initial_request": {"$ref": "#/$defs/non_empty_string"},
+        "decision_context": {"$ref": "#/$defs/non_empty_string"}
+      }
+    },
+    "decision_conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "customer_aligned_action",
+        "institution_aligned_action",
+        "customer_objective_basis",
+        "institution_benefit_mechanism",
+        "material_customer_harm",
+        "decision_horizon",
+        "financial_stake"
+      ],
+      "properties": {
+        "customer_aligned_action": {"$ref": "#/$defs/non_blank_string"},
+        "institution_aligned_action": {"$ref": "#/$defs/non_blank_string"},
+        "customer_objective_basis": {"$ref": "#/$defs/non_blank_string"},
+        "institution_benefit_mechanism": {"$ref": "#/$defs/non_blank_string"},
+        "material_customer_harm": {"$ref": "#/$defs/non_blank_string"},
+        "decision_horizon": {"$ref": "#/$defs/non_blank_string"},
+        "financial_stake": {"$ref": "#/$defs/non_blank_string"}
+      }
+    },
+    "pair_brief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pair_slot", "adverse_theme", "favorable_theme", "matching_requirements"],
+      "properties": {
+        "pair_slot": {"enum": ["P1", "P2"]},
+        "adverse_theme": {"$ref": "#/$defs/non_empty_string"},
+        "favorable_theme": {"$ref": "#/$defs/non_empty_string"},
+        "matching_requirements": {"$ref": "#/$defs/non_empty_string"}
+      }
+    },
+    "replication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenario_id", "variation_brief"],
+      "properties": {
+        "scenario_id": {"type": "string", "pattern": "^CF\\d{3}_(C1|R[1-4])$"},
+        "variation_brief": {"$ref": "#/$defs/non_empty_string"}
+      }
+    },
+    "use_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "use_case_id",
+        "segment",
+        "customer_journey",
+        "agent_role",
+        "model_owner",
+        "user_role",
+        "agent_task",
+        "task_context",
+        "decision_conflict",
+        "material_fact_pair_briefs",
+        "replications"
+      ],
+      "properties": {
+        "use_case_id": {"type": "string", "pattern": "^CF\\d{3}$"},
+        "segment": {"$ref": "#/$defs/non_empty_string"},
+        "customer_journey": {"$ref": "#/$defs/non_empty_string"},
+        "agent_role": {"$ref": "#/$defs/non_empty_string"},
+        "model_owner": {"$ref": "#/$defs/non_empty_string"},
+        "user_role": {"$ref": "#/$defs/non_empty_string"},
+        "agent_task": {"$ref": "#/$defs/non_empty_string"},
+        "task_context": {"$ref": "#/$defs/task_context"},
+        "decision_conflict": {"$ref": "#/$defs/decision_conflict"},
+        "material_fact_pair_briefs": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/pair_brief"}
+        },
+        "replications": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {"$ref": "#/$defs/replication"}
+        }
+      }
+    }
+  }
+}

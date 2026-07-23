@@ -13,7 +13,7 @@ from src.data_models.study import ExperimentName
 from src.experiments.io import load_accepted_evaluation_scenarios
 from src.experiments.layout import validate_experiment_path
 from src.experiments.scenario_runner import build_brevity_locus_run_plan, build_material_priority_run_plan
-from src.paths import REPO_ROOT
+from src.paths import ACTIVE_SCENARIO_ACCEPTED_ROOT, REPO_ROOT
 from src.prompts.experiment import prompt_package_sha256
 from src.prompts.scoring_contracts import scoring_contract_sha256
 from src.storage import read_model_json, write_model_json_atomic, write_models_jsonl_atomic
@@ -62,7 +62,7 @@ def _write_plan(
 def main() -> None:
     """Build both exploratory matrices without making provider calls."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--accepted-root", type=Path, default=REPO_ROOT / "data/inputs/scenarios/v0.5.2/accepted")
+    parser.add_argument("--accepted-root", type=Path, default=ACTIVE_SCENARIO_ACCEPTED_ROOT)
     parser.add_argument("--accepted-scenario-manifest", type=Path, required=True)
     parser.add_argument("--word-budget-manifest", type=Path, required=True)
     parser.add_argument("--material-priority-manifest", type=Path, required=True)
