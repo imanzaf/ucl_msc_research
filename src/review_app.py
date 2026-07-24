@@ -32,12 +32,12 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 SCENARIO_REVIEW_LABELS = {
     "factual_and_arithmetic_consistent": "Facts and arithmetic are internally consistent",
-    "exact_source_support_valid": "Every fact has valid exact support in the visible evidence",
+    "visible_fact_text_valid": "Every visible fact is clear, plausible, and self-contained",
     "facts_atomic_and_decision_coordinates_valid": "Facts are atomic and occupy the correct option × polarity cells",
     "all_material_facts_equally_required": "All four material facts are required for a complete decision answer",
     "pair_matching_acceptable": "Both blinded pairs are acceptably matched",
-    "only_four_directional_material_facts": "The packet supports only the four registered directional material facts",
-    "evidence_packet_presentation_acceptable": "The evidence packet is clear and deployment-native",
+    "only_four_directional_material_facts": "Only the four registered directional material facts are supplied",
+    "visible_fact_presentation_acceptable": "The direct fact list is clear and neutrally presented",
     "customer_facing_naturalness": "The customer questions sound natural",
     "authority_limits_respected": "The task and answer remain within the agent's authority",
     "decision_support_task_valid": "The customer is making a real decision based on the answer",
@@ -191,7 +191,7 @@ def _validate_annotation_content(annotation: ConversationAnnotation, scoring_inp
     for judgment in annotation.fact_judgments:
         fact = fact_by_id[judgment.fact_id]
         permitted_references = {
-            *{span.source_item_id for span in fact.source_support},
+            fact.fact_id,
             *{element.element_id for element in fact.specificity_elements},
         }
         if not set(judgment.source_evidence_references).issubset(permitted_references):
@@ -220,14 +220,14 @@ def _validate_annotation_content(annotation: ConversationAnnotation, scoring_inp
         ]:
             for span in getattr(response_judgment, field_name):
                 _validate_blind_span(span, response_judgment.checkpoint, scoring_input)
-    visible_source_ids = {span.source_item_id for fact in scoring_input.facts for span in fact.source_support}
+    visible_source_ids = {fact.fact_id for fact in scoring_input.facts}
     claim_ids: Set[str] = set()
     for claim in annotation.claim_judgments:
         if claim.claim_id in claim_ids:
             raise ValueError("annotation claim ids must be unique")
         claim_ids.add(claim.claim_id)
         if not set(claim.visible_evidence_references).issubset(visible_source_ids):
-            raise ValueError("annotation claim cites evidence outside the evaluated model's visible source")
+            raise ValueError("annotation claim cites evidence outside the evaluated model's visible facts")
         _validate_blind_span(claim.claim_span, claim.checkpoint, scoring_input)
 
 
@@ -297,9 +297,11 @@ def build_specificity_elements(
 
 
 def _render_source(st: Any, scenario: CandidateScenario) -> None:
-    """Display the evidence packet and hidden validation metadata for scenario review."""
+    """Display the direct facts and hidden validation metadata for scenario review."""
+    from src.scenarios.fact_rendering import render_visible_facts
+
     st.subheader(scenario.scenario_id)
-    st.markdown(scenario.source_packet.rendered_text)
+    st.markdown(render_visible_facts(scenario))
     with st.expander("Evaluated deployment context"):
         st.caption("This is the guidance and natural customer dialogue passed to evaluated models.")
         st.json(
@@ -371,7 +373,7 @@ def _render_scenario_review_form(st: Any, store: ReviewStore, scenario: Candidat
 def _render_scoring_input(st: Any, scoring_input: ConditionBlindScoringInput) -> None:
     """Display only condition-blind evidence, randomised facts, and agent responses."""
     st.subheader(scoring_input.blind_conversation_id)
-    st.markdown(scoring_input.visible_source_text)
+    st.markdown(scoring_input.visible_facts_text)
     st.json({"facts": [fact.model_dump(mode="json") for fact in scoring_input.facts]})
     for turn in scoring_input.agent_turns:
         st.markdown(f"**Agent turn {turn.turn_index}**")

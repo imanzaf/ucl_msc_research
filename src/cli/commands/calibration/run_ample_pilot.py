@@ -69,7 +69,7 @@ def compile_ample_pilot_messages(
 ) -> Tuple[List[Dict[str, str]], str]:
     """Compile the exact 320-word pilot request without a follow-up turn."""
     cell = ExperimentCell.create(WordBudgetCondition.AMPLE, cue, integrity)
-    messages, _follow_up, prompt_sha256, _follow_up_sha256 = compile_experiment_prompt(scenario, scenario.source_packet, cell, PILOT_WORD_LIMIT)
+    messages, _follow_up, prompt_sha256, _follow_up_sha256 = compile_experiment_prompt(scenario, cell, PILOT_WORD_LIMIT)
     return [{"role": message.role.value, "content": message.content} for message in messages], prompt_sha256
 
 
@@ -185,7 +185,7 @@ def main() -> None:
         (args.cache_dir, ACTIVE_SCENARIO_GENERATION_ROOT / "cache"),
     ]
     if any(supplied.resolve() != expected.resolve() for supplied, expected in expected_paths):
-        raise ValueError("ample-pilot execution must use the fixed V0.9.0 lifecycle paths")
+        raise ValueError("ample-pilot execution must use the fixed V0.10.0 lifecycle paths")
     accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
     model_manifest = read_model_json(args.evaluated_model_manifest, EvaluatedModelManifest)
     prompt_review = read_model_json(args.prompt_review_manifest, CalibrationPromptReviewManifest)

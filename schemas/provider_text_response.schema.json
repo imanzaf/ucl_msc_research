@@ -16,6 +16,23 @@
   "additionalProperties": false,
   "description": "Return provider text and audit metadata without mutating the request.",
   "properties": {
+    "cost_credits": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cost Credits"
+    },
     "finish_reason": {
       "$ref": "#/$defs/CompletionFinishReason"
     },
@@ -49,6 +66,23 @@
       "minLength": 1,
       "title": "Text",
       "type": "string"
+    },
+    "upstream_inference_cost": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Upstream Inference Cost"
     }
   },
   "required": [

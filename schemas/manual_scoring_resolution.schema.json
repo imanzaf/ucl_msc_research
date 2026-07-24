@@ -2,7 +2,7 @@
   "$defs": {
     "BlindFactReference": {
       "additionalProperties": false,
-      "description": "Provide a scoring judge only source-grounded fact content and detail rules.",
+      "description": "Provide a scoring judge one visible fact and optional detail rules.",
       "properties": {
         "canonical_proposition": {
           "minLength": 1,
@@ -13,14 +13,6 @@
           "minLength": 1,
           "title": "Fact Id",
           "type": "string"
-        },
-        "source_support": {
-          "items": {
-            "$ref": "#/$defs/EvidenceSpan"
-          },
-          "minItems": 1,
-          "title": "Source Support",
-          "type": "array"
         },
         "specificity_elements": {
           "items": {
@@ -33,7 +25,6 @@
       "required": [
         "fact_id",
         "canonical_proposition",
-        "source_support",
         "specificity_elements"
       ],
       "title": "BlindFactReference",
@@ -83,7 +74,7 @@
     },
     "ClaimAssessmentResult": {
       "additionalProperties": false,
-      "description": "Store the visible-evidence-only claim-assessment contract output.",
+      "description": "Store the visible-facts-only claim-assessment contract output.",
       "properties": {
         "blind_conversation_id": {
           "minLength": 1,
@@ -127,8 +118,8 @@
           "title": "Scoring Prompt Sha256",
           "type": "string"
         },
-        "visible_source_sha256": {
-          "title": "Visible Source Sha256",
+        "visible_facts_sha256": {
+          "title": "Visible Facts Sha256",
           "type": "string"
         }
       },
@@ -136,7 +127,7 @@
         "schema_version",
         "blind_conversation_id",
         "claims",
-        "visible_source_sha256",
+        "visible_facts_sha256",
         "judge_model_id",
         "scoring_prompt_sha256",
         "scored_at"
@@ -177,7 +168,7 @@
     },
     "ConditionBlindScoringInput": {
       "additionalProperties": false,
-      "description": "Expose only evaluated-model-visible evidence and anonymised response text.",
+      "description": "Expose only evaluated-model-visible facts and anonymised response text.",
       "properties": {
         "agent_turns": {
           "items": {
@@ -211,21 +202,21 @@
           "title": "Schema Version",
           "type": "string"
         },
-        "visible_source_sha256": {
-          "title": "Visible Source Sha256",
+        "visible_facts_sha256": {
+          "title": "Visible Facts Sha256",
           "type": "string"
         },
-        "visible_source_text": {
+        "visible_facts_text": {
           "minLength": 1,
-          "title": "Visible Source Text",
+          "title": "Visible Facts Text",
           "type": "string"
         }
       },
       "required": [
         "schema_version",
         "blind_conversation_id",
-        "visible_source_text",
-        "visible_source_sha256",
+        "visible_facts_text",
+        "visible_facts_sha256",
         "facts",
         "agent_turns",
         "randomised_fact_order_seed"
@@ -1042,40 +1033,6 @@
       "title": "EvaluationCheckpoint",
       "type": "string"
     },
-    "EvidenceSpan": {
-      "additionalProperties": false,
-      "description": "Locate an exact support span within one rendered source item.",
-      "properties": {
-        "end_char": {
-          "exclusiveMinimum": 0,
-          "title": "End Char",
-          "type": "integer"
-        },
-        "exact_text": {
-          "minLength": 1,
-          "title": "Exact Text",
-          "type": "string"
-        },
-        "source_item_id": {
-          "pattern": "^[A-Z0-9_]+$",
-          "title": "Source Item Id",
-          "type": "string"
-        },
-        "start_char": {
-          "minimum": 0,
-          "title": "Start Char",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "source_item_id",
-        "start_char",
-        "end_char",
-        "exact_text"
-      ],
-      "title": "EvidenceSpan",
-      "type": "object"
-    },
     "FactAssessmentJudgment": {
       "additionalProperties": false,
       "description": "Store disclosure, specificity, and framing for one fact and checkpoint.",
@@ -1516,12 +1473,12 @@
           "type": "string"
         },
         "element_id": {
-          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]_S[1-9][0-9]*$",
+          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]_S[1-9][0-9]*$",
           "title": "Element Id",
           "type": "string"
         },
         "fact_id": {
-          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]$",
+          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
           "title": "Fact Id",
           "type": "string"
         }
@@ -1581,8 +1538,25 @@
     },
     "TokenUsage": {
       "additionalProperties": false,
-      "description": "Store provider-reported token usage for one response.",
+      "description": "Store provider-reported token usage and billed cost for one response.",
       "properties": {
+        "cost_credits": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Credits"
+        },
         "input_tokens": {
           "default": 0,
           "minimum": 0,
@@ -1600,6 +1574,23 @@
           "minimum": 0,
           "title": "Total Tokens",
           "type": "integer"
+        },
+        "upstream_inference_cost": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstream Inference Cost"
         }
       },
       "title": "TokenUsage",

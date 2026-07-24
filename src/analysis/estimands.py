@@ -132,6 +132,6 @@ def scenario_level_contrasts(frame: pd.DataFrame) -> pd.DataFrame:
             raise ValueError("one scenario cannot span multiple use cases")
         records.append({"scenario_id": scenario_id, "use_case_id": use_case_ids[0], **estimate_confirmatory_contrasts(scenario_frame)})
     result = pd.DataFrame.from_records(records)
-    if len(result) != 40 or result["use_case_id"].nunique() != 10:
-        raise ValueError("scenario-level contrasts require all 40 scenarios across ten use cases")
+    if len(result) != 20 or result["use_case_id"].nunique() != 10:
+        raise ValueError("scenario-level contrasts require all 20 scenarios across ten use cases")
     return result

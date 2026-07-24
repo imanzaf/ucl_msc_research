@@ -43,7 +43,7 @@ def _write_plan(
         schema_version="2.0.0",
         experiment_name=experiment_name,
         experiment_manifest_sha256=manifest.manifest_sha256,
-        scenario_count=40,
+        scenario_count=20,
         evaluated_model_count=3,
         cell_count=cell_count,
         expected_conversation_count=len(units),
@@ -106,7 +106,7 @@ def main() -> None:
         args.brevity_locus_config,
         args.brevity_locus_plan,
     )
-    print("Wrote 240 material-priority and 120 brevity-locus offline run units")
+    print("Wrote 120 material-priority and 60 brevity-locus offline run units")
 
 
 if __name__ == "__main__":

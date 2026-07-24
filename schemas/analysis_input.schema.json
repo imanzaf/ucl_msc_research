@@ -867,7 +867,7 @@
       "type": "string"
     },
     "scenario_id": {
-      "pattern": "^CF\\d{3}_R[1-4]$",
+      "pattern": "^CF\\d{3}_R[12]$",
       "title": "Scenario Id",
       "type": "string"
     },

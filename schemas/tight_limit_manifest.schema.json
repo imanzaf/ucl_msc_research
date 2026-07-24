@@ -104,7 +104,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Freeze C1-derived limits after the model adequacy pilot and before R1-R4.",
+  "description": "Freeze C1-derived limits after the model adequacy pilot and before R1-R2.",
   "properties": {
     "ample_pilot": {
       "$ref": "#/$defs/AmplePilotSummary"

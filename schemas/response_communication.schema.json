@@ -219,8 +219,25 @@
     },
     "TokenUsage": {
       "additionalProperties": false,
-      "description": "Store provider-reported token usage for one response.",
+      "description": "Store provider-reported token usage and billed cost for one response.",
       "properties": {
+        "cost_credits": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Credits"
+        },
         "input_tokens": {
           "default": 0,
           "minimum": 0,
@@ -238,6 +255,23 @@
           "minimum": 0,
           "title": "Total Tokens",
           "type": "integer"
+        },
+        "upstream_inference_cost": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstream Inference Cost"
         }
       },
       "title": "TokenUsage",

@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -29,266 +29,60 @@ from src.data_models.manifests import (
     EvaluationRenderedRequestReview,
     PilotAttemptStatus,
     PromptReviewManifest,
-    ScenarioGenerationApproval,
-    ScenarioGenerationCostReport,
     ScenarioManifestScope,
 )
-from src.data_models.scenarios import (
-    DecisionDesign,
-    EvidencePairType,
-    LegacyUseCaseSeed,
-    ScenarioSeedSet,
-    ScenarioStage,
-    UseCaseSeed,
-    V07UseCaseSeed,
-    V09UseCaseSeed,
-)
+from src.data_models.scenarios import SeedOptionId, V10HiddenDesign
 from src.data_models.study import CUE_PAIRS, PROMPT_PACKAGE_VERSION, ExpressedConcernCondition, IntegrityCondition, assigned_cue, cue_template_id
 from src.llm.openrouter import OpenRouterClient, ProviderTextResponse
 from src.prompts.experiment import render_reviewed_user_request, validate_complete_request_reviews
 from src.scenarios.budgets import build_ample_pilot_summary, calculate_tight_word_limit, require_ample_pilot_gate, validate_evaluation_headroom
-from src.scenarios.seed_validation import EXPECTED_HASHES, load_and_validate_seed, validate_seed_hashes
+from src.scenarios.seed_validation import EXPECTED_SCHEMA_SHA256, EXPECTED_SEED_SHA256, load_and_validate_seed, validate_seed_hashes
 from src.scenarios.word_count import count_words, tokenize_words
 from tests.factories import ZERO_HASH, make_accepted_scenario
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SEED_ROOTS = {version: REPO_ROOT / "data/inputs/scenarios" / version for version in ["v0.5.1", "v0.5.2", "v0.6.0", "v0.7.0", "v0.8.0", "v0.9.0"]}
+SEED_ROOT = REPO_ROOT / "data/inputs/scenarios/v0.10.0"
 
 
-@pytest.mark.parametrize("version", ["v0.5.1", "v0.5.2", "v0.6.0", "v0.7.0", "v0.8.0", "v0.9.0"])
-def test_immutable_seed_versions_have_approved_bytes_and_exact_structure(version: str) -> None:
-    """Preserve every archived seed and authenticate the active V0.9.0 family."""
-    root = SEED_ROOTS[version]
-    hashes = validate_seed_hashes(root / "scenario_generation_seeds.json", root / "scenario_generation_seed_schema.json")
-    seed = load_and_validate_seed(root / "scenario_generation_seeds.json", root / "scenario_generation_seed_schema.json")
-    expected_seed, expected_schema = EXPECTED_HASHES[version]
-    assert hashes == {"seed_sha256": expected_seed, "schema_sha256": expected_schema}
+def test_active_seed_has_approved_bytes_and_exact_structure() -> None:
+    """Authenticate the only runtime-supported V0.10.0 seed."""
+    hashes = validate_seed_hashes(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
+    seed = load_and_validate_seed(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
+    assert hashes == {"seed_sha256": EXPECTED_SEED_SHA256, "schema_sha256": EXPECTED_SCHEMA_SHA256}
     assert len(seed.use_cases) == 10
-    replication_counts = [
-        (
-            len(use_case.hidden_design.source_generation.replications)
-            if isinstance(use_case, V09UseCaseSeed)
-            else (
-                len(use_case.hidden_design.generation.replications)
-                if isinstance(use_case, UseCaseSeed)
-                else len(use_case.scenario_generation.replications) if isinstance(use_case, V07UseCaseSeed) else len(use_case.replications)
-            )
-        )
-        for use_case in seed.use_cases
-    ]
-    pair_counts = [
-        (
-            len(use_case.hidden_design.research.evidence.pairs)
-            if isinstance(use_case, V09UseCaseSeed)
-            else (
-                len(use_case.hidden_design.evidence.pairs)
-                if isinstance(use_case, UseCaseSeed)
-                else (
-                    len(use_case.diagnostic_design.material_fact_pair_briefs)
-                    if isinstance(use_case, V07UseCaseSeed)
-                    else len(use_case.material_fact_pair_briefs)
-                )
-            )
-        )
-        for use_case in seed.use_cases
-    ]
-    assert sum(replication_counts) == 50
-    assert pair_counts == [2] * 10
+    assert sum(len(use_case.replications) for use_case in seed.use_cases) == 30
+    assert all(len({replication.decision_type for replication in use_case.replications}) == 3 for use_case in seed.use_cases)
 
 
-def test_v080_separates_evaluated_content_and_balances_hidden_decision_evidence() -> None:
-    """Lock the compact hidden boundary, balanced 2×2 evidence, and natural evaluated content."""
-    seed = load_and_validate_seed(
-        SEED_ROOTS["v0.8.0"] / "scenario_generation_seeds.json",
-        SEED_ROOTS["v0.8.0"] / "scenario_generation_seed_schema.json",
-    )
-    forbidden_old_fields = {
-        "segment",
-        "customer_journey",
-        "agent_role",
-        "model_owner",
-        "user_role",
-        "agent_task",
-        "task_context",
-        "response_genre",
-        "reference_format",
-    }
-    payload = json.loads((SEED_ROOTS["v0.8.0"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
-    assert all(not forbidden_old_fields.intersection(use_case) for use_case in payload["use_cases"])
-    for raw_use_case, use_case in zip(payload["use_cases"], seed.use_cases):
-        assert isinstance(use_case, UseCaseSeed)
-        assert set(raw_use_case) == {
-            "use_case_id",
-            "deployment_context",
-            "customer_messages",
-            "hidden_design",
-        }
-        evaluated_text = " ".join(
-            [
-                use_case.deployment_context.role.value,
-                use_case.deployment_context.entity_type.value,
-                use_case.deployment_context.task,
-                use_case.deployment_context.authority_limits,
-                use_case.customer_messages.initial_message,
-                use_case.customer_messages.follow_up_message,
-            ]
-        ).casefold()
-        assert all(term not in evaluated_text for term in ["fictional", "synthetic", "simulated", "research", "test case"])
-        assert use_case.customer_messages.initial_message.endswith("?")
-        assert use_case.customer_messages.follow_up_message.endswith("?")
-        decision = use_case.hidden_design.decision
-        assert decision.customer_preferred_option != decision.provider_preferred_option
-        assert {pair.pair_type for pair in use_case.hidden_design.evidence.pairs} == set(EvidencePairType)
-        assert len(use_case.hidden_design.generation.replications) == 5
-
-
-def test_v090_separates_neutral_source_generation_from_research_interpretation() -> None:
-    """Keep the generator input to option records and simple source requirements."""
-    seed = load_and_validate_seed(
-        SEED_ROOTS["v0.9.0"] / "scenario_generation_seeds.json",
-        SEED_ROOTS["v0.9.0"] / "scenario_generation_seed_schema.json",
-    )
-    for use_case in seed.use_cases:
-        assert isinstance(use_case, V09UseCaseSeed)
-        source_payload = use_case.hidden_design.source_generation.model_dump(mode="json")
-        assert set(source_payload) == {
-            "decision_topic",
-            "option_records",
-            "common_comparison_basis",
-            "replications",
-        }
-        assert {record.option_id.value for record in use_case.hidden_design.source_generation.option_records} == {"OPTION_A", "OPTION_B"}
-        assert all(
-            record.benefit_fact_requirement and record.downside_fact_requirement for record in use_case.hidden_design.source_generation.option_records
-        )
-        assert "customer_preferred_option" not in json.dumps(source_payload)
-        assert "required_calculations" not in source_payload
-        assert {pair.pair_type for pair in use_case.hidden_design.research.evidence.pairs} == set(EvidencePairType)
-
-
-def test_v060_requires_high_stakes_decisions_and_latent_opposed_actions() -> None:
-    """Lock the V0.6.0 decision-support, conflict, harm, and fact-direction contracts."""
-    seed = load_and_validate_seed(
-        SEED_ROOTS["v0.6.0"] / "scenario_generation_seeds.json",
-        SEED_ROOTS["v0.6.0"] / "scenario_generation_seed_schema.json",
-    )
-    assert all(isinstance(use_case, LegacyUseCaseSeed) for use_case in seed.use_cases)
-    assert all(use_case.decision_conflict is not None for use_case in seed.use_cases)
-    assert {use_case.task_context.response_genre for use_case in seed.use_cases} == {"Provide a clear customer-facing comparison in plain language."}
-    for use_case in seed.use_cases:
-        conflict = use_case.decision_conflict
-        assert conflict is not None
-        assert conflict.customer_aligned_action != conflict.institution_aligned_action
-        assert all(
-            value
-            for value in [
-                conflict.customer_objective_basis,
-                conflict.institution_benefit_mechanism,
-                conflict.material_customer_harm,
-                conflict.decision_horizon,
-                conflict.financial_stake,
-            ]
-        )
-        assert all(pair.adverse_theme and pair.favorable_theme and pair.matching_requirements for pair in use_case.material_fact_pair_briefs)
-        visible_seed_text = " ".join(
-            [
-                use_case.agent_role,
-                use_case.model_owner,
-                use_case.agent_task,
-                use_case.task_context.core_initial_request,
-                use_case.task_context.decision_context,
-            ]
-        ).casefold()
-        assert "customer-aligned" not in visible_seed_text
-        assert "institution-aligned" not in visible_seed_text
-        assert "lower-cost" not in use_case.agent_task.casefold()
-
-
-def test_exported_seed_schema_matches_version_specific_runtime_boundaries() -> None:
-    """Require the V0.9.0 boundary and preserve every archived seed structure."""
+def test_exported_seed_schema_matches_the_active_runtime_boundary() -> None:
+    """Require both exported seed schemas to accept only the V0.10.0 structure."""
     exported_schema = json.loads((REPO_ROOT / "schemas/scenario_seed_set.schema.json").read_text(encoding="utf-8"))
-    active_schema = json.loads((SEED_ROOTS["v0.9.0"] / "scenario_generation_seed_schema.json").read_text(encoding="utf-8"))
-    active_payload = json.loads((SEED_ROOTS["v0.9.0"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
-    v060_payload = json.loads((SEED_ROOTS["v0.6.0"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
-    legacy_payload = json.loads((SEED_ROOTS["v0.5.2"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
+    active_schema = json.loads((SEED_ROOT / "scenario_generation_seed_schema.json").read_text(encoding="utf-8"))
+    active_payload = json.loads((SEED_ROOT / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
     validator = Draft202012Validator(exported_schema)
     assert not list(validator.iter_errors(active_payload))
-    assert not list(validator.iter_errors(v060_payload))
-    assert not list(validator.iter_errors(legacy_payload))
     blank_design_payload = json.loads(json.dumps(active_payload))
-    blank_design_payload["use_cases"][0]["hidden_design"]["research"]["decision"]["high_stakes_basis"] = "   "
+    blank_design_payload["use_cases"][0]["replications"][0]["owner_benefit_mechanism"] = "   "
     assert list(validator.iter_errors(blank_design_payload))
     assert list(Draft202012Validator(active_schema).iter_errors(blank_design_payload))
     active_payload["use_cases"][0].pop("deployment_context")
     assert list(validator.iter_errors(active_payload))
-    legacy_payload["use_cases"][0]["decision_conflict"] = {
-        "customer_aligned_action": "A",
-        "institution_aligned_action": "B",
-        "customer_objective_basis": "C",
-        "institution_benefit_mechanism": "D",
-        "material_customer_harm": "E",
-        "decision_horizon": "F",
-        "financial_stake": "G",
-    }
-    assert list(validator.iter_errors(legacy_payload))
 
 
-def test_seed_runtime_rejects_cross_version_fields_even_when_null() -> None:
-    """Keep runtime field-presence rules aligned with the version-conditional schema."""
-    active_payload = json.loads((SEED_ROOTS["v0.6.0"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
-    active_payload["use_cases"][0]["potential_harm_pathway"] = None
-    with pytest.raises(ValidationError, match="forbids the legacy"):
-        ScenarioSeedSet.model_validate(active_payload)
-    legacy_payload = json.loads((SEED_ROOTS["v0.5.2"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
-    legacy_payload["use_cases"][0]["decision_conflict"] = None
-    with pytest.raises(ValidationError, match="forbids V0.6.0"):
-        ScenarioSeedSet.model_validate(legacy_payload)
-
-
-def test_decision_design_rejects_blank_or_equivalent_options() -> None:
-    """Require substantive, genuinely opposed hidden option metadata."""
-    payload = {
-        "customer_goal": "Choose well.",
-        "customer_preferred_option": "Choose A.",
-        "provider_preferred_option": "Choose B.",
-        "customer_preference_basis": "Customer basis.",
-        "provider_benefit": "Provider basis.",
-        "customer_harm": "Material harm.",
-        "high_stakes_basis": "Long horizon and material stake.",
-    }
-    assert DecisionDesign.model_validate(payload).customer_preferred_option == "Choose A."
-    with pytest.raises(ValidationError):
-        DecisionDesign.model_validate({**payload, "high_stakes_basis": "   "})
+def test_hidden_design_rejects_equivalent_or_same_owner_options() -> None:
+    """Require distinct option names and opposed customer/owner mappings."""
+    seed = load_and_validate_seed(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
+    payload = seed.use_cases[0].replications[0].model_dump(mode="json", exclude={"scenario_id", "customer_messages"})
+    assert V10HiddenDesign.model_validate(payload).customer_supporting_option == SeedOptionId.OPTION_A
+    payload["owner_supporting_option"] = payload["customer_supporting_option"]
     with pytest.raises(ValidationError, match="must differ"):
-        DecisionDesign.model_validate({**payload, "provider_preferred_option": "choose a."})
-
-
-def test_v052_contains_all_ten_expert_corrections_without_expansion() -> None:
-    """Lock the CF001–CF010 correction topics and unchanged scenario counts."""
-    old = json.loads((SEED_ROOTS["v0.5.1"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
-    new = json.loads((SEED_ROOTS["v0.5.2"] / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
-    expected_fragments: Dict[str, str] = {
-        "CF001": "£180 monthly payment",
-        "CF002": "do not use protection shared",
-        "CF003": "no duplication of P1",
-        "CF004": "current and proposed monthly totals",
-        "CF005": "explicit balance, term, fee-treatment",
-        "CF006": "factual immediate and longer-term terms",
-        "CF007": "same explicit performance period",
-        "CF008": "keep tax and projection assumptions as separate",
-        "CF009": "broader storm exclusion",
-        "CF010": "posted, pending, held, declined, or reversed",
-    }
-    assert [item["use_case_id"] for item in old["use_cases"]] == [item["use_case_id"] for item in new["use_cases"]]
-    assert all(len(item["replications"]) == 5 for item in new["use_cases"])
-    by_id = {item["use_case_id"]: json.dumps(item, ensure_ascii=False) for item in new["use_cases"]}
-    assert all(fragment in by_id[use_case_id] for use_case_id, fragment in expected_fragments.items())
+        V10HiddenDesign.model_validate(payload)
 
 
 def test_seed_tampering_is_rejected_before_use(tmp_path: Path) -> None:
     """Reject any changed byte in the active immutable seed."""
-    root = SEED_ROOTS["v0.9.0"]
-    version_root = tmp_path / "v0.9.0"
+    root = SEED_ROOT
+    version_root = tmp_path / "v0.10.0"
     version_root.mkdir()
     payload = json.loads((root / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
     payload["use_cases"][0]["word_budget"] = 100
@@ -387,10 +181,10 @@ def test_ample_pilot_requires_every_cell_of_the_exact_60_output_matrix() -> None
 
 
 def _complete_request_reviews() -> List[CompleteRenderedRequestReview]:
-    """Build all 80 exact rendered-request review records."""
+    """Build all 40 exact rendered-request review records."""
     reviews = []
     for use_case in range(1, 11):
-        for replication in range(1, 5):
+        for replication in range(1, 3):
             scenario_id = f"CF{use_case:03d}_R{replication}"
             scenario = make_accepted_scenario(scenario_id)
             for concern in ExpressedConcernCondition:
@@ -446,7 +240,7 @@ def _calibration_request_reviews() -> List[CompleteRenderedRequestReview]:
 
 
 def test_calibration_prompt_review_breaks_the_pre_r_generation_cycle() -> None:
-    """Freeze the twenty C1 requests independently before R1-R4 scenarios exist."""
+    """Freeze the twenty C1 requests independently before R1-R2 scenarios exist."""
     reviews = _calibration_request_reviews()
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_C1") for use_case in range(1, 11)]
     validate_complete_request_reviews(reviews, scenarios)
@@ -465,14 +259,11 @@ def test_calibration_prompt_review_breaks_the_pre_r_generation_cycle() -> None:
     assert len(manifest.request_reviews) == 20
 
 
-def test_prompt_review_freezes_all_80_requests_and_exact_cue_mapping() -> None:
-    """Require the four cue pairs, R mapping, C1 round-robin, and no alternatives."""
+def test_prompt_review_freezes_all_40_requests_and_exact_cue_mapping() -> None:
+    """Require the cue pairs, R mapping, C1 round-robin, and no alternatives."""
     assert [cue_template_id(f"CF{index:03d}_C1") for index in range(1, 11)] == [1, 2, 3, 4, 1, 2, 3, 4, 1, 2]
-    active_seed = load_and_validate_seed(
-        SEED_ROOTS["v0.9.0"] / "scenario_generation_seeds.json",
-        SEED_ROOTS["v0.9.0"] / "scenario_generation_seed_schema.json",
-    )
-    assert len({use_case.customer_messages.follow_up_message for use_case in active_seed.use_cases if isinstance(use_case, V09UseCaseSeed)}) == 10
+    active_seed = load_and_validate_seed(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
+    assert len({replication.customer_messages.follow_up_message for use_case in active_seed.use_cases for replication in use_case.replications}) == 30
     reviews = _complete_request_reviews()
     payload = {
         "schema_version": "2.0.0",
@@ -486,10 +277,10 @@ def test_prompt_review_freezes_all_80_requests_and_exact_cue_mapping() -> None:
         "reviewed_at": datetime(2026, 7, 19, tzinfo=timezone.utc),
     }
     manifest = PromptReviewManifest.model_validate({**payload, "manifest_sha256": artifact_sha256(payload)})
-    assert len(manifest.request_reviews) == 80
+    assert len(manifest.request_reviews) == 40
     validate_complete_request_reviews(
         reviews,
-        [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 5)],
+        [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)],
     )
     first = reviews[0]
     changed_request = first.rendered_request_text + " Extra unreviewed request text."
@@ -503,7 +294,7 @@ def test_prompt_review_freezes_all_80_requests_and_exact_cue_mapping() -> None:
     with pytest.raises(ValueError, match="differ from the request compiled"):
         validate_complete_request_reviews(
             [tampered, *reviews[1:]],
-            [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 5)],
+            [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)],
         )
     alternative = CUE_PAIRS[2][0]
     with pytest.raises(ValidationError, match="no alternative"):
@@ -523,43 +314,7 @@ def test_prompt_review_schemas_restrict_calibration_and_evaluation_ids() -> None
     calibration_pattern = calibration_schema["$defs"]["CalibrationRenderedRequestReview"]["properties"]["scenario_id"]["pattern"]
     evaluation_pattern = evaluation_schema["$defs"]["EvaluationRenderedRequestReview"]["properties"]["scenario_id"]["pattern"]
     assert calibration_pattern == r"^CF\d{3}_C1$"
-    assert evaluation_pattern == r"^CF\d{3}_R[1-4]$"
-
-
-def test_scenario_generation_requires_a_hashed_cost_report_and_approval() -> None:
-    """Bind the exact four-scenario evaluation batch to conservative role-call costs."""
-    payload = {
-        "schema_version": "2.0.0",
-        "stage": ScenarioStage.EVALUATION,
-        "use_case_id": "CF001",
-        "backend_specification": "src.scenarios.openrouter_backend:create_openrouter_scenario_backend",
-        "seed_sha256": ZERO_HASH,
-        "seed_schema_sha256": ZERO_HASH,
-        "generator_model_id": "generator/model",
-        "reviewer_model_id": "reviewer/model",
-        "scenario_count": 4,
-        "base_generation_calls": 4,
-        "base_review_calls": 1,
-        "worst_case_generation_calls": 8,
-        "worst_case_review_calls": 2,
-        "maximum_input_tokens_per_call": 20_000,
-        "maximum_output_tokens_per_call": 12_000,
-        "base_cost_usd": Decimal("1.00"),
-        "worst_case_cost_usd": Decimal("3.00"),
-        "pricing_assumptions": {"generator/model:input_per_million_usd": Decimal("1")},
-        "generated_at": datetime(2026, 7, 22, tzinfo=timezone.utc),
-    }
-    report = ScenarioGenerationCostReport.model_validate({**payload, "report_sha256": artifact_sha256(payload)})
-    approval_payload = {
-        "schema_version": "2.0.0",
-        "cost_report_sha256": report.report_sha256,
-        "approved": True,
-        "approved_maximum_cost_usd": Decimal("3.00"),
-        "approved_by": "researcher",
-        "approved_at": datetime(2026, 7, 22, tzinfo=timezone.utc),
-    }
-    approval = ScenarioGenerationApproval.model_validate({**approval_payload, "approval_sha256": artifact_sha256(approval_payload)})
-    assert approval.cost_report_sha256 == report.report_sha256
+    assert evaluation_pattern == r"^CF\d{3}_R[12]$"
 
 
 def test_ample_pilot_requires_a_hashed_cost_report_and_approval() -> None:
@@ -696,11 +451,11 @@ def test_successful_ample_pilot_attempt_recovers_only_from_matching_cache() -> N
 
 
 def test_accepted_manifest_rejects_unapproved_seed_hashes_before_publication() -> None:
-    """Prevent a self-hashed accepted set from blessing altered V0.9.0 seed bytes."""
-    with pytest.raises(ValidationError, match="approved immutable V0.9.0 seed"):
+    """Prevent a self-hashed accepted set from blessing altered V0.10.0 seed bytes."""
+    with pytest.raises(ValidationError, match="approved immutable V0.10.0 seed"):
         AcceptedScenarioManifest(
             schema_version="2.0.0",
-            scenario_set_id="customer_finance_documented_option_evidence_v0.9.0",
+            scenario_set_id="customer_finance_task_family_facts_v0.10.0",
             manifest_scope=ScenarioManifestScope.COMPLETE,
             seed_sha256=ZERO_HASH,
             seed_schema_sha256=ZERO_HASH,

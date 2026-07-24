@@ -87,8 +87,8 @@ def _validate_analysis_rows(rows: List[AnalysisInputRow], missingness: AnalysisM
         raise ValueError("scored run-unit count disagrees with the missingness report")
     if any({row.metrics.checkpoint for row in rows if row.run_unit_id == run_id} != set(EvaluationCheckpoint) for run_id in run_ids):
         raise ValueError("every analysis run unit requires initial and cumulative checkpoints")
-    if {row.scenario_id for row in rows} != {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 5)}:
-        raise ValueError("confirmatory analysis requires analyzable observations from all 40 evaluation scenarios")
+    if {row.scenario_id for row in rows} != {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 3)}:
+        raise ValueError("confirmatory analysis requires analyzable observations from all 20 evaluation scenarios")
 
 
 def _validate_fact_analysis_rows(

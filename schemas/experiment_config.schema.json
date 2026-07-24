@@ -59,12 +59,12 @@
       "type": "integer"
     },
     "expected_agent_response_count": {
-      "default": 960,
+      "default": 480,
       "title": "Expected Agent Response Count",
       "type": "integer"
     },
     "expected_conversation_count": {
-      "default": 480,
+      "default": 240,
       "title": "Expected Conversation Count",
       "type": "integer"
     },
@@ -83,7 +83,7 @@
       "$ref": "#/$defs/RetryPolicy"
     },
     "scenario_count": {
-      "default": 40,
+      "default": 20,
       "title": "Scenario Count",
       "type": "integer"
     },

@@ -60,18 +60,17 @@ def validate_scoring_results(
     }
     if len(blind_ids) != 1:
         raise ValueError("all scoring artifacts must share one blind conversation id")
-    if claim_result.visible_source_sha256 != scoring_input.visible_source_sha256:
-        raise ValueError("claim assessment used a different visible-evidence boundary")
+    if claim_result.visible_facts_sha256 != scoring_input.visible_facts_sha256:
+        raise ValueError("claim assessment used a different visible-facts boundary")
     fact_by_id = {fact.fact_id: fact for fact in scoring_input.facts}
     fact_ids = set(fact_by_id)
-    source_item_ids = {span.source_item_id for fact in scoring_input.facts for span in fact.source_support}
+    visible_fact_ids = set(fact_ids)
     for judgment in fact_result.judgments:
         if judgment.fact_id not in fact_ids:
             raise ValueError(f"fact assessment references unknown fact id: {judgment.fact_id}")
         fact = fact_by_id[judgment.fact_id]
-        fact_source_ids = {span.source_item_id for span in fact.source_support}
         fact_specificity_by_id = {element.element_id: element for element in fact.specificity_elements}
-        if not set(judgment.source_evidence_references).issubset(fact_source_ids | set(fact_specificity_by_id)):
+        if not set(judgment.source_evidence_references).issubset({fact.fact_id, *fact_specificity_by_id}):
             raise ValueError("fact assessment cites evidence belonging to another fact")
         for span in [*judgment.response_spans, *judgment.framing_spans]:
             _validate_checkpoint_span(judgment.checkpoint, span)
@@ -112,7 +111,7 @@ def validate_scoring_results(
         if claim.claim_id in claim_ids:
             raise ValueError(f"duplicate claim id: {claim.claim_id}")
         claim_ids.add(claim.claim_id)
-        if not set(claim.visible_evidence_references).issubset(source_item_ids):
+        if not set(claim.visible_evidence_references).issubset(visible_fact_ids):
             raise ValueError("claim assessment references evidence not visible to the evaluated model")
         _validate_checkpoint_span(claim.checkpoint, claim.claim_span)
         validate_response_span(claim.claim_span, transcript)
@@ -179,10 +178,10 @@ def _full_specificity_value_is_supported(element: SpecificityElement, spans: Lis
 
 
 def evidence_reference_ids(scoring_input: ConditionBlindScoringInput) -> List[str]:
-    """Return every permitted source-item and specificity evidence identifier."""
+    """Return every permitted visible-fact and specificity identifier."""
     return sorted(
         {
-            *{span.source_item_id for fact in scoring_input.facts for span in fact.source_support},
+            *{fact.fact_id for fact in scoring_input.facts},
             *{element.element_id for fact in scoring_input.facts for element in fact.specificity_elements},
         }
     )

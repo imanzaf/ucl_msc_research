@@ -39,6 +39,7 @@ from src.data_models.study import (
 )
 from src.llm.openrouter import ProviderTextResponse
 from src.prompts.experiment import compile_experiment_prompt
+from src.scenarios.fact_rendering import visible_facts_sha256
 from src.scenarios.word_count import count_words
 from src.storage import append_model_jsonl_atomic
 
@@ -87,16 +88,14 @@ def _build_run_unit(
     randomised_position: int,
     created_at: datetime,
 ) -> RunUnit:
-    """Build one evidence-packet run unit with authenticated prompt and follow-up bytes."""
-    packet = scenario.source_packet
+    """Build one direct-fact run unit with authenticated prompt and follow-up bytes."""
     initial_messages, follow_up, initial_hash, follow_up_hash = compile_experiment_prompt(
         scenario,
-        packet,
         cell,
         assigned_word_limit,
     )
     return RunUnit(
-        schema_version="2.0.0",
+        schema_version="3.0.0",
         run_unit_id=_short_identifier("RUN", block_id, cell.cell_id),
         block_id=block_id,
         scenario_id=scenario.scenario_id,
@@ -109,7 +108,7 @@ def _build_run_unit(
         global_randomisation_seed=global_randomisation_seed,
         block_randomisation_seed=block_randomisation_seed,
         randomised_position=randomised_position,
-        source_packet_sha256=packet.rendered_sha256,
+        visible_facts_sha256=visible_facts_sha256(scenario),
         initial_request_messages=initial_messages,
         initial_request_sha256=initial_hash,
         follow_up_message=follow_up,
@@ -207,7 +206,7 @@ def build_material_priority_run_plan(
     randomisation_seed: int,
     created_at: datetime,
 ) -> List[RunUnit]:
-    """Build all 240 tight-budget scenario–model–cue conversations."""
+    """Build all 120 tight-budget scenario–model–cue conversations."""
     units = _build_exploratory_run_plan(
         scenarios,
         models,
@@ -216,7 +215,7 @@ def build_material_priority_run_plan(
         created_at,
         _tight_limit_by_use_case(budget_manifest),
     )
-    validate_exploratory_run_plan(units, expected_count=240, expected_cells=2)
+    validate_exploratory_run_plan(units, expected_count=120, expected_cells=2)
     return units
 
 
@@ -226,7 +225,7 @@ def build_brevity_locus_run_plan(
     randomisation_seed: int,
     created_at: datetime,
 ) -> List[RunUnit]:
-    """Build all 120 neutral, user-requested-brevity conversations without a system cap."""
+    """Build all 60 neutral, user-requested-brevity conversations without a system cap."""
     units = _build_exploratory_run_plan(
         scenarios,
         models,
@@ -234,7 +233,7 @@ def build_brevity_locus_run_plan(
         randomisation_seed,
         created_at,
     )
-    validate_exploratory_run_plan(units, expected_count=120, expected_cells=1)
+    validate_exploratory_run_plan(units, expected_count=60, expected_cells=1)
     return units
 
 
@@ -243,10 +242,10 @@ def validate_exploratory_run_plan(run_units: Iterable[RunUnit], expected_count: 
     units = list(run_units)
     if len(units) != expected_count:
         raise ValueError(f"exploratory plan must contain exactly {expected_count} conversations")
-    if len({unit.scenario_id for unit in units}) != 40 or len({unit.model_id for unit in units}) != 3:
-        raise ValueError("exploratory plan requires 40 scenarios and three models")
+    if len({unit.scenario_id for unit in units}) != 20 or len({unit.model_id for unit in units}) != 3:
+        raise ValueError("exploratory plan requires 20 scenarios and three models")
     grouped = group_run_units_by_block(units)
-    if len(grouped) != 120 or any(len(block) != expected_cells for block in grouped.values()):
+    if len(grouped) != 60 or any(len(block) != expected_cells for block in grouped.values()):
         raise ValueError("exploratory plan has an invalid scenario–model cell matrix")
     if len({unit.run_unit_id for unit in units}) != expected_count:
         raise ValueError("exploratory run-unit ids must be unique")
@@ -347,8 +346,8 @@ def validate_calibration_run_plan(run_units: Iterable[RunUnit], global_randomisa
         expected_block_id = _short_identifier("BLOCK", scenario_id, model_id)
         if block_id != expected_block_id or {unit.block_randomisation_seed for unit in block_units} != {_block_seed(stored_seed, block_id)}:
             raise ValueError("calibration block id or seed does not derive from its assignment")
-        if len({unit.source_packet_sha256 for unit in block_units}) != 1:
-            raise ValueError("calibration block cells must share one exact source packet")
+        if len({unit.visible_facts_sha256 for unit in block_units}) != 1:
+            raise ValueError("calibration block cells must share one exact visible fact list")
         expected_cells = primary_experiment_cells()
         random.Random(_block_seed(stored_seed, block_id)).shuffle(expected_cells)
         cell_by_position = {unit.randomised_position: unit.cell for unit in block_units}
@@ -388,19 +387,19 @@ def validate_complete_run_plan(run_units: Iterable[RunUnit], global_randomisatio
     """Recompute IDs, hashes, dimensions, seeds, positions, and four-cell isolation for the complete plan."""
     units = list(run_units)
     if len(units) != EXPECTED_CONVERSATION_COUNT:
-        raise ValueError("complete run plan must contain exactly 480 conversations")
+        raise ValueError(f"complete run plan must contain exactly {EXPECTED_CONVERSATION_COUNT} conversations")
     grouped = group_run_units_by_block(units)
     if len(grouped) != EXPECTED_CONVERSATION_COUNT // 4:
-        raise ValueError("complete run plan must contain exactly 120 four-cell blocks")
+        raise ValueError("complete run plan must contain exactly 60 four-cell blocks")
     if len({unit.run_unit_id for unit in units}) != len(units):
         raise ValueError("complete run plan contains duplicate run-unit IDs")
     scenario_ids = {unit.scenario_id for unit in units}
     model_ids = {unit.model_id for unit in units}
-    if len(scenario_ids) != 40 or len(model_ids) != 3:
-        raise ValueError("complete run plan requires exactly 40 scenarios and three evaluated models")
-    expected_scenario_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 5)}
+    if len(scenario_ids) != 20 or len(model_ids) != 3:
+        raise ValueError("complete run plan requires exactly 20 scenarios and three evaluated models")
+    expected_scenario_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 3)}
     if scenario_ids != expected_scenario_ids:
-        raise ValueError("complete run plan scenario IDs must be CF001-CF010 R1-R4")
+        raise ValueError("complete run plan scenario IDs must be CF001-CF010 R1-R2")
     stored_global_seeds = {unit.global_randomisation_seed for unit in units}
     if len(stored_global_seeds) != 1:
         raise ValueError("all run units must bind one global randomisation seed")
@@ -430,8 +429,8 @@ def validate_complete_run_plan(run_units: Iterable[RunUnit], global_randomisatio
         cell_by_position = {unit.randomised_position: unit.cell for unit in block_units}
         if [cell_by_position[position] for position in range(4)] != expected_cells:
             raise ValueError("block cell order does not reproduce the frozen seeded permutation")
-        if len({unit.source_packet_sha256 for unit in block_units}) != 1:
-            raise ValueError("all cells in a block must use one exact source packet")
+        if len({unit.visible_facts_sha256 for unit in block_units}) != 1:
+            raise ValueError("all cells in a block must use one exact visible fact list")
         for unit in block_units:
             if unit.run_unit_id != _short_identifier("RUN", block_id, unit.cell.cell_id):
                 raise ValueError("run-unit ID does not derive from block and cell")
@@ -545,6 +544,8 @@ def _call_with_retries(
                     input_tokens=response.input_tokens,
                     output_tokens=response.output_tokens,
                     total_tokens=response.input_tokens + response.output_tokens,
+                    cost_credits=response.cost_credits,
+                    upstream_inference_cost=response.upstream_inference_cost,
                 ),
             )
         )

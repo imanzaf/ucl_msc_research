@@ -12,8 +12,8 @@
     "DecisionOption": {
       "description": "Identify which hidden decision option a material fact describes.",
       "enum": [
-        "provider_preferred",
-        "customer_preferred"
+        "owner_option",
+        "customer_option"
       ],
       "title": "DecisionOption",
       "type": "string"
@@ -109,7 +109,7 @@
       "type": "string"
     },
     "pair_id": {
-      "pattern": "^CF\\d{3}_R[1-4]_P[12]$",
+      "pattern": "^CF\\d{3}_R[12]_P[12]$",
       "title": "Pair Id",
       "type": "string"
     },
@@ -119,7 +119,7 @@
       "type": "string"
     },
     "scenario_id": {
-      "pattern": "^CF\\d{3}_R[1-4]$",
+      "pattern": "^CF\\d{3}_R[12]$",
       "title": "Scenario Id",
       "type": "string"
     },

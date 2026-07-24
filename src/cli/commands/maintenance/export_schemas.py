@@ -31,8 +31,6 @@ from src.data_models.manifests import (
     PromptReviewManifest,
     ProtocolDeviation,
     ProtocolDeviationManifest,
-    ScenarioGenerationApproval,
-    ScenarioGenerationCostReport,
     ScoringExecutionManifest,
     SmallestEffectManifest,
     TightLimitManifest,
@@ -59,7 +57,7 @@ from src.data_models.scoring import (
     ValidationDispositionManifest,
 )
 from src.llm.openrouter import ProviderTextCacheRecord, ProviderTextResponse
-from src.paths import REPO_ROOT
+from src.paths import ACTIVE_SCENARIO_INPUT_ROOT, REPO_ROOT
 
 SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
     "accepted_scenario": AcceptedScenario,
@@ -105,8 +103,6 @@ SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
     "response_communication": ResponseCommunicationResult,
     "run_unit": RunUnit,
     "scenario_candidate": CandidateScenario,
-    "scenario_generation_approval": ScenarioGenerationApproval,
-    "scenario_generation_cost_report": ScenarioGenerationCostReport,
     "scenario_acceptance_record": ScenarioAcceptanceRecord,
     "scenario_pipeline_disposition": ScenarioPipelineDisposition,
     "scenario_review_history": ScenarioReviewHistory,
@@ -122,55 +118,6 @@ SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
 }
 
 
-def _add_seed_version_conditionals(schema: Dict[str, object]) -> Dict[str, object]:
-    """Bind each immutable seed version to its exact active or archived use-case structure."""
-    schema["allOf"] = [
-        {
-            "if": {"properties": {"schema_version": {"const": "0.9.0"}}, "required": ["schema_version"]},
-            "then": {"properties": {"use_cases": {"items": {"$ref": "#/$defs/V09UseCaseSeed"}}}},
-        },
-        {
-            "if": {"properties": {"schema_version": {"const": "0.8.0"}}, "required": ["schema_version"]},
-            "then": {"properties": {"use_cases": {"items": {"$ref": "#/$defs/UseCaseSeed"}}}},
-        },
-        {
-            "if": {"properties": {"schema_version": {"const": "0.7.0"}}, "required": ["schema_version"]},
-            "then": {"properties": {"use_cases": {"items": {"$ref": "#/$defs/V07UseCaseSeed"}}}},
-        },
-        {
-            "if": {"properties": {"schema_version": {"const": "0.6.0"}}, "required": ["schema_version"]},
-            "then": {
-                "properties": {
-                    "use_cases": {
-                        "items": {
-                            "allOf": [
-                                {"$ref": "#/$defs/LegacyUseCaseSeed"},
-                                {"required": ["decision_conflict"], "not": {"required": ["potential_harm_pathway"]}},
-                            ]
-                        }
-                    }
-                }
-            },
-        },
-        {
-            "if": {"properties": {"schema_version": {"enum": ["0.5.1", "0.5.2"]}}, "required": ["schema_version"]},
-            "then": {
-                "properties": {
-                    "use_cases": {
-                        "items": {
-                            "allOf": [
-                                {"$ref": "#/$defs/LegacyUseCaseSeed"},
-                                {"required": ["potential_harm_pathway"], "not": {"required": ["decision_conflict"]}},
-                            ]
-                        }
-                    }
-                }
-            },
-        },
-    ]
-    return schema
-
-
 def main() -> None:
     """Write each strict boundary schema under schemas/."""
     argparse.ArgumentParser().parse_args()
@@ -179,10 +126,10 @@ def main() -> None:
     for name, model in SCHEMA_MODELS.items():
         path = output_root / f"{name}.schema.json"
         schema = model.model_json_schema()
-        if model is ScenarioSeedSet:
-            schema = _add_seed_version_conditionals(schema)
         payload = json.dumps(schema, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
         path.write_text(payload, encoding="utf-8")
+        if model is ScenarioSeedSet:
+            (ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json").write_text(payload, encoding="utf-8")
     print(f"Exported {len(SCHEMA_MODELS)} schemas to {output_root}")
 
 

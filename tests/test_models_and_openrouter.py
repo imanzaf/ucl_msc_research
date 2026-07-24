@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -54,7 +55,12 @@ def response(content: str) -> Dict[str, Any]:
         "id": "request-1",
         "model": "provider/model@frozen",
         "choices": [{"message": {"content": content}}],
-        "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 5,
+            "cost": 0.0123,
+            "cost_details": {"upstream_inference_cost": 0.01},
+        },
     }
 
 
@@ -125,6 +131,8 @@ def test_text_requests_cache_by_exact_bytes_and_do_not_repeat_provider_call(tmp_
         "cached_at",
         "record_sha256",
     }
+    assert first.cost_credits == Decimal("0.0123")
+    assert first.upstream_inference_cost == Decimal("0.01")
     assert provider_request_sha256(messages, "provider/model", 0.0, 500, 7) != provider_request_sha256(messages, "provider/model", 0.0, 501, 7)
 
 
@@ -174,6 +182,8 @@ def test_structured_request_preserves_returned_snapshot_usage_finish_and_hashes(
     assert result.returned_model_version == "provider/model@frozen"
     assert result.provider_request_id == "request-1"
     assert result.input_tokens == 10 and result.output_tokens == 5
+    assert result.cost_credits == Decimal("0.0123")
+    assert result.upstream_inference_cost == Decimal("0.01")
     assert result.finish_reason.value == "stop"
     assert len(result.request_sha256) == len(result.response_sha256) == 64
 
@@ -246,3 +256,5 @@ def test_structured_attempt_log_keeps_raw_failed_response(tmp_path: Path) -> Non
     assert attempt["response_text"] == raw_response
     assert attempt["validation_succeeded"] is False
     assert attempt["validation_error_type"] == "ValidationError"
+    assert Decimal(str(attempt["usage"]["cost_credits"])) == Decimal("0.0123")
+    assert Decimal(str(attempt["usage"]["upstream_inference_cost"])) == Decimal("0.01")

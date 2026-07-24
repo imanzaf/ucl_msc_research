@@ -1,4 +1,4 @@
-"""Finalize R1-R4 feasibility without changing the previously frozen tight limits."""
+"""Finalize R1-R2 feasibility without changing the previously frozen tight limits."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from src.storage import read_model_json, write_model_json_atomic
 
 
 def main() -> None:
-    """Bind accepted R1-R4 responses to immutable C1-derived limits and freeze feasibility."""
+    """Bind accepted R1-R2 responses to immutable C1-derived limits and freeze feasibility."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--accepted-root", type=Path, required=True)
     parser.add_argument("--accepted-scenario-manifest", type=Path, required=True)
@@ -30,7 +30,7 @@ def main() -> None:
         (args.output, WORD_BUDGET_MANIFEST_PATH),
     ]
     if any(supplied.resolve() != expected.resolve() for supplied, expected in expected_paths):
-        raise ValueError("word-budget finalization must use the fixed V0.9.0 lifecycle paths")
+        raise ValueError("word-budget finalization must use the fixed V0.10.0 lifecycle paths")
     if args.output.exists():
         raise FileExistsError("the frozen word-budget manifest already exists and cannot be replaced")
 
@@ -49,7 +49,7 @@ def main() -> None:
             raise ValueError("accepted C1 material fact count changed after tight-limit freeze")
         if artifact_sha256(calibration.material_facts) != frozen_budget.calibration_material_facts_sha256:
             raise ValueError("accepted C1 material facts changed after tight-limit freeze")
-        evaluations = [scenario_by_id[f"{frozen_budget.use_case_id}_R{replication}"] for replication in range(1, 5)]
+        evaluations = [scenario_by_id[f"{frozen_budget.use_case_id}_R{replication}"] for replication in range(1, 3)]
         evaluation_counts = {scenario.scenario_id: material_fact_word_count(scenario.material_facts) for scenario in evaluations}
         validate_evaluation_headroom(frozen_budget.tight_word_limit, evaluation_counts)
         use_case_scenarios = [calibration, *evaluations]

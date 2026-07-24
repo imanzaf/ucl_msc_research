@@ -15,14 +15,14 @@ from src.data_models.scenario_review import (
     RevisionCycleRecord,
     required_automated_review_kinds,
 )
-from src.data_models.scenarios import CandidateScenario, V09ReplicationSeed, V09UseCaseSeed
+from src.data_models.scenarios import CandidateScenario, V10ReplicationSeed, V10UseCaseSeed
 
 
 class ScenarioPipelineBackend(Protocol):
     """Define model-backed generation and review operations without hard-coding a provider."""
 
-    def generate_candidate(self, use_case: V09UseCaseSeed, replication: V09ReplicationSeed) -> CandidateScenario:
-        """Generate a source packet and simple facts in one call."""
+    def generate_candidate(self, use_case: V10UseCaseSeed, replication: V10ReplicationSeed) -> CandidateScenario:
+        """Generate exactly four simple facts in one call."""
         ...
 
     def review_candidates(
@@ -30,13 +30,13 @@ class ScenarioPipelineBackend(Protocol):
         candidates: List[CandidateScenario],
         fixed_diversity_candidates: List[CandidateScenario],
     ) -> List[AutomatedScenarioReview]:
-        """Review one C1 or a complete R1-R4 batch with one semantic contract."""
+        """Review one C1 or a complete R1-R2 batch with one semantic contract."""
         ...
 
     def revise_candidate(
         self,
-        use_case: V09UseCaseSeed,
-        replication: V09ReplicationSeed,
+        use_case: V10UseCaseSeed,
+        replication: V10ReplicationSeed,
         candidate: CandidateScenario,
         reviews: List[AutomatedScenarioReview],
         cycle_number: int,
@@ -86,7 +86,7 @@ def _run_stage_reviews(
     fixed_candidates: List[CandidateScenario],
     is_calibration_batch: bool,
 ) -> Dict[str, AutomatedScenarioReview]:
-    """Review C1 candidates separately or an R1-R4 batch together."""
+    """Review C1 candidates separately or an R1-R2 batch together."""
     if not is_calibration_batch:
         return _run_review_batch(backend, candidates, fixed_candidates)
     reviews: Dict[str, AutomatedScenarioReview] = {}
@@ -117,7 +117,7 @@ def _terminal_review_decision(reviews: List[AutomatedScenarioReview]) -> ReviewD
 
 
 def run_scenario_batch_pipeline(
-    scenario_seeds: List[Tuple[V09UseCaseSeed, V09ReplicationSeed]],
+    scenario_seeds: List[Tuple[V10UseCaseSeed, V10ReplicationSeed]],
     backend: ScenarioPipelineBackend,
     revision_record_factory: Callable[
         [
@@ -263,7 +263,6 @@ def default_revision_record_factory(
         input_artifact_sha256=previous_candidate.candidate_sha256,
         output_artifact_sha256=revised_candidate.candidate_sha256,
         rebuilt_dependency_sha256={
-            "source_packet": artifact_sha256(revised_candidate.source_packet),
             "material_facts": artifact_sha256(revised_candidate.material_facts),
             "fact_pairs": artifact_sha256(revised_candidate.fact_pairs),
         },

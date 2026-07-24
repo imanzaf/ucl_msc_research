@@ -53,7 +53,7 @@ class ModelWeightType(str, Enum):
 class CompleteRenderedRequestReview(ImmutableModel):
     """Store one holistic review of a complete scenario-specific rendered request."""
 
-    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
     expressed_concern: ExpressedConcernCondition
     cue_template_id: int = Field(ge=1, le=4)
     assigned_phrase: str = Field(min_length=1)
@@ -95,9 +95,9 @@ class CalibrationRenderedRequestReview(CompleteRenderedRequestReview):
 
 
 class EvaluationRenderedRequestReview(CompleteRenderedRequestReview):
-    """Store one holistic review of a rendered R1-R4 evaluation request."""
+    """Store one holistic review of a rendered R1-R2 evaluation request."""
 
-    scenario_id: str = Field(pattern=r"^CF\d{3}_R[1-4]$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_R[12]$")
 
 
 def _request_reviews_are_acceptable(request_reviews: List[CompleteRenderedRequestReview]) -> bool:
@@ -156,13 +156,13 @@ class CalibrationPromptReviewManifest(VersionedImmutableModel):
 
 
 class PromptReviewManifest(VersionedImmutableModel):
-    """Freeze holistic researcher review of all 80 rendered evaluation requests."""
+    """Freeze holistic researcher review of all 40 rendered evaluation requests."""
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
     prompt_version: str = Field(pattern=r"^v[1-9][0-9]*$")
     accepted_scenario_manifest_sha256: str
     cue_pairs: Dict[int, List[str]]
-    request_reviews: List[EvaluationRenderedRequestReview] = Field(min_length=80, max_length=80)
+    request_reviews: List[EvaluationRenderedRequestReview] = Field(min_length=40, max_length=40)
     researcher_notes: str = Field(min_length=1)
     decision: CueReviewDecision
     reviewed_by: str = Field(min_length=1)
@@ -177,19 +177,19 @@ class PromptReviewManifest(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_approval(self) -> "PromptReviewManifest":
-        """Permit approval only after all 40×2 complete requests pass holistic review."""
+        """Permit approval only after all 20×2 complete requests pass holistic review."""
         expected_pairs = {index: list(pair) for index, pair in CUE_PAIRS.items()}
         if self.prompt_version != PROMPT_PACKAGE_VERSION or self.cue_pairs != expected_pairs:
             raise ValueError("prompt review must bind the exact active prompt version and four cue pairs")
         expected_keys = {
             (f"CF{use_case:03d}_R{replication}", condition)
             for use_case in range(1, 11)
-            for replication in range(1, 5)
+            for replication in range(1, 3)
             for condition in ExpressedConcernCondition
         }
         observed_keys = {(review.scenario_id, review.expressed_concern) for review in self.request_reviews}
         if observed_keys != expected_keys or len(observed_keys) != len(self.request_reviews):
-            raise ValueError("prompt review must contain each of the 80 scenario-by-concern requests exactly once")
+            raise ValueError("prompt review must contain each of the 40 scenario-by-concern requests exactly once")
         if self.decision == CueReviewDecision.APPROVE and not _request_reviews_are_acceptable(self.request_reviews):
             raise ValueError("cue wording cannot be approved while any complete-request review fails")
         expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"manifest_sha256"}))
@@ -205,8 +205,8 @@ class UseCaseBudget(ImmutableModel):
     calibration_scenario_id: str = Field(pattern=r"^CF\d{3}_C1$")
     calibration_fact_word_count: int = Field(gt=0)
     tight_word_limit: int = Field(ge=80, le=115, multiple_of=5)
-    evaluation_fact_word_counts: Dict[str, int] = Field(min_length=4, max_length=4)
-    material_facts_sha256: Dict[str, str] = Field(min_length=5, max_length=5)
+    evaluation_fact_word_counts: Dict[str, int] = Field(min_length=2, max_length=2)
+    material_facts_sha256: Dict[str, str] = Field(min_length=3, max_length=3)
 
     @field_validator("material_facts_sha256")
     @classmethod
@@ -222,14 +222,14 @@ class UseCaseBudget(ImmutableModel):
         expected_limit = 5 * ((self.calibration_fact_word_count + 12 + 4) // 5)
         if self.tight_word_limit != expected_limit:
             raise ValueError("tight word limit must equal 5 * ceil((M_u + 12) / 5)")
-        expected_ids = {f"{self.use_case_id}_R{index}" for index in range(1, 5)}
+        expected_ids = {f"{self.use_case_id}_R{index}" for index in range(1, 3)}
         if set(self.evaluation_fact_word_counts) != expected_ids:
-            raise ValueError("budget record must contain R1-R4 evaluation material fact lists")
+            raise ValueError("budget record must contain R1-R2 evaluation material fact lists")
         if any(count > self.tight_word_limit - 12 for count in self.evaluation_fact_word_counts.values()):
             raise ValueError("every evaluation material fact list requires 12-word headroom")
         expected_all_ids = {self.calibration_scenario_id, *expected_ids}
         if set(self.material_facts_sha256) != expected_all_ids:
-            raise ValueError("material fact hashes must cover C1 and R1-R4")
+            raise ValueError("material fact hashes must cover C1 and R1-R2")
         return self
 
 
@@ -432,7 +432,7 @@ class WordBudgetManifest(VersionedImmutableModel):
 
 
 class TightLimitManifest(VersionedImmutableModel):
-    """Freeze C1-derived limits after the model adequacy pilot and before R1-R4."""
+    """Freeze C1-derived limits after the model adequacy pilot and before R1-R2."""
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
     freeze_status: FreezeStatus
@@ -520,7 +520,7 @@ class EvaluatedModelManifest(VersionedImmutableModel):
 class AcceptedScenarioEntry(ImmutableModel):
     """Record one immutable accepted scenario in a scenario-set manifest."""
 
-    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
     study_stage: ScenarioStage
     artifact_path: str = Field(min_length=1)
     artifact_sha256: str
@@ -544,11 +544,11 @@ class ScenarioManifestScope(str, Enum):
 class AcceptedScenarioSetId(str, Enum):
     """Identify the active accepted scenario family."""
 
-    V0_9_0 = ACTIVE_SCENARIO_SET_ID
+    V0_10_0 = ACTIVE_SCENARIO_SET_ID
 
 
 class AcceptedScenarioManifest(VersionedImmutableModel):
-    """Publish the accepted-only scenario set with source provenance."""
+    """Publish the accepted-only scenario set with seed provenance."""
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
     scenario_set_id: AcceptedScenarioSetId
@@ -568,11 +568,11 @@ class AcceptedScenarioManifest(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_complete_scenario_set(self) -> "AcceptedScenarioManifest":
-        """Require exactly C1 and R1-R4 for every one of the ten use cases."""
+        """Require exactly C1, R1, and R2 for every one of the ten use cases."""
         if self.seed_sha256 != ACTIVE_SCENARIO_SEED_SHA256 or self.seed_schema_sha256 != ACTIVE_SCENARIO_SEED_SCHEMA_SHA256:
-            raise ValueError("accepted-scenario manifest must bind the approved immutable V0.9.0 seed and schema")
+            raise ValueError("accepted-scenario manifest must bind the approved immutable V0.10.0 seed and schema")
         calibration_ids = {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
-        evaluation_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 5)}
+        evaluation_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 3)}
         expected_ids = calibration_ids if self.manifest_scope == ScenarioManifestScope.CALIBRATION else calibration_ids | evaluation_ids
         entry_ids = {entry.scenario_id for entry in self.entries}
         if len(self.entries) != len(expected_ids) or entry_ids != expected_ids:
@@ -1113,92 +1113,6 @@ class AmplePilotApproval(VersionedImmutableModel):
         expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"approval_sha256"}))
         if self.approval_sha256 != expected_hash:
             raise ValueError("ample-pilot approval digest does not match canonical content")
-        return self
-
-
-class ScenarioGenerationCostReport(VersionedImmutableModel):
-    """Bind conservative scenario-generation costs to one seed batch and backend."""
-
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
-    stage: ScenarioStage
-    use_case_id: Optional[str] = Field(default=None, pattern=r"^CF\d{3}$")
-    backend_specification: str = Field(min_length=1)
-    seed_sha256: str
-    seed_schema_sha256: str
-    generator_model_id: str = Field(min_length=1)
-    reviewer_model_id: str = Field(min_length=1)
-    scenario_count: int = Field(gt=0)
-    base_generation_calls: int = Field(gt=0)
-    base_review_calls: int = Field(gt=0)
-    worst_case_generation_calls: int = Field(gt=0)
-    worst_case_review_calls: int = Field(gt=0)
-    maximum_input_tokens_per_call: int = Field(gt=0)
-    maximum_output_tokens_per_call: int = Field(default=12000, ge=12000, le=12000)
-    base_cost_usd: Decimal = Field(ge=0)
-    worst_case_cost_usd: Decimal = Field(ge=0)
-    pricing_assumptions: Dict[str, Decimal]
-    generated_at: datetime
-    report_sha256: str
-
-    @field_validator("seed_sha256", "seed_schema_sha256", "report_sha256")
-    @classmethod
-    def validate_hashes(cls, value: str) -> str:
-        """Validate the immutable seed and report digests."""
-        return validate_sha256(value)
-
-    @model_validator(mode="after")
-    def validate_batch_and_costs(self) -> "ScenarioGenerationCostReport":
-        """Require exact lifecycle call counts and conservative cost ordering."""
-        expected = {
-            ScenarioStage.CALIBRATION: (10, 10, 10, 20, 20),
-            ScenarioStage.EVALUATION: (4, 4, 1, 8, 2),
-        }[self.stage]
-        observed = (
-            self.scenario_count,
-            self.base_generation_calls,
-            self.base_review_calls,
-            self.worst_case_generation_calls,
-            self.worst_case_review_calls,
-        )
-        if observed != expected:
-            raise ValueError("scenario-generation cost report does not match the frozen lifecycle call counts")
-        if (self.stage == ScenarioStage.CALIBRATION) != (self.use_case_id is None):
-            raise ValueError("only evaluation scenario generation identifies one use case")
-        if self.generator_model_id == self.reviewer_model_id:
-            raise ValueError("scenario generation and review require different model ids")
-        if self.worst_case_cost_usd < self.base_cost_usd:
-            raise ValueError("worst-case scenario-generation cost cannot be below base cost")
-        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"report_sha256"}))
-        if self.report_sha256 != expected_hash:
-            raise ValueError("scenario-generation cost report digest does not match canonical content")
-        return self
-
-
-class ScenarioGenerationApproval(VersionedImmutableModel):
-    """Bind explicit researcher cost approval to one scenario-generation report."""
-
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
-    cost_report_sha256: str
-    approved: bool
-    approved_maximum_cost_usd: Decimal = Field(gt=0)
-    approved_by: str = Field(min_length=1)
-    approved_at: datetime
-    approval_sha256: str
-
-    @field_validator("cost_report_sha256", "approval_sha256")
-    @classmethod
-    def validate_hashes(cls, value: str) -> str:
-        """Validate the cost-report and approval digests."""
-        return validate_sha256(value)
-
-    @model_validator(mode="after")
-    def validate_approval(self) -> "ScenarioGenerationApproval":
-        """Require an explicit positive approval and exact canonical self-hash."""
-        if not self.approved:
-            raise ValueError("scenario-generation approval must be explicitly true")
-        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"approval_sha256"}))
-        if self.approval_sha256 != expected_hash:
-            raise ValueError("scenario-generation approval digest does not match canonical content")
         return self
 
 

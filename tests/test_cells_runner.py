@@ -1,4 +1,4 @@
-"""Test cell construction, source equivalence, prompt isolation, counts, and retries."""
+"""Test cell construction, direct-fact equivalence, prompt isolation, counts, and retries."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import pytest
 from src.data_models.common import artifact_sha256, sha256_bytes
 from src.data_models.experiments import CompletionFinishReason, ConversationTranscript, RetryPolicy
 from src.data_models.prompt_controls import validate_prompt_factor_isolation
-from src.data_models.scenarios import AcceptedScenario, SourceItem
+from src.data_models.scenarios import AcceptedScenario
 from src.data_models.study import ALL_CUE_PHRASES, BRIEF_REQUEST, WordBudgetCondition, all_experiment_cells
 from src.experiments.layout import validate_experiment_path
 from src.experiments.scenario_runner import (
@@ -25,8 +25,7 @@ from src.experiments.scenario_runner import (
 )
 from src.llm.openrouter import ProviderTextResponse
 from src.prompts.experiment import _entity_reference, compile_experiment_prompt
-from src.scenarios.rendering_templates import SourceFormat
-from src.scenarios.source_rendering import build_source_packet
+from src.scenarios.fact_rendering import render_visible_facts, visible_facts_sha256
 from src.scenarios.word_count import count_words
 from tests.factories import make_accepted_scenario, make_budget_manifest, make_models, make_transcript
 
@@ -39,58 +38,43 @@ def test_all_cells_have_derived_stage_and_deterministic_ids() -> None:
     assert all(cell.cell_id.startswith("primary__") for cell in cells)
 
 
-def test_domain_source_renderer_is_text_native_and_deterministic() -> None:
-    """Render all ten domains through distinct native formats with stable hashes."""
-    expected_formats = {
-        "current_account_configuration_comparison",
-        "later_life_mortgage_comparison",
-        "transfer_offer_comparison",
-        "consolidation_loan_term_comparison",
-        "mortgage_retention_comparison",
-        "difficulty_support_comparison",
-        "fund_switch_comparison",
-        "retirement_income_comparison",
-        "claim_settlement_comparison",
-        "international_payment_comparison",
-    }
+def test_direct_fact_renderer_is_deterministic() -> None:
+    """Render the four facts directly with stable bytes and no source packet."""
     first = [make_accepted_scenario(f"CF{index:03d}_R1") for index in range(1, 11)]
     second = [make_accepted_scenario(f"CF{index:03d}_R1") for index in range(1, 11)]
-    assert {scenario.source_packet.source_format.value for scenario in first} == expected_formats
-    assert [scenario.source_packet.rendered_text for scenario in first] == [scenario.source_packet.rendered_text for scenario in second]
-    assert [scenario.source_packet.rendered_sha256 for scenario in first] == [scenario.source_packet.rendered_sha256 for scenario in second]
+    assert "source_packet" not in AcceptedScenario.model_fields
+    assert [render_visible_facts(scenario) for scenario in first] == [render_visible_facts(scenario) for scenario in second]
+    assert [visible_facts_sha256(scenario) for scenario in first] == [visible_facts_sha256(scenario) for scenario in second]
+    assert all(render_visible_facts(scenario).count("\n- ") == 3 for scenario in first)
 
 
-def test_scenario_rejects_extra_source_items_and_wrong_use_case_renderer() -> None:
-    """Keep all visible source content scored and bind each family to its frozen renderer."""
+def test_scenario_rejects_a_source_packet_in_direct_fact_schema() -> None:
+    """Prevent V4 scenarios from reintroducing a duplicated evidence packet."""
     scenario = make_accepted_scenario("CF001_R1")
-    with pytest.raises(ValueError, match="at most 4"):
-        build_source_packet(
-            scenario.scenario_id,
-            scenario.source_packet.fixed_title,
-            [*scenario.source_packet.items, SourceItem(source_item_id="EXTRA", header="Extra", body="Unscored material claim.")],
-        )
-    wrong_source = build_source_packet(
-        scenario.scenario_id,
-        scenario.source_packet.fixed_title,
-        scenario.source_packet.items,
-        source_format=SourceFormat.TRANSFER_OFFER_COMPARISON,
-    )
     payload = scenario.model_dump(mode="json", exclude={"artifact_sha256"})
-    payload["source_packet"] = wrong_source.model_dump(mode="json")
-    with pytest.raises(ValueError, match="frozen V0.9.0 use-case renderer"):
+    payload["source_packet"] = {
+        "schema_version": "3.0.0",
+        "scenario_id": scenario.scenario_id,
+        "fixed_title": "Duplicated evidence",
+        "source_format": "current_account_configuration_comparison",
+        "items": [],
+        "rendered_text": "Duplicated evidence",
+        "rendered_sha256": "0" * 64,
+    }
+    with pytest.raises(ValueError):
         AcceptedScenario.model_validate({**payload, "artifact_sha256": artifact_sha256(payload)})
 
 
-def test_full_run_plan_has_480_conversations_960_responses_and_reproducible_order() -> None:
-    """Build 120 canonical-order four-cell blocks and reproduce their order from one seed."""
-    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 5)]
+def test_full_run_plan_has_240_conversations_480_responses_and_reproducible_order() -> None:
+    """Build 60 canonical-order four-cell blocks and reproduce their order from one seed."""
+    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     created_at = datetime(2026, 7, 19, tzinfo=timezone.utc)
     first = build_run_plan(scenarios, make_models(), make_budget_manifest(), randomisation_seed=17, created_at=created_at)
     second = build_run_plan(scenarios, make_models(), make_budget_manifest(), randomisation_seed=17, created_at=created_at)
     validate_complete_run_plan(first)
 
-    assert len(first) == 480
-    assert len(first) * 2 == 960
+    assert len(first) == 240
+    assert len(first) * 2 == 480
     assert [unit.run_unit_id for unit in first] == [unit.run_unit_id for unit in second]
     assert [unit.cell.cell_id for unit in first] == [unit.cell.cell_id for unit in second]
     tampered = list(first)
@@ -119,7 +103,7 @@ def test_calibration_plan_has_120_conversations() -> None:
 
 def test_prompt_factor_isolation_one_cue_and_identical_follow_up() -> None:
     """Allow byte differences only for budget and cue in one primary four-cell block."""
-    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 5)]
+    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     plan = build_run_plan(
         scenarios,
         make_models(),
@@ -137,7 +121,8 @@ def test_prompt_factor_isolation_one_cue_and_identical_follow_up() -> None:
         assert len(observed) == 1
         assert content.count(observed[0]) == 1
         assert all(phrase not in unit.follow_up_message.content for phrase in ALL_CUE_PHRASES)
-        hidden_values = make_accepted_scenario(unit.scenario_id).hidden_design.research.decision.model_dump(mode="json").values()
+        design = make_accepted_scenario(unit.scenario_id).hidden_design
+        hidden_values = [design.owner_benefit_mechanism, design.customer_supporting_option.value, design.owner_supporting_option.value]
         assert all(value not in content for value in hidden_values)
         assert "decision_conflict" not in content
         assert "customer-aligned" not in content
@@ -151,7 +136,6 @@ def test_prompt_contains_only_broad_deployment_guidance_and_seeded_dialogue() ->
     scenario = make_accepted_scenario()
     initial, follow_up, _, _ = compile_experiment_prompt(
         scenario,
-        scenario.source_packet,
         all_experiment_cells()[0],
         assigned_word_limit=240,
     )
@@ -163,7 +147,8 @@ def test_prompt_contains_only_broad_deployment_guidance_and_seeded_dialogue() ->
     assert system_content.startswith(expected_opening)
     assert "\n\n## Guidance\n" in system_content
     assert scenario.deployment_context.authority_limits in system_content
-    assert "\n\n## Customer and product information\n" in system_content
+    assert "\n\n## Available information\n" in system_content
+    assert render_visible_facts(scenario) in system_content
     assert scenario.customer_messages.initial_message in initial[1].content
     assert follow_up.content == scenario.customer_messages.follow_up_message
     assert all(label not in system_content for label in ["Role:", "Model owner:", "Task:", "Response genre:", "Source packet:"])
@@ -191,7 +176,6 @@ def test_prompt_compilation_rejects_simulation_framing_even_if_model_validation_
     with pytest.raises(ValueError, match="simulation or research framing"):
         compile_experiment_prompt(
             leaked_scenario,
-            leaked_scenario.source_packet,
             all_experiment_cells()[0],
             assigned_word_limit=240,
         )
@@ -200,28 +184,24 @@ def test_prompt_compilation_rejects_simulation_framing_even_if_model_validation_
 def test_prompt_compilation_rejects_hidden_decision_conflict_leakage() -> None:
     """Reject a research-only action even after punctuation-only changes."""
     scenario = make_accepted_scenario()
-    hidden_action = scenario.hidden_design.research.decision.provider_preferred_option.value
+    hidden_action = scenario.hidden_design.owner_benefit_mechanism
     for leaked_action in [hidden_action, hidden_action.rstrip(".")]:
         leaked_messages = scenario.customer_messages.model_copy(update={"initial_message": f"{leaked_action}?"})
         leaked_scenario = scenario.model_copy(update={"customer_messages": leaked_messages})
         with pytest.raises(ValueError, match="decision-conflict metadata"):
             compile_experiment_prompt(
                 leaked_scenario,
-                leaked_scenario.source_packet,
                 all_experiment_cells()[0],
                 assigned_word_limit=240,
             )
-    punctuated_action = "Choose the provider's lower-cost option."
-    compact_leak = "Choose the providers lower cost option"
-    decision = scenario.hidden_design.research.decision.model_copy(update={"provider_benefit": punctuated_action})
-    research = scenario.hidden_design.research.model_copy(update={"decision": decision})
-    hidden_design = scenario.hidden_design.model_copy(update={"research": research})
+    punctuated_action = "Retain the provider's interest-bearing balance."
+    compact_leak = "Retain the providers interest bearing balance"
+    hidden_design = scenario.hidden_design.model_copy(update={"owner_benefit_mechanism": punctuated_action})
     leaked_messages = scenario.customer_messages.model_copy(update={"initial_message": f"{compact_leak}?"})
     leaked_scenario = scenario.model_copy(update={"hidden_design": hidden_design, "customer_messages": leaked_messages})
     with pytest.raises(ValueError, match="decision-conflict metadata"):
         compile_experiment_prompt(
             leaked_scenario,
-            leaked_scenario.source_packet,
             all_experiment_cells()[0],
             assigned_word_limit=240,
         )
@@ -231,10 +211,9 @@ def test_prompt_compilation_rejects_hidden_decision_conflict_leakage() -> None:
     "reserved_label",
     [
         "decision conflict",
-        "customer_preferred_option",
+        "customer supporting",
         "provider aligned",
-        "provider_benefit",
-        "customer_harm",
+        "owner benefit mechanism",
         "provider-aligned",
         "latent conflict",
     ],
@@ -247,20 +226,19 @@ def test_prompt_compilation_rejects_reserved_conflict_labels(reserved_label: str
     with pytest.raises(ValueError, match="decision-conflict metadata"):
         compile_experiment_prompt(
             leaked_scenario,
-            leaked_scenario.source_packet,
             all_experiment_cells()[0],
             assigned_word_limit=240,
         )
 
 
 def test_exploratory_plan_count_gates_and_brevity_locus() -> None:
-    """Enforce exact 240/120 matrices and no system cap in brevity_locus_v1."""
-    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 5)]
+    """Enforce exact 120/60 matrices and no system cap in brevity_locus_v1."""
+    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     created_at = datetime(2026, 7, 19, tzinfo=timezone.utc)
     material = build_material_priority_run_plan(scenarios, make_models(), make_budget_manifest(), 7, created_at)
     brevity = build_brevity_locus_run_plan(scenarios, make_models(), 7, created_at)
-    assert len(material) == 240
-    assert len(brevity) == 120
+    assert len(material) == 120
+    assert len(brevity) == 60
     assert all(unit.assigned_word_limit is None for unit in brevity)
     assert all(BRIEF_REQUEST in unit.initial_request_messages[-1].content for unit in brevity)
     assert all("Use no more than" not in unit.initial_request_messages[0].content for unit in brevity)
@@ -268,7 +246,7 @@ def test_exploratory_plan_count_gates_and_brevity_locus() -> None:
 
 def test_retry_attempts_reuse_identical_prompt_bytes() -> None:
     """Record a failed attempt and successful retry with one immutable request hash."""
-    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 5)]
+    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     run_unit = build_run_plan(
         scenarios,
         make_models(),
@@ -315,7 +293,7 @@ def test_retry_attempts_reuse_identical_prompt_bytes() -> None:
 
 def test_returned_model_version_mismatch_is_a_recorded_failed_attempt() -> None:
     """Never accept a provider alias that resolves to a snapshot other than the frozen version."""
-    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 5)]
+    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     run_unit = build_run_plan(
         scenarios,
         make_models(),

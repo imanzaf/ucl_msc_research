@@ -8,11 +8,11 @@ uv run risk-comm review launch --server-address 127.0.0.1
 
 The two pages are scenario review and one-pass conversation annotation. [src/review_app.py](../../src/review_app.py) contains no API client and exposes no generation, experiment, or scoring action.
 
-For each V0.9.0 candidate, the scenario page separates the exact evaluated deployment context and customer turns from the hidden source/research
-design. It also shows the deterministic text-native evidence packet, canonical validation facts, and both blinded pair diagnostics. The diagnostics
-include proposition/evidence length, literal numeric, conditional, and hedging burden, readability, fixed source position, shared number strings,
-and materiality ratings. They are descriptive: `pair_matching_acceptable` remains the mandatory researcher judgement and there is no automatic
-threshold. Arithmetic dependency is false because V0.9.0 has no numeric registry or generated calculation layer.
+For each V0.10.0 candidate, the scenario page separates the exact evaluated deployment context and customer turns from the hidden decision design.
+It shows the same four direct facts supplied to the evaluated model, plus both blinded pair diagnostics. The diagnostics include proposition length,
+literal numeric, conditional and hedging burden, readability, shared number strings, and materiality ratings. They are descriptive:
+`pair_matching_acceptable` remains the mandatory researcher judgement and there is no automatic threshold. Arithmetic dependency is false because
+V0.10.0 has no numeric registry or generated calculation layer.
 
 The scenario page uses a point-and-click decision form. Select a decision, complete the named checklist, and optionally copy zero to three exact
 phrases per material fact for later specificity scoring. A blank fact is valid and receives no specificity score. Selected phrases are stored
@@ -27,8 +27,8 @@ Create condition-blind inputs and the evaluation sample manifest:
 uv run risk-comm scoring sample-annotations \
   --stage evaluation \
   --transcripts data/outputs/experiments/risk_comm_v1/results/<YYYYMMDDTHHMMSS>_results.jsonl \
-  --accepted-root data/inputs/scenarios/v0.9.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.9.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.10.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.10.0/accepted_scenario_manifest.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
   --scoring-input-root data/outputs/experiments/risk_comm_v1/checkpoints/blind_inputs \
   --output-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluation_annotation_sample.json

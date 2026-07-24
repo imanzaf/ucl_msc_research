@@ -93,7 +93,7 @@ def main() -> None:
             schema_version="2.0.0",
             blind_conversation_id=blind_id,
             claims=annotation.claim_judgments,
-            visible_source_sha256=scoring_input.visible_source_sha256,
+            visible_facts_sha256=scoring_input.visible_facts_sha256,
             judge_model_id=manual_judge_id,
             scoring_prompt_sha256=annotation.rubric_sha256,
             scored_at=annotation.submitted_at,

@@ -178,7 +178,7 @@ def test_unmarked_fact_makes_its_pair_ineligible_for_specificity() -> None:
     assert initial.conditional_specificity_retention == Decimal("1")
 
 
-def test_source_supported_content_outside_four_facts_contributes_only_to_neutral_share() -> None:
+def test_fact_list_supported_content_outside_four_registered_facts_contributes_only_to_neutral_share() -> None:
     """Track supported residual content without adding a fifth fact judgment."""
     suffix = " Customer account information."
     scenario, transcript, scoring_input, fact_result, response_result, claim_result = aligned_scoring_artifacts(initial_suffix=suffix)

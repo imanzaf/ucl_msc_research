@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, cast
+from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, cast
 
 from json_repair import repair_json
 from openai import OpenAI
@@ -31,6 +32,19 @@ def _strip_schema_defaults(value: Any) -> Any:
     return value
 
 
+def _optional_decimal(value: Any) -> Optional[Decimal]:
+    """Parse an optional provider-reported monetary value without binary-float rounding."""
+    return None if value is None else Decimal(str(value))
+
+
+def _usage_costs(usage: Dict[str, Any]) -> Tuple[Optional[Decimal], Optional[Decimal]]:
+    """Extract OpenRouter billed and upstream costs when the provider returns them."""
+    cost_details = usage.get("cost_details") or {}
+    if not isinstance(cost_details, dict):
+        cost_details = {}
+    return _optional_decimal(usage.get("cost")), _optional_decimal(cost_details.get("upstream_inference_cost"))
+
+
 class ProviderTextResponse(VersionedImmutableModel):
     """Return provider text and audit metadata without mutating the request."""
 
@@ -40,6 +54,8 @@ class ProviderTextResponse(VersionedImmutableModel):
     returned_model_version: str = Field(min_length=1)
     input_tokens: int = Field(ge=0)
     output_tokens: int = Field(ge=0)
+    cost_credits: Optional[Decimal] = Field(default=None, ge=0)
+    upstream_inference_cost: Optional[Decimal] = Field(default=None, ge=0)
     finish_reason: CompletionFinishReason
 
 
@@ -52,6 +68,8 @@ class ProviderStructuredResponse(VersionedImmutableModel, Generic[StructuredT]):
     returned_model_version: str = Field(min_length=1)
     input_tokens: int = Field(ge=0)
     output_tokens: int = Field(ge=0)
+    cost_credits: Optional[Decimal] = Field(default=None, ge=0)
+    upstream_inference_cost: Optional[Decimal] = Field(default=None, ge=0)
     finish_reason: CompletionFinishReason
     request_sha256: str
     response_sha256: str
@@ -208,6 +226,9 @@ class OpenRouterClient:
         if not text.strip():
             raise ValueError("OpenRouter response contained blank assistant text")
         usage = payload.get("usage") or {}
+        if not isinstance(usage, dict):
+            usage = {}
+        cost_credits, upstream_inference_cost = _usage_costs(usage)
         raw_finish_reason = str(choices[0].get("finish_reason") or "unknown")
         try:
             finish_reason = CompletionFinishReason(raw_finish_reason)
@@ -219,6 +240,8 @@ class OpenRouterClient:
             returned_model_version=str(payload.get("model") or model_id),
             input_tokens=int(usage.get("prompt_tokens") or 0),
             output_tokens=int(usage.get("completion_tokens") or 0),
+            cost_credits=cost_credits,
+            upstream_inference_cost=upstream_inference_cost,
             finish_reason=finish_reason,
         )
         self._write_cache(request_hash, result)
@@ -299,6 +322,9 @@ class OpenRouterClient:
         if not isinstance(content, str):
             raise ValueError("OpenRouter structured response did not contain JSON text")
         usage = payload.get("usage") or {}
+        if not isinstance(usage, dict):
+            usage = {}
+        cost_credits, upstream_inference_cost = _usage_costs(usage)
         raw_finish_reason = str(choices[0].get("finish_reason") or "unknown")
         try:
             finish_reason = CompletionFinishReason(raw_finish_reason)
@@ -326,6 +352,8 @@ class OpenRouterClient:
                 finish_reason=finish_reason,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
+                cost_credits=cost_credits,
+                upstream_inference_cost=upstream_inference_cost,
                 request_digest=request_digest,
                 response_text=content,
                 response_digest=response_digest,
@@ -341,6 +369,8 @@ class OpenRouterClient:
             finish_reason=finish_reason,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            cost_credits=cost_credits,
+            upstream_inference_cost=upstream_inference_cost,
             request_digest=request_digest,
             response_text=content,
             response_digest=response_digest,
@@ -352,6 +382,8 @@ class OpenRouterClient:
             returned_model_version=returned_model_version,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            cost_credits=cost_credits,
+            upstream_inference_cost=upstream_inference_cost,
             finish_reason=finish_reason,
             request_sha256=request_digest,
             response_sha256=response_digest,
@@ -367,6 +399,8 @@ class OpenRouterClient:
         finish_reason: CompletionFinishReason,
         input_tokens: int,
         output_tokens: int,
+        cost_credits: Optional[Decimal],
+        upstream_inference_cost: Optional[Decimal],
         request_digest: str,
         response_text: str,
         response_digest: str,
@@ -387,6 +421,8 @@ class OpenRouterClient:
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 total_tokens=input_tokens + output_tokens,
+                cost_credits=cost_credits,
+                upstream_inference_cost=upstream_inference_cost,
             ),
             "request_sha256": request_digest,
             "response_text": response_text,

@@ -22,7 +22,7 @@
           "type": "string"
         },
         "scenario_id": {
-          "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+          "pattern": "^CF\\d{3}_(C1|R[12])$",
           "title": "Scenario Id",
           "type": "string"
         },
@@ -44,7 +44,7 @@
     "AcceptedScenarioSetId": {
       "description": "Identify the active accepted scenario family.",
       "enum": [
-        "customer_finance_documented_option_evidence_v0.9.0"
+        "customer_finance_task_family_facts_v0.10.0"
       ],
       "title": "AcceptedScenarioSetId",
       "type": "string"
@@ -69,7 +69,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Publish the accepted-only scenario set with source provenance.",
+  "description": "Publish the accepted-only scenario set with seed provenance.",
   "properties": {
     "entries": {
       "items": {

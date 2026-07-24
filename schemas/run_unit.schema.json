@@ -184,22 +184,22 @@
       "type": "string"
     },
     "scenario_id": {
-      "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+      "pattern": "^CF\\d{3}_(C1|R[12])$",
       "title": "Scenario Id",
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
-      "type": "string"
-    },
-    "source_packet_sha256": {
-      "title": "Source Packet Sha256",
       "type": "string"
     },
     "use_case_id": {
       "pattern": "^CF\\d{3}$",
       "title": "Use Case Id",
+      "type": "string"
+    },
+    "visible_facts_sha256": {
+      "title": "Visible Facts Sha256",
       "type": "string"
     }
   },
@@ -216,7 +216,7 @@
     "global_randomisation_seed",
     "block_randomisation_seed",
     "randomised_position",
-    "source_packet_sha256",
+    "visible_facts_sha256",
     "initial_request_messages",
     "initial_request_sha256",
     "follow_up_message",

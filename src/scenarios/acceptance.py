@@ -83,7 +83,7 @@ def build_accepted_scenario(
     }
     acceptance_record = ScenarioAcceptanceRecord.model_validate({**record_payload, "record_sha256": artifact_sha256(record_payload)})
     accepted_payload = {
-        "schema_version": "3.0.0",
+        "schema_version": candidate.schema_version,
         "artifact_version": artifact_version,
         "scenario_id": candidate.scenario_id,
         "use_case_id": candidate.use_case_id,
@@ -91,7 +91,6 @@ def build_accepted_scenario(
         "deployment_context": candidate.deployment_context,
         "customer_messages": candidate.customer_messages,
         "hidden_design": candidate.hidden_design,
-        "source_packet": candidate.source_packet,
         "material_facts": candidate.material_facts,
         "fact_pairs": candidate.fact_pairs,
         "specificity_elements": researcher_review.specificity_elements,

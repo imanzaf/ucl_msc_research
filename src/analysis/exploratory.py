@@ -38,8 +38,8 @@ def brevity_locus_scenario_effects(frame: pd.DataFrame, primary_reference: pd.Da
     brevity = frame.groupby(keys, observed=True)[columns].mean()
     tight_reference = reference.groupby(keys, observed=True)[columns].mean()
     paired = brevity.join(tight_reference, how="inner", lsuffix="__brevity", rsuffix="__tight")
-    if len(paired) != 120:
-        raise ValueError("brevity-locus comparison requires all 120 scenario-model pairs")
+    if len(paired) != 60:
+        raise ValueError("brevity-locus comparison requires all 60 scenario-model pairs")
     effects = pd.DataFrame(index=paired.index)
     for outcome_name, column in OUTCOMES.items():
         effects[outcome_name] = paired[f"{column}__brevity"] - paired[f"{column}__tight"]
@@ -54,8 +54,8 @@ def scenario_cluster_estimates(
     """Average paired effects and bootstrap scenarios within each use case without p-values."""
     if draws < 1:
         raise ValueError("exploratory bootstrap draws must be positive")
-    if len(scenario_effects) != 40 or scenario_effects["use_case_id"].nunique() != 10:
-        raise ValueError("exploratory analysis requires 40 scenarios across ten use cases")
+    if len(scenario_effects) != 20 or scenario_effects["use_case_id"].nunique() != 10:
+        raise ValueError("exploratory analysis requires 20 scenarios across ten use cases")
     outcome_columns = [column for column in scenario_effects if column not in {"scenario_id", "use_case_id"}]
     estimates = {column: float(scenario_effects[column].mean()) for column in outcome_columns}
     generator = np.random.default_rng(seed)

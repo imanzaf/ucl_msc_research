@@ -11,7 +11,7 @@
     },
     "EvaluationRenderedRequestReview": {
       "additionalProperties": false,
-      "description": "Store one holistic review of a rendered R1-R4 evaluation request.",
+      "description": "Store one holistic review of a rendered R1-R2 evaluation request.",
       "properties": {
         "assigned_phrase": {
           "minLength": 1,
@@ -58,7 +58,7 @@
           "type": "boolean"
         },
         "scenario_id": {
-          "pattern": "^CF\\d{3}_R[1-4]$",
+          "pattern": "^CF\\d{3}_R[12]$",
           "title": "Scenario Id",
           "type": "string"
         },
@@ -100,7 +100,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Freeze holistic researcher review of all 80 rendered evaluation requests.",
+  "description": "Freeze holistic researcher review of all 40 rendered evaluation requests.",
   "properties": {
     "accepted_scenario_manifest_sha256": {
       "title": "Accepted Scenario Manifest Sha256",
@@ -132,8 +132,8 @@
       "items": {
         "$ref": "#/$defs/EvaluationRenderedRequestReview"
       },
-      "maxItems": 80,
-      "minItems": 80,
+      "maxItems": 40,
+      "minItems": 40,
       "title": "Request Reviews",
       "type": "array"
     },

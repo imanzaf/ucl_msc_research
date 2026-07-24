@@ -1,6 +1,7 @@
 # Scoring and validation runbook
 
-Scoring uses three condition-blind contracts: proposition/specificity/framing, response communication, and factual claims. Exact evidence-packet and response spans are validated before metrics are calculated.
+Scoring uses three condition-blind contracts: proposition/specificity/framing, response communication, and factual claims. Fact identifiers,
+researcher-selected specificity phrases, and response spans are validated before metrics are calculated.
 
 ## Frozen composite
 
@@ -30,8 +31,8 @@ the result is described as greater non-directional asymmetry. Signed and reverse
 uv run risk-comm scoring sample-annotations \
   --stage evaluation \
   --transcripts data/outputs/experiments/risk_comm_v1/results/<YYYYMMDDTHHMMSS>_results.jsonl \
-  --accepted-root data/inputs/scenarios/v0.9.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.9.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.10.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.10.0/accepted_scenario_manifest.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
   --scoring-input-root data/outputs/experiments/risk_comm_v1/checkpoints/blind_inputs \
   --output-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluation_annotation_sample.json

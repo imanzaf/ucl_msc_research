@@ -1,4 +1,4 @@
-"""Build the immutable 480-conversation risk_comm_v1 primary run plan offline."""
+"""Build the immutable 240-conversation risk_comm_v1 primary run plan offline."""
 
 from __future__ import annotations
 

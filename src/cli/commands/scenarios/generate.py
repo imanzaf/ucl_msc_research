@@ -1,4 +1,4 @@
-"""Run lifecycle-ordered C1 or C1-anchored R1-R4 scenario generation."""
+"""Run lifecycle-ordered C1 or C1-anchored R1-R2 scenario generation."""
 
 from __future__ import annotations
 
@@ -7,11 +7,10 @@ import importlib
 from pathlib import Path
 from typing import List, Optional, Tuple, cast
 
-from src.data_models.common import artifact_sha256, file_sha256, sha256_bytes, utc_now, validate_model_self_hash
-from src.data_models.manifests import FreezeStatus, ScenarioGenerationApproval, ScenarioGenerationCostReport, TightLimitManifest
+from src.data_models.common import artifact_sha256, sha256_bytes, utc_now, validate_model_self_hash
+from src.data_models.manifests import FreezeStatus, TightLimitManifest
 from src.data_models.scenario_review import AutomatedScenarioReview, RevisionCycleRecord, ScenarioPipelineDisposition, ScenarioPipelineFailureRecord
-from src.data_models.scenarios import CandidateScenario, ScenarioStage, V09ReplicationSeed, V09UseCaseSeed
-from src.experiments.model_catalog import load_model_catalog
+from src.data_models.scenarios import CandidateScenario, ScenarioStage, V10ReplicationSeed, V10UseCaseSeed
 from src.paths import ACTIVE_SCENARIO_GENERATION_ROOT, ACTIVE_SCENARIO_INPUT_ROOT
 from src.prompts.scenario_generation import SCENARIO_REVIEW_SYSTEM_PROMPT
 from src.scenarios.budgets import material_fact_text_sha256, material_fact_word_count
@@ -29,18 +28,18 @@ def _load_backend(specification: str) -> ScenarioPipelineBackend:
 
 
 def _select_stage_seeds(
-    use_cases: List[V09UseCaseSeed],
+    use_cases: List[V10UseCaseSeed],
     stage: ScenarioStage,
     use_case_id: Optional[str],
-) -> List[Tuple[V09UseCaseSeed, V09ReplicationSeed]]:
-    """Select ten C1 seeds or one use case's four R seeds without crossing lifecycle stages."""
+) -> List[Tuple[V10UseCaseSeed, V10ReplicationSeed]]:
+    """Select ten C1 seeds or one use case's two R seeds without crossing lifecycle stages."""
     if stage == ScenarioStage.CALIBRATION:
         if use_case_id is not None:
             raise ValueError("calibration generation operates across all ten use cases; omit --use-case-id")
         return [
             (
                 use_case,
-                next(replication for replication in use_case.hidden_design.source_generation.replications if replication.scenario_id.endswith("_C1")),
+                next(replication for replication in use_case.replications if replication.scenario_id.endswith("_C1")),
             )
             for use_case in use_cases
         ]
@@ -50,15 +49,11 @@ def _select_stage_seeds(
     if len(selected_use_cases) != 1:
         raise ValueError(f"unknown or duplicate use case id: {use_case_id}")
     selected = selected_use_cases[0]
-    return [
-        (selected, replication)
-        for replication in selected.hidden_design.source_generation.replications
-        if not replication.scenario_id.endswith("_C1")
-    ]
+    return [(selected, replication) for replication in selected.replications if not replication.scenario_id.endswith("_C1")]
 
 
 def _load_evaluation_anchor(args: argparse.Namespace, use_case_id: str) -> CandidateScenario:
-    """Authenticate the reviewed C1 candidate against the pre-R1-R4 tight-limit freeze."""
+    """Authenticate the reviewed C1 candidate against the pre-R1-R2 tight-limit freeze."""
     if args.tight_limit_manifest is None or args.calibration_candidate is None:
         raise ValueError("evaluation generation requires --tight-limit-manifest and --calibration-candidate")
     tight_manifest = read_model_json(args.tight_limit_manifest, TightLimitManifest)
@@ -160,55 +155,25 @@ def _write_pipeline_failure(output_root: Path, scenario_id: str, error: Exceptio
 
 
 def main() -> None:
-    """Generate ignored candidates and reviews while enforcing lifecycle ordering."""
+    """Generate candidates and reviews while enforcing scenario lifecycle ordering."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--backend", required=True)
     parser.add_argument("--stage", choices=[stage.value for stage in ScenarioStage], required=True)
     parser.add_argument("--use-case-id")
     parser.add_argument("--tight-limit-manifest", type=Path)
     parser.add_argument("--calibration-candidate", type=Path)
-    parser.add_argument("--cost-report", type=Path, required=True)
-    parser.add_argument("--approval", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, default=ACTIVE_SCENARIO_GENERATION_ROOT)
-    parser.add_argument("--execute-paid", action="store_true")
     args = parser.parse_args()
     stage = ScenarioStage(args.stage)
-    if not args.execute_paid:
-        raise PermissionError("scenario generation may call paid APIs and requires --execute-paid")
     expected_output_root = ACTIVE_SCENARIO_GENERATION_ROOT.resolve()
     if args.output_root.resolve() != expected_output_root:
-        raise ValueError("scenario generation output must remain under the active V0.9.0 generation root")
+        raise ValueError("scenario generation output must remain under the active V0.10.0 generation root")
     seed_root = ACTIVE_SCENARIO_INPUT_ROOT
-    cost_report = read_model_json(args.cost_report, ScenarioGenerationCostReport)
-    approval = read_model_json(args.approval, ScenarioGenerationApproval)
-    validate_model_self_hash(cost_report, "report_sha256")
-    validate_model_self_hash(approval, "approval_sha256")
-    if approval.cost_report_sha256 != cost_report.report_sha256:
-        raise ValueError("scenario-generation approval does not bind the supplied cost report")
-    if approval.approved_maximum_cost_usd < cost_report.worst_case_cost_usd:
-        raise ValueError("scenario-generation worst-case cost exceeds the approved maximum")
-    if cost_report.stage != stage or cost_report.use_case_id != args.use_case_id:
-        raise ValueError("scenario-generation cost report does not cover the requested batch")
-    if cost_report.backend_specification != args.backend:
-        raise ValueError("scenario-generation cost report does not bind the requested backend")
-    catalog = load_model_catalog()
-    if (
-        cost_report.generator_model_id != catalog.scenario_generator_model.model_id
-        or cost_report.reviewer_model_id != catalog.scenario_reviewer_model.model_id
-    ):
-        raise ValueError("scenario-generation cost report does not bind the configured model roles")
-    if cost_report.seed_sha256 != file_sha256(seed_root / "scenario_generation_seeds.json"):
-        raise ValueError("scenario-generation cost report does not bind the active V0.9.0 seed")
-    if cost_report.seed_schema_sha256 != file_sha256(seed_root / "scenario_generation_seed_schema.json"):
-        raise ValueError("scenario-generation cost report does not bind the active V0.9.0 seed schema")
     seed = load_and_validate_seed(
         seed_path=seed_root / "scenario_generation_seeds.json",
         schema_path=seed_root / "scenario_generation_seed_schema.json",
     )
-    active_use_cases = [use_case for use_case in seed.use_cases if isinstance(use_case, V09UseCaseSeed)]
-    if len(active_use_cases) != len(seed.use_cases):
-        raise ValueError("active scenario generation requires V0.9.0 documented-option use-case seeds")
-    selected = _select_stage_seeds(active_use_cases, stage, args.use_case_id)
+    selected = _select_stage_seeds(seed.use_cases, stage, args.use_case_id)
     fixed_candidates = []
     if stage == ScenarioStage.EVALUATION:
         fixed_candidates = [_load_evaluation_anchor(args, selected[0][0].use_case_id)]

@@ -12,7 +12,7 @@ from pydantic import Field, field_validator, model_validator
 from src.data_models.common import ImmutableModel, VersionedImmutableModel, artifact_sha256, sha256_bytes, validate_sha256
 from src.data_models.experiments import FailureReason, ProviderCallProvenance
 from src.data_models.manifests import FreezeStatus
-from src.data_models.scenarios import DecisionAlignment, DecisionOption, EvidenceSpan, FactPolarity, SpecificityElement
+from src.data_models.scenarios import DecisionAlignment, DecisionOption, FactPolarity, SpecificityElement
 from src.data_models.study import ExpressedConcernCondition, IntegrityCondition, WordBudgetCondition
 
 
@@ -263,11 +263,10 @@ class ResponseSpan(ImmutableModel):
 
 
 class BlindFactReference(ImmutableModel):
-    """Provide a scoring judge only source-grounded fact content and detail rules."""
+    """Provide a scoring judge one visible fact and optional detail rules."""
 
     fact_id: str = Field(min_length=1)
     canonical_proposition: str = Field(min_length=1)
-    source_support: List[EvidenceSpan] = Field(min_length=1)
     specificity_elements: List[SpecificityElement]
 
 
@@ -299,27 +298,27 @@ class ScoringTranscriptTurn(ImmutableModel):
 
 
 class ConditionBlindScoringInput(VersionedImmutableModel):
-    """Expose only evaluated-model-visible evidence and anonymised response text."""
+    """Expose only evaluated-model-visible facts and anonymised response text."""
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
     blind_conversation_id: str = Field(min_length=1)
-    visible_source_text: str = Field(min_length=1)
-    visible_source_sha256: str
+    visible_facts_text: str = Field(min_length=1)
+    visible_facts_sha256: str
     facts: List[BlindFactReference] = Field(min_length=4, max_length=4)
     agent_turns: List[ScoringTranscriptTurn] = Field(min_length=2, max_length=2)
     randomised_fact_order_seed: int
 
-    @field_validator("visible_source_sha256")
+    @field_validator("visible_facts_sha256")
     @classmethod
-    def validate_source_hash(cls, value: str) -> str:
-        """Validate the visible-evidence digest."""
+    def validate_facts_hash(cls, value: str) -> str:
+        """Validate the visible-facts digest."""
         return validate_sha256(value)
 
     @model_validator(mode="after")
     def validate_agent_turns(self) -> "ConditionBlindScoringInput":
-        """Require exact visible-source bytes, unique facts, and both assistant turns."""
-        if self.visible_source_sha256 != sha256_bytes(self.visible_source_text.encode("utf-8")):
-            raise ValueError("visible source hash does not match exact source text")
+        """Require exact visible-fact bytes, unique facts, and both assistant turns."""
+        if self.visible_facts_sha256 != sha256_bytes(self.visible_facts_text.encode("utf-8")):
+            raise ValueError("visible facts hash does not match exact fact text")
         if len({fact.fact_id for fact in self.facts}) != 4:
             raise ValueError("condition-blind scoring input requires four unique material fact ids")
         if {turn.turn_index for turn in self.agent_turns} != {1, 3}:
@@ -499,21 +498,21 @@ class ClaimAssessmentJudgment(ImmutableModel):
 
 
 class ClaimAssessmentResult(VersionedImmutableModel):
-    """Store the visible-evidence-only claim-assessment contract output."""
+    """Store the visible-facts-only claim-assessment contract output."""
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
     blind_conversation_id: str = Field(min_length=1)
     claims: List[ClaimAssessmentJudgment]
-    visible_source_sha256: str
+    visible_facts_sha256: str
     judge_model_id: str = Field(min_length=1)
     provider_call: Optional[StructuredCallProvenance] = None
     scoring_prompt_sha256: str
     scored_at: datetime
 
-    @field_validator("visible_source_sha256", "scoring_prompt_sha256")
+    @field_validator("visible_facts_sha256", "scoring_prompt_sha256")
     @classmethod
     def validate_hashes(cls, value: str) -> str:
-        """Validate claim-assessment source and prompt digests."""
+        """Validate claim-assessment fact-list and prompt digests."""
         return validate_sha256(value)
 
     @model_validator(mode="after")
@@ -787,7 +786,7 @@ class MissingRunRecord(ImmutableModel):
     """Describe one preregistered run unit missing after provider retries."""
 
     run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
-    scenario_id: str = Field(pattern=r"^CF\d{3}_R[1-4]$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_R[12]$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     model_id: str = Field(min_length=1)
     cell_id: str = Field(pattern=r"^(primary|material_priority|brevity_locus)__(ample|tight|none)__(neutral|concerned)$")
@@ -806,7 +805,7 @@ class AnalysisMissingnessReport(VersionedImmutableModel):
     """Bind one experiment's complete terminal ledger to its analyzable subset."""
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
-    expected_run_count: int = Field(default=480, ge=1)
+    expected_run_count: int = Field(default=240, ge=1)
     completed_run_count: int = Field(ge=0)
     failed_run_count: int = Field(ge=0)
     manually_resolved_count: int = Field(ge=0)
@@ -847,7 +846,7 @@ class AnalysisInputRow(VersionedImmutableModel):
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
     run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
-    scenario_id: str = Field(pattern=r"^CF\d{3}_R[1-4]$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_R[12]$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     model_id: str = Field(min_length=1)
     cue_template_id: int = Field(ge=1, le=4)
@@ -879,10 +878,10 @@ class FactAnalysisInputRow(VersionedImmutableModel):
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
     run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
-    scenario_id: str = Field(pattern=r"^CF\d{3}_R[1-4]$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_R[12]$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     fact_id: str = Field(min_length=1)
-    pair_id: str = Field(pattern=r"^CF\d{3}_R[1-4]_P[12]$")
+    pair_id: str = Field(pattern=r"^CF\d{3}_R[12]_P[12]$")
     fact_option: DecisionOption
     fact_polarity: FactPolarity
     decision_alignment: DecisionAlignment

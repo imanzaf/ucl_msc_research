@@ -28,7 +28,7 @@
       "type": "string"
     },
     "scenario_id": {
-      "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+      "pattern": "^CF\\d{3}_(C1|R[12])$",
       "title": "Scenario Id",
       "type": "string"
     },

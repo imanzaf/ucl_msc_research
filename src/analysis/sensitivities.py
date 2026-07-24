@@ -55,10 +55,10 @@ def leave_one_domain_out_composite(frame: pd.DataFrame, omitted_domain: str) -> 
 
 
 def _cue_template_id(scenario_id: str) -> int:
-    """Extract R1-R4 as the frozen evaluation cue-template assignment."""
+    """Extract R1-R2 as the frozen evaluation cue-template assignment."""
     replication = scenario_id.rsplit("_R", 1)[-1]
-    if replication not in {"1", "2", "3", "4"}:
-        raise ValueError(f"evaluation scenario lacks an R1-R4 cue template: {scenario_id}")
+    if replication not in {"1", "2"}:
+        raise ValueError(f"evaluation scenario lacks an R1-R2 cue template: {scenario_id}")
     return int(replication)
 
 
@@ -83,7 +83,7 @@ def estimate_sensitivities_with_messages(
     for use_case_id in sorted(frame["use_case_id"].unique()):
         add(f"leave_use_case_out={use_case_id}", partial(estimate_confirmatory_contrasts, frame.loc[frame["use_case_id"] != use_case_id]))
     template_ids = frame["scenario_id"].map(_cue_template_id)
-    for template_id in range(1, 5):
+    for template_id in range(1, 3):
         add(
             f"leave_cue_template_out={template_id}",
             partial(estimate_confirmatory_contrasts, frame.loc[template_ids != template_id]),

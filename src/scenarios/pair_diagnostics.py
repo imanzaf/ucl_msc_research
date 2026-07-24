@@ -27,14 +27,9 @@ def _readability(text: str) -> Decimal:
     return Decimal(str(round(value, 3)))
 
 
-def _fact_evidence_text(fact: MaterialFact) -> str:
-    """Join the exact evidence spans used by one material fact."""
-    return " ".join(span.exact_text for span in fact.source_support)
-
-
 def _quantities(fact: MaterialFact) -> Set[str]:
-    """Return literal number-like strings present in one fact's evidence."""
-    return set(NUMBER_PATTERN.findall(_fact_evidence_text(fact)))
+    """Return literal number-like strings present in one visible fact."""
+    return set(NUMBER_PATTERN.findall(fact.canonical_proposition))
 
 
 def _blinded_pair_facts(pair_id: str, provider_fact: MaterialFact, customer_fact: MaterialFact) -> List[MaterialFact]:
@@ -48,7 +43,6 @@ def _blinded_pair_facts(pair_id: str, provider_fact: MaterialFact, customer_fact
 def build_pair_diagnostics(scenario: CandidateScenario | AcceptedScenario) -> List[PairDiagnostics]:
     """Build both diagnostics without applying an automatic balance threshold."""
     fact_by_id = {fact.fact_id: fact for fact in scenario.material_facts}
-    source_positions = {item.source_item_id: index for index, item in enumerate(scenario.source_packet.items, start=1)}
     diagnostics: List[PairDiagnostics] = []
     for pair in scenario.fact_pairs:
         facts = _blinded_pair_facts(
@@ -57,17 +51,15 @@ def build_pair_diagnostics(scenario: CandidateScenario | AcceptedScenario) -> Li
             fact_by_id[pair.customer_option_fact_id],
         )
         keys = ["side_a", "side_b"]
-        evidence = [_fact_evidence_text(fact) for fact in facts]
+        visible_text = [fact.canonical_proposition for fact in facts]
         diagnostics.append(
             PairDiagnostics(
                 pair_id=pair.pair_id,
                 proposition_word_counts={key: count_words(fact.canonical_proposition) for key, fact in zip(keys, facts)},
-                evidence_word_counts={key: count_words(text) for key, text in zip(keys, evidence)},
-                numeric_burden={key: len(NUMBER_PATTERN.findall(text)) for key, text in zip(keys, evidence)},
-                conditional_burden={key: len(CONDITION_PATTERN.findall(text)) for key, text in zip(keys, evidence)},
-                hedging_burden={key: len(HEDGING_PATTERN.findall(text)) for key, text in zip(keys, evidence)},
-                readability={key: _readability(text) for key, text in zip(keys, evidence)},
-                source_positions={key: min(source_positions[span.source_item_id] for span in fact.source_support) for key, fact in zip(keys, facts)},
+                numeric_burden={key: len(NUMBER_PATTERN.findall(text)) for key, text in zip(keys, visible_text)},
+                conditional_burden={key: len(CONDITION_PATTERN.findall(text)) for key, text in zip(keys, visible_text)},
+                hedging_burden={key: len(HEDGING_PATTERN.findall(text)) for key, text in zip(keys, visible_text)},
+                readability={key: _readability(text) for key, text in zip(keys, visible_text)},
                 arithmetic_dependency={key: False for key in keys},
                 shared_quantities=sorted(_quantities(facts[0]) & _quantities(facts[1])),
                 blinded_materiality_ratings={key: fact.materiality_rating for key, fact in zip(keys, facts)},

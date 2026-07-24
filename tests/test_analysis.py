@@ -29,7 +29,7 @@ def simulated_frame() -> pd.DataFrame:
     """Build the complete design with exact H1=.20 and H2=.10 effects."""
     records: List[Dict[str, object]] = []
     for use_case in range(1, 11):
-        for replication in range(1, 5):
+        for replication in range(1, 3):
             scenario_id = f"CF{use_case:03d}_R{replication}"
             for model_id in ["m1", "m2", "m3"]:
                 for budget in ["ample", "tight"]:

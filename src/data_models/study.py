@@ -13,7 +13,7 @@ from src.data_models.common import ImmutableModel
 
 AMPLE_WORD_LIMIT = 240
 PILOT_WORD_LIMIT = 320
-PROMPT_PACKAGE_VERSION = "v5"
+PROMPT_PACKAGE_VERSION = "v6"
 ACKNOWLEDGEMENT_HEADROOM_WORDS = 12
 MIN_TIGHT_WORD_LIMIT = 80
 MAX_TIGHT_WORD_LIMIT = 115
@@ -97,9 +97,9 @@ class ExperimentDimensions:
 
 
 EXPERIMENT_DIMENSIONS: Dict[ExperimentName, ExperimentDimensions] = {
-    ExperimentName.RISK_COMM_V1: ExperimentDimensions(40, 3, 4),
-    ExperimentName.MATERIAL_PRIORITY_V1: ExperimentDimensions(40, 3, 2),
-    ExperimentName.BREVITY_LOCUS_V1: ExperimentDimensions(40, 3, 1),
+    ExperimentName.RISK_COMM_V1: ExperimentDimensions(20, 3, 4),
+    ExperimentName.MATERIAL_PRIORITY_V1: ExperimentDimensions(20, 3, 2),
+    ExperimentName.BREVITY_LOCUS_V1: ExperimentDimensions(20, 3, 1),
 }
 
 
@@ -146,8 +146,8 @@ class ExperimentCell(ImmutableModel):
 
 
 def cue_template_id(scenario_id: str) -> int:
-    """Map R1-R4 directly and C1 round-robin by use-case number."""
-    match = re.fullmatch(r"CF(?P<use_case>\d{3})_(?P<replication>C1|R[1-4])", scenario_id)
+    """Map held-out replications directly and C1 round-robin by use-case number."""
+    match = re.fullmatch(r"CF(?P<use_case>\d{3})_(?P<replication>C1|R[12])", scenario_id)
     if match is None:
         raise ValueError(f"invalid scenario id for cue mapping: {scenario_id}")
     replication = match.group("replication")

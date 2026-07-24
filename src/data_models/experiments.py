@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, Optional
 
@@ -154,10 +155,10 @@ class PromptMessage(ImmutableModel):
 class RunUnit(VersionedImmutableModel):
     """Represent one randomised immutable scenario–model–cell assignment."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
     block_id: str = Field(pattern=r"^BLOCK_[A-F0-9]{16}$")
-    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     model_id: str = Field(min_length=1)
     expected_model_version: str = Field(min_length=1)
@@ -167,17 +168,17 @@ class RunUnit(VersionedImmutableModel):
     global_randomisation_seed: int
     block_randomisation_seed: int
     randomised_position: int = Field(ge=0, le=3)
-    source_packet_sha256: str
+    visible_facts_sha256: str
     initial_request_messages: List[PromptMessage] = Field(min_length=2)
     initial_request_sha256: str
     follow_up_message: PromptMessage
     follow_up_sha256: str
     created_at: datetime
 
-    @field_validator("model_snapshot_sha256", "source_packet_sha256", "initial_request_sha256", "follow_up_sha256")
+    @field_validator("model_snapshot_sha256", "visible_facts_sha256", "initial_request_sha256", "follow_up_sha256")
     @classmethod
     def validate_hashes(cls, value: str) -> str:
-        """Validate source and prompt digests."""
+        """Validate visible-fact and prompt digests."""
         return validate_sha256(value)
 
     @model_validator(mode="after")
@@ -197,11 +198,13 @@ class RunUnit(VersionedImmutableModel):
 
 
 class TokenUsage(ImmutableModel):
-    """Store provider-reported token usage for one response."""
+    """Store provider-reported token usage and billed cost for one response."""
 
     input_tokens: int = Field(default=0, ge=0)
     output_tokens: int = Field(default=0, ge=0)
     total_tokens: int = Field(default=0, ge=0)
+    cost_credits: Optional[Decimal] = Field(default=None, ge=0)
+    upstream_inference_cost: Optional[Decimal] = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def validate_total(self) -> "TokenUsage":

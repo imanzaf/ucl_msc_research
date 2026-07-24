@@ -25,16 +25,16 @@ from tests.factories import make_accepted_scenario, make_budget_manifest, make_m
 
 def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
     """Build every run matrix and simulate one natural-follow-up conversation through scoring."""
-    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 5)]
+    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     created_at = datetime(2026, 7, 22, tzinfo=timezone.utc)
     models = make_models()
     budgets = make_budget_manifest()
     primary_plan = build_run_plan(scenarios, models, budgets, 7, created_at)
     material_plan = build_material_priority_run_plan(scenarios, models, budgets, 7, created_at)
     brevity_plan = build_brevity_locus_run_plan(scenarios, models, 7, created_at)
-    assert len(primary_plan) == 480
-    assert len(material_plan) == 240
-    assert len(brevity_plan) == 120
+    assert len(primary_plan) == 240
+    assert len(material_plan) == 120
+    assert len(brevity_plan) == 60
 
     class OfflineFailureProvider:
         """Simulate terminal provider failures without network access."""
@@ -58,10 +58,10 @@ def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
         "0" * 64,
         "0" * 64,
         ExperimentName.MATERIAL_PRIORITY_V1,
-        240,
+        120,
     )
     assert not analysis_rows
-    assert len(missing) == 240
+    assert len(missing) == 120
 
     scenario = scenarios[0]
     transcript = make_transcript(scenario)
@@ -83,7 +83,7 @@ def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
             return claim_result.model_copy(
                 update={
                     "blind_conversation_id": scoring_input.blind_conversation_id,
-                    "visible_source_sha256": scoring_input.visible_source_sha256,
+                    "visible_facts_sha256": scoring_input.visible_facts_sha256,
                 }
             )
 

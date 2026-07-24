@@ -69,8 +69,8 @@
           "additionalProperties": {
             "type": "integer"
           },
-          "maxProperties": 4,
-          "minProperties": 4,
+          "maxProperties": 2,
+          "minProperties": 2,
           "title": "Evaluation Fact Word Counts",
           "type": "object"
         },
@@ -78,8 +78,8 @@
           "additionalProperties": {
             "type": "string"
           },
-          "maxProperties": 5,
-          "minProperties": 5,
+          "maxProperties": 3,
+          "minProperties": 3,
           "title": "Material Facts Sha256",
           "type": "object"
         },

@@ -17,7 +17,7 @@ from src.data_models.scenario_review import (
     ScenarioReviewHistory,
     ScenarioReviewLabels,
 )
-from src.data_models.scenarios import CandidateScenario, V09UseCaseSeed
+from src.data_models.scenarios import CandidateScenario, V10HiddenDesign, V10UseCaseSeed
 from src.scenarios.acceptance import build_accepted_scenario, publish_accepted_scenario, validate_accepted_bundle
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
 from src.scenarios.seed_validation import load_and_validate_seed
@@ -91,20 +91,28 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
 
 def test_candidate_publication_requires_exact_seed_owned_metadata() -> None:
     """Reject a hash-valid reviewed candidate whose researcher-owned task fields drift."""
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.9.0"
+    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.10.0"
     seed = load_and_validate_seed(
         seed_root / "scenario_generation_seeds.json",
         seed_root / "scenario_generation_seed_schema.json",
     )
     use_case = seed.use_cases[0]
-    assert isinstance(use_case, V09UseCaseSeed)
+    assert isinstance(use_case, V10UseCaseSeed)
+    replication = next(item for item in use_case.replications if item.scenario_id == "CF001_R1")
     candidate = make_candidate_scenario("CF001_R1")
     payload = candidate.model_dump(mode="json", exclude={"candidate_sha256"})
     payload.update(
         {
             "deployment_context": use_case.deployment_context.model_dump(mode="json"),
-            "customer_messages": use_case.customer_messages.model_dump(mode="json"),
-            "hidden_design": use_case.hidden_design.model_dump(mode="json"),
+            "customer_messages": replication.customer_messages.model_dump(mode="json"),
+            "hidden_design": V10HiddenDesign(
+                decision_type=replication.decision_type,
+                options=replication.options,
+                customer_supporting_option=replication.customer_supporting_option,
+                owner_supporting_option=replication.owner_supporting_option,
+                owner_benefit_mechanism=replication.owner_benefit_mechanism,
+                presentation_order=replication.presentation_order,
+            ).model_dump(mode="json"),
         }
     )
     seed_bound = CandidateScenario.model_validate({**payload, "candidate_sha256": artifact_sha256(payload)})

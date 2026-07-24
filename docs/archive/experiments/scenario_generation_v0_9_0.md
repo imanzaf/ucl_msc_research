@@ -1,9 +1,10 @@
 # Scenario generation V0.9.0
 
-V0.9.0 is the active immutable scenario seed. It preserves CF001–CF010 and C1/R1–R4 while changing the generator boundary: the model creates a
-natural two-option evidence packet and simple fact lists only. V0.5.1–V0.8.0 remain byte-preserved archives.
+V0.9.0 is an immutable historical protocol retained for reproducibility. V0.10.0 is active; see
+[`scenario_generation_v0_10_0.md`](../../experiments/scenario_generation_v0_10_0.md). V0.9.0 preserves CF001–CF010 and C1/R1–R4 and used a generated natural
+two-option evidence packet plus simple fact lists.
 
-## Active inputs
+## Historical inputs
 
 - `data/inputs/scenarios/v0.9.0/scenario_generation_seeds.json`
 - `data/inputs/scenarios/v0.9.0/scenario_generation_seed_schema.json`
@@ -64,20 +65,15 @@ specificity asymmetry if either member is omitted or specificity-ineligible, wit
 ## Commands
 
 ```bash
-uv run python -m src.cli scenarios dry-run-generation \
-  --backend src.scenarios.openrouter_backend:create_openrouter_scenario_backend \
-  --stage calibration \
-  --output data/outputs/scenario_generation/v0.9.0/checkpoints/calibration_cost_report.json
-
 uv run python -m src.cli scenarios generate \
   --backend src.scenarios.openrouter_backend:create_openrouter_scenario_backend \
-  --stage calibration \
-  --cost-report data/outputs/scenario_generation/v0.9.0/checkpoints/calibration_cost_report.json \
-  --approval data/outputs/scenario_generation/v0.9.0/checkpoints/calibration_approval.json \
-  --output-root data/outputs/scenario_generation/v0.9.0 \
-  --execute-paid
+  --stage calibration
 
 uv run python -m src.cli review launch --server-address 127.0.0.1
 ```
 
-Generation may call paid APIs and still requires the cost-report and approval gates. Researcher acceptance remains a separate, mandatory step.
+Generation writes provider call audit records under
+`data/outputs/scenario_generation/v0.9.0/raw_provider/generation/` and
+`data/outputs/scenario_generation/v0.9.0/raw_provider/review/`. Each record stores token usage and, when returned by OpenRouter, billed credits and
+upstream inference cost for later analysis. No pre-run cost report or approval artifact is required. Researcher acceptance remains a separate,
+mandatory step.

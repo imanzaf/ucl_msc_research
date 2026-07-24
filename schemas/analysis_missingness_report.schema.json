@@ -34,7 +34,7 @@
           "type": "string"
         },
         "scenario_id": {
-          "pattern": "^CF\\d{3}_R[1-4]$",
+          "pattern": "^CF\\d{3}_R[12]$",
           "title": "Scenario Id",
           "type": "string"
         },
@@ -90,7 +90,7 @@
       "type": "integer"
     },
     "expected_run_count": {
-      "default": 480,
+      "default": 240,
       "minimum": 1,
       "title": "Expected Run Count",
       "type": "integer"

@@ -334,22 +334,22 @@
           "type": "string"
         },
         "scenario_id": {
-          "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+          "pattern": "^CF\\d{3}_(C1|R[12])$",
           "title": "Scenario Id",
           "type": "string"
         },
         "schema_version": {
-          "pattern": "^2\\.0\\.0$",
+          "pattern": "^3\\.0\\.0$",
           "title": "Schema Version",
-          "type": "string"
-        },
-        "source_packet_sha256": {
-          "title": "Source Packet Sha256",
           "type": "string"
         },
         "use_case_id": {
           "pattern": "^CF\\d{3}$",
           "title": "Use Case Id",
+          "type": "string"
+        },
+        "visible_facts_sha256": {
+          "title": "Visible Facts Sha256",
           "type": "string"
         }
       },
@@ -366,7 +366,7 @@
         "global_randomisation_seed",
         "block_randomisation_seed",
         "randomised_position",
-        "source_packet_sha256",
+        "visible_facts_sha256",
         "initial_request_messages",
         "initial_request_sha256",
         "follow_up_message",
@@ -388,8 +388,25 @@
     },
     "TokenUsage": {
       "additionalProperties": false,
-      "description": "Store provider-reported token usage for one response.",
+      "description": "Store provider-reported token usage and billed cost for one response.",
       "properties": {
+        "cost_credits": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Credits"
+        },
         "input_tokens": {
           "default": 0,
           "minimum": 0,
@@ -407,6 +424,23 @@
           "minimum": 0,
           "title": "Total Tokens",
           "type": "integer"
+        },
+        "upstream_inference_cost": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstream Inference Cost"
         }
       },
       "title": "TokenUsage",

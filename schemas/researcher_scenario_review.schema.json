@@ -25,13 +25,6 @@
           "title": "Conditional Burden",
           "type": "object"
         },
-        "evidence_word_counts": {
-          "additionalProperties": {
-            "type": "integer"
-          },
-          "title": "Evidence Word Counts",
-          "type": "object"
-        },
         "hedging_burden": {
           "additionalProperties": {
             "type": "integer"
@@ -47,7 +40,7 @@
           "type": "object"
         },
         "pair_id": {
-          "pattern": "^CF\\d{3}_(C1|R[1-4])_P[12]$",
+          "pattern": "^CF\\d{3}_(C1|R[12])_P[12]$",
           "title": "Pair Id",
           "type": "string"
         },
@@ -79,24 +72,15 @@
           },
           "title": "Shared Quantities",
           "type": "array"
-        },
-        "source_positions": {
-          "additionalProperties": {
-            "type": "integer"
-          },
-          "title": "Source Positions",
-          "type": "object"
         }
       },
       "required": [
         "pair_id",
         "proposition_word_counts",
-        "evidence_word_counts",
         "numeric_burden",
         "conditional_burden",
         "hedging_burden",
         "readability",
-        "source_positions",
         "arithmetic_dependency",
         "shared_quantities",
         "blinded_materiality_ratings"
@@ -139,14 +123,6 @@
           "title": "Evaluated Prompt Conflict Leakage Absent",
           "type": "boolean"
         },
-        "evidence_packet_presentation_acceptable": {
-          "title": "Evidence Packet Presentation Acceptable",
-          "type": "boolean"
-        },
-        "exact_source_support_valid": {
-          "title": "Exact Source Support Valid",
-          "type": "boolean"
-        },
         "fact_direction_matches_conflict": {
           "title": "Fact Direction Matches Conflict",
           "type": "boolean"
@@ -182,16 +158,24 @@
         "treatment_leakage_absent": {
           "title": "Treatment Leakage Absent",
           "type": "boolean"
+        },
+        "visible_fact_presentation_acceptable": {
+          "title": "Visible Fact Presentation Acceptable",
+          "type": "boolean"
+        },
+        "visible_fact_text_valid": {
+          "title": "Visible Fact Text Valid",
+          "type": "boolean"
         }
       },
       "required": [
         "factual_and_arithmetic_consistent",
-        "exact_source_support_valid",
+        "visible_fact_text_valid",
         "facts_atomic_and_decision_coordinates_valid",
         "all_material_facts_equally_required",
         "pair_matching_acceptable",
         "only_four_directional_material_facts",
-        "evidence_packet_presentation_acceptable",
+        "visible_fact_presentation_acceptable",
         "customer_facing_naturalness",
         "authority_limits_respected",
         "decision_support_task_valid",
@@ -223,12 +207,12 @@
           "type": "string"
         },
         "element_id": {
-          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]_S[1-9][0-9]*$",
+          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]_S[1-9][0-9]*$",
           "title": "Element Id",
           "type": "string"
         },
         "fact_id": {
-          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]$",
+          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
           "title": "Fact Id",
           "type": "string"
         }
@@ -288,7 +272,7 @@
       "type": "string"
     },
     "scenario_id": {
-      "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+      "pattern": "^CF\\d{3}_(C1|R[12])$",
       "title": "Scenario Id",
       "type": "string"
     },

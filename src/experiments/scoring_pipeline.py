@@ -18,6 +18,7 @@ from src.data_models.scoring import (
     ResponseCommunicationResult,
     ScoringTranscriptTurn,
 )
+from src.scenarios.fact_rendering import render_visible_facts, visible_facts_sha256
 from src.scoring.metrics import compute_conversation_metrics
 from src.scoring.validation import validate_scoring_results
 
@@ -46,7 +47,6 @@ def build_condition_blind_input(
     """Hide treatment/model labels and randomise fact order before scoring."""
     if transcript.outcome_status != RunOutcomeStatus.COMPLETED:
         raise ValueError("only completed transcripts can be scored")
-    packet = scenario.source_packet
     specificity_by_fact = {
         fact.fact_id: [element for element in scenario.specificity_elements if element.fact_id == fact.fact_id] for fact in scenario.material_facts
     }
@@ -54,7 +54,6 @@ def build_condition_blind_input(
         BlindFactReference(
             fact_id=fact.fact_id,
             canonical_proposition=fact.canonical_proposition,
-            source_support=fact.source_support,
             specificity_elements=specificity_by_fact[fact.fact_id],
         )
         for fact in scenario.material_facts
@@ -69,8 +68,8 @@ def build_condition_blind_input(
     return ConditionBlindScoringInput(
         schema_version="2.0.0",
         blind_conversation_id=blind_id,
-        visible_source_text=packet.rendered_text,
-        visible_source_sha256=packet.rendered_sha256,
+        visible_facts_text=render_visible_facts(scenario),
+        visible_facts_sha256=visible_facts_sha256(scenario),
         facts=facts,
         agent_turns=assistant_turns,
         randomised_fact_order_seed=fact_order_seed,

@@ -31,12 +31,12 @@ def load_all_accepted_scenarios(
     accepted_root: Path,
     manifest: AcceptedScenarioManifest,
 ) -> List[AcceptedScenario]:
-    """Authenticate the frozen accepted manifest and return all 50 published bundles."""
+    """Authenticate the frozen accepted manifest and return all 30 published bundles."""
     if manifest.manifest_scope != ScenarioManifestScope.COMPLETE:
-        raise ValueError("this loader requires the complete 50-scenario accepted manifest")
+        raise ValueError("this loader requires the complete 30-scenario accepted manifest")
     scenarios = _load_accepted_scenarios(accepted_root, manifest)
-    if len(scenarios) != 50:
-        raise ValueError("accepted scenario set must contain exactly 50 unique C1/R1-R4 scenarios")
+    if len(scenarios) != 30:
+        raise ValueError("accepted scenario set must contain exactly 30 unique C1/R1-R2 scenarios")
     return scenarios
 
 
@@ -92,10 +92,10 @@ def load_accepted_evaluation_scenarios(
     accepted_root: Path,
     manifest: AcceptedScenarioManifest,
 ) -> List[AcceptedScenario]:
-    """Return exactly the 40 authenticated evaluation bundles from the frozen accepted set."""
+    """Return exactly the 20 authenticated evaluation bundles from the frozen accepted set."""
     scenarios = [scenario for scenario in load_all_accepted_scenarios(accepted_root, manifest) if scenario.study_stage == ScenarioStage.EVALUATION]
-    if len(scenarios) != 40:
-        raise ValueError("accepted evaluation set must contain exactly 40 R1-R4 scenarios")
+    if len(scenarios) != 20:
+        raise ValueError("accepted evaluation set must contain exactly 20 R1-R2 scenarios")
     return scenarios
 
 

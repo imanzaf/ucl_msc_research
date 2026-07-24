@@ -17,14 +17,6 @@ class Command:
 COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
     "scenarios": {
         "generate": Command("src.cli.commands.scenarios.generate", "Generate and review scenario candidates."),
-        "dry-run-generation": Command(
-            "src.cli.commands.scenarios.dry_run_generation",
-            "Create a conservative scenario-generation cost report.",
-        ),
-        "approve-generation": Command(
-            "src.cli.commands.scenarios.approve_generation",
-            "Record explicit scenario-generation cost approval.",
-        ),
         "publish": Command("src.cli.commands.scenarios.publish", "Publish an accepted scenario revision."),
         "build-manifest": Command("src.cli.commands.scenarios.build_manifest", "Build the accepted-scenario manifest."),
         "freeze-tight-limits": Command("src.cli.commands.scenarios.freeze_tight_limits", "Freeze tight word limits from pilot outputs."),
