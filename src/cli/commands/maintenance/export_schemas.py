@@ -39,7 +39,7 @@ from src.data_models.manifests import (
     WordBudgetManifest,
 )
 from src.data_models.scenario_review import ResearcherScenarioReview, ScenarioAcceptanceRecord, ScenarioPipelineDisposition, ScenarioReviewHistory
-from src.data_models.scenarios import AcceptedScenario, CandidateScenario, MinimalCompleteResponse, ScenarioSeedSet
+from src.data_models.scenarios import AcceptedScenario, CandidateScenario, ScenarioSeedSet
 from src.data_models.scoring import (
     AnalysisInputRow,
     AnalysisMissingnessReport,
@@ -90,7 +90,6 @@ SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
     "domain_validation_gate_manifest": DomainValidationGateManifest,
     "manual_scoring_queue_record": ManualScoringQueueRecord,
     "manual_scoring_resolution": ManualScoringResolution,
-    "minimal_complete_response": MinimalCompleteResponse,
     "model_summary": ModelSummary,
     "paid_execution_approval": PaidExecutionApproval,
     "power_assumption_manifest": PowerAssumptionManifest,
@@ -126,6 +125,10 @@ SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
 def _add_seed_version_conditionals(schema: Dict[str, object]) -> Dict[str, object]:
     """Bind each immutable seed version to its exact active or archived use-case structure."""
     schema["allOf"] = [
+        {
+            "if": {"properties": {"schema_version": {"const": "0.9.0"}}, "required": ["schema_version"]},
+            "then": {"properties": {"use_cases": {"items": {"$ref": "#/$defs/V09UseCaseSeed"}}}},
+        },
         {
             "if": {"properties": {"schema_version": {"const": "0.8.0"}}, "required": ["schema_version"]},
             "then": {"properties": {"use_cases": {"items": {"$ref": "#/$defs/UseCaseSeed"}}}},

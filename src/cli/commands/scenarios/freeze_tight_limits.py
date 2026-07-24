@@ -26,7 +26,7 @@ from src.paths import (
     AMPLE_PILOT_RECORDS_PATH,
     EVALUATED_MODEL_MANIFEST_PATH,
 )
-from src.scenarios.budgets import build_ample_pilot_summary, calculate_tight_word_limit
+from src.scenarios.budgets import build_ample_pilot_summary, calculate_tight_word_limit, material_fact_text_sha256, material_fact_word_count
 from src.scenarios.word_count import WORD_COUNTER_VERSION
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic
 
@@ -54,7 +54,7 @@ def main() -> None:
         (args.output, expected_output),
     ]
     if any(supplied.resolve() != expected.resolve() for supplied, expected in fixed_paths):
-        raise ValueError("tight-limit freezing must use the fixed V0.8.0 lifecycle paths")
+        raise ValueError("tight-limit freezing must use the fixed V0.9.0 lifecycle paths")
     if args.output.exists():
         raise FileExistsError("the frozen tight-limit manifest already exists and cannot be replaced")
 
@@ -87,19 +87,17 @@ def main() -> None:
         scenario = scenario_by_id.get(record.scenario_id)
         if scenario is None or record.scenario_artifact_sha256 != scenario.artifact_sha256:
             raise ValueError("pilot record does not bind its accepted C1 scenario")
-    all_complete_fit = all(
-        scenario.minimal_complete_response.approved and scenario.minimal_complete_response.word_count <= 240 for scenario in scenarios
-    )
-    pilot_summary = build_ample_pilot_summary(pilot_records, all_complete_fit)
+    all_fact_lists_fit = all(material_fact_word_count(scenario.material_facts) <= 240 for scenario in scenarios)
+    pilot_summary = build_ample_pilot_summary(pilot_records, all_fact_lists_fit)
     budgets = [
         CalibrationUseCaseBudget(
             use_case_id=scenario.use_case_id,
             calibration_scenario_id=scenario.scenario_id,
-            calibration_minimal_word_count=scenario.minimal_complete_response.word_count,
-            tight_word_limit=calculate_tight_word_limit(scenario.minimal_complete_response.word_count),
+            calibration_fact_word_count=material_fact_word_count(scenario.material_facts),
+            tight_word_limit=calculate_tight_word_limit(material_fact_word_count(scenario.material_facts)),
             calibration_candidate_sha256=candidate_hash_by_id[scenario.scenario_id],
-            calibration_minimal_response_sha256=artifact_sha256(scenario.minimal_complete_response),
-            calibration_response_text_sha256=scenario.minimal_complete_response.text_sha256,
+            calibration_material_facts_sha256=artifact_sha256(scenario.material_facts),
+            calibration_fact_text_sha256=material_fact_text_sha256(scenario.material_facts),
         )
         for scenario in sorted(scenarios, key=lambda item: item.use_case_id)
     ]

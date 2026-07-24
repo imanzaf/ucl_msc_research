@@ -203,15 +203,15 @@ class UseCaseBudget(ImmutableModel):
 
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     calibration_scenario_id: str = Field(pattern=r"^CF\d{3}_C1$")
-    calibration_minimal_word_count: int = Field(gt=0)
+    calibration_fact_word_count: int = Field(gt=0)
     tight_word_limit: int = Field(ge=80, le=115, multiple_of=5)
-    evaluation_minimal_word_counts: Dict[str, int] = Field(min_length=4, max_length=4)
-    minimal_response_sha256: Dict[str, str] = Field(min_length=5, max_length=5)
+    evaluation_fact_word_counts: Dict[str, int] = Field(min_length=4, max_length=4)
+    material_facts_sha256: Dict[str, str] = Field(min_length=5, max_length=5)
 
-    @field_validator("minimal_response_sha256")
+    @field_validator("material_facts_sha256")
     @classmethod
-    def validate_response_hashes(cls, value: Dict[str, str]) -> Dict[str, str]:
-        """Validate every minimal-response digest."""
+    def validate_fact_hashes(cls, value: Dict[str, str]) -> Dict[str, str]:
+        """Validate every material-fact-list digest."""
         for digest in value.values():
             validate_sha256(digest)
         return value
@@ -219,17 +219,17 @@ class UseCaseBudget(ImmutableModel):
     @model_validator(mode="after")
     def validate_headroom(self) -> "UseCaseBudget":
         """Require the formula-derived limit and 12-word evaluation headroom."""
-        expected_limit = 5 * ((self.calibration_minimal_word_count + 12 + 4) // 5)
+        expected_limit = 5 * ((self.calibration_fact_word_count + 12 + 4) // 5)
         if self.tight_word_limit != expected_limit:
             raise ValueError("tight word limit must equal 5 * ceil((M_u + 12) / 5)")
         expected_ids = {f"{self.use_case_id}_R{index}" for index in range(1, 5)}
-        if set(self.evaluation_minimal_word_counts) != expected_ids:
-            raise ValueError("budget record must contain R1-R4 evaluation minimal responses")
-        if any(count > self.tight_word_limit - 12 for count in self.evaluation_minimal_word_counts.values()):
-            raise ValueError("every evaluation minimal response requires 12-word headroom")
+        if set(self.evaluation_fact_word_counts) != expected_ids:
+            raise ValueError("budget record must contain R1-R4 evaluation material fact lists")
+        if any(count > self.tight_word_limit - 12 for count in self.evaluation_fact_word_counts.values()):
+            raise ValueError("every evaluation material fact list requires 12-word headroom")
         expected_all_ids = {self.calibration_scenario_id, *expected_ids}
-        if set(self.minimal_response_sha256) != expected_all_ids:
-            raise ValueError("minimal response hashes must cover C1 and R1-R4")
+        if set(self.material_facts_sha256) != expected_all_ids:
+            raise ValueError("material fact hashes must cover C1 and R1-R4")
         return self
 
 
@@ -238,16 +238,16 @@ class CalibrationUseCaseBudget(ImmutableModel):
 
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     calibration_scenario_id: str = Field(pattern=r"^CF\d{3}_C1$")
-    calibration_minimal_word_count: int = Field(gt=0)
+    calibration_fact_word_count: int = Field(gt=0)
     tight_word_limit: int = Field(ge=80, le=115, multiple_of=5)
     calibration_candidate_sha256: str
-    calibration_minimal_response_sha256: str
-    calibration_response_text_sha256: str
+    calibration_material_facts_sha256: str
+    calibration_fact_text_sha256: str
 
-    @field_validator("calibration_candidate_sha256", "calibration_minimal_response_sha256", "calibration_response_text_sha256")
+    @field_validator("calibration_candidate_sha256", "calibration_material_facts_sha256", "calibration_fact_text_sha256")
     @classmethod
-    def validate_response_hash(cls, value: str) -> str:
-        """Validate the accepted C1 minimal-response digest."""
+    def validate_fact_hash(cls, value: str) -> str:
+        """Validate the accepted C1 material-fact digest."""
         return validate_sha256(value)
 
     @model_validator(mode="after")
@@ -255,7 +255,7 @@ class CalibrationUseCaseBudget(ImmutableModel):
         """Require the exact strengthened feasibility formula."""
         if self.calibration_scenario_id != f"{self.use_case_id}_C1":
             raise ValueError("calibration scenario id must match its use case")
-        expected_limit = 5 * ((self.calibration_minimal_word_count + 12 + 4) // 5)
+        expected_limit = 5 * ((self.calibration_fact_word_count + 12 + 4) // 5)
         if self.tight_word_limit != expected_limit:
             raise ValueError("tight word limit must equal 5 * ceil((M_u + 12) / 5)")
         return self
@@ -268,7 +268,7 @@ class AmplePilotSummary(ImmutableModel):
     proposed_ample_word_limit: int = Field(default=AMPLE_WORD_LIMIT)
     total_outputs: int = Field(default=60)
     outputs_within_ample_limit: int = Field(ge=0, le=60)
-    all_approved_complete_responses_fit: bool
+    all_material_fact_lists_fit: bool
     result_record_sha256: str
 
     @field_validator("result_record_sha256")
@@ -279,7 +279,7 @@ class AmplePilotSummary(ImmutableModel):
 
     def passes(self) -> bool:
         """Return whether the preregistered ample-limit gate passes."""
-        return self.total_outputs == 60 and self.outputs_within_ample_limit >= 57 and self.all_approved_complete_responses_fit
+        return self.total_outputs == 60 and self.outputs_within_ample_limit >= 57 and self.all_material_fact_lists_fit
 
 
 class AmplePilotRecord(VersionedImmutableModel):
@@ -544,7 +544,7 @@ class ScenarioManifestScope(str, Enum):
 class AcceptedScenarioSetId(str, Enum):
     """Identify the active accepted scenario family."""
 
-    V0_7_0 = ACTIVE_SCENARIO_SET_ID
+    V0_9_0 = ACTIVE_SCENARIO_SET_ID
 
 
 class AcceptedScenarioManifest(VersionedImmutableModel):
@@ -570,7 +570,7 @@ class AcceptedScenarioManifest(VersionedImmutableModel):
     def validate_complete_scenario_set(self) -> "AcceptedScenarioManifest":
         """Require exactly C1 and R1-R4 for every one of the ten use cases."""
         if self.seed_sha256 != ACTIVE_SCENARIO_SEED_SHA256 or self.seed_schema_sha256 != ACTIVE_SCENARIO_SEED_SCHEMA_SHA256:
-            raise ValueError("accepted-scenario manifest must bind the approved immutable V0.8.0 seed and schema")
+            raise ValueError("accepted-scenario manifest must bind the approved immutable V0.9.0 seed and schema")
         calibration_ids = {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
         evaluation_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 5)}
         expected_ids = calibration_ids if self.manifest_scope == ScenarioManifestScope.CALIBRATION else calibration_ids | evaluation_ids
@@ -1150,8 +1150,8 @@ class ScenarioGenerationCostReport(VersionedImmutableModel):
     def validate_batch_and_costs(self) -> "ScenarioGenerationCostReport":
         """Require exact lifecycle call counts and conservative cost ordering."""
         expected = {
-            ScenarioStage.CALIBRATION: (10, 10, 10, 30, 30),
-            ScenarioStage.EVALUATION: (4, 4, 5, 12, 15),
+            ScenarioStage.CALIBRATION: (10, 10, 10, 20, 20),
+            ScenarioStage.EVALUATION: (4, 4, 1, 8, 2),
         }[self.stage]
         observed = (
             self.scenario_count,

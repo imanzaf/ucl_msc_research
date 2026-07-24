@@ -221,6 +221,7 @@ class ProviderCallProvenance(ImmutableModel):
     usage: TokenUsage
     request_sha256: str
     response_sha256: str
+    response_repaired: bool = False
 
     @field_validator("request_sha256", "response_sha256")
     @classmethod

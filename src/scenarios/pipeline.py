@@ -15,32 +15,28 @@ from src.data_models.scenario_review import (
     RevisionCycleRecord,
     required_automated_review_kinds,
 )
-from src.data_models.scenarios import CandidateScenario, ReplicationSeed, UseCaseSeed
+from src.data_models.scenarios import CandidateScenario, V09ReplicationSeed, V09UseCaseSeed
 
 
 class ScenarioPipelineBackend(Protocol):
     """Define model-backed generation and review operations without hard-coding a provider."""
 
-    def generate_candidate(self, use_case: UseCaseSeed, replication: ReplicationSeed) -> CandidateScenario:
-        """Generate source, facts, calculations, and minimal response in one call."""
+    def generate_candidate(self, use_case: V09UseCaseSeed, replication: V09ReplicationSeed) -> CandidateScenario:
+        """Generate a source packet and simple facts in one call."""
         ...
 
-    def review_candidate_quality(self, candidate: CandidateScenario) -> AutomatedScenarioReview:
-        """Review one candidate's construct, finance, arithmetic, and source quality."""
-        ...
-
-    def review_batch_diversity(
+    def review_candidates(
         self,
         candidates: List[CandidateScenario],
         fixed_diversity_candidates: List[CandidateScenario],
     ) -> List[AutomatedScenarioReview]:
-        """Review one R1-R4 batch once against its fixed C1 anchor."""
+        """Review one C1 or a complete R1-R4 batch with one semantic contract."""
         ...
 
     def revise_candidate(
         self,
-        use_case: UseCaseSeed,
-        replication: ReplicationSeed,
+        use_case: V09UseCaseSeed,
+        replication: V09ReplicationSeed,
         candidate: CandidateScenario,
         reviews: List[AutomatedScenarioReview],
         cycle_number: int,
@@ -69,19 +65,34 @@ def _validate_review(review: AutomatedScenarioReview, candidate: CandidateScenar
         raise ValueError("automated review does not reference the current candidate hash")
 
 
-def _run_batch_diversity_review(
+def _run_review_batch(
     backend: ScenarioPipelineBackend,
     candidates: Dict[str, CandidateScenario],
     fixed_candidates: List[CandidateScenario],
 ) -> Dict[str, AutomatedScenarioReview]:
-    """Run one shared R-batch diversity call and validate complete per-candidate coverage."""
-    reviews = backend.review_batch_diversity(list(candidates.values()), fixed_candidates)
+    """Run one semantic review call and validate complete per-candidate coverage."""
+    reviews = backend.review_candidates(list(candidates.values()), fixed_candidates)
     review_by_id = {review.scenario_id: review for review in reviews}
     if len(review_by_id) != len(reviews) or set(review_by_id) != set(candidates):
-        raise ValueError("batch-diversity review must return each generated candidate exactly once")
+        raise ValueError("scenario review must return each generated candidate exactly once")
     for scenario_id, review in review_by_id.items():
-        _validate_review(review, candidates[scenario_id], AutomatedReviewKind.BATCH_DIVERSITY)
+        _validate_review(review, candidates[scenario_id], AutomatedReviewKind.SCENARIO_QUALITY)
     return review_by_id
+
+
+def _run_stage_reviews(
+    backend: ScenarioPipelineBackend,
+    candidates: Dict[str, CandidateScenario],
+    fixed_candidates: List[CandidateScenario],
+    is_calibration_batch: bool,
+) -> Dict[str, AutomatedScenarioReview]:
+    """Review C1 candidates separately or an R1-R4 batch together."""
+    if not is_calibration_batch:
+        return _run_review_batch(backend, candidates, fixed_candidates)
+    reviews: Dict[str, AutomatedScenarioReview] = {}
+    for scenario_id, candidate in candidates.items():
+        reviews.update(_run_review_batch(backend, {scenario_id: candidate}, []))
+    return reviews
 
 
 def _current_reviews_for(
@@ -106,7 +117,7 @@ def _terminal_review_decision(reviews: List[AutomatedScenarioReview]) -> ReviewD
 
 
 def run_scenario_batch_pipeline(
-    scenario_seeds: List[Tuple[UseCaseSeed, ReplicationSeed]],
+    scenario_seeds: List[Tuple[V09UseCaseSeed, V09ReplicationSeed]],
     backend: ScenarioPipelineBackend,
     revision_record_factory: Callable[
         [
@@ -119,6 +130,7 @@ def run_scenario_batch_pipeline(
         RevisionCycleRecord,
     ],
     fixed_diversity_candidates: Optional[List[CandidateScenario]] = None,
+    initial_candidates: Optional[Dict[str, CandidateScenario]] = None,
 ) -> Dict[str, ScenarioPipelineResult]:
     """Generate one lifecycle-stage batch while retaining any frozen C1 diversity anchors.
 
@@ -127,6 +139,7 @@ def run_scenario_batch_pipeline(
         backend: Typed generation, review, and controlled-revision implementation.
         revision_record_factory: Builder for complete dependency-rebuild audit records.
         fixed_diversity_candidates: Frozen C1 anchors included only in evaluation diversity review.
+        initial_candidates: Previously generated candidates to review without another provider generation call.
     """
     if not scenario_seeds:
         raise ValueError("scenario batch cannot be empty")
@@ -136,6 +149,9 @@ def run_scenario_batch_pipeline(
         raise ValueError("scenario batch contains duplicate identifiers")
     if set(selected_ids) & {candidate.scenario_id for candidate in fixed_candidates}:
         raise ValueError("fixed diversity candidates cannot also be regenerated")
+    supplied_candidates = initial_candidates or {}
+    if not set(supplied_candidates).issubset(selected_ids):
+        raise ValueError("initial candidates must belong to the selected scenario batch")
     is_calibration_batch = all(scenario_id.endswith("_C1") for scenario_id in selected_ids)
     if is_calibration_batch and fixed_candidates:
         raise ValueError("calibration generation does not use diversity anchors")
@@ -148,29 +164,33 @@ def run_scenario_batch_pipeline(
     revision_counts: Dict[str, int] = {}
     forced_decisions: Dict[str, ReviewDecision] = {}
     for use_case, replication in scenario_seeds:
-        candidates[replication.scenario_id] = backend.generate_candidate(use_case=use_case, replication=replication)
-        review_history[replication.scenario_id] = []
-        revision_history[replication.scenario_id] = []
-        revision_counts[replication.scenario_id] = 0
+        scenario_id = replication.scenario_id
+        candidate = supplied_candidates.get(scenario_id)
+        if candidate is None:
+            candidate = backend.generate_candidate(use_case=use_case, replication=replication)
+        if candidate.scenario_id != scenario_id or candidate.use_case_id != use_case.use_case_id:
+            raise ValueError("initial candidate does not match its selected scenario seed")
+        candidates[scenario_id] = candidate
+        review_history[scenario_id] = []
+        revision_history[scenario_id] = []
+        revision_counts[scenario_id] = 0
 
     current_reviews: Dict[str, Dict[AutomatedReviewKind, AutomatedScenarioReview]] = {}
-    for scenario_id, candidate in candidates.items():
-        quality_review = backend.review_candidate_quality(candidate)
-        _validate_review(quality_review, candidate, AutomatedReviewKind.CANDIDATE_QUALITY)
-        current_reviews[scenario_id] = {AutomatedReviewKind.CANDIDATE_QUALITY: quality_review}
-        review_history[scenario_id].append(quality_review)
-    if not is_calibration_batch:
-        diversity_by_id = _run_batch_diversity_review(backend, candidates, fixed_candidates)
-        for scenario_id, diversity_review in diversity_by_id.items():
-            current_reviews[scenario_id][AutomatedReviewKind.BATCH_DIVERSITY] = diversity_review
-            review_history[scenario_id].append(diversity_review)
+    initial_reviews = _run_stage_reviews(backend, candidates, fixed_candidates, is_calibration_batch)
+    for scenario_id, review in initial_reviews.items():
+        current_reviews[scenario_id] = {AutomatedReviewKind.SCENARIO_QUALITY: review}
+        review_history[scenario_id].append(review)
 
+    revision_round_completed = False
     while True:
         decisions = {scenario_id: _terminal_review_decision(_current_reviews_for(scenario_id, current_reviews)) for scenario_id in candidates}
         to_revise = [
             scenario_id for scenario_id, decision in decisions.items() if decision == ReviewDecision.REVISE and scenario_id not in forced_decisions
         ]
         if not to_revise:
+            break
+        if revision_round_completed:
+            forced_decisions.update({scenario_id: ReviewDecision.MANUAL_RESTRUCTURE for scenario_id in to_revise})
             break
         rebuilt: Dict[str, Tuple[CandidateScenario, CandidateScenario, List[ControlledFieldChange], int]] = {}
         for scenario_id in to_revise:
@@ -199,21 +219,17 @@ def run_scenario_batch_pipeline(
             )
         if not rebuilt:
             break
-        for scenario_id in rebuilt:
-            quality_review = backend.review_candidate_quality(candidates[scenario_id])
-            _validate_review(quality_review, candidates[scenario_id], AutomatedReviewKind.CANDIDATE_QUALITY)
-            current_reviews[scenario_id][AutomatedReviewKind.CANDIDATE_QUALITY] = quality_review
-            review_history[scenario_id].append(quality_review)
-        if not is_calibration_batch:
-            diversity_by_id = _run_batch_diversity_review(backend, candidates, fixed_candidates)
-            for scenario_id, diversity_review in diversity_by_id.items():
-                current_reviews[scenario_id][AutomatedReviewKind.BATCH_DIVERSITY] = diversity_review
-                review_history[scenario_id].append(diversity_review)
+        review_candidates = candidates if not is_calibration_batch else {scenario_id: candidates[scenario_id] for scenario_id in rebuilt}
+        rerun_reviews = _run_stage_reviews(backend, review_candidates, fixed_candidates, is_calibration_batch)
+        for scenario_id, review in rerun_reviews.items():
+            current_reviews[scenario_id][AutomatedReviewKind.SCENARIO_QUALITY] = review
+            review_history[scenario_id].append(review)
         for scenario_id, rebuild in rebuilt.items():
             record = revision_record_factory(*rebuild[:3], _current_reviews_for(scenario_id, current_reviews), rebuild[3])
             if record.input_artifact_sha256 != rebuild[0].candidate_sha256 or record.output_artifact_sha256 != rebuild[1].candidate_sha256:
                 raise ValueError("revision record candidate hashes do not match rebuilt artifacts")
             revision_history[scenario_id].append(record)
+        revision_round_completed = True
 
     results: Dict[str, ScenarioPipelineResult] = {}
     for scenario_id, candidate in candidates.items():
@@ -247,12 +263,9 @@ def default_revision_record_factory(
         input_artifact_sha256=previous_candidate.candidate_sha256,
         output_artifact_sha256=revised_candidate.candidate_sha256,
         rebuilt_dependency_sha256={
-            "numeric_registry": artifact_sha256(revised_candidate.numeric_registry),
             "source_packet": artifact_sha256(revised_candidate.source_packet),
             "material_facts": artifact_sha256(revised_candidate.material_facts),
-            "neutral_facts": artifact_sha256(revised_candidate.neutral_facts),
             "fact_pairs": artifact_sha256(revised_candidate.fact_pairs),
-            "minimal_complete_response": artifact_sha256(revised_candidate.minimal_complete_response),
         },
         rerun_review_sha256={review.review_kind: artifact_sha256(review) for review in reviews},
         completed_at=utc_now(),

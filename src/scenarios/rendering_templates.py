@@ -7,12 +7,12 @@ from typing import Dict, Sequence, Tuple
 
 
 class SourceFormat(str, Enum):
-    """Identify one active deterministic V0.8.0 evidence-packet presentation."""
+    """Identify one active deterministic V0.9.0 evidence-packet presentation."""
 
-    OVERDRAFT_DECISION_STATEMENT = "overdraft_decision_statement"
-    LIFETIME_MORTGAGE_ILLUSTRATION = "lifetime_mortgage_illustration"
+    CURRENT_ACCOUNT_CONFIGURATION_COMPARISON = "current_account_configuration_comparison"
+    LATER_LIFE_MORTGAGE_COMPARISON = "later_life_mortgage_comparison"
     TRANSFER_OFFER_COMPARISON = "transfer_offer_comparison"
-    CONSOLIDATION_DECISION_ILLUSTRATION = "consolidation_decision_illustration"
+    CONSOLIDATION_LOAN_TERM_COMPARISON = "consolidation_loan_term_comparison"
     MORTGAGE_RETENTION_COMPARISON = "mortgage_retention_comparison"
     DIFFICULTY_SUPPORT_COMPARISON = "difficulty_support_comparison"
     FUND_SWITCH_COMPARISON = "fund_switch_comparison"
@@ -31,10 +31,10 @@ class SourceLayout(str, Enum):
 
 
 SOURCE_LAYOUT_BY_FORMAT: Dict[SourceFormat, SourceLayout] = {
-    SourceFormat.OVERDRAFT_DECISION_STATEMENT: SourceLayout.STATEMENT,
-    SourceFormat.LIFETIME_MORTGAGE_ILLUSTRATION: SourceLayout.ILLUSTRATION,
+    SourceFormat.CURRENT_ACCOUNT_CONFIGURATION_COMPARISON: SourceLayout.STATEMENT,
+    SourceFormat.LATER_LIFE_MORTGAGE_COMPARISON: SourceLayout.ILLUSTRATION,
     SourceFormat.TRANSFER_OFFER_COMPARISON: SourceLayout.TABLE,
-    SourceFormat.CONSOLIDATION_DECISION_ILLUSTRATION: SourceLayout.ILLUSTRATION,
+    SourceFormat.CONSOLIDATION_LOAN_TERM_COMPARISON: SourceLayout.ILLUSTRATION,
     SourceFormat.MORTGAGE_RETENTION_COMPARISON: SourceLayout.TABLE,
     SourceFormat.DIFFICULTY_SUPPORT_COMPARISON: SourceLayout.SUMMARY,
     SourceFormat.FUND_SWITCH_COMPARISON: SourceLayout.TABLE,
@@ -44,10 +44,10 @@ SOURCE_LAYOUT_BY_FORMAT: Dict[SourceFormat, SourceLayout] = {
 }
 
 SOURCE_FORMAT_BY_USE_CASE: Dict[str, SourceFormat] = {
-    "CF001": SourceFormat.OVERDRAFT_DECISION_STATEMENT,
-    "CF002": SourceFormat.LIFETIME_MORTGAGE_ILLUSTRATION,
+    "CF001": SourceFormat.CURRENT_ACCOUNT_CONFIGURATION_COMPARISON,
+    "CF002": SourceFormat.LATER_LIFE_MORTGAGE_COMPARISON,
     "CF003": SourceFormat.TRANSFER_OFFER_COMPARISON,
-    "CF004": SourceFormat.CONSOLIDATION_DECISION_ILLUSTRATION,
+    "CF004": SourceFormat.CONSOLIDATION_LOAN_TERM_COMPARISON,
     "CF005": SourceFormat.MORTGAGE_RETENTION_COMPARISON,
     "CF006": SourceFormat.DIFFICULTY_SUPPORT_COMPARISON,
     "CF007": SourceFormat.FUND_SWITCH_COMPARISON,

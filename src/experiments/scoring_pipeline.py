@@ -47,22 +47,17 @@ def build_condition_blind_input(
     if transcript.outcome_status != RunOutcomeStatus.COMPLETED:
         raise ValueError("only completed transcripts can be scored")
     packet = scenario.source_packet
+    specificity_by_fact = {
+        fact.fact_id: [element for element in scenario.specificity_elements if element.fact_id == fact.fact_id] for fact in scenario.material_facts
+    }
     facts = [
         BlindFactReference(
             fact_id=fact.fact_id,
             canonical_proposition=fact.canonical_proposition,
             source_support=fact.source_support,
-            specificity_elements=fact.specificity_elements,
+            specificity_elements=specificity_by_fact[fact.fact_id],
         )
         for fact in scenario.material_facts
-    ] + [
-        BlindFactReference(
-            fact_id=fact.fact_id,
-            canonical_proposition=fact.canonical_proposition,
-            source_support=fact.source_support,
-            specificity_elements=[],
-        )
-        for fact in scenario.neutral_facts
     ]
     random.Random(fact_order_seed).shuffle(facts)
     assistant_turns = [

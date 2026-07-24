@@ -74,7 +74,7 @@ def main() -> None:
         (args.output, AMPLE_PILOT_COST_REPORT_PATH),
     ]
     if any(supplied.resolve() != expected.resolve() for supplied, expected in expected_paths):
-        raise ValueError("ample-pilot cost reporting must use the fixed V0.8.0 lifecycle paths")
+        raise ValueError("ample-pilot cost reporting must use the fixed V0.9.0 lifecycle paths")
     if args.output.exists():
         raise FileExistsError("the ample-pilot cost report already exists and cannot be replaced")
     accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)

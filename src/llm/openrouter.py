@@ -2,27 +2,30 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, cast
 
+from json_repair import repair_json
 from openai import OpenAI
 from openai.lib._pydantic import to_strict_json_schema
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.data_models.common import VersionedImmutableModel, artifact_sha256, canonical_json_bytes, sha256_bytes, utc_now, validate_sha256
-from src.data_models.experiments import CompletionFinishReason, provider_request_sha256
+from src.data_models.experiments import CompletionFinishReason, TokenUsage, provider_request_sha256
 from src.settings.api_settings import APISettings, OpenRouterCredentialRole
 from src.settings.model_settings import ModelSettings
-from src.storage import atomic_write_bytes
+from src.storage import atomic_write_bytes, write_model_json_atomic
 
 StructuredT = TypeVar("StructuredT", bound=BaseModel)
 
 
 def _strip_schema_defaults(value: Any) -> Any:
-    """Remove default keywords that strict provider JSON Schema rejects."""
+    """Remove JSON Schema keywords unsupported by configured provider endpoints."""
     if isinstance(value, dict):
-        return {key: _strip_schema_defaults(child) for key, child in value.items() if key != "default"}
+        unsupported_keywords = {"default", "minItems", "maxItems"}
+        return {key: _strip_schema_defaults(child) for key, child in value.items() if key not in unsupported_keywords}
     if isinstance(value, list):
         return [_strip_schema_defaults(child) for child in value]
     return value
@@ -52,12 +55,54 @@ class ProviderStructuredResponse(VersionedImmutableModel, Generic[StructuredT]):
     finish_reason: CompletionFinishReason
     request_sha256: str
     response_sha256: str
+    response_repaired: bool = False
 
     @field_validator("request_sha256", "response_sha256")
     @classmethod
     def validate_hashes(cls, value: str) -> str:
         """Validate exact structured request and response digests."""
         return validate_sha256(value)
+
+
+class ProviderStructuredAttemptRecord(VersionedImmutableModel):
+    """Persist one raw structured response and its local validation outcome."""
+
+    schema_version: str = Field(default="2.0.0", pattern=r"^2\.0\.0$")
+    output_model_name: str = Field(min_length=1)
+    requested_model_id: str = Field(min_length=1)
+    returned_model_version: str = Field(min_length=1)
+    provider_request_id: str = Field(min_length=1)
+    finish_reason: CompletionFinishReason
+    usage: TokenUsage
+    request_sha256: str
+    response_text: str
+    response_sha256: str
+    response_repaired: bool
+    validation_succeeded: bool
+    validation_error_type: Optional[str] = Field(default=None, min_length=1)
+    validation_error_message: Optional[str] = Field(default=None, min_length=1)
+    captured_at: datetime
+    record_sha256: str
+
+    @field_validator("request_sha256", "response_sha256", "record_sha256")
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate request, response, and record hashes."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_attempt(self) -> "ProviderStructuredAttemptRecord":
+        """Bind raw bytes and require error details only after failed validation."""
+        if self.response_sha256 != sha256_bytes(self.response_text.encode("utf-8")):
+            raise ValueError("structured-attempt response hash does not match raw response text")
+        has_complete_error = self.validation_error_type is not None and self.validation_error_message is not None
+        has_partial_error = (self.validation_error_type is None) != (self.validation_error_message is None)
+        if has_partial_error or self.validation_succeeded == has_complete_error:
+            raise ValueError("structured-attempt validation outcome and error fields disagree")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"record_sha256"}))
+        if self.record_sha256 != expected_hash:
+            raise ValueError("structured-attempt record hash does not match canonical content")
+        return self
 
 
 class ProviderTextCacheRecord(VersionedImmutableModel):
@@ -90,11 +135,18 @@ class ProviderTextCacheRecord(VersionedImmutableModel):
 class OpenRouterClient:
     """Make one-attempt OpenAI-compatible requests; retry policy belongs to callers."""
 
-    def __init__(self, client: Any, cache_dir: Optional[Path] = None, paid_calls_disabled: bool = False) -> None:
+    def __init__(
+        self,
+        client: Any,
+        cache_dir: Optional[Path] = None,
+        paid_calls_disabled: bool = False,
+        structured_log_dir: Optional[Path] = None,
+    ) -> None:
         """Wrap an OpenAI-compatible client with an optional exact-request cache."""
         self.client = client
         self.cache_dir = cache_dir
         self.paid_calls_disabled = paid_calls_disabled
+        self.structured_log_dir = structured_log_dir
 
     @classmethod
     def from_settings(
@@ -103,6 +155,7 @@ class OpenRouterClient:
         model_settings: ModelSettings,
         credential_role: OpenRouterCredentialRole,
         cache_dir: Optional[Path] = None,
+        structured_log_dir: Optional[Path] = None,
     ) -> "OpenRouterClient":
         """Construct a role-scoped OpenRouter client from Pydantic settings."""
         if api_settings.paid_api_calls_disabled:
@@ -118,7 +171,12 @@ class OpenRouterClient:
             timeout=model_settings.openrouter_request_timeout_seconds,
             default_headers=default_headers or None,
         )
-        return cls(client=client, cache_dir=cache_dir, paid_calls_disabled=api_settings.paid_api_calls_disabled)
+        return cls(
+            client=client,
+            cache_dir=cache_dir,
+            paid_calls_disabled=api_settings.paid_api_calls_disabled,
+            structured_log_dir=structured_log_dir,
+        )
 
     def complete_text(
         self,
@@ -190,9 +248,11 @@ class OpenRouterClient:
         model_id: str,
         messages: List[Dict[str, str]],
         output_model: Type[StructuredT],
-        temperature: float,
+        temperature: Optional[float],
         max_tokens: int,
-        seed: int,
+        seed: Optional[int],
+        enable_response_healing: bool = False,
+        require_supported_parameters: bool = False,
     ) -> ProviderStructuredResponse[StructuredT]:
         """Request strict JSON and retain returned identity, usage, finish, and exact hashes."""
         if self.paid_calls_disabled:
@@ -202,6 +262,11 @@ class OpenRouterClient:
             "type": "json_schema",
             "json_schema": {"name": output_model.__name__, "strict": True, "schema": schema},
         }
+        extra_body: Dict[str, Any] = {}
+        if enable_response_healing:
+            extra_body["plugins"] = [{"id": "response-healing"}]
+        if require_supported_parameters:
+            extra_body["provider"] = {"require_parameters": True}
         request_digest = artifact_sha256(
             {
                 "model": model_id,
@@ -210,16 +275,22 @@ class OpenRouterClient:
                 "max_tokens": max_tokens,
                 "seed": seed,
                 "response_format": response_format,
+                "extra_body": extra_body,
             }
         )
-        response = self.client.chat.completions.create(
-            model=model_id,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            seed=seed,
-            response_format=response_format,
-        )
+        request_arguments = {
+            "model": model_id,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "response_format": response_format,
+        }
+        if temperature is not None:
+            request_arguments["temperature"] = temperature
+        if seed is not None:
+            request_arguments["seed"] = seed
+        if extra_body:
+            request_arguments["extra_body"] = extra_body
+        response = self.client.chat.completions.create(**request_arguments)
         payload = response.model_dump(mode="json") if hasattr(response, "model_dump") else cast(Dict[str, Any], response)
         choices = payload.get("choices", [])
         if not choices:
@@ -233,16 +304,102 @@ class OpenRouterClient:
             finish_reason = CompletionFinishReason(raw_finish_reason)
         except ValueError:
             finish_reason = CompletionFinishReason.UNKNOWN
+        provider_request_id = str(payload.get("id") or "unknown")
+        returned_model_version = str(payload.get("model") or model_id)
+        input_tokens = int(usage.get("prompt_tokens") or 0)
+        output_tokens = int(usage.get("completion_tokens") or 0)
+        response_digest = sha256_bytes(content.encode("utf-8"))
+        response_repaired = False
+        try:
+            try:
+                parsed_content = json.loads(content)
+            except json.JSONDecodeError:
+                parsed_content = repair_json(content, return_objects=True)
+                response_repaired = True
+            output = output_model.model_validate(parsed_content)
+        except Exception as error:
+            self._write_structured_attempt(
+                output_model_name=output_model.__name__,
+                requested_model_id=model_id,
+                returned_model_version=returned_model_version,
+                provider_request_id=provider_request_id,
+                finish_reason=finish_reason,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                request_digest=request_digest,
+                response_text=content,
+                response_digest=response_digest,
+                response_repaired=response_repaired,
+                validation_error=error,
+            )
+            raise
+        self._write_structured_attempt(
+            output_model_name=output_model.__name__,
+            requested_model_id=model_id,
+            returned_model_version=returned_model_version,
+            provider_request_id=provider_request_id,
+            finish_reason=finish_reason,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            request_digest=request_digest,
+            response_text=content,
+            response_digest=response_digest,
+            response_repaired=response_repaired,
+        )
         return ProviderStructuredResponse(
-            output=output_model.model_validate_json(content),
-            provider_request_id=str(payload.get("id") or "unknown"),
-            returned_model_version=str(payload.get("model") or model_id),
-            input_tokens=int(usage.get("prompt_tokens") or 0),
-            output_tokens=int(usage.get("completion_tokens") or 0),
+            output=output,
+            provider_request_id=provider_request_id,
+            returned_model_version=returned_model_version,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
             finish_reason=finish_reason,
             request_sha256=request_digest,
-            response_sha256=sha256_bytes(content.encode("utf-8")),
+            response_sha256=response_digest,
+            response_repaired=response_repaired,
         )
+
+    def _write_structured_attempt(
+        self,
+        output_model_name: str,
+        requested_model_id: str,
+        returned_model_version: str,
+        provider_request_id: str,
+        finish_reason: CompletionFinishReason,
+        input_tokens: int,
+        output_tokens: int,
+        request_digest: str,
+        response_text: str,
+        response_digest: str,
+        response_repaired: bool,
+        validation_error: Optional[Exception] = None,
+    ) -> None:
+        """Persist one raw response and whether its local structured validation passed."""
+        if self.structured_log_dir is None:
+            return
+        payload = {
+            "schema_version": "2.0.0",
+            "output_model_name": output_model_name,
+            "requested_model_id": requested_model_id,
+            "returned_model_version": returned_model_version,
+            "provider_request_id": provider_request_id,
+            "finish_reason": finish_reason,
+            "usage": TokenUsage(
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=input_tokens + output_tokens,
+            ),
+            "request_sha256": request_digest,
+            "response_text": response_text,
+            "response_sha256": response_digest,
+            "response_repaired": response_repaired,
+            "validation_succeeded": validation_error is None,
+            "validation_error_type": type(validation_error).__name__ if validation_error is not None else None,
+            "validation_error_message": str(validation_error) if validation_error is not None else None,
+            "captured_at": utc_now(),
+        }
+        record = ProviderStructuredAttemptRecord.model_validate({**payload, "record_sha256": artifact_sha256(payload)})
+        request_id_digest = sha256_bytes(provider_request_id.encode("utf-8"))[:16]
+        write_model_json_atomic(self.structured_log_dir / f"{request_digest}_{request_id_digest}.json", record)
 
     def _cache_path(self, request_hash: str) -> Optional[Path]:
         """Return the cache path for one exact request hash."""

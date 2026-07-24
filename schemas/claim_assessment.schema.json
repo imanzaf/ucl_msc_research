@@ -93,6 +93,11 @@
           "title": "Requested Model Id",
           "type": "string"
         },
+        "response_repaired": {
+          "default": false,
+          "title": "Response Repaired",
+          "type": "boolean"
+        },
         "response_sha256": {
           "title": "Response Sha256",
           "type": "string"

@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from src.cli.commands.scenarios.publish import validate_candidate_seed_ownership
-from src.data_models.common import artifact_sha256, sha256_bytes
+from src.data_models.common import artifact_sha256
 from src.data_models.scenario_review import (
     AutomatedReviewKind,
     AutomatedScenarioReview,
@@ -17,13 +17,12 @@ from src.data_models.scenario_review import (
     ScenarioReviewHistory,
     ScenarioReviewLabels,
 )
-from src.data_models.scenarios import CandidateScenario, MinimalCompleteResponse, UseCaseSeed
+from src.data_models.scenarios import CandidateScenario, V09UseCaseSeed
 from src.scenarios.acceptance import build_accepted_scenario, publish_accepted_scenario, validate_accepted_bundle
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
 from src.scenarios.seed_validation import load_and_validate_seed
-from src.scenarios.word_count import count_words
 from src.storage import read_model_json
-from tests.factories import ZERO_HASH, make_candidate_scenario
+from tests.factories import ZERO_HASH, make_accepted_scenario, make_candidate_scenario
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -51,6 +50,7 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
         for kind in AutomatedReviewKind
     ]
     initial_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    specificity_elements = make_accepted_scenario().specificity_elements
     initial = ResearcherScenarioReview(
         schema_version="3.0.0",
         review_id="SCENARIO_INITIAL_ACCEPT",
@@ -59,6 +59,7 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
         decision=ReviewDecision.ACCEPT,
         labels=_passing_labels(),
         pair_diagnostics=build_pair_diagnostics(candidate),
+        specificity_elements=specificity_elements,
         reviewed_artifact_sha256=candidate.candidate_sha256,
         reviewed_at=initial_at,
         researcher_id="researcher",
@@ -71,35 +72,9 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
         revisions=[],
         researcher_reviews=[initial],
     )
-    minimal_payload = candidate.minimal_complete_response.model_dump(mode="json")
-    minimal_payload.update(
-        {
-            "approved": True,
-            "approved_at": initial_at,
-            "approved_by": "researcher",
-        }
-    )
-    approved_minimal = MinimalCompleteResponse.model_validate(minimal_payload)
-    changed_text = approved_minimal.text + " Changed after review."
-    changed_minimal = approved_minimal.model_copy(
-        update={
-            "text": changed_text,
-            "word_count": count_words(changed_text),
-            "text_sha256": sha256_bytes(changed_text.encode("utf-8")),
-        }
-    )
-    with pytest.raises(ValueError, match="changed after review"):
-        build_accepted_scenario(
-            candidate,
-            history,
-            changed_minimal,
-            accepted_at=initial_at,
-            accepted_by="researcher",
-        )
     acceptance_record, accepted = build_accepted_scenario(
         candidate,
         history,
-        approved_minimal,
         accepted_at=initial_at,
         accepted_by="researcher",
     )
@@ -116,13 +91,13 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
 
 def test_candidate_publication_requires_exact_seed_owned_metadata() -> None:
     """Reject a hash-valid reviewed candidate whose researcher-owned task fields drift."""
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.8.0"
+    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.9.0"
     seed = load_and_validate_seed(
         seed_root / "scenario_generation_seeds.json",
         seed_root / "scenario_generation_seed_schema.json",
     )
     use_case = seed.use_cases[0]
-    assert isinstance(use_case, UseCaseSeed)
+    assert isinstance(use_case, V09UseCaseSeed)
     candidate = make_candidate_scenario("CF001_R1")
     payload = candidate.model_dump(mode="json", exclude={"candidate_sha256"})
     payload.update(

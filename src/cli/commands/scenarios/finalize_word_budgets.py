@@ -10,7 +10,7 @@ from src.data_models.common import artifact_sha256, validate_model_self_hash
 from src.data_models.manifests import AcceptedScenarioManifest, FreezeStatus, TightLimitManifest, UseCaseBudget, WordBudgetManifest
 from src.experiments.io import load_all_accepted_scenarios
 from src.paths import ACTIVE_SCENARIO_ACCEPTED_ROOT, ACTIVE_SCENARIO_CHECKPOINT_ROOT, ACTIVE_SCENARIO_INPUT_ROOT, WORD_BUDGET_MANIFEST_PATH
-from src.scenarios.budgets import validate_evaluation_headroom
+from src.scenarios.budgets import material_fact_word_count, validate_evaluation_headroom
 from src.storage import read_model_json, write_model_json_atomic
 
 
@@ -30,7 +30,7 @@ def main() -> None:
         (args.output, WORD_BUDGET_MANIFEST_PATH),
     ]
     if any(supplied.resolve() != expected.resolve() for supplied, expected in expected_paths):
-        raise ValueError("word-budget finalization must use the fixed V0.8.0 lifecycle paths")
+        raise ValueError("word-budget finalization must use the fixed V0.9.0 lifecycle paths")
     if args.output.exists():
         raise FileExistsError("the frozen word-budget manifest already exists and cannot be replaced")
 
@@ -45,24 +45,22 @@ def main() -> None:
     budgets = []
     for frozen_budget in tight_manifest.use_case_budgets:
         calibration = scenario_by_id[frozen_budget.calibration_scenario_id]
-        if calibration.minimal_complete_response.word_count != frozen_budget.calibration_minimal_word_count:
-            raise ValueError("accepted C1 minimal response changed after tight-limit freeze")
-        if artifact_sha256(calibration.minimal_complete_response) != frozen_budget.calibration_minimal_response_sha256:
-            raise ValueError("accepted C1 minimal-response hash changed after tight-limit freeze")
+        if material_fact_word_count(calibration.material_facts) != frozen_budget.calibration_fact_word_count:
+            raise ValueError("accepted C1 material fact count changed after tight-limit freeze")
+        if artifact_sha256(calibration.material_facts) != frozen_budget.calibration_material_facts_sha256:
+            raise ValueError("accepted C1 material facts changed after tight-limit freeze")
         evaluations = [scenario_by_id[f"{frozen_budget.use_case_id}_R{replication}"] for replication in range(1, 5)]
-        evaluation_counts = {scenario.scenario_id: scenario.minimal_complete_response.word_count for scenario in evaluations}
+        evaluation_counts = {scenario.scenario_id: material_fact_word_count(scenario.material_facts) for scenario in evaluations}
         validate_evaluation_headroom(frozen_budget.tight_word_limit, evaluation_counts)
         use_case_scenarios = [calibration, *evaluations]
         budgets.append(
             UseCaseBudget(
                 use_case_id=frozen_budget.use_case_id,
                 calibration_scenario_id=calibration.scenario_id,
-                calibration_minimal_word_count=frozen_budget.calibration_minimal_word_count,
+                calibration_fact_word_count=frozen_budget.calibration_fact_word_count,
                 tight_word_limit=frozen_budget.tight_word_limit,
-                evaluation_minimal_word_counts=evaluation_counts,
-                minimal_response_sha256={
-                    scenario.scenario_id: artifact_sha256(scenario.minimal_complete_response) for scenario in use_case_scenarios
-                },
+                evaluation_fact_word_counts=evaluation_counts,
+                material_facts_sha256={scenario.scenario_id: artifact_sha256(scenario.material_facts) for scenario in use_case_scenarios},
             )
         )
     payload = {

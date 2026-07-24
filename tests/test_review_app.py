@@ -14,10 +14,10 @@ from src.data_models.annotations import ConversationAnnotation
 from src.data_models.common import artifact_sha256
 from src.data_models.manifests import AnnotationSampleManifest
 from src.data_models.scenario_review import ResearcherScenarioReview, ReviewDecision, ReviewPass, ScenarioReviewLabels
-from src.data_models.scenarios import AcceptedScenario, ScenarioStage
+from src.data_models.scenarios import AcceptedScenario, CandidateScenario, ScenarioStage
 from src.data_models.scoring import ConditionBlindScoringInput, ResponseSpan
 from src.experiments.scoring_pipeline import build_condition_blind_input
-from src.review_app import ReviewStore
+from src.review_app import SCENARIO_REVIEW_LABELS, ReviewStore, build_researcher_scenario_review, build_specificity_elements
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
 from src.storage import write_model_json_atomic
 from tests.factories import ZERO_HASH, make_accepted_scenario, make_candidate_scenario, make_scoring_results, make_transcript
@@ -26,6 +26,11 @@ from tests.factories import ZERO_HASH, make_accepted_scenario, make_candidate_sc
 def all_pass_labels() -> ScenarioReviewLabels:
     """Return a complete passing scenario-review checklist."""
     return ScenarioReviewLabels(**{field_name: True for field_name in ScenarioReviewLabels.model_fields})
+
+
+def specificity_by_fact(candidate: CandidateScenario) -> dict[str, list[str]]:
+    """Select one exact phrase from every candidate material fact."""
+    return {fact.fact_id: ["£120" if fact.polarity.value == "benefit" else "12-months"] for fact in candidate.material_facts}
 
 
 def make_store(tmp_path: Path) -> Tuple[ReviewStore, AcceptedScenario, ConditionBlindScoringInput]:
@@ -70,6 +75,7 @@ def test_scenario_review_requires_pair_diagnostics_and_rejects_a_duplicate(tmp_p
         "scenario_id": accepted.scenario_id,
         "decision": ReviewDecision.ACCEPT,
         "labels": all_pass_labels(),
+        "specificity_elements": accepted.specificity_elements,
         "reviewed_artifact_sha256": candidate.candidate_sha256,
         "reviewed_at": datetime(2026, 7, 1, tzinfo=timezone.utc),
         "researcher_id": "researcher",
@@ -82,6 +88,62 @@ def test_scenario_review_requires_pair_diagnostics_and_rejects_a_duplicate(tmp_p
     with pytest.raises(ValueError, match="already exists"):
         store.save_scenario_review(review.model_copy(update={"review_id": "SCENARIO_INITIAL_2"}))
     assert store.scenario_reviews() == [review]
+
+
+def test_point_and_click_scenario_submission_writes_schema_v3_review(tmp_path: Path) -> None:
+    """Build and persist one complete scenario review without a reference response."""
+    store, _, _ = make_store(tmp_path)
+    candidate = store.list_candidates()[0]
+    reviewed_at = datetime.now(timezone.utc)
+    labels = {field_name: True for field_name in SCENARIO_REVIEW_LABELS}
+    review = build_researcher_scenario_review(
+        scenario=candidate,
+        decision=ReviewDecision.ACCEPT,
+        labels=labels,
+        researcher_id=" iman ",
+        notes=" Reviewed in the local checklist. ",
+        reviewed_at=reviewed_at,
+        specificity_by_fact=specificity_by_fact(candidate),
+    )
+    store.save_scenario_submission(review)
+
+    assert review.schema_version == "3.0.0"
+    assert review.researcher_id == "iman"
+    assert review.notes == "Reviewed in the local checklist."
+    assert set(review.labels.model_dump()) == set(ScenarioReviewLabels.model_fields)
+    assert store.scenario_reviews() == [review]
+
+
+def test_scenario_submission_persists_a_non_accept_decision_without_extra_artifacts(tmp_path: Path) -> None:
+    """Persist a revise decision as the complete scenario-review record."""
+    store, _, _ = make_store(tmp_path)
+    candidate = store.list_candidates()[0]
+    reviewed_at = datetime.now(timezone.utc)
+    revised = build_researcher_scenario_review(
+        candidate,
+        ReviewDecision.REVISE,
+        {field_name: False for field_name in SCENARIO_REVIEW_LABELS},
+        "researcher",
+        "Needs revision.",
+        reviewed_at,
+    )
+    store.save_scenario_submission(revised)
+    assert store.scenario_reviews() == [revised]
+
+
+def test_scenario_form_labels_match_the_complete_typed_checklist() -> None:
+    """Keep every researcher acceptance criterion exposed as a named checkbox."""
+    assert set(SCENARIO_REVIEW_LABELS) == set(ScenarioReviewLabels.model_fields)
+
+
+def test_specificity_markers_are_optional_per_fact() -> None:
+    """Accept an empty or partial marker selection without inventing specificity."""
+    candidate = make_candidate_scenario()
+    assert build_specificity_elements(candidate, {}) == []
+    first = candidate.material_facts[0]
+    selected = build_specificity_elements(candidate, {first.fact_id: ["£120"]})
+    assert len(selected) == 1
+    assert selected[0].fact_id == first.fact_id
 
 
 def test_conversation_annotation_is_single_pass_and_resumable(tmp_path: Path) -> None:

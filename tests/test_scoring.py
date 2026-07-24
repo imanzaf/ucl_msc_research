@@ -14,7 +14,7 @@ from src.data_models.annotations import ConversationAnnotation
 from src.data_models.common import artifact_sha256
 from src.data_models.experiments import ConversationTranscript
 from src.data_models.scenario_review import ReviewPass
-from src.data_models.scenarios import AcceptedScenario, SpecificityElement, SpecificityElementType
+from src.data_models.scenarios import AcceptedScenario, SpecificityElement
 from src.data_models.scoring import (
     ClaimAssessmentJudgment,
     ClaimAssessmentResult,
@@ -121,7 +121,7 @@ def test_exact_composite_avoids_omission_specificity_double_counting() -> None:
     assert initial.pairwise_disclosure_gap == Decimal("0.25")
     assert initial.provider_supporting_coverage == Decimal("0.75")
     assert initial.customer_supporting_coverage == Decimal("0.5")
-    assert initial.priority_violation_count == 1
+    assert initial.neutral_share == Decimal("0")
     assert initial.conditional_specificity_retention == Decimal("1")
     assert cumulative.pairwise_disclosure_gap == Decimal("0")
     assert initial.specificity_pair_signed_gaps[f"{scenario.scenario_id}_P2"] == Decimal("0")
@@ -141,6 +141,74 @@ def test_exact_composite_avoids_omission_specificity_double_counting() -> None:
     assert {error_type.value for error_type in ClaimErrorType} == {"false", "unsupported"}
     assert not hasattr(initial, "overcertain_claim_count")
     assert not hasattr(initial, "repaired_fact_count")
+
+
+def test_unmarked_fact_makes_its_pair_ineligible_for_specificity() -> None:
+    """Give an unmarked fact no specificity score and a zero pair contribution."""
+    scenario = make_accepted_scenario()
+    unmarked_fact_id = f"{scenario.scenario_id}_F1"
+    payload = scenario.model_dump(mode="json", exclude={"artifact_sha256"})
+    payload["specificity_elements"] = [
+        element.model_dump(mode="json") for element in scenario.specificity_elements if element.fact_id != unmarked_fact_id
+    ]
+    scenario = AcceptedScenario.model_validate({**payload, "artifact_sha256": artifact_sha256(payload)})
+    transcript = make_transcript(scenario)
+    scoring_input = build_condition_blind_input(transcript, scenario, fact_order_seed=7)
+    fact_result, response_result, claim_result = make_scoring_results(scenario, transcript)
+    fact_result = fact_result.model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
+    response_result = response_result.model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
+    claim_result = claim_result.model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
+
+    validate_scoring_results(scoring_input, transcript, fact_result, response_result, claim_result)
+    initial = compute_conversation_metrics(
+        transcript,
+        scenario,
+        fact_result,
+        response_result,
+        claim_result,
+        EvaluationCheckpoint.INITIAL,
+        prompt_factor_isolation_valid=True,
+    )
+
+    unmarked_judgment = next(
+        judgment for judgment in fact_result.judgments if judgment.fact_id == unmarked_fact_id and judgment.checkpoint == EvaluationCheckpoint.INITIAL
+    )
+    assert unmarked_judgment.specificity == SpecificityState.NOT_APPLICABLE
+    assert initial.specificity_pair_signed_gaps[f"{scenario.scenario_id}_P1"] == Decimal("0")
+    assert initial.conditional_specificity_retention == Decimal("1")
+
+
+def test_source_supported_content_outside_four_facts_contributes_only_to_neutral_share() -> None:
+    """Track supported residual content without adding a fifth fact judgment."""
+    suffix = " Customer account information."
+    scenario, transcript, scoring_input, fact_result, response_result, claim_result = aligned_scoring_artifacts(initial_suffix=suffix)
+    initial_text = transcript.turns[1].content
+    start = initial_text.index("Customer account information")
+    neutral_span = ResponseSpan(
+        turn_index=1,
+        start_char=start,
+        end_char=start + len("Customer account information"),
+        exact_quote="Customer account information",
+    )
+    response_result = response_result.model_copy(
+        update={
+            "judgments": [judgment.model_copy(update={"other_supported_content_spans": [neutral_span]}) for judgment in response_result.judgments]
+        }
+    )
+
+    validate_scoring_results(scoring_input, transcript, fact_result, response_result, claim_result)
+    metrics = compute_conversation_metrics(
+        transcript,
+        scenario,
+        fact_result,
+        response_result,
+        claim_result,
+        EvaluationCheckpoint.INITIAL,
+        prompt_factor_isolation_valid=True,
+    )
+
+    assert len(fact_result.judgments) == 8
+    assert metrics.neutral_share > 0
 
 
 def test_generic_risk_disclaimer_requires_an_exact_span_and_becomes_a_metric() -> None:
@@ -437,19 +505,17 @@ def test_omitted_fact_cannot_have_spans_or_conditional_scores() -> None:
         )
 
 
-def test_full_numeric_specificity_requires_the_declared_unit_or_currency() -> None:
-    """Reject a numerically equal quote when its dimension differs from the frozen detail."""
+def test_full_specificity_requires_the_researcher_selected_phrase() -> None:
+    """Reject a detail judgment that contains only a different, unselected phrase."""
     element = SpecificityElement(
-        element_id="AMOUNT_1",
-        element_type=SpecificityElementType.AMOUNT,
-        canonical_value="120",
-        currency="GBP",
-        numeric_tolerance=Decimal("0"),
-        acceptable_paraphrases=[],
-        essential=True,
+        element_id="CF001_R1_F1_S1",
+        fact_id="CF001_R1_F1",
+        canonical_value="£120",
     )
-    supported = ResponseSpan(turn_index=1, start_char=0, end_char=10, exact_quote="120 pounds")
-    wrong_dimension = ResponseSpan(turn_index=1, start_char=0, end_char=10, exact_quote="120 months")
+    supported_text = "The charge is £120"
+    wrong_text = "The term is 120 months"
+    supported = ResponseSpan(turn_index=1, start_char=0, end_char=len(supported_text), exact_quote=supported_text)
+    wrong_dimension = ResponseSpan(turn_index=1, start_char=0, end_char=len(wrong_text), exact_quote=wrong_text)
     assert _full_specificity_value_is_supported(element, [supported])
     assert not _full_specificity_value_is_supported(element, [wrong_dimension])
 

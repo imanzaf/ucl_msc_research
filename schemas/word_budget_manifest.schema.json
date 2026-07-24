@@ -4,8 +4,8 @@
       "additionalProperties": false,
       "description": "Store the post-model-freeze 320-word adequacy pilot gate.",
       "properties": {
-        "all_approved_complete_responses_fit": {
-          "title": "All Approved Complete Responses Fit",
+        "all_material_fact_lists_fit": {
+          "title": "All Material Fact Lists Fit",
           "type": "boolean"
         },
         "outputs_within_ample_limit": {
@@ -36,7 +36,7 @@
       },
       "required": [
         "outputs_within_ample_limit",
-        "all_approved_complete_responses_fit",
+        "all_material_fact_lists_fit",
         "result_record_sha256"
       ],
       "title": "AmplePilotSummary",
@@ -55,9 +55,9 @@
       "additionalProperties": false,
       "description": "Freeze one use case's calibrated tight-word limit and feasibility evidence.",
       "properties": {
-        "calibration_minimal_word_count": {
+        "calibration_fact_word_count": {
           "exclusiveMinimum": 0,
-          "title": "Calibration Minimal Word Count",
+          "title": "Calibration Fact Word Count",
           "type": "integer"
         },
         "calibration_scenario_id": {
@@ -65,22 +65,22 @@
           "title": "Calibration Scenario Id",
           "type": "string"
         },
-        "evaluation_minimal_word_counts": {
+        "evaluation_fact_word_counts": {
           "additionalProperties": {
             "type": "integer"
           },
           "maxProperties": 4,
           "minProperties": 4,
-          "title": "Evaluation Minimal Word Counts",
+          "title": "Evaluation Fact Word Counts",
           "type": "object"
         },
-        "minimal_response_sha256": {
+        "material_facts_sha256": {
           "additionalProperties": {
             "type": "string"
           },
           "maxProperties": 5,
           "minProperties": 5,
-          "title": "Minimal Response Sha256",
+          "title": "Material Facts Sha256",
           "type": "object"
         },
         "tight_word_limit": {
@@ -99,10 +99,10 @@
       "required": [
         "use_case_id",
         "calibration_scenario_id",
-        "calibration_minimal_word_count",
+        "calibration_fact_word_count",
         "tight_word_limit",
-        "evaluation_minimal_word_counts",
-        "minimal_response_sha256"
+        "evaluation_fact_word_counts",
+        "material_facts_sha256"
       ],
       "title": "UseCaseBudget",
       "type": "object"

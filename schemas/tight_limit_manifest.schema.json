@@ -4,8 +4,8 @@
       "additionalProperties": false,
       "description": "Store the post-model-freeze 320-word adequacy pilot gate.",
       "properties": {
-        "all_approved_complete_responses_fit": {
-          "title": "All Approved Complete Responses Fit",
+        "all_material_fact_lists_fit": {
+          "title": "All Material Fact Lists Fit",
           "type": "boolean"
         },
         "outputs_within_ample_limit": {
@@ -36,7 +36,7 @@
       },
       "required": [
         "outputs_within_ample_limit",
-        "all_approved_complete_responses_fit",
+        "all_material_fact_lists_fit",
         "result_record_sha256"
       ],
       "title": "AmplePilotSummary",
@@ -50,17 +50,17 @@
           "title": "Calibration Candidate Sha256",
           "type": "string"
         },
-        "calibration_minimal_response_sha256": {
-          "title": "Calibration Minimal Response Sha256",
+        "calibration_fact_text_sha256": {
+          "title": "Calibration Fact Text Sha256",
           "type": "string"
         },
-        "calibration_minimal_word_count": {
+        "calibration_fact_word_count": {
           "exclusiveMinimum": 0,
-          "title": "Calibration Minimal Word Count",
+          "title": "Calibration Fact Word Count",
           "type": "integer"
         },
-        "calibration_response_text_sha256": {
-          "title": "Calibration Response Text Sha256",
+        "calibration_material_facts_sha256": {
+          "title": "Calibration Material Facts Sha256",
           "type": "string"
         },
         "calibration_scenario_id": {
@@ -84,11 +84,11 @@
       "required": [
         "use_case_id",
         "calibration_scenario_id",
-        "calibration_minimal_word_count",
+        "calibration_fact_word_count",
         "tight_word_limit",
         "calibration_candidate_sha256",
-        "calibration_minimal_response_sha256",
-        "calibration_response_text_sha256"
+        "calibration_material_facts_sha256",
+        "calibration_fact_text_sha256"
       ],
       "title": "CalibrationUseCaseBudget",
       "type": "object"

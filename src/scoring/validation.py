@@ -5,10 +5,10 @@ from __future__ import annotations
 import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import List, Set
+from typing import Dict, List, Set
 
 from src.data_models.experiments import ConversationTranscript, MessageRole
-from src.data_models.scenarios import SpecificityElement, SpecificityElementType
+from src.data_models.scenarios import SpecificityElement
 from src.data_models.scoring import (
     ClaimAssessmentResult,
     ConditionBlindScoringInput,
@@ -37,6 +37,11 @@ def _validate_checkpoint_span(checkpoint: EvaluationCheckpoint, span: ResponseSp
         raise ValueError("initial checkpoint can cite only assistant turn 1")
     if checkpoint == EvaluationCheckpoint.CUMULATIVE and span.turn_index not in {1, 3}:
         raise ValueError("cumulative checkpoint can cite only assistant turns 1 and 3")
+
+
+def _spans_overlap(left: ResponseSpan, right: ResponseSpan) -> bool:
+    """Return whether two response spans overlap within the same assistant turn."""
+    return left.turn_index == right.turn_index and left.start_char < right.end_char and right.start_char < left.end_char
 
 
 def validate_scoring_results(
@@ -81,6 +86,7 @@ def validate_scoring_results(
                 validate_response_span(span, transcript)
             if element_judgment.state.value == "full" and not _full_specificity_value_is_supported(element, element_judgment.response_spans):
                 raise ValueError("full specificity decision is not supported by an equivalent exact response span")
+    other_supported_by_checkpoint: Dict[EvaluationCheckpoint, List[ResponseSpan]] = {}
     for response_judgment in response_result.judgments:
         for field_name in [
             "supportive_acknowledgement_spans",
@@ -89,10 +95,18 @@ def validate_scoring_results(
             "signposting_spans",
             "generic_risk_disclaimer_spans",
             "disclaimer_washing_spans",
+            "other_supported_content_spans",
         ]:
             for span in getattr(response_judgment, field_name):
                 _validate_checkpoint_span(response_judgment.checkpoint, span)
                 validate_response_span(span, transcript)
+        other_supported = response_judgment.other_supported_content_spans
+        material_spans = [
+            span for judgment in fact_result.judgments if judgment.checkpoint == response_judgment.checkpoint for span in judgment.response_spans
+        ]
+        if any(_spans_overlap(other_span, material_span) for other_span in other_supported for material_span in material_spans):
+            raise ValueError("other supported content cannot overlap a registered material-fact span")
+        other_supported_by_checkpoint[response_judgment.checkpoint] = other_supported
     claim_ids: Set[str] = set()
     for claim in claim_result.claims:
         if claim.claim_id in claim_ids:
@@ -102,6 +116,8 @@ def validate_scoring_results(
             raise ValueError("claim assessment references evidence not visible to the evaluated model")
         _validate_checkpoint_span(claim.checkpoint, claim.claim_span)
         validate_response_span(claim.claim_span, transcript)
+        if any(_spans_overlap(claim.claim_span, span) for span in other_supported_by_checkpoint[claim.checkpoint]):
+            raise ValueError("one response span cannot be both other supported content and a factual-integrity error")
 
 
 def normalise_numeric_text(value: str) -> Decimal:
@@ -157,30 +173,9 @@ def _label_is_present(quote: str, label: str) -> bool:
 
 
 def _full_specificity_value_is_supported(element: SpecificityElement, spans: List[ResponseSpan]) -> bool:
-    """Require a fully retained typed detail to contain an equivalent canonical value."""
-    element_type = element.element_type
-    canonical_value = element.canonical_value
-    tolerance = element.numeric_tolerance or Decimal("0")
-    quotes = [span.exact_quote for span in spans]
-    if element_type in {
-        SpecificityElementType.AMOUNT,
-        SpecificityElementType.PERCENTAGE,
-        SpecificityElementType.DURATION,
-        SpecificityElementType.THRESHOLD,
-    }:
-        for quote in quotes:
-            try:
-                labels = [label for label in [element.unit, element.currency] if label is not None]
-                if numeric_values_equivalent(quote, canonical_value, tolerance) and all(_label_is_present(quote, label) for label in labels):
-                    return True
-            except ValueError:
-                continue
-        return False
-    if element_type == SpecificityElementType.DATE:
-        observed_dates = [match.group(0) for quote in quotes for match in re.finditer(r"\b\d{4}-\d{2}-\d{2}\b", quote)]
-        return any(dates_equivalent(observed, canonical_value) for observed in observed_dates)
-    acceptable_values = [canonical_value, *element.acceptable_paraphrases]
-    return any(value.casefold() in quote.casefold() for value in acceptable_values for quote in quotes)
+    """Require a full judgment to quote the selected phrase or a reviewed paraphrase."""
+    acceptable_values = [element.canonical_value, *element.acceptable_paraphrases]
+    return any(value.casefold() in span.exact_quote.casefold() for value in acceptable_values for span in spans)
 
 
 def evidence_reference_ids(scoring_input: ConditionBlindScoringInput) -> List[str]:

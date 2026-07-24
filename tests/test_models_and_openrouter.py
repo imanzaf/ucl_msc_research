@@ -13,7 +13,7 @@ from src.data_models.common import VersionedImmutableModel
 from src.data_models.experiments import provider_request_sha256
 from src.data_models.manifests import FreezeStatus
 from src.experiments.model_catalog import load_model_catalog, resolve_evaluated_model_ids
-from src.llm.openrouter import OpenRouterClient
+from src.llm.openrouter import OpenRouterClient, _strip_schema_defaults
 from src.settings.api_settings import APISettings, OpenRouterCredentialRole
 from src.settings.model_settings import ModelSettings
 
@@ -145,6 +145,20 @@ def test_structured_request_uses_strict_json_schema() -> None:
     assert fake.completions.calls[0]["response_format"]["json_schema"]["strict"] is True
 
 
+def test_provider_schema_removes_unsupported_array_bounds_only() -> None:
+    """Let provider endpoints accept the schema while local Pydantic keeps list bounds."""
+    schema = {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 4,
+        "items": {"type": "string", "minLength": 1},
+    }
+    assert _strip_schema_defaults(schema) == {
+        "type": "array",
+        "items": {"type": "string", "minLength": 1},
+    }
+
+
 def test_structured_request_preserves_returned_snapshot_usage_finish_and_hashes() -> None:
     """Retain complete provider provenance for every automated scoring contract."""
     payload = response('{"schema_version":"1.0.0","answer":"ok"}')
@@ -162,3 +176,73 @@ def test_structured_request_preserves_returned_snapshot_usage_finish_and_hashes(
     assert result.input_tokens == 10 and result.output_tokens == 5
     assert result.finish_reason.value == "stop"
     assert len(result.request_sha256) == len(result.response_sha256) == 64
+
+
+def test_structured_request_can_require_support_and_enable_response_healing() -> None:
+    """Route scenario calls only to supporting endpoints and repair malformed JSON syntax."""
+    fake = FakeClient([response('{"schema_version":"1.0.0","answer":"ok"}')])
+    OpenRouterClient(fake).complete_structured_with_provenance(
+        "judge/model",
+        [{"role": "user", "content": "Return JSON."}],
+        StructuredFixture,
+        temperature=0.0,
+        max_tokens=100,
+        seed=7,
+        enable_response_healing=True,
+        require_supported_parameters=True,
+    )
+    assert fake.completions.calls[0]["extra_body"] == {
+        "plugins": [{"id": "response-healing"}],
+        "provider": {"require_parameters": True},
+    }
+
+
+def test_structured_request_omits_unsupported_sampling_parameters() -> None:
+    """Allow strict provider routing with role-specific temperature and seed support."""
+    fake = FakeClient([response('{"schema_version":"1.0.0","answer":"ok"}')])
+    OpenRouterClient(fake).complete_structured_with_provenance(
+        "judge/model",
+        [{"role": "user", "content": "Return JSON."}],
+        StructuredFixture,
+        temperature=None,
+        max_tokens=100,
+        seed=None,
+    )
+    assert "temperature" not in fake.completions.calls[0]
+    assert "seed" not in fake.completions.calls[0]
+
+
+def test_structured_request_repairs_json_syntax_before_strict_validation() -> None:
+    """Repair malformed JSON locally while retaining an explicit provenance flag."""
+    fake = FakeClient([response('{"schema_version":"1.0.0","answer":"ok"')])
+    result = OpenRouterClient(fake).complete_structured_with_provenance(
+        "judge/model",
+        [{"role": "user", "content": "Return JSON."}],
+        StructuredFixture,
+        temperature=0.0,
+        max_tokens=100,
+        seed=7,
+    )
+    assert result.output.answer == "ok"
+    assert result.response_repaired is True
+
+
+def test_structured_attempt_log_keeps_raw_failed_response(tmp_path: Path) -> None:
+    """Persist raw provider content and the exact local validation error."""
+    raw_response = '{"schema_version":"1.0.0"}'
+    fake = FakeClient([response(raw_response)])
+    with pytest.raises(ValueError):
+        OpenRouterClient(fake, structured_log_dir=tmp_path).complete_structured_with_provenance(
+            "judge/model",
+            [{"role": "user", "content": "Return JSON."}],
+            StructuredFixture,
+            temperature=0.0,
+            max_tokens=100,
+            seed=7,
+        )
+    attempt_paths = list(tmp_path.glob("*.json"))
+    assert len(attempt_paths) == 1
+    attempt = json.loads(attempt_paths[0].read_text(encoding="utf-8"))
+    assert attempt["response_text"] == raw_response
+    assert attempt["validation_succeeded"] is False
+    assert attempt["validation_error_type"] == "ValidationError"

@@ -42,10 +42,10 @@ def test_all_cells_have_derived_stage_and_deterministic_ids() -> None:
 def test_domain_source_renderer_is_text_native_and_deterministic() -> None:
     """Render all ten domains through distinct native formats with stable hashes."""
     expected_formats = {
-        "overdraft_decision_statement",
-        "lifetime_mortgage_illustration",
+        "current_account_configuration_comparison",
+        "later_life_mortgage_comparison",
         "transfer_offer_comparison",
-        "consolidation_decision_illustration",
+        "consolidation_loan_term_comparison",
         "mortgage_retention_comparison",
         "difficulty_support_comparison",
         "fund_switch_comparison",
@@ -63,7 +63,7 @@ def test_domain_source_renderer_is_text_native_and_deterministic() -> None:
 def test_scenario_rejects_extra_source_items_and_wrong_use_case_renderer() -> None:
     """Keep all visible source content scored and bind each family to its frozen renderer."""
     scenario = make_accepted_scenario("CF001_R1")
-    with pytest.raises(ValueError, match="at most 6"):
+    with pytest.raises(ValueError, match="at most 4"):
         build_source_packet(
             scenario.scenario_id,
             scenario.source_packet.fixed_title,
@@ -77,7 +77,7 @@ def test_scenario_rejects_extra_source_items_and_wrong_use_case_renderer() -> No
     )
     payload = scenario.model_dump(mode="json", exclude={"artifact_sha256"})
     payload["source_packet"] = wrong_source.model_dump(mode="json")
-    with pytest.raises(ValueError, match="frozen V0.8.0 use-case renderer"):
+    with pytest.raises(ValueError, match="frozen V0.9.0 use-case renderer"):
         AcceptedScenario.model_validate({**payload, "artifact_sha256": artifact_sha256(payload)})
 
 
@@ -137,7 +137,7 @@ def test_prompt_factor_isolation_one_cue_and_identical_follow_up() -> None:
         assert len(observed) == 1
         assert content.count(observed[0]) == 1
         assert all(phrase not in unit.follow_up_message.content for phrase in ALL_CUE_PHRASES)
-        hidden_values = make_accepted_scenario(unit.scenario_id).hidden_design.decision.model_dump(mode="json").values()
+        hidden_values = make_accepted_scenario(unit.scenario_id).hidden_design.research.decision.model_dump(mode="json").values()
         assert all(value not in content for value in hidden_values)
         assert "decision_conflict" not in content
         assert "customer-aligned" not in content
@@ -200,7 +200,7 @@ def test_prompt_compilation_rejects_simulation_framing_even_if_model_validation_
 def test_prompt_compilation_rejects_hidden_decision_conflict_leakage() -> None:
     """Reject a research-only action even after punctuation-only changes."""
     scenario = make_accepted_scenario()
-    hidden_action = scenario.hidden_design.decision.provider_preferred_option
+    hidden_action = scenario.hidden_design.research.decision.provider_preferred_option.value
     for leaked_action in [hidden_action, hidden_action.rstrip(".")]:
         leaked_messages = scenario.customer_messages.model_copy(update={"initial_message": f"{leaked_action}?"})
         leaked_scenario = scenario.model_copy(update={"customer_messages": leaked_messages})
@@ -213,8 +213,9 @@ def test_prompt_compilation_rejects_hidden_decision_conflict_leakage() -> None:
             )
     punctuated_action = "Choose the provider's lower-cost option."
     compact_leak = "Choose the providers lower cost option"
-    decision = scenario.hidden_design.decision.model_copy(update={"provider_preferred_option": punctuated_action})
-    hidden_design = scenario.hidden_design.model_copy(update={"decision": decision})
+    decision = scenario.hidden_design.research.decision.model_copy(update={"provider_benefit": punctuated_action})
+    research = scenario.hidden_design.research.model_copy(update={"decision": decision})
+    hidden_design = scenario.hidden_design.model_copy(update={"research": research})
     leaked_messages = scenario.customer_messages.model_copy(update={"initial_message": f"{compact_leak}?"})
     leaked_scenario = scenario.model_copy(update={"hidden_design": hidden_design, "customer_messages": leaked_messages})
     with pytest.raises(ValueError, match="decision-conflict metadata"):

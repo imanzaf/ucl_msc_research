@@ -1,4 +1,4 @@
-"""Validate immutable V0.8.0 sources, model catalog, schemas, and active protocol."""
+"""Validate immutable V0.9.0 sources, model catalog, schemas, and active protocol."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from src.data_models.scenarios import EvidencePairType, UseCaseSeed
+from src.data_models.scenarios import EvidencePairType, V09UseCaseSeed
 from src.experiments.model_catalog import load_model_catalog
 from src.paths import ACTIVE_SCENARIO_INPUT_ROOT, REPO_ROOT
 from src.scenarios.rendering_templates import SOURCE_FORMAT_BY_USE_CASE, SOURCE_LAYOUT_BY_FORMAT, SourceFormat
@@ -65,20 +65,20 @@ def main() -> None:
         or set(SOURCE_FORMAT_BY_USE_CASE.values()) != set(SourceFormat)
         or set(SOURCE_LAYOUT_BY_FORMAT) != set(SourceFormat)
     ):
-        raise ValueError("V0.8.0 requires one distinct deterministic source format for each use case")
+        raise ValueError("V0.9.0 requires one distinct deterministic source format for each use case")
     if any({item.use_case_id for item in seed.use_cases} != {item.use_case_id for item in legacy_seed.use_cases} for legacy_seed in legacy_seeds):
-        raise ValueError("V0.8.0 must preserve the CF001-CF010 identifiers used by all archived seed families")
-    active_use_cases = [use_case for use_case in seed.use_cases if isinstance(use_case, UseCaseSeed)]
+        raise ValueError("V0.9.0 must preserve the CF001-CF010 identifiers used by all archived seed families")
+    active_use_cases = [use_case for use_case in seed.use_cases if isinstance(use_case, V09UseCaseSeed)]
     if len(active_use_cases) != 10:
-        raise ValueError("V0.8.0 requires the balanced-evidence structure for every use case")
-    if any({pair.pair_type for pair in use_case.hidden_design.evidence.pairs} != set(EvidencePairType) for use_case in active_use_cases):
-        raise ValueError("V0.8.0 requires one benefit and one downside comparison per use case")
+        raise ValueError("V0.9.0 requires the documented-option structure for every use case")
+    if any({pair.pair_type for pair in use_case.hidden_design.research.evidence.pairs} != set(EvidencePairType) for use_case in active_use_cases):
+        raise ValueError("V0.9.0 requires one benefit and one downside comparison per use case")
     catalog = load_model_catalog()
     schema_count = validate_exported_schemas(REPO_ROOT / "schemas")
     validate_removed_active_interfaces()
     print(
         f"Protocol valid: {len(seed.use_cases)} use cases, "
-        f"{sum(len(use_case.hidden_design.generation.replications) for use_case in active_use_cases)} seeds, "
+        f"{sum(len(use_case.hidden_design.source_generation.replications) for use_case in active_use_cases)} seeds, "
         f"{len(catalog.evaluated_models)} model candidates, {schema_count} exported schemas."
     )
 

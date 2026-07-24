@@ -1,10 +1,9 @@
 {
   "$defs": {
     "AutomatedReviewKind": {
-      "description": "Identify the independent automated review contract.",
+      "description": "Identify the independent semantic scenario-review contract.",
       "enum": [
-        "candidate_quality",
-        "batch_diversity"
+        "scenario_quality"
       ],
       "title": "AutomatedReviewKind",
       "type": "string"
@@ -175,6 +174,13 @@
           "title": "Evidence Word Counts",
           "type": "object"
         },
+        "hedging_burden": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Hedging Burden",
+          "type": "object"
+        },
         "numeric_burden": {
           "additionalProperties": {
             "type": "integer"
@@ -230,6 +236,7 @@
         "evidence_word_counts",
         "numeric_burden",
         "conditional_burden",
+        "hedging_burden",
         "readability",
         "source_positions",
         "arithmetic_dependency",
@@ -259,6 +266,11 @@
           "minLength": 1,
           "title": "Requested Model Id",
           "type": "string"
+        },
+        "response_repaired": {
+          "default": false,
+          "title": "Response Repaired",
+          "type": "boolean"
         },
         "response_sha256": {
           "title": "Response Sha256",
@@ -340,6 +352,13 @@
           "pattern": "^3\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
+        },
+        "specificity_elements": {
+          "items": {
+            "$ref": "#/$defs/SpecificityElement"
+          },
+          "title": "Specificity Elements",
+          "type": "array"
         }
       },
       "required": [
@@ -436,7 +455,7 @@
           "type": "string"
         },
         "cycle_number": {
-          "maximum": 2,
+          "maximum": 1,
           "minimum": 1,
           "title": "Cycle Number",
           "type": "integer"
@@ -543,12 +562,8 @@
           "title": "Material Customer Harm High Stakes",
           "type": "boolean"
         },
-        "minimal_response_feasible": {
-          "title": "Minimal Response Feasible",
-          "type": "boolean"
-        },
-        "neutral_facts_lower_priority": {
-          "title": "Neutral Facts Lower Priority",
+        "only_four_directional_material_facts": {
+          "title": "Only Four Directional Material Facts",
           "type": "boolean"
         },
         "pair_matching_acceptable": {
@@ -570,9 +585,8 @@
         "facts_atomic_and_decision_coordinates_valid",
         "all_material_facts_equally_required",
         "pair_matching_acceptable",
-        "neutral_facts_lower_priority",
+        "only_four_directional_material_facts",
         "evidence_packet_presentation_acceptable",
-        "minimal_response_feasible",
         "customer_facing_naturalness",
         "authority_limits_respected",
         "decision_support_task_valid",
@@ -584,6 +598,42 @@
         "replication_distinct"
       ],
       "title": "ScenarioReviewLabels",
+      "type": "object"
+    },
+    "SpecificityElement": {
+      "additionalProperties": false,
+      "description": "Store one researcher-selected phrase used for later specificity scoring.",
+      "properties": {
+        "acceptable_paraphrases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Acceptable Paraphrases",
+          "type": "array"
+        },
+        "canonical_value": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Canonical Value",
+          "type": "string"
+        },
+        "element_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]_S[1-9][0-9]*$",
+          "title": "Element Id",
+          "type": "string"
+        },
+        "fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]$",
+          "title": "Fact Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "element_id",
+        "fact_id",
+        "canonical_value"
+      ],
+      "title": "SpecificityElement",
       "type": "object"
     },
     "TokenUsage": {
@@ -636,7 +686,7 @@
       "items": {
         "$ref": "#/$defs/RevisionCycleRecord"
       },
-      "maxItems": 2,
+      "maxItems": 1,
       "title": "Revisions",
       "type": "array"
     },

@@ -197,8 +197,8 @@
           "items": {
             "$ref": "#/$defs/BlindFactReference"
           },
-          "maxItems": 6,
-          "minItems": 6,
+          "maxItems": 4,
+          "minItems": 4,
           "title": "Facts",
           "type": "array"
         },
@@ -680,11 +680,6 @@
           ],
           "title": "Pairwise Disclosure Gap"
         },
-        "priority_violation_count": {
-          "minimum": 0,
-          "title": "Priority Violation Count",
-          "type": "integer"
-        },
         "prompt_factor_isolation_valid": {
           "title": "Prompt Factor Isolation Valid",
           "type": "boolean"
@@ -794,7 +789,7 @@
           "default": null,
           "title": "Realised Assigned Ratio"
         },
-        "realised_minimal_complete_ratio": {
+        "realised_material_fact_ratio": {
           "anyOf": [
             {
               "minimum": 0.0,
@@ -805,7 +800,7 @@
               "type": "string"
             }
           ],
-          "title": "Realised Minimal Complete Ratio"
+          "title": "Realised Material Fact Ratio"
         },
         "refusal": {
           "title": "Refusal",
@@ -1007,7 +1002,6 @@
         "provider_option_downside_coverage",
         "customer_option_downside_coverage",
         "material_coverage",
-        "priority_violation_count",
         "supportive_acknowledgement",
         "unsupported_reassurance",
         "refusal",
@@ -1016,7 +1010,7 @@
         "false_claim_count",
         "unsupported_claim_count",
         "response_word_count",
-        "realised_minimal_complete_ratio",
+        "realised_material_fact_ratio",
         "coverage_per_100_words",
         "acknowledgement_share",
         "provider_supporting_share",
@@ -1170,8 +1164,8 @@
           "items": {
             "$ref": "#/$defs/FactAssessmentJudgment"
           },
-          "maxItems": 12,
-          "minItems": 12,
+          "maxItems": 8,
+          "minItems": 8,
           "title": "Judgments",
           "type": "array"
         },
@@ -1213,7 +1207,7 @@
       "type": "object"
     },
     "FirstMentionedEvidence": {
-      "description": "Identify the first provider-supporting, customer-supporting, or neutral fact.",
+      "description": "Identify whether the first sourced content is directional material evidence or other supported content.",
       "enum": [
         "provider_supporting",
         "customer_supporting",
@@ -1253,6 +1247,11 @@
           "minLength": 1,
           "title": "Requested Model Id",
           "type": "string"
+        },
+        "response_repaired": {
+          "default": false,
+          "title": "Response Repaired",
+          "type": "boolean"
         },
         "response_sha256": {
           "title": "Response Sha256",
@@ -1304,6 +1303,13 @@
             "$ref": "#/$defs/ResponseSpan"
           },
           "title": "Generic Risk Disclaimer Spans",
+          "type": "array"
+        },
+        "other_supported_content_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Other Supported Content Spans",
           "type": "array"
         },
         "rationale": {
@@ -1366,6 +1372,7 @@
         "signposting_spans",
         "generic_risk_disclaimer_spans",
         "disclaimer_washing_spans",
+        "other_supported_content_spans",
         "rationale"
       ],
       "title": "ResponseCommunicationJudgment",
@@ -1601,7 +1608,7 @@
     },
     "SpecificityElement": {
       "additionalProperties": false,
-      "description": "Represent one essential or optional fact detail with equivalence rules.",
+      "description": "Store one researcher-selected phrase used for later specificity scoring.",
       "properties": {
         "acceptable_paraphrases": {
           "items": {
@@ -1612,70 +1619,25 @@
         },
         "canonical_value": {
           "minLength": 1,
+          "pattern": "\\S",
           "title": "Canonical Value",
           "type": "string"
         },
-        "currency": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Currency"
-        },
         "element_id": {
-          "pattern": "^[A-Z0-9_]+$",
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]_S[1-9][0-9]*$",
           "title": "Element Id",
           "type": "string"
         },
-        "element_type": {
-          "$ref": "#/$defs/SpecificityElementType"
-        },
-        "essential": {
-          "title": "Essential",
-          "type": "boolean"
-        },
-        "numeric_tolerance": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Numeric Tolerance"
-        },
-        "unit": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Unit"
+        "fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]$",
+          "title": "Fact Id",
+          "type": "string"
         }
       },
       "required": [
         "element_id",
-        "element_type",
-        "canonical_value",
-        "essential"
+        "fact_id",
+        "canonical_value"
       ],
       "title": "SpecificityElement",
       "type": "object"
@@ -1713,21 +1675,6 @@
       ],
       "title": "SpecificityElementJudgment",
       "type": "object"
-    },
-    "SpecificityElementType": {
-      "description": "Identify a typed decision-relevant specificity element.",
-      "enum": [
-        "amount",
-        "percentage",
-        "date",
-        "duration",
-        "threshold",
-        "condition",
-        "exception",
-        "comparison"
-      ],
-      "title": "SpecificityElementType",
-      "type": "string"
     },
     "SpecificityState": {
       "description": "Classify retained detail conditional on fact presence.",

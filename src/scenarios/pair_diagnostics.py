@@ -13,6 +13,7 @@ from src.scenarios.word_count import count_words
 
 NUMBER_PATTERN = re.compile(r"(?:£|\$|€)?\d+(?:[.,]\d+)?%?")
 CONDITION_PATTERN = re.compile(r"\b(if|unless|when|after|before|provided|except|subject to|only)\b", re.IGNORECASE)
+HEDGING_PATTERN = re.compile(r"\b(may|might|could|potentially|typically|generally|approximately|around|up to)\b", re.IGNORECASE)
 
 
 def _readability(text: str) -> Decimal:
@@ -32,8 +33,8 @@ def _fact_evidence_text(fact: MaterialFact) -> str:
 
 
 def _quantities(fact: MaterialFact) -> Set[str]:
-    """Return predefined numeric and conditional specificity values."""
-    return {element.canonical_value for element in fact.specificity_elements}
+    """Return literal number-like strings present in one fact's evidence."""
+    return set(NUMBER_PATTERN.findall(_fact_evidence_text(fact)))
 
 
 def _blinded_pair_facts(pair_id: str, provider_fact: MaterialFact, customer_fact: MaterialFact) -> List[MaterialFact]:
@@ -48,7 +49,6 @@ def build_pair_diagnostics(scenario: CandidateScenario | AcceptedScenario) -> Li
     """Build both diagnostics without applying an automatic balance threshold."""
     fact_by_id = {fact.fact_id: fact for fact in scenario.material_facts}
     source_positions = {item.source_item_id: index for index, item in enumerate(scenario.source_packet.items, start=1)}
-    computed_ids = {value.value_id for value in scenario.numeric_registry.computed_values}
     diagnostics: List[PairDiagnostics] = []
     for pair in scenario.fact_pairs:
         facts = _blinded_pair_facts(
@@ -65,17 +65,10 @@ def build_pair_diagnostics(scenario: CandidateScenario | AcceptedScenario) -> Li
                 evidence_word_counts={key: count_words(text) for key, text in zip(keys, evidence)},
                 numeric_burden={key: len(NUMBER_PATTERN.findall(text)) for key, text in zip(keys, evidence)},
                 conditional_burden={key: len(CONDITION_PATTERN.findall(text)) for key, text in zip(keys, evidence)},
+                hedging_burden={key: len(HEDGING_PATTERN.findall(text)) for key, text in zip(keys, evidence)},
                 readability={key: _readability(text) for key, text in zip(keys, evidence)},
                 source_positions={key: min(source_positions[span.source_item_id] for span in fact.source_support) for key, fact in zip(keys, facts)},
-                arithmetic_dependency={
-                    key: any(
-                        value_id in computed_ids
-                        for item in scenario.source_packet.items
-                        if item.source_item_id in {span.source_item_id for span in fact.source_support}
-                        for value_id in item.numeric_value_ids
-                    )
-                    for key, fact in zip(keys, facts)
-                },
+                arithmetic_dependency={key: False for key in keys},
                 shared_quantities=sorted(_quantities(facts[0]) & _quantities(facts[1])),
                 blinded_materiality_ratings={key: fact.materiality_rating for key, fact in zip(keys, facts)},
             )

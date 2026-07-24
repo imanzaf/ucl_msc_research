@@ -28,7 +28,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         REPO_ROOT / "CHANGELOG.md",
         REPO_ROOT / "docs/research-plan/RESEARCH_PLAN.md",
         REPO_ROOT / "docs/archive/REFERENCE_AUDIT.md",
-        REPO_ROOT / "docs/experiments/scenario_generation_v0_8_0.md",
+        REPO_ROOT / "docs/experiments/scenario_generation_v0_9_0.md",
         REPO_ROOT / "docs/experiments/review_and_annotation.md",
         REPO_ROOT / "docs/experiments/scoring.md",
         REPO_ROOT / "docs/experiments/calibration.md",
@@ -45,7 +45,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     if missing:
         raise ValueError("documentation references missing paths or commands: " + ", ".join(sorted(set(missing))))
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    if any(value not in readme for value in ["480", "240", "120", "V0.8.0", "3.0.0"]):
+    if any(value not in readme for value in ["480", "240", "120", "V0.9.0", "3.0.0"]):
         raise ValueError("README must identify the active seed/schema and exact experiment counts")
     print(f"Documentation smoke test passed for {len(required_documents)} active documents.")
 

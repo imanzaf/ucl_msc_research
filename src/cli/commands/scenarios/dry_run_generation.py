@@ -13,6 +13,7 @@ from src.data_models.manifests import ModelPricingAssumption, PricingAssumptionI
 from src.data_models.scenarios import ScenarioStage
 from src.experiments.model_catalog import load_model_catalog
 from src.paths import ACTIVE_SCENARIO_CHECKPOINT_ROOT, ACTIVE_SCENARIO_INPUT_ROOT
+from src.scenarios.openrouter_backend import STRUCTURED_MAX_OUTPUT_TOKENS
 from src.scenarios.seed_validation import load_and_validate_seed
 from src.storage import read_model_json, write_model_json_atomic
 
@@ -24,8 +25,8 @@ OUTPUT_ROOT = ACTIVE_SCENARIO_CHECKPOINT_ROOT
 def _call_counts(stage: ScenarioStage) -> Tuple[int, int, int, int, int]:
     """Return scenario, base-role, and worst-role call counts for one lifecycle batch."""
     if stage == ScenarioStage.CALIBRATION:
-        return 10, 10, 10, 30, 30
-    return 4, 4, 5, 12, 15
+        return 10, 10, 10, 20, 20
+    return 4, 4, 1, 8, 2
 
 
 def _role_cost(
@@ -51,7 +52,7 @@ def _pricing_payload(pricing: Dict[str, ModelPricingAssumption]) -> Dict[str, De
 
 
 def main() -> None:
-    """Authenticate the V0.8.0 batch and write its offline cost report."""
+    """Authenticate the V0.9.0 batch and write its offline cost report."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--stage", choices=[stage.value for stage in ScenarioStage], required=True)
     parser.add_argument("--use-case-id")
@@ -65,7 +66,7 @@ def main() -> None:
         raise ValueError("calibration omits --use-case-id; evaluation requires exactly one use case")
     expected_name = "calibration_cost_report.json" if stage == ScenarioStage.CALIBRATION else f"{args.use_case_id}_cost_report.json"
     if args.output.resolve() != (OUTPUT_ROOT / expected_name).resolve():
-        raise ValueError("scenario-generation cost reports must use the fixed V0.8.0 checkpoint path")
+        raise ValueError("scenario-generation cost reports must use the fixed V0.9.0 checkpoint path")
     if args.output.exists():
         raise FileExistsError("the scenario-generation cost report already exists and cannot be replaced")
     seed_path = SEED_ROOT / "scenario_generation_seeds.json"
@@ -80,7 +81,7 @@ def main() -> None:
         raise ValueError("pricing input must cover the configured scenario generator and reviewer")
     pricing = {model_id: all_pricing[model_id] for model_id in model_ids}
     scenario_count, base_generation, base_review, worst_generation, worst_review = _call_counts(stage)
-    maximum_output_tokens = 12_000
+    maximum_output_tokens = STRUCTURED_MAX_OUTPUT_TOKENS
     base_cost = _role_cost(
         base_generation,
         args.maximum_input_tokens_per_call,

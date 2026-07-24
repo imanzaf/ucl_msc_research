@@ -27,7 +27,7 @@ def main() -> None:
     if args.cost_report.resolve() != AMPLE_PILOT_COST_REPORT_PATH.resolve():
         raise ValueError("ample-pilot approval requires the fixed cost-report path")
     if args.output.resolve() != AMPLE_PILOT_APPROVAL_PATH.resolve():
-        raise ValueError("ample-pilot approval must use the fixed V0.8.0 checkpoint path")
+        raise ValueError("ample-pilot approval must use the fixed V0.9.0 checkpoint path")
     if args.output.exists():
         raise FileExistsError("the ample-pilot approval already exists and cannot be replaced")
     report = read_model_json(args.cost_report, AmplePilotCostReport)

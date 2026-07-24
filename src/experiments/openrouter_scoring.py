@@ -31,7 +31,7 @@ class FactAssessmentDraft(VersionedImmutableModel):
     """Return only fact judgments before code attaches judge provenance."""
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
-    judgments: List[FactAssessmentJudgment] = Field(min_length=12, max_length=12)
+    judgments: List[FactAssessmentJudgment] = Field(min_length=8, max_length=8)
 
 
 class ResponseCommunicationDraft(VersionedImmutableModel):
@@ -76,6 +76,7 @@ class OpenRouterScoringBackend:
             ),
             request_sha256=response.request_sha256,
             response_sha256=response.response_sha256,
+            response_repaired=response.response_repaired,
         )
 
     def _messages(self, prompt: str, scoring_input: ConditionBlindScoringInput) -> List[Dict[str, str]]:

@@ -20,7 +20,7 @@ class ConversationAnnotation(VersionedImmutableModel):
     anonymised_item_id: str = Field(min_length=1)
     blind_conversation_id: str = Field(min_length=1)
     annotation_pass: ReviewPass
-    fact_judgments: List[FactAssessmentJudgment] = Field(min_length=12, max_length=12)
+    fact_judgments: List[FactAssessmentJudgment] = Field(min_length=8, max_length=8)
     response_judgments: List[ResponseCommunicationJudgment] = Field(min_length=2, max_length=2)
     claim_judgments: List[ClaimAssessmentJudgment]
     scoring_input_sha256: str

@@ -61,8 +61,8 @@
           "items": {
             "$ref": "#/$defs/BlindFactReference"
           },
-          "maxItems": 6,
-          "minItems": 6,
+          "maxItems": 4,
+          "minItems": 4,
           "title": "Facts",
           "type": "array"
         },
@@ -266,7 +266,7 @@
     },
     "SpecificityElement": {
       "additionalProperties": false,
-      "description": "Represent one essential or optional fact detail with equivalence rules.",
+      "description": "Store one researcher-selected phrase used for later specificity scoring.",
       "properties": {
         "acceptable_paraphrases": {
           "items": {
@@ -277,88 +277,28 @@
         },
         "canonical_value": {
           "minLength": 1,
+          "pattern": "\\S",
           "title": "Canonical Value",
           "type": "string"
         },
-        "currency": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Currency"
-        },
         "element_id": {
-          "pattern": "^[A-Z0-9_]+$",
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]_S[1-9][0-9]*$",
           "title": "Element Id",
           "type": "string"
         },
-        "element_type": {
-          "$ref": "#/$defs/SpecificityElementType"
-        },
-        "essential": {
-          "title": "Essential",
-          "type": "boolean"
-        },
-        "numeric_tolerance": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Numeric Tolerance"
-        },
-        "unit": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Unit"
+        "fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])_F[1-4]$",
+          "title": "Fact Id",
+          "type": "string"
         }
       },
       "required": [
         "element_id",
-        "element_type",
-        "canonical_value",
-        "essential"
+        "fact_id",
+        "canonical_value"
       ],
       "title": "SpecificityElement",
       "type": "object"
-    },
-    "SpecificityElementType": {
-      "description": "Identify a typed decision-relevant specificity element.",
-      "enum": [
-        "amount",
-        "percentage",
-        "date",
-        "duration",
-        "threshold",
-        "condition",
-        "exception",
-        "comparison"
-      ],
-      "title": "SpecificityElementType",
-      "type": "string"
     }
   },
   "additionalProperties": false,

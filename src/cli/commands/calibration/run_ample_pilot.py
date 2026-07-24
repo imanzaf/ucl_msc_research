@@ -185,7 +185,7 @@ def main() -> None:
         (args.cache_dir, ACTIVE_SCENARIO_GENERATION_ROOT / "cache"),
     ]
     if any(supplied.resolve() != expected.resolve() for supplied, expected in expected_paths):
-        raise ValueError("ample-pilot execution must use the fixed V0.8.0 lifecycle paths")
+        raise ValueError("ample-pilot execution must use the fixed V0.9.0 lifecycle paths")
     accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
     model_manifest = read_model_json(args.evaluated_model_manifest, EvaluatedModelManifest)
     prompt_review = read_model_json(args.prompt_review_manifest, CalibrationPromptReviewManifest)

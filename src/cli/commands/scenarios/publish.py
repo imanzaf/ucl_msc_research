@@ -1,4 +1,4 @@
-"""Build and atomically publish one fully reviewed V0.8.0 scenario bundle."""
+"""Build and atomically publish one fully reviewed V0.9.0 scenario bundle."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.data_models.scenario_review import AutomatedScenarioReview, ResearcherScenarioReview, RevisionCycleRecord, ScenarioReviewHistory
-from src.data_models.scenarios import CandidateScenario, MinimalCompleteResponse, ScenarioSeedSet, UseCaseSeed
+from src.data_models.scenarios import CandidateScenario, ScenarioSeedSet, V09UseCaseSeed
 from src.paths import ACTIVE_SCENARIO_ACCEPTED_ROOT, ACTIVE_SCENARIO_GENERATION_ROOT, ACTIVE_SCENARIO_INPUT_ROOT, ACTIVE_SCENARIO_REVIEW_ROOT
 from src.scenarios.acceptance import build_accepted_scenario, publish_accepted_scenario
 from src.scenarios.seed_validation import load_and_validate_seed
@@ -17,17 +17,17 @@ from src.storage import read_model_json, read_model_jsonl
 def validate_candidate_seed_ownership(candidate: CandidateScenario, seed: ScenarioSeedSet) -> None:
     """Require candidate identity and researcher-owned fields to match the approved seed."""
     use_case = next((item for item in seed.use_cases if item.use_case_id == candidate.use_case_id), None)
-    if not isinstance(use_case, UseCaseSeed) or candidate.scenario_id not in {
-        replication.scenario_id for replication in use_case.hidden_design.generation.replications
+    if not isinstance(use_case, V09UseCaseSeed) or candidate.scenario_id not in {
+        replication.scenario_id for replication in use_case.hidden_design.source_generation.replications
     }:
-        raise ValueError("candidate scenario id is not present in its V0.8.0 use-case seed")
+        raise ValueError("candidate scenario id is not present in its V0.9.0 use-case seed")
     seed_owned_fields = {
         "deployment_context": use_case.deployment_context,
         "customer_messages": use_case.customer_messages,
         "hidden_design": use_case.hidden_design,
     }
     if any(getattr(candidate, field_name) != value for field_name, value in seed_owned_fields.items()):
-        raise ValueError("candidate seed-owned metadata differs from the approved V0.8.0 seed")
+        raise ValueError("candidate seed-owned metadata differs from the approved V0.9.0 seed")
 
 
 def main() -> None:
@@ -37,14 +37,13 @@ def main() -> None:
     parser.add_argument("--automated-reviews", type=Path, required=True)
     parser.add_argument("--revision-cycles", type=Path, required=True)
     parser.add_argument("--researcher-reviews", type=Path, required=True)
-    parser.add_argument("--approved-minimal-response", type=Path, required=True)
     parser.add_argument("--accepted-root", type=Path, required=True)
     parser.add_argument("--accepted-by", required=True)
     parser.add_argument("--artifact-version", default="v1")
     args = parser.parse_args()
     expected_accepted_root = ACTIVE_SCENARIO_ACCEPTED_ROOT.resolve()
     if args.accepted_root.resolve() != expected_accepted_root:
-        raise ValueError("accepted scenarios must publish only under the active V0.8.0 accepted root")
+        raise ValueError("accepted scenarios must publish only under the active V0.9.0 accepted root")
 
     candidate = read_model_json(args.candidate, CandidateScenario)
     candidate_root = ACTIVE_SCENARIO_GENERATION_ROOT / candidate.scenario_id
@@ -59,13 +58,10 @@ def main() -> None:
         "revision_cycles": args.revision_cycles,
     }
     if any(supplied_generated_paths[name].resolve() != path.resolve() for name, path in expected_generated_paths.items()):
-        raise ValueError("scenario publication must use the fixed V0.8.0 generated-candidate bundle paths")
+        raise ValueError("scenario publication must use the fixed V0.9.0 generated-candidate bundle paths")
     expected_researcher_review = ACTIVE_SCENARIO_REVIEW_ROOT / "scenario_reviews.jsonl"
-    expected_minimal_response = ACTIVE_SCENARIO_REVIEW_ROOT / "approved_minimal_responses" / f"{candidate.scenario_id}.json"
     if args.researcher_reviews.resolve() != expected_researcher_review.resolve():
         raise ValueError("scenario publication must use the append-only researcher review store")
-    if args.approved_minimal_response.resolve() != expected_minimal_response.resolve():
-        raise ValueError("scenario publication must use the reviewed scenario-specific minimal response")
     seed = load_and_validate_seed(
         seed_path=ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seeds.json",
         schema_path=ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json",
@@ -80,11 +76,9 @@ def main() -> None:
             review for review in read_model_jsonl(args.researcher_reviews, ResearcherScenarioReview) if review.scenario_id == candidate.scenario_id
         ],
     )
-    approved_minimal_response = read_model_json(args.approved_minimal_response, MinimalCompleteResponse)
     acceptance_record, accepted = build_accepted_scenario(
         candidate=candidate,
         review_history=history,
-        approved_minimal_response=approved_minimal_response,
         accepted_at=datetime.now(timezone.utc),
         accepted_by=args.accepted_by,
         artifact_version=args.artifact_version,

@@ -52,6 +52,11 @@
           "title": "Requested Model Id",
           "type": "string"
         },
+        "response_repaired": {
+          "default": false,
+          "title": "Response Repaired",
+          "type": "boolean"
+        },
         "response_sha256": {
           "title": "Response Sha256",
           "type": "string"
@@ -102,6 +107,13 @@
             "$ref": "#/$defs/ResponseSpan"
           },
           "title": "Generic Risk Disclaimer Spans",
+          "type": "array"
+        },
+        "other_supported_content_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Other Supported Content Spans",
           "type": "array"
         },
         "rationale": {
@@ -164,6 +176,7 @@
         "signposting_spans",
         "generic_risk_disclaimer_spans",
         "disclaimer_washing_spans",
+        "other_supported_content_spans",
         "rationale"
       ],
       "title": "ResponseCommunicationJudgment",

@@ -17,7 +17,7 @@ from src.data_models.scenario_review import (
     ScenarioReviewHistory,
     required_automated_review_kinds,
 )
-from src.data_models.scenarios import AcceptedScenario, CandidateScenario, MinimalCompleteResponse
+from src.data_models.scenarios import AcceptedScenario, CandidateScenario
 from src.storage import write_model_json_atomic
 
 
@@ -47,7 +47,6 @@ def _validated_researcher_review(
 def build_accepted_scenario(
     candidate: CandidateScenario,
     review_history: ScenarioReviewHistory,
-    approved_minimal_response: MinimalCompleteResponse,
     accepted_at: datetime,
     accepted_by: str,
     artifact_version: str = "v1",
@@ -72,13 +71,6 @@ def build_accepted_scenario(
     researcher_review = _validated_researcher_review(review_history.researcher_reviews, candidate)
     if researcher_review.decision != ReviewDecision.ACCEPT:
         raise ValueError("acceptance requires an accepted researcher decision")
-    if not approved_minimal_response.approved or approved_minimal_response.scenario_id != candidate.scenario_id:
-        raise ValueError("acceptance requires a researcher-approved minimal response for the candidate")
-    approval_fields = {"approved", "approved_at", "approved_by"}
-    candidate_response = candidate.minimal_complete_response.model_dump(mode="json", exclude=approval_fields)
-    approved_response = approved_minimal_response.model_dump(mode="json", exclude=approval_fields)
-    if approved_response != candidate_response:
-        raise ValueError("minimal response content changed after review; rebuild the candidate and rerun every review")
     review_history_sha256 = artifact_sha256(review_history)
     record_payload = {
         "schema_version": "3.0.0",
@@ -100,11 +92,9 @@ def build_accepted_scenario(
         "customer_messages": candidate.customer_messages,
         "hidden_design": candidate.hidden_design,
         "source_packet": candidate.source_packet,
-        "numeric_registry": candidate.numeric_registry,
         "material_facts": candidate.material_facts,
-        "neutral_facts": candidate.neutral_facts,
         "fact_pairs": candidate.fact_pairs,
-        "minimal_complete_response": approved_minimal_response,
+        "specificity_elements": researcher_review.specificity_elements,
         "review_history_sha256": review_history_sha256,
         "acceptance_record_sha256": acceptance_record.record_sha256,
         "accepted_at": accepted_at,

@@ -8,8 +8,13 @@ from typing import Dict, List
 from src.data_models.scenarios import ComputedNumericValue, NumericCalculation, NumericInput, NumericOperation, NumericRegistry
 
 
-def _calculate(operation: NumericOperation, operands: List[Decimal]) -> Decimal:
-    """Apply one supported deterministic operation to decimal operands."""
+def _calculate(
+    operation: NumericOperation,
+    operands: List[Decimal],
+    operand_units: List[str],
+    expected_unit: str,
+) -> Decimal:
+    """Apply one supported deterministic operation to typed decimal operands."""
     if operation == NumericOperation.ADD:
         return sum(operands, Decimal("0"))
     if operation == NumericOperation.SUBTRACT:
@@ -20,8 +25,12 @@ def _calculate(operation: NumericOperation, operands: List[Decimal]) -> Decimal:
         if len(operands) < 2:
             raise ValueError("multiply requires at least two operands")
         result = Decimal("1")
-        for operand in operands:
-            result *= operand
+        output_is_percentage = "percent" in expected_unit.casefold()
+        for operand, unit in zip(operands, operand_units):
+            value = operand
+            if not output_is_percentage and "percent" in unit.casefold():
+                value /= Decimal("100")
+            result *= value
         return result
     if operation == NumericOperation.DIVIDE:
         if len(operands) != 2:
@@ -52,8 +61,14 @@ def compute_numeric_registry(inputs: List[NumericInput], calculations: List[Nume
         if missing:
             raise ValueError("numeric calculation has unresolved operands: " + ", ".join(missing))
         operands = [values[value_id] for value_id in calculation.operand_value_ids]
+        operand_units = [units[value_id] for value_id in calculation.operand_value_ids]
         quantum = Decimal("1").scaleb(-calculation.decimal_places)
-        result = _calculate(calculation.operation, operands).quantize(quantum, rounding=ROUND_HALF_UP)
+        result = _calculate(
+            calculation.operation,
+            operands,
+            operand_units,
+            calculation.expected_unit,
+        ).quantize(quantum, rounding=ROUND_HALF_UP)
         values[calculation.output_value_id] = result
         units[calculation.output_value_id] = calculation.expected_unit
         computed.append(

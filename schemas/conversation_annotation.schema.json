@@ -188,6 +188,13 @@
           "title": "Generic Risk Disclaimer Spans",
           "type": "array"
         },
+        "other_supported_content_spans": {
+          "items": {
+            "$ref": "#/$defs/ResponseSpan"
+          },
+          "title": "Other Supported Content Spans",
+          "type": "array"
+        },
         "rationale": {
           "minLength": 1,
           "title": "Rationale",
@@ -248,6 +255,7 @@
         "signposting_spans",
         "generic_risk_disclaimer_spans",
         "disclaimer_washing_spans",
+        "other_supported_content_spans",
         "rationale"
       ],
       "title": "ResponseCommunicationJudgment",
@@ -374,8 +382,8 @@
       "items": {
         "$ref": "#/$defs/FactAssessmentJudgment"
       },
-      "maxItems": 12,
-      "minItems": 12,
+      "maxItems": 8,
+      "minItems": 8,
       "title": "Fact Judgments",
       "type": "array"
     },

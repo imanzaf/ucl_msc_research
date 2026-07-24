@@ -11,23 +11,20 @@ from pydantic import Field, field_validator, model_validator
 
 from src.data_models.common import ImmutableModel, VersionedImmutableModel, artifact_sha256, validate_sha256
 from src.data_models.experiments import ProviderCallProvenance
+from src.data_models.scenarios import SpecificityElement
 
-MAX_AUTOMATED_REVISION_CYCLES = 2
+MAX_AUTOMATED_REVISION_CYCLES = 1
 
 
 class AutomatedReviewKind(str, Enum):
-    """Identify the independent automated review contract."""
+    """Identify the independent semantic scenario-review contract."""
 
-    CANDIDATE_QUALITY = "candidate_quality"
-    BATCH_DIVERSITY = "batch_diversity"
+    SCENARIO_QUALITY = "scenario_quality"
 
 
 def required_automated_review_kinds(scenario_id: str) -> Set[AutomatedReviewKind]:
-    """Return the automated reviews required for a calibration or evaluation scenario."""
-    required = {AutomatedReviewKind.CANDIDATE_QUALITY}
-    if not scenario_id.endswith("_C1"):
-        required.add(AutomatedReviewKind.BATCH_DIVERSITY)
-    return required
+    """Return the single semantic review required for every scenario."""
+    return {AutomatedReviewKind.SCENARIO_QUALITY}
 
 
 class ReviewDecision(str, Enum):
@@ -156,12 +153,9 @@ class RevisionCycleRecord(VersionedImmutableModel):
         if set(self.rerun_review_sha256) != required_automated_review_kinds(self.scenario_id):
             raise ValueError("every revision cycle must rerun the stage-relevant automated reviews")
         expected_dependencies = {
-            "numeric_registry",
             "source_packet",
             "material_facts",
-            "neutral_facts",
             "fact_pairs",
-            "minimal_complete_response",
         }
         if set(self.rebuilt_dependency_sha256) != expected_dependencies:
             raise ValueError("every revision cycle must rebuild and hash all dependent scenario artifacts")
@@ -176,9 +170,8 @@ class ScenarioReviewLabels(ImmutableModel):
     facts_atomic_and_decision_coordinates_valid: bool
     all_material_facts_equally_required: bool
     pair_matching_acceptable: bool
-    neutral_facts_lower_priority: bool
+    only_four_directional_material_facts: bool
     evidence_packet_presentation_acceptable: bool
-    minimal_response_feasible: bool
     customer_facing_naturalness: bool
     authority_limits_respected: bool
     decision_support_task_valid: bool
@@ -202,6 +195,7 @@ class PairDiagnostics(ImmutableModel):
     evidence_word_counts: Dict[str, int]
     numeric_burden: Dict[str, int]
     conditional_burden: Dict[str, int]
+    hedging_burden: Dict[str, int]
     readability: Dict[str, Decimal]
     source_positions: Dict[str, int]
     arithmetic_dependency: Dict[str, bool]
@@ -217,6 +211,7 @@ class PairDiagnostics(ImmutableModel):
             "evidence_word_counts",
             "numeric_burden",
             "conditional_burden",
+            "hedging_burden",
             "readability",
             "source_positions",
             "arithmetic_dependency",
@@ -237,6 +232,7 @@ class ResearcherScenarioReview(VersionedImmutableModel):
     decision: ReviewDecision
     labels: ScenarioReviewLabels
     pair_diagnostics: List[PairDiagnostics] = Field(default_factory=list, max_length=2)
+    specificity_elements: List[SpecificityElement] = Field(default_factory=list)
     reviewed_artifact_sha256: str
     reviewed_at: datetime
     researcher_id: str = Field(min_length=1)
@@ -255,6 +251,17 @@ class ResearcherScenarioReview(VersionedImmutableModel):
             raise ValueError("accepted scenario reviews require every checklist item to pass")
         if self.decision == ReviewDecision.ACCEPT and len(self.pair_diagnostics) != 2:
             raise ValueError("accepted scenario reviews require both pair diagnostics to be viewed and persisted")
+        specificity_ids = [element.element_id for element in self.specificity_elements]
+        if len(specificity_ids) != len(set(specificity_ids)):
+            raise ValueError("researcher-selected specificity element identifiers must be unique")
+        if self.decision == ReviewDecision.ACCEPT:
+            expected_fact_ids = {f"{self.scenario_id}_F{index}" for index in range(1, 5)}
+            if not {element.fact_id for element in self.specificity_elements}.issubset(expected_fact_ids):
+                raise ValueError("accepted scenario reviews require specificity elements to refer to material facts")
+            if any(sum(element.fact_id == fact_id for element in self.specificity_elements) > 3 for fact_id in expected_fact_ids):
+                raise ValueError("accepted scenario reviews allow at most three specificity elements per material fact")
+        elif self.specificity_elements:
+            raise ValueError("specificity elements are recorded only when a scenario is accepted")
         return self
 
 
@@ -330,3 +337,28 @@ class ScenarioPipelineDisposition(VersionedImmutableModel):
     def validate_candidate_hash(cls, value: str) -> str:
         """Validate the terminal candidate digest format."""
         return validate_sha256(value)
+
+
+class ScenarioPipelineFailureRecord(VersionedImmutableModel):
+    """Persist one failed scenario-pipeline attempt for reproducible debugging."""
+
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[1-4])$")
+    error_type: str = Field(min_length=1)
+    error_message: str = Field(min_length=1)
+    recorded_at: datetime
+    record_sha256: str
+
+    @field_validator("record_sha256")
+    @classmethod
+    def validate_record_hash(cls, value: str) -> str:
+        """Validate the failure-record digest."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_self_hash(self) -> "ScenarioPipelineFailureRecord":
+        """Bind the failure record to its canonical content."""
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"record_sha256"}))
+        if self.record_sha256 != expected_hash:
+            raise ValueError("scenario-pipeline failure record hash does not match canonical content")
+        return self

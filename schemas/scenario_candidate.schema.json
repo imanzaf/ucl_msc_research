@@ -78,45 +78,6 @@
       "title": "CompletionFinishReason",
       "type": "string"
     },
-    "ComputedNumericValue": {
-      "additionalProperties": false,
-      "description": "Store a deterministic result and its dependency identifiers.",
-      "properties": {
-        "calculation": {
-          "$ref": "#/$defs/NumericCalculation"
-        },
-        "unit": {
-          "minLength": 1,
-          "title": "Unit",
-          "type": "string"
-        },
-        "value": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Value"
-        },
-        "value_id": {
-          "pattern": "^[A-Z][A-Z0-9_]*$",
-          "title": "Value Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "value_id",
-        "value",
-        "unit",
-        "calculation"
-      ],
-      "title": "ComputedNumericValue",
-      "type": "object"
-    },
     "CustomerMessages": {
       "additionalProperties": false,
       "description": "Store the natural initial question and non-leading follow-up shown to the assistant.",
@@ -139,65 +100,6 @@
         "follow_up_message"
       ],
       "title": "CustomerMessages",
-      "type": "object"
-    },
-    "DecisionDesign": {
-      "additionalProperties": false,
-      "description": "Store the compact hidden customer/provider decision conflict.",
-      "properties": {
-        "customer_goal": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Customer Goal",
-          "type": "string"
-        },
-        "customer_harm": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Customer Harm",
-          "type": "string"
-        },
-        "customer_preference_basis": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Customer Preference Basis",
-          "type": "string"
-        },
-        "customer_preferred_option": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Customer Preferred Option",
-          "type": "string"
-        },
-        "high_stakes_basis": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "High Stakes Basis",
-          "type": "string"
-        },
-        "provider_benefit": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Provider Benefit",
-          "type": "string"
-        },
-        "provider_preferred_option": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Provider Preferred Option",
-          "type": "string"
-        }
-      },
-      "required": [
-        "customer_goal",
-        "customer_preferred_option",
-        "provider_preferred_option",
-        "customer_preference_basis",
-        "provider_benefit",
-        "customer_harm",
-        "high_stakes_basis"
-      ],
-      "title": "DecisionDesign",
       "type": "object"
     },
     "DecisionOption": {
@@ -239,61 +141,6 @@
         "authority_limits"
       ],
       "title": "DeploymentContext",
-      "type": "object"
-    },
-    "EvidenceDesign": {
-      "additionalProperties": false,
-      "description": "Store the hidden balanced 2×2 evidence requirements.",
-      "properties": {
-        "pairs": {
-          "items": {
-            "$ref": "#/$defs/EvidencePairBrief"
-          },
-          "maxItems": 2,
-          "minItems": 2,
-          "title": "Pairs",
-          "type": "array"
-        }
-      },
-      "required": [
-        "pairs"
-      ],
-      "title": "EvidenceDesign",
-      "type": "object"
-    },
-    "EvidencePairBrief": {
-      "additionalProperties": false,
-      "description": "Define one polarity-matched provider/customer evidence comparison.",
-      "properties": {
-        "customer_option_theme": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Customer Option Theme",
-          "type": "string"
-        },
-        "matching_requirements": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Matching Requirements",
-          "type": "string"
-        },
-        "pair_type": {
-          "$ref": "#/$defs/EvidencePairType"
-        },
-        "provider_option_theme": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Provider Option Theme",
-          "type": "string"
-        }
-      },
-      "required": [
-        "pair_type",
-        "provider_option_theme",
-        "customer_option_theme",
-        "matching_requirements"
-      ],
-      "title": "EvidencePairBrief",
       "type": "object"
     },
     "EvidencePairType": {
@@ -418,28 +265,6 @@
       "title": "FinanceEntityType",
       "type": "string"
     },
-    "HiddenDesign": {
-      "additionalProperties": false,
-      "description": "Group every seed field that is excluded from evaluated-model prompts.",
-      "properties": {
-        "decision": {
-          "$ref": "#/$defs/DecisionDesign"
-        },
-        "evidence": {
-          "$ref": "#/$defs/EvidenceDesign"
-        },
-        "generation": {
-          "$ref": "#/$defs/V08ScenarioGenerationDesign"
-        }
-      },
-      "required": [
-        "decision",
-        "evidence",
-        "generation"
-      ],
-      "title": "HiddenDesign",
-      "type": "object"
-    },
     "MaterialFact": {
       "additionalProperties": false,
       "description": "Represent one equally required decision-material fact.",
@@ -487,13 +312,6 @@
           "minItems": 1,
           "title": "Source Support",
           "type": "array"
-        },
-        "specificity_elements": {
-          "items": {
-            "$ref": "#/$defs/SpecificityElement"
-          },
-          "title": "Specificity Elements",
-          "type": "array"
         }
       },
       "required": [
@@ -505,271 +323,9 @@
         "materiality_rationale",
         "required_in_complete_response",
         "materiality_rating",
-        "source_support",
-        "specificity_elements"
-      ],
-      "title": "MaterialFact",
-      "type": "object"
-    },
-    "MinimalCompleteResponse": {
-      "additionalProperties": false,
-      "description": "Store the approved facts-only feasibility response and frozen word count.",
-      "properties": {
-        "approved": {
-          "title": "Approved",
-          "type": "boolean"
-        },
-        "approved_at": {
-          "anyOf": [
-            {
-              "format": "date-time",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Approved At"
-        },
-        "approved_by": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Approved By"
-        },
-        "covered_fact_ids": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 4,
-          "minItems": 4,
-          "title": "Covered Fact Ids",
-          "type": "array"
-        },
-        "covered_specificity_element_ids": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Covered Specificity Element Ids",
-          "type": "array"
-        },
-        "scenario_id": {
-          "pattern": "^CF\\d{3}_(C1|R[1-4])$",
-          "title": "Scenario Id",
-          "type": "string"
-        },
-        "schema_version": {
-          "pattern": "^3\\.0\\.0$",
-          "title": "Schema Version",
-          "type": "string"
-        },
-        "text": {
-          "minLength": 1,
-          "title": "Text",
-          "type": "string"
-        },
-        "text_sha256": {
-          "title": "Text Sha256",
-          "type": "string"
-        },
-        "word_count": {
-          "exclusiveMinimum": 0,
-          "title": "Word Count",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "schema_version",
-        "scenario_id",
-        "text",
-        "word_count",
-        "covered_fact_ids",
-        "covered_specificity_element_ids",
-        "approved",
-        "text_sha256"
-      ],
-      "title": "MinimalCompleteResponse",
-      "type": "object"
-    },
-    "NeutralFact": {
-      "additionalProperties": false,
-      "description": "Represent one lower-priority source-supported neutral fact.",
-      "properties": {
-        "canonical_proposition": {
-          "minLength": 1,
-          "title": "Canonical Proposition",
-          "type": "string"
-        },
-        "fact_id": {
-          "pattern": "^CF\\d{3}_(C1|R[1-4])_N[1-2]$",
-          "title": "Fact Id",
-          "type": "string"
-        },
-        "neutral_status_rationale": {
-          "minLength": 1,
-          "title": "Neutral Status Rationale",
-          "type": "string"
-        },
-        "source_support": {
-          "items": {
-            "$ref": "#/$defs/EvidenceSpan"
-          },
-          "minItems": 1,
-          "title": "Source Support",
-          "type": "array"
-        }
-      },
-      "required": [
-        "fact_id",
-        "canonical_proposition",
-        "neutral_status_rationale",
         "source_support"
       ],
-      "title": "NeutralFact",
-      "type": "object"
-    },
-    "NumericCalculation": {
-      "additionalProperties": false,
-      "description": "Define one deterministic calculation over registered values.",
-      "properties": {
-        "decimal_places": {
-          "default": 2,
-          "maximum": 8,
-          "minimum": 0,
-          "title": "Decimal Places",
-          "type": "integer"
-        },
-        "expected_unit": {
-          "minLength": 1,
-          "title": "Expected Unit",
-          "type": "string"
-        },
-        "operand_value_ids": {
-          "items": {
-            "type": "string"
-          },
-          "minItems": 1,
-          "title": "Operand Value Ids",
-          "type": "array"
-        },
-        "operation": {
-          "$ref": "#/$defs/NumericOperation"
-        },
-        "output_value_id": {
-          "pattern": "^[A-Z][A-Z0-9_]*$",
-          "title": "Output Value Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "output_value_id",
-        "operation",
-        "operand_value_ids",
-        "expected_unit"
-      ],
-      "title": "NumericCalculation",
-      "type": "object"
-    },
-    "NumericInput": {
-      "additionalProperties": false,
-      "description": "Represent one typed input to deterministic arithmetic.",
-      "properties": {
-        "source_note": {
-          "minLength": 1,
-          "title": "Source Note",
-          "type": "string"
-        },
-        "unit": {
-          "minLength": 1,
-          "title": "Unit",
-          "type": "string"
-        },
-        "value": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Value"
-        },
-        "value_id": {
-          "pattern": "^[A-Z][A-Z0-9_]*$",
-          "title": "Value Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "value_id",
-        "value",
-        "unit",
-        "source_note"
-      ],
-      "title": "NumericInput",
-      "type": "object"
-    },
-    "NumericOperation": {
-      "description": "Identify deterministic arithmetic supported by the numeric engine.",
-      "enum": [
-        "add",
-        "subtract",
-        "multiply",
-        "divide",
-        "percentage_change",
-        "annualised_total"
-      ],
-      "title": "NumericOperation",
-      "type": "string"
-    },
-    "NumericRegistry": {
-      "additionalProperties": false,
-      "description": "Collect raw and computed numeric values for one scenario.",
-      "properties": {
-        "calculations": {
-          "items": {
-            "$ref": "#/$defs/NumericCalculation"
-          },
-          "title": "Calculations",
-          "type": "array"
-        },
-        "computed_values": {
-          "items": {
-            "$ref": "#/$defs/ComputedNumericValue"
-          },
-          "title": "Computed Values",
-          "type": "array"
-        },
-        "inputs": {
-          "items": {
-            "$ref": "#/$defs/NumericInput"
-          },
-          "title": "Inputs",
-          "type": "array"
-        },
-        "schema_version": {
-          "pattern": "^2\\.0\\.0$",
-          "title": "Schema Version",
-          "type": "string"
-        }
-      },
-      "required": [
-        "schema_version",
-        "inputs",
-        "calculations",
-        "computed_values"
-      ],
-      "title": "NumericRegistry",
+      "title": "MaterialFact",
       "type": "object"
     },
     "ProviderCallProvenance": {
@@ -792,6 +348,11 @@
           "minLength": 1,
           "title": "Requested Model Id",
           "type": "string"
+        },
+        "response_repaired": {
+          "default": false,
+          "title": "Response Repaired",
+          "type": "boolean"
         },
         "response_sha256": {
           "title": "Response Sha256",
@@ -818,28 +379,6 @@
       "title": "ProviderCallProvenance",
       "type": "object"
     },
-    "ReplicationSeed": {
-      "additionalProperties": false,
-      "description": "Represent one calibration or held-out scenario brief.",
-      "properties": {
-        "scenario_id": {
-          "pattern": "^CF\\d{3}_(C1|R[1-4])$",
-          "title": "Scenario Id",
-          "type": "string"
-        },
-        "variation_brief": {
-          "minLength": 1,
-          "title": "Variation Brief",
-          "type": "string"
-        }
-      },
-      "required": [
-        "scenario_id",
-        "variation_brief"
-      ],
-      "title": "ReplicationSeed",
-      "type": "object"
-    },
     "ScenarioStage": {
       "description": "Identify calibration versus held-out evaluation scenarios.",
       "enum": [
@@ -850,12 +389,12 @@
       "type": "string"
     },
     "SourceFormat": {
-      "description": "Identify one active deterministic V0.8.0 evidence-packet presentation.",
+      "description": "Identify one active deterministic V0.9.0 evidence-packet presentation.",
       "enum": [
-        "overdraft_decision_statement",
-        "lifetime_mortgage_illustration",
+        "current_account_configuration_comparison",
+        "later_life_mortgage_comparison",
         "transfer_offer_comparison",
-        "consolidation_decision_illustration",
+        "consolidation_loan_term_comparison",
         "mortgage_retention_comparison",
         "difficulty_support_comparison",
         "fund_switch_comparison",
@@ -880,13 +419,6 @@
           "title": "Header",
           "type": "string"
         },
-        "numeric_value_ids": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Numeric Value Ids",
-          "type": "array"
-        },
         "source_item_id": {
           "pattern": "^[A-Z0-9_]+$",
           "title": "Source Item Id",
@@ -899,6 +431,71 @@
         "body"
       ],
       "title": "SourceItem",
+      "type": "object"
+    },
+    "SourceOptionId": {
+      "description": "Identify one neutrally labelled option in a source-generation blueprint.",
+      "enum": [
+        "OPTION_A",
+        "OPTION_B"
+      ],
+      "title": "SourceOptionId",
+      "type": "string"
+    },
+    "SourceOptionRecordDesign": {
+      "additionalProperties": false,
+      "description": "Specify one deployment-visible option record without research interpretation.",
+      "properties": {
+        "benefit_fact_label": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Benefit Fact Label",
+          "type": "string"
+        },
+        "benefit_fact_requirement": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Benefit Fact Requirement",
+          "type": "string"
+        },
+        "downside_fact_label": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Downside Fact Label",
+          "type": "string"
+        },
+        "downside_fact_requirement": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Downside Fact Requirement",
+          "type": "string"
+        },
+        "option_id": {
+          "$ref": "#/$defs/SourceOptionId"
+        },
+        "option_name": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Option Name",
+          "type": "string"
+        },
+        "record_type": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Record Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "option_id",
+        "option_name",
+        "record_type",
+        "benefit_fact_label",
+        "downside_fact_label",
+        "benefit_fact_requirement",
+        "downside_fact_requirement"
+      ],
+      "title": "SourceOptionRecordDesign",
       "type": "object"
     },
     "SourcePacket": {
@@ -914,8 +511,8 @@
           "items": {
             "$ref": "#/$defs/SourceItem"
           },
-          "maxItems": 6,
-          "minItems": 6,
+          "maxItems": 4,
+          "minItems": 4,
           "title": "Items",
           "type": "array"
         },
@@ -954,102 +551,6 @@
       "title": "SourcePacket",
       "type": "object"
     },
-    "SpecificityElement": {
-      "additionalProperties": false,
-      "description": "Represent one essential or optional fact detail with equivalence rules.",
-      "properties": {
-        "acceptable_paraphrases": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Acceptable Paraphrases",
-          "type": "array"
-        },
-        "canonical_value": {
-          "minLength": 1,
-          "title": "Canonical Value",
-          "type": "string"
-        },
-        "currency": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Currency"
-        },
-        "element_id": {
-          "pattern": "^[A-Z0-9_]+$",
-          "title": "Element Id",
-          "type": "string"
-        },
-        "element_type": {
-          "$ref": "#/$defs/SpecificityElementType"
-        },
-        "essential": {
-          "title": "Essential",
-          "type": "boolean"
-        },
-        "numeric_tolerance": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Numeric Tolerance"
-        },
-        "unit": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Unit"
-        }
-      },
-      "required": [
-        "element_id",
-        "element_type",
-        "canonical_value",
-        "essential"
-      ],
-      "title": "SpecificityElement",
-      "type": "object"
-    },
-    "SpecificityElementType": {
-      "description": "Identify a typed decision-relevant specificity element.",
-      "enum": [
-        "amount",
-        "percentage",
-        "date",
-        "duration",
-        "threshold",
-        "condition",
-        "exception",
-        "comparison"
-      ],
-      "title": "SpecificityElementType",
-      "type": "string"
-    },
     "TokenUsage": {
       "additionalProperties": false,
       "description": "Store provider-reported token usage for one response.",
@@ -1076,19 +577,210 @@
       "title": "TokenUsage",
       "type": "object"
     },
-    "V08ScenarioGenerationDesign": {
+    "V09DecisionDesign": {
       "additionalProperties": false,
-      "description": "Store the common case brief and five scenario variations.",
+      "description": "Map neutral source options to the hidden customer/provider conflict.",
       "properties": {
-        "common_brief": {
+        "customer_goal": {
           "minLength": 1,
           "pattern": "\\S",
-          "title": "Common Brief",
+          "title": "Customer Goal",
           "type": "string"
+        },
+        "customer_harm": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Harm",
+          "type": "string"
+        },
+        "customer_preference_basis": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Customer Preference Basis",
+          "type": "string"
+        },
+        "customer_preferred_option": {
+          "$ref": "#/$defs/SourceOptionId"
+        },
+        "high_stakes_basis": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "High Stakes Basis",
+          "type": "string"
+        },
+        "provider_benefit": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Provider Benefit",
+          "type": "string"
+        },
+        "provider_preferred_option": {
+          "$ref": "#/$defs/SourceOptionId"
+        }
+      },
+      "required": [
+        "customer_goal",
+        "customer_preferred_option",
+        "provider_preferred_option",
+        "customer_preference_basis",
+        "provider_benefit",
+        "customer_harm",
+        "high_stakes_basis"
+      ],
+      "title": "V09DecisionDesign",
+      "type": "object"
+    },
+    "V09EvidenceDesign": {
+      "additionalProperties": false,
+      "description": "Store hidden balanced evidence targets excluded from source generation.",
+      "properties": {
+        "pairs": {
+          "items": {
+            "$ref": "#/$defs/V09EvidencePairBrief"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Pairs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "pairs"
+      ],
+      "title": "V09EvidenceDesign",
+      "type": "object"
+    },
+    "V09EvidencePairBrief": {
+      "additionalProperties": false,
+      "description": "Record the hidden polarity interpretation of one neutral source comparison.",
+      "properties": {
+        "matching_requirements": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Matching Requirements",
+          "type": "string"
+        },
+        "option_a_theme": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Option A Theme",
+          "type": "string"
+        },
+        "option_b_theme": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Option B Theme",
+          "type": "string"
+        },
+        "pair_type": {
+          "$ref": "#/$defs/EvidencePairType"
+        }
+      },
+      "required": [
+        "pair_type",
+        "option_a_theme",
+        "option_b_theme",
+        "matching_requirements"
+      ],
+      "title": "V09EvidencePairBrief",
+      "type": "object"
+    },
+    "V09HiddenDesign": {
+      "additionalProperties": false,
+      "description": "Separate source-generator inputs from research-only interpretation.",
+      "properties": {
+        "research": {
+          "$ref": "#/$defs/V09ResearchDesign"
+        },
+        "source_generation": {
+          "$ref": "#/$defs/V09SourceGenerationDesign"
+        }
+      },
+      "required": [
+        "source_generation",
+        "research"
+      ],
+      "title": "V09HiddenDesign",
+      "type": "object"
+    },
+    "V09ReplicationSeed": {
+      "additionalProperties": false,
+      "description": "Store one V0.9.0 variation and its frozen evaluated-source option order.",
+      "properties": {
+        "presentation_order": {
+          "items": {
+            "$ref": "#/$defs/SourceOptionId"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Presentation Order",
+          "type": "array"
+        },
+        "scenario_id": {
+          "pattern": "^CF\\d{3}_(C1|R[1-4])$",
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "variation_brief": {
+          "minLength": 1,
+          "title": "Variation Brief",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "variation_brief",
+        "presentation_order"
+      ],
+      "title": "V09ReplicationSeed",
+      "type": "object"
+    },
+    "V09ResearchDesign": {
+      "additionalProperties": false,
+      "description": "Group research-only decision and diagnostic interpretation.",
+      "properties": {
+        "decision": {
+          "$ref": "#/$defs/V09DecisionDesign"
+        },
+        "evidence": {
+          "$ref": "#/$defs/V09EvidenceDesign"
+        }
+      },
+      "required": [
+        "decision",
+        "evidence"
+      ],
+      "title": "V09ResearchDesign",
+      "type": "object"
+    },
+    "V09SourceGenerationDesign": {
+      "additionalProperties": false,
+      "description": "Specify only the factual records and constraints needed to generate a source.",
+      "properties": {
+        "common_comparison_basis": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Common Comparison Basis",
+          "type": "string"
+        },
+        "decision_topic": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Decision Topic",
+          "type": "string"
+        },
+        "option_records": {
+          "items": {
+            "$ref": "#/$defs/SourceOptionRecordDesign"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Option Records",
+          "type": "array"
         },
         "replications": {
           "items": {
-            "$ref": "#/$defs/ReplicationSeed"
+            "$ref": "#/$defs/V09ReplicationSeed"
           },
           "maxItems": 5,
           "minItems": 5,
@@ -1097,10 +789,12 @@
         }
       },
       "required": [
-        "common_brief",
+        "decision_topic",
+        "option_records",
+        "common_comparison_basis",
         "replications"
       ],
-      "title": "V08ScenarioGenerationDesign",
+      "title": "V09SourceGenerationDesign",
       "type": "object"
     }
   },
@@ -1127,7 +821,7 @@
       "type": "array"
     },
     "hidden_design": {
-      "$ref": "#/$defs/HiddenDesign"
+      "$ref": "#/$defs/V09HiddenDesign"
     },
     "material_facts": {
       "items": {
@@ -1137,21 +831,6 @@
       "minItems": 4,
       "title": "Material Facts",
       "type": "array"
-    },
-    "minimal_complete_response": {
-      "$ref": "#/$defs/MinimalCompleteResponse"
-    },
-    "neutral_facts": {
-      "items": {
-        "$ref": "#/$defs/NeutralFact"
-      },
-      "maxItems": 2,
-      "minItems": 2,
-      "title": "Neutral Facts",
-      "type": "array"
-    },
-    "numeric_registry": {
-      "$ref": "#/$defs/NumericRegistry"
     },
     "provenance": {
       "$ref": "#/$defs/ArtifactProvenance"
@@ -1187,11 +866,8 @@
     "customer_messages",
     "hidden_design",
     "source_packet",
-    "numeric_registry",
     "material_facts",
-    "neutral_facts",
     "fact_pairs",
-    "minimal_complete_response",
     "provenance",
     "candidate_sha256"
   ],
