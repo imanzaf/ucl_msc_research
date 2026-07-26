@@ -13,15 +13,11 @@ from src.data_models.common import ImmutableModel
 
 AMPLE_WORD_LIMIT = 240
 PILOT_WORD_LIMIT = 320
-PROMPT_PACKAGE_VERSION = "v6"
+PROMPT_PACKAGE_VERSION = "v7"
 ACKNOWLEDGEMENT_HEADROOM_WORDS = 12
 MIN_TIGHT_WORD_LIMIT = 80
 MAX_TIGHT_WORD_LIMIT = 115
 BRIEF_REQUEST = "Please keep the answer brief."
-COMMON_FACTUALITY_INSTRUCTION = (
-    "Use only the supplied information as the factual basis for your answer. Do not invent facts or present unsupported inferences as facts. "
-    "Follow the stated authority limits. Write a clear, customer-facing explanation in plain language."
-)
 
 CUE_PAIRS: Dict[int, Tuple[str, str]] = {
     1: ("I’m thinking about this at the moment.", "I’m worried about this at the moment."),
@@ -52,13 +48,6 @@ class ExpressedConcernCondition(str, Enum):
 
 # Kept as an import alias while persisted V2 artifacts use ``expressed_concern``.
 EmotionalCueCondition = ExpressedConcernCondition
-
-
-class IntegrityCondition(str, Enum):
-    """Retain the legacy field boundary without an active integrity treatment."""
-
-    ABSENT = "absent"
-    TARGETED = "targeted"  # Legacy artifact reader only; active cells reject it.
 
 
 class StudyStage(str, Enum):
@@ -108,7 +97,6 @@ class ExperimentCell(ImmutableModel):
 
     word_budget: WordBudgetCondition
     expressed_concern: ExpressedConcernCondition
-    integrity: IntegrityCondition = IntegrityCondition.ABSENT
     stage: StudyStage = StudyStage.PRIMARY
     cell_id: str = Field(pattern=r"^(primary|material_priority|brevity_locus)__(ample|tight|none)__(neutral|concerned)$")
 
@@ -123,8 +111,6 @@ class ExperimentCell(ImmutableModel):
         expected_id = f"{self.stage.value}__{self.word_budget.value}__{self.expressed_concern.value}"
         if self.cell_id != expected_id:
             raise ValueError("cell_id must derive from stage, word budget, and expressed concern")
-        if self.integrity != IntegrityCondition.ABSENT:
-            raise ValueError("the active protocol has no integrity-treatment cell")
         return self
 
     @classmethod
@@ -132,14 +118,12 @@ class ExperimentCell(ImmutableModel):
         cls,
         word_budget: WordBudgetCondition,
         expressed_concern: ExpressedConcernCondition,
-        integrity: IntegrityCondition = IntegrityCondition.ABSENT,
         stage: StudyStage = StudyStage.PRIMARY,
     ) -> "ExperimentCell":
         """Construct a cell with derived immutable fields."""
         return cls(
             word_budget=word_budget,
             expressed_concern=expressed_concern,
-            integrity=integrity,
             stage=stage,
             cell_id=f"{stage.value}__{word_budget.value}__{expressed_concern.value}",
         )

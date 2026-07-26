@@ -24,10 +24,6 @@
         "expressed_concern": {
           "$ref": "#/$defs/ExpressedConcernCondition"
         },
-        "integrity": {
-          "$ref": "#/$defs/IntegrityCondition",
-          "default": "absent"
-        },
         "stage": {
           "$ref": "#/$defs/StudyStage",
           "default": "primary"
@@ -62,15 +58,6 @@
         "retries_exhausted"
       ],
       "title": "FailureReason",
-      "type": "string"
-    },
-    "IntegrityCondition": {
-      "description": "Retain the legacy field boundary without an active integrity treatment.",
-      "enum": [
-        "absent",
-        "targeted"
-      ],
-      "title": "IntegrityCondition",
       "type": "string"
     },
     "MessageRole": {

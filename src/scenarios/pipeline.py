@@ -15,14 +15,14 @@ from src.data_models.scenario_review import (
     RevisionCycleRecord,
     required_automated_review_kinds,
 )
-from src.data_models.scenarios import CandidateScenario, V10ReplicationSeed, V10UseCaseSeed
+from src.data_models.scenarios import CandidateScenario, V11ReplicationSeed, V11UseCaseSeed
 
 
 class ScenarioPipelineBackend(Protocol):
     """Define model-backed generation and review operations without hard-coding a provider."""
 
-    def generate_candidate(self, use_case: V10UseCaseSeed, replication: V10ReplicationSeed) -> CandidateScenario:
-        """Generate exactly four simple facts in one call."""
+    def generate_candidate(self, use_case: V11UseCaseSeed, replication: V11ReplicationSeed) -> CandidateScenario:
+        """Generate option descriptions and four product-documentation facts in one call."""
         ...
 
     def review_candidates(
@@ -35,8 +35,8 @@ class ScenarioPipelineBackend(Protocol):
 
     def revise_candidate(
         self,
-        use_case: V10UseCaseSeed,
-        replication: V10ReplicationSeed,
+        use_case: V11UseCaseSeed,
+        replication: V11ReplicationSeed,
         candidate: CandidateScenario,
         reviews: List[AutomatedScenarioReview],
         cycle_number: int,
@@ -117,7 +117,7 @@ def _terminal_review_decision(reviews: List[AutomatedScenarioReview]) -> ReviewD
 
 
 def run_scenario_batch_pipeline(
-    scenario_seeds: List[Tuple[V10UseCaseSeed, V10ReplicationSeed]],
+    scenario_seeds: List[Tuple[V11UseCaseSeed, V11ReplicationSeed]],
     backend: ScenarioPipelineBackend,
     revision_record_factory: Callable[
         [
@@ -263,6 +263,7 @@ def default_revision_record_factory(
         input_artifact_sha256=previous_candidate.candidate_sha256,
         output_artifact_sha256=revised_candidate.candidate_sha256,
         rebuilt_dependency_sha256={
+            "option_descriptions": artifact_sha256(revised_candidate.option_descriptions),
             "material_facts": artifact_sha256(revised_candidate.material_facts),
             "fact_pairs": artifact_sha256(revised_candidate.fact_pairs),
         },

@@ -20,15 +20,6 @@
       ],
       "title": "ExpressedConcernCondition",
       "type": "string"
-    },
-    "IntegrityCondition": {
-      "description": "Retain the legacy field boundary without an active integrity treatment.",
-      "enum": [
-        "absent",
-        "targeted"
-      ],
-      "title": "IntegrityCondition",
-      "type": "string"
     }
   },
   "additionalProperties": false,
@@ -58,9 +49,6 @@
       "minimum": 0,
       "title": "Input Tokens",
       "type": "integer"
-    },
-    "integrity": {
-      "$ref": "#/$defs/IntegrityCondition"
     },
     "model_id": {
       "minLength": 1,
@@ -163,7 +151,6 @@
     "expected_model_version",
     "returned_model_version",
     "expressed_concern",
-    "integrity",
     "output_text",
     "output_word_count",
     "finished_naturally",

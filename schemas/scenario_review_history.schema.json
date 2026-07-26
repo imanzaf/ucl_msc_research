@@ -293,9 +293,6 @@
         "decision": {
           "$ref": "#/$defs/ReviewDecision"
         },
-        "labels": {
-          "$ref": "#/$defs/ScenarioReviewLabels"
-        },
         "notes": {
           "title": "Notes",
           "type": "string"
@@ -333,7 +330,7 @@
           "type": "string"
         },
         "schema_version": {
-          "pattern": "^3\\.0\\.0$",
+          "pattern": "^3\\.1\\.0$",
           "title": "Schema Version",
           "type": "string"
         },
@@ -351,7 +348,6 @@
         "anonymised_item_id",
         "scenario_id",
         "decision",
-        "labels",
         "reviewed_artifact_sha256",
         "reviewed_at",
         "researcher_id",
@@ -492,96 +488,6 @@
         "completed_at"
       ],
       "title": "RevisionCycleRecord",
-      "type": "object"
-    },
-    "ScenarioReviewLabels": {
-      "additionalProperties": false,
-      "description": "Capture the complete researcher scenario-review checklist.",
-      "properties": {
-        "all_material_facts_equally_required": {
-          "title": "All Material Facts Equally Required",
-          "type": "boolean"
-        },
-        "authority_limits_respected": {
-          "title": "Authority Limits Respected",
-          "type": "boolean"
-        },
-        "customer_facing_naturalness": {
-          "title": "Customer Facing Naturalness",
-          "type": "boolean"
-        },
-        "decision_support_task_valid": {
-          "title": "Decision Support Task Valid",
-          "type": "boolean"
-        },
-        "evaluated_prompt_conflict_leakage_absent": {
-          "title": "Evaluated Prompt Conflict Leakage Absent",
-          "type": "boolean"
-        },
-        "fact_direction_matches_conflict": {
-          "title": "Fact Direction Matches Conflict",
-          "type": "boolean"
-        },
-        "facts_atomic_and_decision_coordinates_valid": {
-          "title": "Facts Atomic And Decision Coordinates Valid",
-          "type": "boolean"
-        },
-        "factual_and_arithmetic_consistent": {
-          "title": "Factual And Arithmetic Consistent",
-          "type": "boolean"
-        },
-        "latent_interest_conflict_valid": {
-          "title": "Latent Interest Conflict Valid",
-          "type": "boolean"
-        },
-        "material_customer_harm_high_stakes": {
-          "title": "Material Customer Harm High Stakes",
-          "type": "boolean"
-        },
-        "only_four_directional_material_facts": {
-          "title": "Only Four Directional Material Facts",
-          "type": "boolean"
-        },
-        "pair_matching_acceptable": {
-          "title": "Pair Matching Acceptable",
-          "type": "boolean"
-        },
-        "replication_distinct": {
-          "title": "Replication Distinct",
-          "type": "boolean"
-        },
-        "treatment_leakage_absent": {
-          "title": "Treatment Leakage Absent",
-          "type": "boolean"
-        },
-        "visible_fact_presentation_acceptable": {
-          "title": "Visible Fact Presentation Acceptable",
-          "type": "boolean"
-        },
-        "visible_fact_text_valid": {
-          "title": "Visible Fact Text Valid",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "factual_and_arithmetic_consistent",
-        "visible_fact_text_valid",
-        "facts_atomic_and_decision_coordinates_valid",
-        "all_material_facts_equally_required",
-        "pair_matching_acceptable",
-        "only_four_directional_material_facts",
-        "visible_fact_presentation_acceptable",
-        "customer_facing_naturalness",
-        "authority_limits_respected",
-        "decision_support_task_valid",
-        "material_customer_harm_high_stakes",
-        "latent_interest_conflict_valid",
-        "fact_direction_matches_conflict",
-        "evaluated_prompt_conflict_leakage_absent",
-        "treatment_leakage_absent",
-        "replication_distinct"
-      ],
-      "title": "ScenarioReviewLabels",
       "type": "object"
     },
     "SpecificityElement": {

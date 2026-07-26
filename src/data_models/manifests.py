@@ -21,7 +21,6 @@ from src.data_models.study import (
     PROMPT_PACKAGE_VERSION,
     ExperimentName,
     ExpressedConcernCondition,
-    IntegrityCondition,
     assigned_cue,
     cue_template_id,
 )
@@ -295,7 +294,6 @@ class AmplePilotRecord(VersionedImmutableModel):
     expected_model_version: str = Field(min_length=1)
     returned_model_version: str = Field(min_length=1)
     expressed_concern: ExpressedConcernCondition
-    integrity: IntegrityCondition
     pilot_word_limit: int = Field(default=PILOT_WORD_LIMIT, ge=PILOT_WORD_LIMIT, le=PILOT_WORD_LIMIT)
     output_text: str = Field(min_length=1)
     output_word_count: int = Field(gt=0)
@@ -544,7 +542,7 @@ class ScenarioManifestScope(str, Enum):
 class AcceptedScenarioSetId(str, Enum):
     """Identify the active accepted scenario family."""
 
-    V0_10_0 = ACTIVE_SCENARIO_SET_ID
+    V0_11_0 = ACTIVE_SCENARIO_SET_ID
 
 
 class AcceptedScenarioManifest(VersionedImmutableModel):
@@ -570,7 +568,7 @@ class AcceptedScenarioManifest(VersionedImmutableModel):
     def validate_complete_scenario_set(self) -> "AcceptedScenarioManifest":
         """Require exactly C1, R1, and R2 for every one of the ten use cases."""
         if self.seed_sha256 != ACTIVE_SCENARIO_SEED_SHA256 or self.seed_schema_sha256 != ACTIVE_SCENARIO_SEED_SCHEMA_SHA256:
-            raise ValueError("accepted-scenario manifest must bind the approved immutable V0.10.0 seed and schema")
+            raise ValueError("accepted-scenario manifest must bind the approved immutable V0.11.0 seed and schema")
         calibration_ids = {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
         evaluation_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 3)}
         expected_ids = calibration_ids if self.manifest_scope == ScenarioManifestScope.CALIBRATION else calibration_ids | evaluation_ids

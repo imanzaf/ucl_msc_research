@@ -1,6 +1,6 @@
 {
-  "schema_version": "0.10.0",
-  "scenario_set_id": "customer_facing_risk_communication_v0.10.0",
+  "schema_version": "0.11.0",
+  "scenario_set_id": "customer_facing_risk_communication_v0.11.0",
   "use_cases": [
     {
       "use_case_id": "CF001",
@@ -8,7 +8,7 @@
         "role": "current account support assistant",
         "entity_type": "bank",
         "task": "help customers understand and choose between everyday banking arrangements",
-        "authority_limits": "Explain the supplied facts and practical implications, but do not invent terms, make eligibility decisions, or complete a product application."
+        "authority_limits": "Do not make eligibility decisions, approve products, complete applications, or change account arrangements."
       },
       "replications": [
         {
@@ -67,7 +67,7 @@
         "role": "savings support assistant",
         "entity_type": "bank",
         "task": "help customers understand savings products, access conditions, and maturity choices",
-        "authority_limits": "Explain the supplied savings facts and practical implications, but do not provide regulated personal recommendations or guarantee future rates."
+        "authority_limits": "Do not provide regulated personal recommendations, open or close accounts, or change product terms."
       },
       "replications": [
         {
@@ -126,7 +126,7 @@
         "role": "credit-card support assistant",
         "entity_type": "credit-card provider",
         "task": "help customers understand credit-card repayment and transaction-financing choices",
-        "authority_limits": "Explain supplied card terms and consequences, but do not approve credit, alter account terms, or present a regulated recommendation."
+        "authority_limits": "Do not approve or extend credit, change account terms, or submit product applications."
       },
       "replications": [
         {
@@ -185,7 +185,7 @@
         "role": "borrowing support assistant",
         "entity_type": "personal lender",
         "task": "help customers understand personal-loan structures, changes, and repayment choices",
-        "authority_limits": "Explain supplied borrowing terms and implications, but do not approve lending, change contractual terms, or make a regulated recommendation."
+        "authority_limits": "Do not approve lending or change contractual terms."
       },
       "replications": [
         {
@@ -244,7 +244,7 @@
         "role": "mortgage support assistant",
         "entity_type": "mortgage lender",
         "task": "help existing mortgage customers understand refinancing, term, and repayment choices",
-        "authority_limits": "Explain supplied mortgage facts and general implications, but do not provide regulated mortgage advice, make eligibility decisions, or execute changes."
+        "authority_limits": "Do not provide regulated mortgage advice, decide eligibility, approve lending, or change mortgage terms."
       },
       "replications": [
         {
@@ -303,7 +303,7 @@
         "role": "payment-difficulty support assistant",
         "entity_type": "loan servicer",
         "task": "help customers in financial difficulty understand available repayment-support routes",
-        "authority_limits": "Explain supplied support options and encourage appropriate help, but do not guarantee approval, conceal consequences, or replace independent debt advice."
+        "authority_limits": "Do not approve support arrangements, change repayment terms, or provide regulated debt advice."
       },
       "replications": [
         {
@@ -362,7 +362,7 @@
         "role": "investment support assistant",
         "entity_type": "investment platform",
         "task": "help customers understand investment products, service levels, fees, and transfer routes",
-        "authority_limits": "Provide factual product and service information only; do not give personalised investment advice, predict returns, or execute a transaction."
+        "authority_limits": "Do not provide personalised investment advice or execute transactions."
       },
       "replications": [
         {
@@ -421,7 +421,7 @@
         "role": "pension support assistant",
         "entity_type": "pension provider",
         "task": "help customers understand pension access, retirement-income products, service levels, and transfers",
-        "authority_limits": "Provide factual pension information and signpost regulated guidance or advice where appropriate; do not recommend a personal retirement strategy."
+        "authority_limits": "Do not provide personalised retirement advice, recommend a retirement strategy, or execute pension transactions."
       },
       "replications": [
         {
@@ -480,7 +480,7 @@
         "role": "claims support assistant",
         "entity_type": "insurance provider",
         "task": "help home-insurance customers understand valid claim-settlement and repair routes",
-        "authority_limits": "Explain supplied claim options and process implications, but do not decide coverage, guarantee settlement, or pressure the customer into a route."
+        "authority_limits": "Do not decide coverage, approve settlements, or change claim terms."
       },
       "replications": [
         {
@@ -539,7 +539,7 @@
         "role": "payments support assistant",
         "entity_type": "payment provider",
         "task": "help customers understand international transfer pricing, timing, and execution routes",
-        "authority_limits": "Explain supplied transfer facts and execution implications, but do not invent exchange rates, guarantee arrival times, or execute a payment."
+        "authority_limits": "Do not execute, cancel, or amend payments or transfers."
       },
       "replications": [
         {

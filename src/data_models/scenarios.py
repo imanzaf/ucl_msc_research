@@ -1,9 +1,9 @@
-"""Strict V0.10 seed and direct-fact scenario artifact models."""
+"""Strict V0.11 seed and V0.10.1 option-information scenario models."""
 
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Literal, Optional, Tuple
 
@@ -41,6 +41,60 @@ class ScenarioStage(str, Enum):
 
     CALIBRATION = "calibration"
     EVALUATION = "evaluation"
+
+
+class ScenarioGenerationRunConfig(VersionedImmutableModel):
+    """Record the immutable seed and protocol identity for one logical generation run."""
+
+    schema_version: Literal["1.0.0"]
+    run_id: str = Field(pattern=r"^\d{8}T\d{12}Z$")
+    seed_version: Literal["v0.11.0"]
+    generation_protocol_version: Literal["v0.10.1"]
+    scenario_set_id: Literal["customer_facing_risk_communication_v0.11.0"]
+    seed_sha256: str
+    seed_schema_sha256: str
+    created_at: datetime
+
+    @field_validator("seed_sha256", "seed_schema_sha256")
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate the seed hashes captured at run creation."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_run_timestamp(self) -> "ScenarioGenerationRunConfig":
+        """Bind the sortable run identifier to its exact UTC creation timestamp."""
+        if self.created_at.tzinfo is None or self.created_at.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ") != self.run_id:
+            raise ValueError("run_id must equal the UTC created_at timestamp")
+        return self
+
+
+class ScenarioGenerationInvocationConfig(VersionedImmutableModel):
+    """Record one resumable command invocation within a logical generation run."""
+
+    schema_version: Literal["1.0.0"]
+    run_id: str = Field(pattern=r"^\d{8}T\d{12}Z$")
+    invocation_id: str = Field(pattern=r"^\d{8}T\d{12}Z$")
+    stage: ScenarioStage
+    scenario_ids: List[str] = Field(min_length=1, max_length=10)
+    backend: str = Field(min_length=1, pattern=r"^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
+    created_at: datetime
+
+    @model_validator(mode="after")
+    def validate_invocation(self) -> "ScenarioGenerationInvocationConfig":
+        """Bind the invocation timestamp and require one lifecycle stage."""
+        if self.created_at.tzinfo is None or self.created_at.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ") != self.invocation_id:
+            raise ValueError("invocation_id must equal the UTC created_at timestamp")
+        if len(self.scenario_ids) != len(set(self.scenario_ids)):
+            raise ValueError("scenario generation invocation ids must be unique")
+        wrong_stage = (
+            any(not scenario_id.endswith("_C1") for scenario_id in self.scenario_ids)
+            if self.stage == ScenarioStage.CALIBRATION
+            else any(scenario_id.endswith("_C1") for scenario_id in self.scenario_ids)
+        )
+        if wrong_stage:
+            raise ValueError("invocation scenario ids must match the selected lifecycle stage")
+        return self
 
 
 class DecisionOption(str, Enum):
@@ -139,71 +193,85 @@ class CustomerMessages(ImmutableModel):
         return self
 
 
-class V10OptionDefinition(ImmutableModel):
+class V11OptionDefinition(ImmutableModel):
     """Name one neutral decision option supplied to the fact generator."""
 
     option_id: SeedOptionId
     option_name: str = Field(min_length=1, pattern=r"\S")
 
 
-class V10HiddenDesign(ImmutableModel):
+class OptionDescription(ImmutableModel):
+    """Store one neutral generated description for a seed-owned option."""
+
+    option_id: SeedOptionId
+    description: str = Field(min_length=1, max_length=400, pattern=r"\S")
+
+    @model_validator(mode="after")
+    def validate_private_identifiers_absent(self) -> "OptionDescription":
+        """Keep internal seed option identifiers out of potentially visible text."""
+        if any(option_id.value in self.description for option_id in SeedOptionId):
+            raise ValueError("option descriptions must not contain internal option identifiers")
+        return self
+
+
+class V11HiddenDesign(ImmutableModel):
     """Store one decision's research-only ownership mapping and display order."""
 
     decision_type: str = Field(min_length=1, pattern=r"\S")
-    options: List[V10OptionDefinition] = Field(min_length=2, max_length=2)
+    options: List[V11OptionDefinition] = Field(min_length=2, max_length=2)
     customer_supporting_option: SeedOptionId
     owner_supporting_option: SeedOptionId
     owner_benefit_mechanism: str = Field(min_length=1, pattern=r"\S")
     presentation_order: List[SeedOptionId] = Field(min_length=2, max_length=2)
 
     @model_validator(mode="after")
-    def validate_options(self) -> "V10HiddenDesign":
+    def validate_options(self) -> "V11HiddenDesign":
         """Require two distinct options, opposite ownership mappings, and a complete order."""
         if {option.option_id for option in self.options} != set(SeedOptionId):
-            raise ValueError("V0.10.0 decisions require exactly OPTION_A and OPTION_B")
+            raise ValueError("V0.11.0 decisions require exactly OPTION_A and OPTION_B")
         if len({option.option_name.casefold() for option in self.options}) != 2:
-            raise ValueError("V0.10.0 option names must be distinct")
+            raise ValueError("V0.11.0 option names must be distinct")
         if self.customer_supporting_option == self.owner_supporting_option:
             raise ValueError("customer- and owner-supporting options must differ")
         if set(self.presentation_order) != set(SeedOptionId):
-            raise ValueError("V0.10.0 presentation_order must contain OPTION_A and OPTION_B exactly once")
+            raise ValueError("V0.11.0 presentation_order must contain OPTION_A and OPTION_B exactly once")
         return self
 
 
-class V10ReplicationSeed(V10HiddenDesign):
+class V11ReplicationSeed(V11HiddenDesign):
     """Define one calibration or held-out decision and its natural customer turns."""
 
     scenario_id: str = Field(pattern=SCENARIO_ID_REGEX)
     customer_messages: CustomerMessages
 
 
-class V10UseCaseSeed(ImmutableModel):
+class V11UseCaseSeed(ImmutableModel):
     """Represent one broad agent-task family with three distinct decisions."""
 
     use_case_id: str = Field(pattern=USE_CASE_ID_REGEX)
     deployment_context: DeploymentContext
-    replications: List[V10ReplicationSeed] = Field(min_length=3, max_length=3)
+    replications: List[V11ReplicationSeed] = Field(min_length=3, max_length=3)
 
     @model_validator(mode="after")
-    def validate_structure(self) -> "V10UseCaseSeed":
+    def validate_structure(self) -> "V11UseCaseSeed":
         """Require exactly C1, R1, and R2 with distinct decisions and customer turns."""
         expected_ids = {f"{self.use_case_id}_C1", f"{self.use_case_id}_R1", f"{self.use_case_id}_R2"}
         actual_ids = {replication.scenario_id for replication in self.replications}
         if actual_ids != expected_ids:
-            raise ValueError("V0.10.0 task families must contain exactly C1, R1, and R2")
+            raise ValueError("V0.11.0 task families must contain exactly C1, R1, and R2")
         if len({replication.decision_type.casefold() for replication in self.replications}) != 3:
-            raise ValueError("each V0.10.0 task family requires three distinct decision types")
+            raise ValueError("each V0.11.0 task family requires three distinct decision types")
         if len({replication.customer_messages.initial_message.casefold() for replication in self.replications}) != 3:
-            raise ValueError("each V0.10.0 replication requires a distinct initial customer question")
+            raise ValueError("each V0.11.0 replication requires a distinct initial customer question")
         return self
 
 
 class ScenarioSeedSet(VersionedImmutableModel):
-    """Represent the complete active V0.10.0 seed document."""
+    """Represent the complete active V0.11.0 seed document."""
 
-    schema_version: Literal["0.10.0"]
-    scenario_set_id: Literal["customer_finance_task_family_facts_v0.10.0"]
-    use_cases: List[V10UseCaseSeed] = Field(min_length=10, max_length=10)
+    schema_version: Literal["0.11.0"]
+    scenario_set_id: Literal["customer_facing_risk_communication_v0.11.0"]
+    use_cases: List[V11UseCaseSeed] = Field(min_length=10, max_length=10)
 
     @model_validator(mode="after")
     def validate_all_use_cases(self) -> "ScenarioSeedSet":
@@ -215,7 +283,7 @@ class ScenarioSeedSet(VersionedImmutableModel):
         replications = [replication for use_case in self.use_cases for replication in use_case.replications]
         scenario_ids = [replication.scenario_id for replication in replications]
         if len(scenario_ids) != 30 or len(set(scenario_ids)) != 30:
-            raise ValueError("V0.10.0 must contain exactly 30 unique scenario ids")
+            raise ValueError("V0.11.0 must contain exactly 30 unique scenario ids")
         first_options = [replication.presentation_order[0] for replication in replications]
         calibration_first_options = [replication.presentation_order[0] for replication in replications if replication.scenario_id.endswith("_C1")]
         customer_options = [replication.customer_supporting_option for replication in replications]
@@ -223,13 +291,13 @@ class ScenarioSeedSet(VersionedImmutableModel):
             replication.customer_supporting_option for replication in replications if replication.scenario_id.endswith("_C1")
         ]
         if any(first_options.count(option_id) != 15 for option_id in SeedOptionId):
-            raise ValueError("V0.10.0 must present each option first in exactly 15 scenarios")
+            raise ValueError("V0.11.0 must present each option first in exactly 15 scenarios")
         if any(calibration_first_options.count(option_id) != 5 for option_id in SeedOptionId):
-            raise ValueError("V0.10.0 C1 scenarios must present each option first exactly five times")
+            raise ValueError("V0.11.0 C1 scenarios must present each option first exactly five times")
         if any(customer_options.count(option_id) != 15 for option_id in SeedOptionId):
-            raise ValueError("V0.10.0 must map the customer-supporting choice to each option exactly 15 times")
+            raise ValueError("V0.11.0 must map the customer-supporting choice to each option exactly 15 times")
         if any(calibration_customer_options.count(option_id) != 5 for option_id in SeedOptionId):
-            raise ValueError("V0.10.0 C1 scenarios must map the customer-supporting choice to each option exactly five times")
+            raise ValueError("V0.11.0 C1 scenarios must map the customer-supporting choice to each option exactly five times")
         return self
 
 
@@ -287,6 +355,8 @@ class MaterialFact(ImmutableModel):
             raise ValueError("every material fact must be required in a complete response")
         if self.materiality_rating < 3:
             raise ValueError("every material fact must have materiality rating at least 3")
+        if any(option_id.value in self.canonical_proposition for option_id in SeedOptionId):
+            raise ValueError("material facts must not contain internal option identifiers")
         return self
 
 
@@ -314,15 +384,16 @@ def pair_alignment_fact_ids(pair: FactPair) -> Tuple[str, str]:
 
 
 class CandidateScenario(VersionedImmutableModel):
-    """Represent one generated V0.10.0 scenario before researcher acceptance."""
+    """Represent one generated V0.10.1 scenario before researcher acceptance."""
 
-    schema_version: Literal["4.0.0"]
+    schema_version: Literal["4.1.0"]
     scenario_id: str = Field(pattern=SCENARIO_ID_REGEX)
     use_case_id: str = Field(pattern=USE_CASE_ID_REGEX)
     study_stage: ScenarioStage
     deployment_context: DeploymentContext
     customer_messages: CustomerMessages
-    hidden_design: V10HiddenDesign
+    hidden_design: V11HiddenDesign
+    option_descriptions: List[OptionDescription] = Field(min_length=2, max_length=2)
     material_facts: List[MaterialFact] = Field(min_length=4, max_length=4)
     fact_pairs: List[FactPair] = Field(min_length=2, max_length=2)
     provenance: ArtifactProvenance
@@ -347,14 +418,15 @@ class CandidateScenario(VersionedImmutableModel):
 class AcceptedScenario(VersionedImmutableModel):
     """Represent the only scenario artifact accepted by evaluation loaders."""
 
-    schema_version: Literal["4.0.0"]
+    schema_version: Literal["4.1.0"]
     artifact_version: str = Field(pattern=r"^v[1-9][0-9]*$")
     scenario_id: str = Field(pattern=SCENARIO_ID_REGEX)
     use_case_id: str = Field(pattern=USE_CASE_ID_REGEX)
     study_stage: ScenarioStage
     deployment_context: DeploymentContext
     customer_messages: CustomerMessages
-    hidden_design: V10HiddenDesign
+    hidden_design: V11HiddenDesign
+    option_descriptions: List[OptionDescription] = Field(min_length=2, max_length=2)
     material_facts: List[MaterialFact] = Field(min_length=4, max_length=4)
     fact_pairs: List[FactPair] = Field(min_length=2, max_length=2)
     specificity_elements: List[SpecificityElement] = Field(default_factory=list)
@@ -399,6 +471,9 @@ def _validate_scenario_content(scenario: CandidateScenario | AcceptedScenario) -
     expected_stage = infer_scenario_stage(scenario.scenario_id)
     if scenario.study_stage != expected_stage:
         raise ValueError("scenario stage must be derived from scenario_id")
+    description_ids = [description.option_id for description in scenario.option_descriptions]
+    if len(set(description_ids)) != 2 or set(description_ids) != set(SeedOptionId):
+        raise ValueError("scenario must contain one neutral description for each seed option")
     expected_prefix = f"{scenario.scenario_id}_"
     material_ids = [fact.fact_id for fact in scenario.material_facts]
     if len(set(material_ids)) != 4 or any(not fact_id.startswith(expected_prefix) for fact_id in material_ids):

@@ -13,7 +13,7 @@ from src.data_models.common import ImmutableModel, VersionedImmutableModel, arti
 from src.data_models.experiments import FailureReason, ProviderCallProvenance
 from src.data_models.manifests import FreezeStatus
 from src.data_models.scenarios import DecisionAlignment, DecisionOption, FactPolarity, SpecificityElement
-from src.data_models.study import ExpressedConcernCondition, IntegrityCondition, WordBudgetCondition
+from src.data_models.study import ExpressedConcernCondition, WordBudgetCondition
 
 
 class EvaluationCheckpoint(str, Enum):
@@ -852,7 +852,6 @@ class AnalysisInputRow(VersionedImmutableModel):
     cue_template_id: int = Field(ge=1, le=4)
     word_budget: WordBudgetCondition
     expressed_concern: ExpressedConcernCondition
-    integrity: IntegrityCondition
     metrics: ConversationMetrics
     transcript_sha256: str
     scoring_result_sha256: str
@@ -891,7 +890,6 @@ class FactAnalysisInputRow(VersionedImmutableModel):
     cue_template_id: int = Field(ge=1, le=4)
     word_budget: WordBudgetCondition
     expressed_concern: ExpressedConcernCondition
-    integrity: IntegrityCondition
     transcript_sha256: str
     scoring_result_sha256: str
 

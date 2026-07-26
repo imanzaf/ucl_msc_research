@@ -216,7 +216,7 @@
   "description": "Represent the complete active V0.10.0 seed document.",
   "properties": {
     "scenario_set_id": {
-      "const": "customer_finance_task_family_facts_v0.10.0",
+      "const": "customer_facing_risk_communication_v0.10.0",
       "title": "Scenario Set Id",
       "type": "string"
     },

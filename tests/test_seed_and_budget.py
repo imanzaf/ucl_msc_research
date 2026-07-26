@@ -31,8 +31,8 @@ from src.data_models.manifests import (
     PromptReviewManifest,
     ScenarioManifestScope,
 )
-from src.data_models.scenarios import SeedOptionId, V10HiddenDesign
-from src.data_models.study import CUE_PAIRS, PROMPT_PACKAGE_VERSION, ExpressedConcernCondition, IntegrityCondition, assigned_cue, cue_template_id
+from src.data_models.scenarios import SeedOptionId, V11HiddenDesign
+from src.data_models.study import CUE_PAIRS, PROMPT_PACKAGE_VERSION, ExpressedConcernCondition, assigned_cue, cue_template_id
 from src.llm.openrouter import OpenRouterClient, ProviderTextResponse
 from src.prompts.experiment import render_reviewed_user_request, validate_complete_request_reviews
 from src.scenarios.budgets import build_ample_pilot_summary, calculate_tight_word_limit, require_ample_pilot_gate, validate_evaluation_headroom
@@ -41,11 +41,11 @@ from src.scenarios.word_count import count_words, tokenize_words
 from tests.factories import ZERO_HASH, make_accepted_scenario
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SEED_ROOT = REPO_ROOT / "data/inputs/scenarios/v0.10.0"
+SEED_ROOT = REPO_ROOT / "data/inputs/scenarios/v0.11.0"
 
 
 def test_active_seed_has_approved_bytes_and_exact_structure() -> None:
-    """Authenticate the only runtime-supported V0.10.0 seed."""
+    """Authenticate the only runtime-supported V0.11.0 seed."""
     hashes = validate_seed_hashes(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
     seed = load_and_validate_seed(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
     assert hashes == {"seed_sha256": EXPECTED_SEED_SHA256, "schema_sha256": EXPECTED_SCHEMA_SHA256}
@@ -55,7 +55,7 @@ def test_active_seed_has_approved_bytes_and_exact_structure() -> None:
 
 
 def test_exported_seed_schema_matches_the_active_runtime_boundary() -> None:
-    """Require both exported seed schemas to accept only the V0.10.0 structure."""
+    """Require both exported seed schemas to accept only the V0.11.0 structure."""
     exported_schema = json.loads((REPO_ROOT / "schemas/scenario_seed_set.schema.json").read_text(encoding="utf-8"))
     active_schema = json.loads((SEED_ROOT / "scenario_generation_seed_schema.json").read_text(encoding="utf-8"))
     active_payload = json.loads((SEED_ROOT / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
@@ -73,16 +73,16 @@ def test_hidden_design_rejects_equivalent_or_same_owner_options() -> None:
     """Require distinct option names and opposed customer/owner mappings."""
     seed = load_and_validate_seed(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
     payload = seed.use_cases[0].replications[0].model_dump(mode="json", exclude={"scenario_id", "customer_messages"})
-    assert V10HiddenDesign.model_validate(payload).customer_supporting_option == SeedOptionId.OPTION_A
+    assert V11HiddenDesign.model_validate(payload).customer_supporting_option == SeedOptionId.OPTION_A
     payload["owner_supporting_option"] = payload["customer_supporting_option"]
     with pytest.raises(ValidationError, match="must differ"):
-        V10HiddenDesign.model_validate(payload)
+        V11HiddenDesign.model_validate(payload)
 
 
 def test_seed_tampering_is_rejected_before_use(tmp_path: Path) -> None:
     """Reject any changed byte in the active immutable seed."""
     root = SEED_ROOT
-    version_root = tmp_path / "v0.10.0"
+    version_root = tmp_path / "v0.11.0"
     version_root.mkdir()
     payload = json.loads((root / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
     payload["use_cases"][0]["word_budget"] = 100
@@ -158,7 +158,6 @@ def test_ample_pilot_requires_every_cell_of_the_exact_60_output_matrix() -> None
                     "expected_model_version": f"{model_id}@frozen",
                     "returned_model_version": f"{model_id}@frozen",
                     "expressed_concern": concern,
-                    "integrity": IntegrityCondition.ABSENT,
                     "pilot_word_limit": 320,
                     "output_text": output_text,
                     "output_word_count": 2,
@@ -362,14 +361,12 @@ def test_ample_pilot_request_hashes_and_success_attempts_are_auditable() -> None
         scenario,
         "provider/model",
         ExpressedConcernCondition.NEUTRAL,
-        IntegrityCondition.ABSENT,
         7,
     )
     assert request == compile_ample_pilot_request(
         scenario,
         "provider/model",
         ExpressedConcernCondition.NEUTRAL,
-        IntegrityCondition.ABSENT,
         7,
     )
     assert (
@@ -378,7 +375,6 @@ def test_ample_pilot_request_hashes_and_success_attempts_are_auditable() -> None
             scenario,
             "provider/model",
             ExpressedConcernCondition.CONCERNED,
-            IntegrityCondition.ABSENT,
             7,
         )[4]
     )
@@ -451,11 +447,11 @@ def test_successful_ample_pilot_attempt_recovers_only_from_matching_cache() -> N
 
 
 def test_accepted_manifest_rejects_unapproved_seed_hashes_before_publication() -> None:
-    """Prevent a self-hashed accepted set from blessing altered V0.10.0 seed bytes."""
-    with pytest.raises(ValidationError, match="approved immutable V0.10.0 seed"):
+    """Prevent a self-hashed accepted set from blessing altered V0.11.0 seed bytes."""
+    with pytest.raises(ValidationError, match="approved immutable V0.11.0 seed"):
         AcceptedScenarioManifest(
             schema_version="2.0.0",
-            scenario_set_id="customer_finance_task_family_facts_v0.10.0",
+            scenario_set_id="customer_facing_risk_communication_v0.11.0",
             manifest_scope=ScenarioManifestScope.COMPLETE,
             seed_sha256=ZERO_HASH,
             seed_schema_sha256=ZERO_HASH,

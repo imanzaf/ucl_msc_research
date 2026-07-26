@@ -25,7 +25,7 @@ from src.data_models.manifests import (
     PilotAttemptStatus,
 )
 from src.data_models.scenarios import AcceptedScenario
-from src.data_models.study import PILOT_WORD_LIMIT, ExperimentCell, ExpressedConcernCondition, IntegrityCondition, WordBudgetCondition
+from src.data_models.study import PILOT_WORD_LIMIT, ExperimentCell, ExpressedConcernCondition, WordBudgetCondition
 from src.experiments.io import load_accepted_calibration_scenarios
 from src.llm.openrouter import OpenRouterClient, ProviderTextResponse
 from src.paths import (
@@ -65,10 +65,9 @@ def _append_unique(path: Path, model: BaseModel, field_name: str) -> None:
 def compile_ample_pilot_messages(
     scenario: AcceptedScenario,
     cue: ExpressedConcernCondition,
-    integrity: IntegrityCondition,
 ) -> Tuple[List[Dict[str, str]], str]:
     """Compile the exact 320-word pilot request without a follow-up turn."""
-    cell = ExperimentCell.create(WordBudgetCondition.AMPLE, cue, integrity)
+    cell = ExperimentCell.create(WordBudgetCondition.AMPLE, cue)
     messages, _follow_up, prompt_sha256, _follow_up_sha256 = compile_experiment_prompt(scenario, cell, PILOT_WORD_LIMIT)
     return [{"role": message.role.value, "content": message.content} for message in messages], prompt_sha256
 
@@ -77,12 +76,11 @@ def compile_ample_pilot_request(
     scenario: AcceptedScenario,
     model_id: str,
     cue: ExpressedConcernCondition,
-    integrity: IntegrityCondition,
     study_seed: int,
 ) -> Tuple[List[Dict[str, str]], str, str, int, str]:
     """Compile one exact provider request and all deterministic request identifiers."""
-    messages, prompt_sha256 = compile_ample_pilot_messages(scenario, cue, integrity)
-    record_id = _identifier("PILOT", scenario.scenario_id, model_id, cue.value, integrity.value)
+    messages, prompt_sha256 = compile_ample_pilot_messages(scenario, cue)
+    record_id = _identifier("PILOT", scenario.scenario_id, model_id, cue.value)
     random_seed = int(sha256_bytes(f"{study_seed}:{record_id}".encode("utf-8"))[:16], 16)
     request_sha256 = provider_request_sha256(messages, model_id, 0.0, PILOT_WORD_LIMIT * 4, random_seed)
     return messages, prompt_sha256, record_id, random_seed, request_sha256
@@ -95,7 +93,6 @@ def _build_pilot_record(
     expected_model_version: str,
     prompt_review_manifest_sha256: str,
     cue: ExpressedConcernCondition,
-    integrity: IntegrityCondition,
     prompt_sha256: str,
     request_sha256: str,
     random_seed: int,
@@ -106,7 +103,7 @@ def _build_pilot_record(
     response_sha256 = sha256_bytes(response.text.encode("utf-8"))
     payload = {
         "schema_version": "2.0.0",
-        "pilot_record_id": _identifier("PILOT", scenario.scenario_id, model_id, cue.value, integrity.value),
+        "pilot_record_id": _identifier("PILOT", scenario.scenario_id, model_id, cue.value),
         "scenario_id": scenario.scenario_id,
         "use_case_id": scenario.use_case_id,
         "model_id": model_id,
@@ -115,7 +112,6 @@ def _build_pilot_record(
         "expected_model_version": expected_model_version,
         "returned_model_version": response.returned_model_version,
         "expressed_concern": cue,
-        "integrity": integrity,
         "pilot_word_limit": PILOT_WORD_LIMIT,
         "output_text": response.text,
         "output_word_count": count_words(response.text),
@@ -185,7 +181,7 @@ def main() -> None:
         (args.cache_dir, ACTIVE_SCENARIO_GENERATION_ROOT / "cache"),
     ]
     if any(supplied.resolve() != expected.resolve() for supplied, expected in expected_paths):
-        raise ValueError("ample-pilot execution must use the fixed V0.10.0 lifecycle paths")
+        raise ValueError("ample-pilot execution must use the active scenario lifecycle paths")
     accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
     model_manifest = read_model_json(args.evaluated_model_manifest, EvaluatedModelManifest)
     prompt_review = read_model_json(args.prompt_review_manifest, CalibrationPromptReviewManifest)
@@ -221,7 +217,7 @@ def main() -> None:
     if len(scenarios) != 10:
         raise ValueError("ample pilot requires exactly ten accepted C1 scenarios")
     expected_request_sha256s = sorted(
-        compile_ample_pilot_request(scenario, model.model_id, cue, IntegrityCondition.ABSENT, args.seed)[4]
+        compile_ample_pilot_request(scenario, model.model_id, cue, args.seed)[4]
         for scenario in scenarios
         for model in model_manifest.evaluated_models
         for cue in ExpressedConcernCondition
@@ -241,12 +237,10 @@ def main() -> None:
     for scenario in sorted(scenarios, key=lambda item: item.scenario_id):
         for model in sorted(model_manifest.evaluated_models, key=lambda item: item.model_id):
             for cue in ExpressedConcernCondition:
-                integrity = IntegrityCondition.ABSENT
                 messages, prompt_sha256, record_id, random_seed, request_digest = compile_ample_pilot_request(
                     scenario,
                     model.model_id,
                     cue,
-                    integrity,
                     args.seed,
                 )
                 existing_record = record_by_id.get(record_id)
@@ -259,7 +253,6 @@ def main() -> None:
                         "prompt_review_manifest_sha256": prompt_review.manifest_sha256,
                         "expected_model_version": model.returned_model_version,
                         "expressed_concern": cue,
-                        "integrity": integrity,
                         "prompt_sha256": prompt_sha256,
                         "request_sha256": request_digest,
                         "random_seed": random_seed,
@@ -293,7 +286,6 @@ def main() -> None:
                         expected_model_version=model.returned_model_version,
                         prompt_review_manifest_sha256=prompt_review.manifest_sha256,
                         cue=cue,
-                        integrity=integrity,
                         prompt_sha256=prompt_sha256,
                         request_sha256=request_digest,
                         random_seed=random_seed,
@@ -365,7 +357,6 @@ def main() -> None:
                         expected_model_version=model.returned_model_version,
                         prompt_review_manifest_sha256=prompt_review.manifest_sha256,
                         cue=cue,
-                        integrity=integrity,
                         prompt_sha256=prompt_sha256,
                         request_sha256=request_digest,
                         random_seed=random_seed,

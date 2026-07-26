@@ -6,18 +6,22 @@ Launch the local-only interface:
 uv run risk-comm review launch --server-address 127.0.0.1
 ```
 
+The default selects the newest configured V0.11.0 generation run. Use `--run-id <run-id>` to review an older or partially resumed run explicitly.
+Candidate files are read from that run's `scenarios/` directory and researcher decisions are written to its
+`researcher_review/scenario_reviews.jsonl`; decisions from repeated generation runs therefore cannot collide.
+
 The two pages are scenario review and one-pass conversation annotation. [src/review_app.py](../../src/review_app.py) contains no API client and exposes no generation, experiment, or scoring action.
 
-For each V0.10.0 candidate, the scenario page separates the exact evaluated deployment context and customer turns from the hidden decision design.
-It shows the same four direct facts supplied to the evaluated model, plus both blinded pair diagnostics. The diagnostics include proposition length,
-literal numeric, conditional and hedging burden, readability, shared number strings, and materiality ratings. They are descriptive:
-`pair_matching_acceptable` remains the mandatory researcher judgement and there is no automatic threshold. Arithmetic dependency is false because
-V0.10.0 has no numeric registry or generated calculation layer.
+For each candidate in the selected run, the scenario page presents the customer dialogue, assistant remit, two option descriptions, and four directional facts
+as readable cards. Hidden customer/provider alignment and compact blinded pair diagnostics remain available in expanders. The diagnostics compare
+word, numeric, conditional, and hedging burden and are guidance only; there is no automatic threshold or separate pair-matching judgement.
 
-The scenario page uses a point-and-click decision form. Select a decision, complete the named checklist, and optionally copy zero to three exact
-phrases per material fact for later specificity scoring. A blank fact is valid and receives no specificity score. Selected phrases are stored
-separately as `specificity_elements`; they are not generated or embedded in material-fact records. One submission writes the schema-3.0.0 researcher
-review and optional marker selection. There is no reference-response review or approval step. Progress remains resumable if the browser closes.
+The researcher records one overall `accept` or `revise` decision. Five concise criteria on realism and authority, option feasibility, fact quality,
+conflict validity, and pair comparability guide that judgement without creating separate checkbox fields. The researcher may optionally copy zero
+to three exact phrases per material fact for later specificity scoring. A blank fact is valid and receives no specificity score. Selected phrases
+are stored separately as `specificity_elements`; they are not generated or embedded in material-fact records. One submission writes the
+schema-3.1.0 researcher review and optional marker selection. There is no reference-response review or approval step. Progress remains resumable if
+the browser closes.
 
 Exactly 80 calibration and 160 locked evaluation conversations are annotated once. There is no repeat, resolution, or outcome-enriched annotation path. Records are atomically persisted as strict JSONL.
 
@@ -27,8 +31,8 @@ Create condition-blind inputs and the evaluation sample manifest:
 uv run risk-comm scoring sample-annotations \
   --stage evaluation \
   --transcripts data/outputs/experiments/risk_comm_v1/results/<YYYYMMDDTHHMMSS>_results.jsonl \
-  --accepted-root data/inputs/scenarios/v0.10.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.10.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v0.11.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v0.11.0/accepted_scenario_manifest.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
   --scoring-input-root data/outputs/experiments/risk_comm_v1/checkpoints/blind_inputs \
   --output-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluation_annotation_sample.json

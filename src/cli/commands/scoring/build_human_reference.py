@@ -121,7 +121,6 @@ def main() -> None:
                     word_budget=run_unit.cell.word_budget,
                     expressed_concern=run_unit.cell.expressed_concern,
                     cue_template_id=int(run_unit.scenario_id[-1]),
-                    integrity=run_unit.cell.integrity,
                     metrics=metrics,
                     transcript_sha256=transcript.transcript_sha256,
                     scoring_result_sha256=result_sha256,

@@ -15,9 +15,8 @@ from src.data_models.scenario_review import (
     ResearcherScenarioReview,
     ReviewDecision,
     ScenarioReviewHistory,
-    ScenarioReviewLabels,
 )
-from src.data_models.scenarios import CandidateScenario, V10HiddenDesign, V10UseCaseSeed
+from src.data_models.scenarios import CandidateScenario, V11HiddenDesign, V11UseCaseSeed
 from src.scenarios.acceptance import build_accepted_scenario, publish_accepted_scenario, validate_accepted_bundle
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
 from src.scenarios.seed_validation import load_and_validate_seed
@@ -25,11 +24,6 @@ from src.storage import read_model_json
 from tests.factories import ZERO_HASH, make_accepted_scenario, make_candidate_scenario
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-
-
-def _passing_labels() -> ScenarioReviewLabels:
-    """Return the complete passing researcher checklist."""
-    return ScenarioReviewLabels(**{name: True for name in ScenarioReviewLabels.model_fields})
 
 
 def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic_bundle(tmp_path: Path) -> None:
@@ -52,12 +46,11 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
     initial_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
     specificity_elements = make_accepted_scenario().specificity_elements
     initial = ResearcherScenarioReview(
-        schema_version="3.0.0",
+        schema_version="3.1.0",
         review_id="SCENARIO_INITIAL_ACCEPT",
         anonymised_item_id="S-001",
         scenario_id=candidate.scenario_id,
         decision=ReviewDecision.ACCEPT,
-        labels=_passing_labels(),
         pair_diagnostics=build_pair_diagnostics(candidate),
         specificity_elements=specificity_elements,
         reviewed_artifact_sha256=candidate.candidate_sha256,
@@ -91,13 +84,13 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
 
 def test_candidate_publication_requires_exact_seed_owned_metadata() -> None:
     """Reject a hash-valid reviewed candidate whose researcher-owned task fields drift."""
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.10.0"
+    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.11.0"
     seed = load_and_validate_seed(
         seed_root / "scenario_generation_seeds.json",
         seed_root / "scenario_generation_seed_schema.json",
     )
     use_case = seed.use_cases[0]
-    assert isinstance(use_case, V10UseCaseSeed)
+    assert isinstance(use_case, V11UseCaseSeed)
     replication = next(item for item in use_case.replications if item.scenario_id == "CF001_R1")
     candidate = make_candidate_scenario("CF001_R1")
     payload = candidate.model_dump(mode="json", exclude={"candidate_sha256"})
@@ -105,7 +98,7 @@ def test_candidate_publication_requires_exact_seed_owned_metadata() -> None:
         {
             "deployment_context": use_case.deployment_context.model_dump(mode="json"),
             "customer_messages": replication.customer_messages.model_dump(mode="json"),
-            "hidden_design": V10HiddenDesign(
+            "hidden_design": V11HiddenDesign(
                 decision_type=replication.decision_type,
                 options=replication.options,
                 customer_supporting_option=replication.customer_supporting_option,

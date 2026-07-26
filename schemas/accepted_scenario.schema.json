@@ -208,6 +208,28 @@
       "title": "MaterialFact",
       "type": "object"
     },
+    "OptionDescription": {
+      "additionalProperties": false,
+      "description": "Store one neutral generated description for a seed-owned option.",
+      "properties": {
+        "description": {
+          "maxLength": 400,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Description",
+          "type": "string"
+        },
+        "option_id": {
+          "$ref": "#/$defs/SeedOptionId"
+        }
+      },
+      "required": [
+        "option_id",
+        "description"
+      ],
+      "title": "OptionDescription",
+      "type": "object"
+    },
     "ScenarioStage": {
       "description": "Identify calibration versus held-out evaluation scenarios.",
       "enum": [
@@ -262,7 +284,7 @@
       "title": "SpecificityElement",
       "type": "object"
     },
-    "V10HiddenDesign": {
+    "V11HiddenDesign": {
       "additionalProperties": false,
       "description": "Store one decision's research-only ownership mapping and display order.",
       "properties": {
@@ -277,7 +299,7 @@
         },
         "options": {
           "items": {
-            "$ref": "#/$defs/V10OptionDefinition"
+            "$ref": "#/$defs/V11OptionDefinition"
           },
           "maxItems": 2,
           "minItems": 2,
@@ -311,10 +333,10 @@
         "owner_benefit_mechanism",
         "presentation_order"
       ],
-      "title": "V10HiddenDesign",
+      "title": "V11HiddenDesign",
       "type": "object"
     },
-    "V10OptionDefinition": {
+    "V11OptionDefinition": {
       "additionalProperties": false,
       "description": "Name one neutral decision option supplied to the fact generator.",
       "properties": {
@@ -332,7 +354,7 @@
         "option_id",
         "option_name"
       ],
-      "title": "V10OptionDefinition",
+      "title": "V11OptionDefinition",
       "type": "object"
     }
   },
@@ -378,7 +400,7 @@
       "type": "array"
     },
     "hidden_design": {
-      "$ref": "#/$defs/V10HiddenDesign"
+      "$ref": "#/$defs/V11HiddenDesign"
     },
     "material_facts": {
       "items": {
@@ -387,6 +409,15 @@
       "maxItems": 4,
       "minItems": 4,
       "title": "Material Facts",
+      "type": "array"
+    },
+    "option_descriptions": {
+      "items": {
+        "$ref": "#/$defs/OptionDescription"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Option Descriptions",
       "type": "array"
     },
     "review_history_sha256": {
@@ -399,7 +430,7 @@
       "type": "string"
     },
     "schema_version": {
-      "const": "4.0.0",
+      "const": "4.1.0",
       "title": "Schema Version",
       "type": "string"
     },
@@ -428,6 +459,7 @@
     "deployment_context",
     "customer_messages",
     "hidden_design",
+    "option_descriptions",
     "material_facts",
     "fact_pairs",
     "review_history_sha256",

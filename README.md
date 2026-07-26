@@ -28,25 +28,30 @@ All three use separate manifests, configs, run plans, outputs, logs, checkpoints
 - `data/inputs/scenarios/v0.7.0/` is preserved unchanged as the prior deployment-context seed.
 - `data/inputs/scenarios/v0.8.0/` is preserved unchanged as the prior balanced-evidence seed.
 - `data/inputs/scenarios/v0.9.0/` is preserved as the prior documented-option seed.
-- `data/inputs/scenarios/v0.10.0/` contains the active task-family seed and JSON Schema.
-- Runtime models and commands support only V0.10.0; earlier seed files and runbooks are historical provenance, not executable formats.
-- Generated and accepted V0.10 scenarios use schema `4.0.0`; study artifacts retain `expressed_concern` / `concerned`.
+- `data/inputs/scenarios/v0.10.0/` is preserved as the prior task-family seed.
+- `data/inputs/scenarios/v0.11.0/` contains the active task-family seed and JSON Schema.
+- Runtime seed models and commands support only V0.11.0; earlier seed files and runbooks are historical provenance, not executable formats.
+- New generated and accepted V0.11 scenarios use schema `4.1.0`; the earlier V0.10.0 C1 generation run remains preserved under its original
+  `4.0.0` artifacts. Study artifacts retain `expressed_concern` / `concerned`.
 - Each family contains C1, R1, and R2. Each replication owns its own decision, two options, natural initial question, and non-leading follow-up.
-- Evaluated prompts contain a broad family-level role/entity/task/authority contract, the four accepted facts directly, and natural customer turns.
-- The generator receives one exact decision and returns only four facts: one benefit and one downside for each option. It does not generate an
-  evidence packet, title, headings, neutral-fact inventory, numeric registry, reference response, or specificity fields.
+- Evaluated prompts contain a broad family-level role/entity/task contract, genuine action-only authority limits, the four accepted facts directly,
+  and natural customer turns. They contain no shared factuality or plain-language paragraph.
+- The generator receives one exact decision and returns one documentation-style record per option: a neutral operating description, one favourable
+  fact, and one adverse fact. Only the four directional facts enter material-fact scoring; the descriptions provide unscored option context.
 - OPTION_A/B first position and customer-supporting assignment are each balanced 15/15 across all scenarios and 5/5 among C1 cases.
 - Numbers remain ordinary fact text; there is no generated numeric registry. Researchers may select zero to three exact specificity phrases per
   fact in a separate review field. Unmarked facts receive no specificity score.
 - Tight-budget feasibility uses the canonical four-fact word count directly; there is no minimal-response review or approval artifact.
 - Every scenario contains a latent conflict between a customer-supporting option and a finance-provider-owner-supporting option. The mapping is used
   only for generation, review, and scoring direction; it never appears in evaluated prompts.
-- Every fact list contains a balanced 2×2 set: a genuine benefit and downside for each option. Signed gaps consistently compare
+- Every scenario contains a balanced 2×2 directional set: a genuine favourable and adverse fact for each option. Signed gaps consistently compare
   provider-supporting with customer-supporting facts.
 
-The scenario viewer shows the research-only decision design and descriptive length, numeric, conditional, hedging, readability, quantity,
-and materiality diagnostics before the researcher can record the mandatory high-stakes, conflict, direction, prompt-isolation, and pair-matching
-judgements. No automatic balance threshold is used.
+The scenario viewer presents customer context, assistant remit, option information, hidden design, and compact pair diagnostics. Five concise
+criteria guide one overall `accept` or `revise` decision; optional specificity phrases remain separate, and no automatic balance threshold is used.
+Generated artifacts live under `data/outputs/scenario_generation/v0.11.0/runs/<run-id>/`. A fresh command creates a UTC-stamped logical run;
+`--run-id` continues it through separate timestamped invocations, allowing individual replications and interrupted work to resume without
+overwriting another run. Researcher scenario reviews remain scoped to the selected run.
 
 ## Analysis
 
@@ -71,11 +76,11 @@ Experiment procedures are documented in:
 - [risk_comm_v1](docs/experiments/risk_comm_v1.md)
 - [material_priority_v1](docs/experiments/material_priority_v1.md)
 - [brevity_locus_v1](docs/experiments/brevity_locus_v1.md)
-- [scenario generation V0.10.0](docs/experiments/scenario_generation_v0_10_0.md)
+- [scenario generation V0.10.1](docs/experiments/scenario_generation_v0_10_1.md)
 - [scenario research log](docs/experiments/scenario_research.md)
 - [scoring](docs/experiments/scoring.md)
 - [analysis](docs/experiments/analysis.md)
 
 No paid provider call is authorised by setup, validation, plan construction, tests, or documentation commands. Prior candidates cannot be
-published through the active V0.10 paths. Scenario-generation calls run directly when requested and log actual provider usage and cost; the
+published through the active V0.11 paths. Scenario-generation calls run directly when requested and log actual provider usage and cost; the
 60-response ample pilot and experiment execution retain their separate paid-execution gates.

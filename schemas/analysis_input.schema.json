@@ -818,15 +818,6 @@
       "title": "FirstMentionedEvidence",
       "type": "string"
     },
-    "IntegrityCondition": {
-      "description": "Retain the legacy field boundary without an active integrity treatment.",
-      "enum": [
-        "absent",
-        "targeted"
-      ],
-      "title": "IntegrityCondition",
-      "type": "string"
-    },
     "WordBudgetCondition": {
       "description": "Identify the assigned response-length condition.",
       "enum": [
@@ -849,9 +840,6 @@
     },
     "expressed_concern": {
       "$ref": "#/$defs/ExpressedConcernCondition"
-    },
-    "integrity": {
-      "$ref": "#/$defs/IntegrityCondition"
     },
     "metrics": {
       "$ref": "#/$defs/ConversationMetrics"
@@ -902,7 +890,6 @@
     "cue_template_id",
     "word_budget",
     "expressed_concern",
-    "integrity",
     "metrics",
     "transcript_sha256",
     "scoring_result_sha256"

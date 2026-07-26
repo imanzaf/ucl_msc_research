@@ -91,6 +91,7 @@ def build_accepted_scenario(
         "deployment_context": candidate.deployment_context,
         "customer_messages": candidate.customer_messages,
         "hidden_design": candidate.hidden_design,
+        "option_descriptions": candidate.option_descriptions,
         "material_facts": candidate.material_facts,
         "fact_pairs": candidate.fact_pairs,
         "specificity_elements": researcher_review.specificity_elements,

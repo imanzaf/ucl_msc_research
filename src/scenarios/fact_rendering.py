@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Dict, List
 
 from src.data_models.common import sha256_bytes
-from src.data_models.scenarios import AcceptedScenario, CandidateScenario, DecisionOption, FactPolarity, MaterialFact, SeedOptionId, V10HiddenDesign
+from src.data_models.scenarios import AcceptedScenario, CandidateScenario, DecisionOption, FactPolarity, MaterialFact, SeedOptionId, V11HiddenDesign
 
 
-def _decision_option_by_seed_option(design: V10HiddenDesign) -> Dict[SeedOptionId, DecisionOption]:
+def _decision_option_by_seed_option(design: V11HiddenDesign) -> Dict[SeedOptionId, DecisionOption]:
     """Map neutral seed option IDs to the artifact's hidden decision coordinates."""
     return {
         design.customer_supporting_option: DecisionOption.CUSTOMER_OPTION,
@@ -18,8 +18,8 @@ def _decision_option_by_seed_option(design: V10HiddenDesign) -> Dict[SeedOptionI
 
 def ordered_visible_facts(scenario: CandidateScenario | AcceptedScenario) -> List[MaterialFact]:
     """Return the four facts in the frozen option order with counterbalanced polarity order."""
-    if not isinstance(scenario.hidden_design, V10HiddenDesign):
-        raise ValueError("direct fact rendering requires a V0.10.0 hidden design")
+    if not isinstance(scenario.hidden_design, V11HiddenDesign):
+        raise ValueError("direct fact rendering requires a V0.11.0 hidden design")
     fact_by_cell = {(fact.option, fact.polarity): fact for fact in scenario.material_facts}
     option_mapping = _decision_option_by_seed_option(scenario.hidden_design)
     benefit_first = int(sha256_bytes(f"fact-order-v1:{scenario.scenario_id}".encode("utf-8"))[:2], 16) % 2 == 0

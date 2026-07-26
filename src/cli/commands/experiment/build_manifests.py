@@ -47,7 +47,7 @@ def main() -> None:
     if args.evaluated_model_manifest.resolve() != EVALUATED_MODEL_MANIFEST_PATH.resolve():
         raise ValueError("experiment manifests must use the canonical frozen evaluated-model manifest")
     if args.word_budget_manifest.resolve() != WORD_BUDGET_MANIFEST_PATH.resolve():
-        raise ValueError("experiment manifests must use the canonical V0.10.0 word-budget manifest")
+        raise ValueError("experiment manifests must use the canonical V0.11.0 word-budget manifest")
     calibration_path = REPO_ROOT / "data/outputs/experiments/risk_comm_calibration_v1/checkpoints/calibration_manifest.json"
     if args.calibration_output.resolve() != calibration_path.resolve():
         raise ValueError("calibration manifest must use the fixed risk_comm_calibration_v1 checkpoint path")

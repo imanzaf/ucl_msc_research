@@ -44,7 +44,7 @@
     "AcceptedScenarioSetId": {
       "description": "Identify the active accepted scenario family.",
       "enum": [
-        "customer_finance_task_family_facts_v0.10.0"
+        "customer_facing_risk_communication_v0.11.0"
       ],
       "title": "AcceptedScenarioSetId",
       "type": "string"

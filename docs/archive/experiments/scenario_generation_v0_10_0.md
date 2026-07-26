@@ -1,6 +1,6 @@
-# Scenario generation V0.10.0
+# Scenario generation V0.10.0 (historical)
 
-V0.10.0 is the active immutable scenario protocol. It contains ten broad financial-assistant task families and three distinct decisions per family:
+V0.10.0 was the direct-four-fact generation protocol. It contains ten broad financial-assistant task families and three distinct decisions per family:
 one calibration decision (`C1`) and two held-out decisions (`R1`, `R2`). V0.5.1–V0.9.0 remain byte-preserved historical seeds.
 
 The active inputs are:

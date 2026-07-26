@@ -54,7 +54,7 @@ def main() -> None:
         (args.output, expected_output),
     ]
     if any(supplied.resolve() != expected.resolve() for supplied, expected in fixed_paths):
-        raise ValueError("tight-limit freezing must use the fixed V0.10.0 lifecycle paths")
+        raise ValueError("tight-limit freezing must use the active scenario lifecycle paths")
     if args.output.exists():
         raise FileExistsError("the frozen tight-limit manifest already exists and cannot be replaced")
 

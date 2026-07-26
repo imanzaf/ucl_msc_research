@@ -1,8 +1,9 @@
-"""OpenRouter implementation of four-fact scenario generation and review."""
+"""OpenRouter implementation of option-information generation and review."""
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Tuple, Type, TypeVar
 
 from pydantic import BaseModel, Field, model_validator
@@ -19,16 +20,16 @@ from src.data_models.scenarios import (
     FactPolarity,
     FinanceEntityType,
     MaterialFact,
+    OptionDescription,
     SeedOptionId,
-    V10HiddenDesign,
-    V10OptionDefinition,
-    V10ReplicationSeed,
-    V10UseCaseSeed,
+    V11HiddenDesign,
+    V11OptionDefinition,
+    V11ReplicationSeed,
+    V11UseCaseSeed,
     infer_scenario_stage,
 )
 from src.experiments.model_catalog import load_model_catalog
 from src.llm.openrouter import OpenRouterClient, ProviderStructuredResponse
-from src.paths import ACTIVE_SCENARIO_GENERATION_ROOT
 from src.prompts.scenario_generation import SCENARIO_GENERATION_SYSTEM_PROMPT, SCENARIO_REVIEW_SYSTEM_PROMPT, SCENARIO_REVISION_SYSTEM_PROMPT
 from src.settings.api_settings import OpenRouterCredentialRole, get_api_settings
 from src.settings.model_settings import get_model_settings
@@ -48,7 +49,7 @@ class GenerationDecisionInput(ImmutableModel):
     """Provide one seed-owned decision and its hidden ownership mapping."""
 
     decision_type: str = Field(min_length=1, pattern=r"\S")
-    options: List[V10OptionDefinition] = Field(min_length=2, max_length=2)
+    options: List[V11OptionDefinition] = Field(min_length=2, max_length=2)
     customer_query: str = Field(min_length=1, pattern=r"\S")
     customer_supporting_option: SeedOptionId
     owner_supporting_option: SeedOptionId
@@ -71,31 +72,33 @@ class ScenarioGenerationInput(ImmutableModel):
     decision: GenerationDecisionInput
 
 
-class GeneratedFactDraft(ImmutableModel):
-    """Return one customer-relevant fact for a decision option."""
+class GeneratedOptionInformationDraft(ImmutableModel):
+    """Return one documentation-style information record for a decision option."""
 
     option_id: SeedOptionId
-    polarity: FactPolarity
-    text: str = Field(min_length=1, max_length=400, pattern=r"\S")
-
-
-def _fact_cells(items: List[GeneratedFactDraft]) -> set[Tuple[SeedOptionId, FactPolarity]]:
-    """Return the option-by-polarity cells represented by generated items."""
-    return {(item.option_id, item.polarity) for item in items}
-
-
-class ScenarioFactDraft(VersionedImmutableModel):
-    """Return exactly one benefit and one downside for each option."""
-
-    schema_version: str = Field(pattern=r"^4\.0\.0$")
-    facts: List[GeneratedFactDraft] = Field(min_length=4, max_length=4)
+    description: str = Field(min_length=1, max_length=400, pattern=r"\S")
+    favourable_fact: str = Field(min_length=1, max_length=400, pattern=r"\S")
+    adverse_fact: str = Field(min_length=1, max_length=400, pattern=r"\S")
 
     @model_validator(mode="after")
-    def validate_cells(self) -> "ScenarioFactDraft":
-        """Require one fact for every option-by-polarity cell."""
-        expected_cells = {(option_id, polarity) for option_id in SeedOptionId for polarity in FactPolarity}
-        if _fact_cells(self.facts) != expected_cells:
-            raise ValueError("generation output requires one fact for every option-by-polarity cell")
+    def validate_private_identifiers_absent(self) -> "GeneratedOptionInformationDraft":
+        """Keep internal option identifiers out of all generated prose fields."""
+        text_fields = [self.description, self.favourable_fact, self.adverse_fact]
+        if any(option_id.value in text for option_id in SeedOptionId for text in text_fields):
+            raise ValueError("generated option text must not contain internal option identifiers")
+        return self
+
+
+class ScenarioOptionInformationDraft(ImmutableModel):
+    """Return one description and two directional facts for each option."""
+
+    options: List[GeneratedOptionInformationDraft] = Field(min_length=2, max_length=2)
+
+    @model_validator(mode="after")
+    def validate_option_mapping(self) -> "ScenarioOptionInformationDraft":
+        """Require exactly one generated record for each internal option identifier."""
+        if {option.option_id for option in self.options} != set(SeedOptionId):
+            raise ValueError("generation output requires one information record for each option identifier")
         return self
 
 
@@ -180,7 +183,7 @@ class OpenRouterScenarioBackend:
         """Return the exact initial or revision generation contract."""
         return SCENARIO_REVISION_SYSTEM_PROMPT if revision else SCENARIO_GENERATION_SYSTEM_PROMPT
 
-    def _generation_payload(self, use_case: V10UseCaseSeed, replication: V10ReplicationSeed) -> Dict[str, Any]:
+    def _generation_payload(self, use_case: V11UseCaseSeed, replication: V11ReplicationSeed) -> Dict[str, Any]:
         """Pass one task-family decision and the conflict needed to generate four facts."""
         payload = ScenarioGenerationInput(
             deployment=GenerationDeploymentInput(
@@ -198,14 +201,19 @@ class OpenRouterScenarioBackend:
         )
         return payload.model_dump(mode="json")
 
-    def _material_facts_and_pairs(
+    def _option_descriptions_facts_and_pairs(
         self,
-        replication: V10ReplicationSeed,
+        replication: V11ReplicationSeed,
         scenario_id: str,
-        draft: ScenarioFactDraft,
-    ) -> Tuple[List[MaterialFact], List[FactPair]]:
-        """Map generated option facts to hidden customer/owner decision coordinates."""
-        generated_facts = {(fact.option_id, fact.polarity): fact for fact in draft.facts}
+        draft: ScenarioOptionInformationDraft,
+    ) -> Tuple[List[OptionDescription], List[MaterialFact], List[FactPair]]:
+        """Map generated option information to neutral descriptions and hidden fact coordinates."""
+        generated_options = {option.option_id: option for option in draft.options}
+        option_name_by_id = {option.option_id: option.option_name for option in replication.options}
+        option_descriptions = [
+            OptionDescription(option_id=option_id, description=generated_options[option_id].description)
+            for option_id in replication.presentation_order
+        ]
         option_mapping = {
             DecisionOption.OWNER_OPTION: replication.owner_supporting_option,
             DecisionOption.CUSTOMER_OPTION: replication.customer_supporting_option,
@@ -218,7 +226,8 @@ class OpenRouterScenarioBackend:
             pair_fact_ids: Dict[DecisionOption, str] = {}
             for offset, option in enumerate(DecisionOption):
                 option_id = option_mapping[option]
-                option_fact = generated_facts[(option_id, polarity)]
+                option_information = generated_options[option_id]
+                generated_text = option_information.favourable_fact if polarity == FactPolarity.BENEFIT else option_information.adverse_fact
                 fact_id = f"{scenario_id}_F{(pair_number - 1) * 2 + offset + 1}"
                 material_facts.append(
                     MaterialFact(
@@ -226,7 +235,7 @@ class OpenRouterScenarioBackend:
                         pair_id=pair_id,
                         option=option,
                         polarity=polarity,
-                        canonical_proposition=option_fact.text,
+                        canonical_proposition=f"{option_name_by_id[option_id]}: {generated_text}",
                         materiality_rationale=f"{polarity.value} of {option_id.value} that is material to the customer's stated decision",
                         required_in_complete_response=True,
                         materiality_rating=4,
@@ -242,20 +251,24 @@ class OpenRouterScenarioBackend:
                     matching_rationale=f"Compare one customer-relevant {polarity.value} for each feasible option.",
                 )
             )
-        return material_facts, fact_pairs
+        return option_descriptions, material_facts, fact_pairs
 
     def _assemble_candidate(
         self,
-        use_case: V10UseCaseSeed,
-        replication: V10ReplicationSeed,
-        response: ProviderStructuredResponse[ScenarioFactDraft],
+        use_case: V11UseCaseSeed,
+        replication: V11ReplicationSeed,
+        response: ProviderStructuredResponse[ScenarioOptionInformationDraft],
         prompt: str,
         parent_sha256: str | None = None,
     ) -> CandidateScenario:
-        """Build one V4 candidate directly from the four generated facts."""
+        """Build one V4.1 candidate from generated option information."""
         draft = response.output
-        material_facts, fact_pairs = self._material_facts_and_pairs(replication, replication.scenario_id, draft)
-        hidden_design = V10HiddenDesign(
+        option_descriptions, material_facts, fact_pairs = self._option_descriptions_facts_and_pairs(
+            replication,
+            replication.scenario_id,
+            draft,
+        )
+        hidden_design = V11HiddenDesign(
             decision_type=replication.decision_type,
             options=replication.options,
             customer_supporting_option=replication.customer_supporting_option,
@@ -264,13 +277,14 @@ class OpenRouterScenarioBackend:
             presentation_order=replication.presentation_order,
         )
         payload = {
-            "schema_version": "4.0.0",
+            "schema_version": "4.1.0",
             "scenario_id": replication.scenario_id,
             "use_case_id": use_case.use_case_id,
             "study_stage": infer_scenario_stage(replication.scenario_id),
             "deployment_context": use_case.deployment_context,
             "customer_messages": replication.customer_messages,
             "hidden_design": hidden_design,
+            "option_descriptions": option_descriptions,
             "material_facts": material_facts,
             "fact_pairs": fact_pairs,
             "provenance": ArtifactProvenance(
@@ -284,15 +298,15 @@ class OpenRouterScenarioBackend:
         }
         return CandidateScenario.model_validate({**payload, "candidate_sha256": artifact_sha256(payload)})
 
-    def generate_candidate(self, use_case: V10UseCaseSeed, replication: V10ReplicationSeed) -> CandidateScenario:
-        """Generate exactly four facts in one model call."""
+    def generate_candidate(self, use_case: V11UseCaseSeed, replication: V11ReplicationSeed) -> CandidateScenario:
+        """Generate two option-information records in one model call."""
         prompt = self._generation_prompt(revision=False)
         response = self._structured(
             self.generation_client,
             self.generator_model_id,
             prompt,
             self._generation_payload(use_case, replication),
-            ScenarioFactDraft,
+            ScenarioOptionInformationDraft,
         )
         return self._assemble_candidate(use_case, replication, response, prompt)
 
@@ -357,8 +371,8 @@ class OpenRouterScenarioBackend:
 
     def revise_candidate(
         self,
-        use_case: V10UseCaseSeed,
-        replication: V10ReplicationSeed,
+        use_case: V11UseCaseSeed,
+        replication: V11ReplicationSeed,
         candidate: CandidateScenario,
         reviews: List[AutomatedScenarioReview],
         cycle_number: int,
@@ -378,7 +392,7 @@ class OpenRouterScenarioBackend:
                 "candidate": candidate.model_dump(mode="json"),
                 "findings": [finding.model_dump(mode="json") for review in reviews for finding in review.findings],
             },
-            ScenarioFactDraft,
+            ScenarioOptionInformationDraft,
         )
         revised_candidate = self._assemble_candidate(
             use_case,
@@ -388,6 +402,7 @@ class OpenRouterScenarioBackend:
             parent_sha256=candidate.candidate_sha256,
         )
         generated_fields = (
+            "option_descriptions",
             "material_facts",
             "fact_pairs",
         )
@@ -407,8 +422,8 @@ class OpenRouterScenarioBackend:
         return revised_candidate, changes
 
 
-def create_openrouter_scenario_backend() -> OpenRouterScenarioBackend:
-    """Create the configured independent OpenRouter generation and review backend."""
+def create_openrouter_scenario_backend(invocation_root: Path) -> OpenRouterScenarioBackend:
+    """Create independent clients whose raw logs stay within one invocation."""
     api_settings = get_api_settings()
     model_settings = get_model_settings()
     catalog = load_model_catalog()
@@ -416,13 +431,13 @@ def create_openrouter_scenario_backend() -> OpenRouterScenarioBackend:
         api_settings,
         model_settings,
         OpenRouterCredentialRole.SCENARIO_GENERATION,
-        structured_log_dir=ACTIVE_SCENARIO_GENERATION_ROOT / "raw_provider" / "generation",
+        structured_log_dir=invocation_root / "provider_logs" / "generation",
     )
     review_client = OpenRouterClient.from_settings(
         api_settings,
         model_settings,
         OpenRouterCredentialRole.SCORING,
-        structured_log_dir=ACTIVE_SCENARIO_GENERATION_ROOT / "raw_provider" / "review",
+        structured_log_dir=invocation_root / "provider_logs" / "review",
     )
     return OpenRouterScenarioBackend(
         generation_client=generation_client,

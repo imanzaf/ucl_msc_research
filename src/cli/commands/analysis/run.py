@@ -281,7 +281,6 @@ def main() -> None:
             "cue_template_id": row.cue_template_id,
             "word_budget": row.word_budget,
             "expressed_concern": row.expressed_concern,
-            "integrity": row.integrity,
             "disclosure_ordinal": row.disclosure_ordinal,
         }
         for row in fact_rows

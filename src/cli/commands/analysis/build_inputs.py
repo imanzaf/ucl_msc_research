@@ -125,7 +125,6 @@ def build_analysis_rows(
                     cue_template_id=cue_template_id(run_unit.scenario_id),
                     word_budget=run_unit.cell.word_budget,
                     expressed_concern=run_unit.cell.expressed_concern,
-                    integrity=run_unit.cell.integrity,
                     metrics=metric,
                     transcript_sha256=transcript.transcript_sha256,
                     scoring_result_sha256=scoring_result_sha256,
@@ -193,7 +192,6 @@ def build_fact_analysis_rows(
                     cue_template_id=cue_template_id(run_unit.scenario_id),
                     word_budget=run_unit.cell.word_budget,
                     expressed_concern=run_unit.cell.expressed_concern,
-                    integrity=run_unit.cell.integrity,
                     transcript_sha256=transcript.transcript_sha256,
                     scoring_result_sha256=hash_by_id[run_unit_id],
                 )

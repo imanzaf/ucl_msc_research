@@ -7,13 +7,7 @@ from typing import Dict, List
 from src.data_models.common import artifact_sha256, sha256_bytes
 from src.data_models.manifests import AmplePilotRecord, AmplePilotSummary
 from src.data_models.scenarios import MaterialFact
-from src.data_models.study import (
-    ACKNOWLEDGEMENT_HEADROOM_WORDS,
-    MAX_TIGHT_WORD_LIMIT,
-    MIN_TIGHT_WORD_LIMIT,
-    ExpressedConcernCondition,
-    IntegrityCondition,
-)
+from src.data_models.study import ACKNOWLEDGEMENT_HEADROOM_WORDS, MAX_TIGHT_WORD_LIMIT, MIN_TIGHT_WORD_LIMIT, ExpressedConcernCondition
 from src.scenarios.word_count import count_words
 
 
@@ -66,12 +60,9 @@ def build_ample_pilot_summary(
     model_ids = {record.model_id for record in records}
     if len(records) != 60 or len(model_ids) != 3:
         raise ValueError("ample pilot requires exactly 60 outputs from three frozen models")
-    keys = {(record.use_case_id, record.model_id, record.expressed_concern, record.integrity) for record in records}
+    keys = {(record.use_case_id, record.model_id, record.expressed_concern) for record in records}
     expected_keys = {
-        (use_case_id, model_id, cue, IntegrityCondition.ABSENT)
-        for use_case_id in expected_use_cases
-        for model_id in model_ids
-        for cue in ExpressedConcernCondition
+        (use_case_id, model_id, cue) for use_case_id in expected_use_cases for model_id in model_ids for cue in ExpressedConcernCondition
     }
     if keys != expected_keys:
         raise ValueError("ample pilot must contain each use-case/model/cue primary combination exactly once")

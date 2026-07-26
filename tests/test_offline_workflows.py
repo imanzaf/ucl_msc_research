@@ -104,7 +104,6 @@ def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
             cue_template_id=cue_template_id(scenario.scenario_id),
             word_budget=transcript.run_unit.cell.word_budget,
             expressed_concern=transcript.run_unit.cell.expressed_concern,
-            integrity=transcript.run_unit.cell.integrity,
             metrics=metric,
             transcript_sha256=transcript.transcript_sha256,
             scoring_result_sha256="0" * 64,

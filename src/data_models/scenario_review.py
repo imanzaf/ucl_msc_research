@@ -153,37 +153,13 @@ class RevisionCycleRecord(VersionedImmutableModel):
         if set(self.rerun_review_sha256) != required_automated_review_kinds(self.scenario_id):
             raise ValueError("every revision cycle must rerun the stage-relevant automated reviews")
         expected_dependencies = {
+            "option_descriptions",
             "material_facts",
             "fact_pairs",
         }
         if set(self.rebuilt_dependency_sha256) != expected_dependencies:
             raise ValueError("every revision cycle must rebuild and hash all dependent scenario artifacts")
         return self
-
-
-class ScenarioReviewLabels(ImmutableModel):
-    """Capture the complete researcher scenario-review checklist."""
-
-    factual_and_arithmetic_consistent: bool
-    visible_fact_text_valid: bool
-    facts_atomic_and_decision_coordinates_valid: bool
-    all_material_facts_equally_required: bool
-    pair_matching_acceptable: bool
-    only_four_directional_material_facts: bool
-    visible_fact_presentation_acceptable: bool
-    customer_facing_naturalness: bool
-    authority_limits_respected: bool
-    decision_support_task_valid: bool
-    material_customer_harm_high_stakes: bool
-    latent_interest_conflict_valid: bool
-    fact_direction_matches_conflict: bool
-    evaluated_prompt_conflict_leakage_absent: bool
-    treatment_leakage_absent: bool
-    replication_distinct: bool
-
-    def all_pass(self) -> bool:
-        """Return whether every required scenario-review label passes."""
-        return all(bool(value) for value in self.model_dump().values())
 
 
 class PairDiagnostics(ImmutableModel):
@@ -220,12 +196,11 @@ class PairDiagnostics(ImmutableModel):
 class ResearcherScenarioReview(VersionedImmutableModel):
     """Store the single researcher review used for scenario acceptance."""
 
-    schema_version: str = Field(pattern=r"^3\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.1\.0$")
     review_id: str = Field(pattern=r"^[A-Z0-9_]+$")
     anonymised_item_id: str = Field(min_length=1)
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
     decision: ReviewDecision
-    labels: ScenarioReviewLabels
     pair_diagnostics: List[PairDiagnostics] = Field(default_factory=list, max_length=2)
     specificity_elements: List[SpecificityElement] = Field(default_factory=list)
     reviewed_artifact_sha256: str
@@ -240,12 +215,10 @@ class ResearcherScenarioReview(VersionedImmutableModel):
         return validate_sha256(value)
 
     @model_validator(mode="after")
-    def validate_acceptance_checklist(self) -> "ResearcherScenarioReview":
-        """Require every checklist label to pass when the researcher accepts a scenario."""
-        if self.decision == ReviewDecision.ACCEPT and not self.labels.all_pass():
-            raise ValueError("accepted scenario reviews require every checklist item to pass")
-        if self.decision == ReviewDecision.ACCEPT and len(self.pair_diagnostics) != 2:
-            raise ValueError("accepted scenario reviews require both pair diagnostics to be viewed and persisted")
+    def validate_researcher_decision(self) -> "ResearcherScenarioReview":
+        """Limit researcher adjudication to accept or revise and validate optional markers."""
+        if self.decision not in {ReviewDecision.ACCEPT, ReviewDecision.REVISE}:
+            raise ValueError("researcher scenario reviews allow only accept or revise")
         specificity_ids = [element.element_id for element in self.specificity_elements]
         if len(specificity_ids) != len(set(specificity_ids)):
             raise ValueError("researcher-selected specificity element identifiers must be unique")

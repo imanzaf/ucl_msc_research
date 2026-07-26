@@ -45,15 +45,6 @@
       "title": "FactPolarity",
       "type": "string"
     },
-    "IntegrityCondition": {
-      "description": "Retain the legacy field boundary without an active integrity treatment.",
-      "enum": [
-        "absent",
-        "targeted"
-      ],
-      "title": "IntegrityCondition",
-      "type": "string"
-    },
     "WordBudgetCondition": {
       "description": "Identify the assigned response-length condition.",
       "enum": [
@@ -99,9 +90,6 @@
     },
     "fact_polarity": {
       "$ref": "#/$defs/FactPolarity"
-    },
-    "integrity": {
-      "$ref": "#/$defs/IntegrityCondition"
     },
     "model_id": {
       "minLength": 1,
@@ -161,7 +149,6 @@
     "cue_template_id",
     "word_budget",
     "expressed_concern",
-    "integrity",
     "transcript_sha256",
     "scoring_result_sha256"
   ],

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -10,22 +11,17 @@ from typing import Tuple
 import pytest
 from pydantic import ValidationError
 
+from src.cli.commands.review import launch as review_launch
 from src.data_models.annotations import ConversationAnnotation
 from src.data_models.common import artifact_sha256
 from src.data_models.manifests import AnnotationSampleManifest
-from src.data_models.scenario_review import ResearcherScenarioReview, ReviewDecision, ReviewPass, ScenarioReviewLabels
+from src.data_models.scenario_review import ResearcherScenarioReview, ReviewDecision, ReviewPass
 from src.data_models.scenarios import AcceptedScenario, CandidateScenario, ScenarioStage
 from src.data_models.scoring import ConditionBlindScoringInput, ResponseSpan
 from src.experiments.scoring_pipeline import build_condition_blind_input
-from src.review_app import SCENARIO_REVIEW_LABELS, ReviewStore, build_researcher_scenario_review, build_specificity_elements
-from src.scenarios.pair_diagnostics import build_pair_diagnostics
+from src.review_app import SCENARIO_REVIEW_GUIDANCE, ReviewStore, build_researcher_scenario_review, build_specificity_elements
 from src.storage import write_model_json_atomic
 from tests.factories import ZERO_HASH, make_accepted_scenario, make_candidate_scenario, make_scoring_results, make_transcript
-
-
-def all_pass_labels() -> ScenarioReviewLabels:
-    """Return a complete passing scenario-review checklist."""
-    return ScenarioReviewLabels(**{field_name: True for field_name in ScenarioReviewLabels.model_fields})
 
 
 def specificity_by_fact(candidate: CandidateScenario) -> dict[str, list[str]]:
@@ -64,53 +60,43 @@ def make_annotation(accepted: AcceptedScenario, scoring_input: ConditionBlindSco
     )
 
 
-def test_scenario_review_requires_pair_diagnostics_and_rejects_a_duplicate(tmp_path: Path) -> None:
-    """Persist both displayed pair diagnostics with the single scenario decision."""
-    store, accepted, _ = make_store(tmp_path)
+def test_scenario_review_persists_diagnostics_and_rejects_a_duplicate(tmp_path: Path) -> None:
+    """Persist descriptive pair diagnostics with the single scenario decision."""
+    store, _, _ = make_store(tmp_path)
     candidate = store.list_candidates()[0]
-    common = {
-        "schema_version": "3.0.0",
-        "review_id": "SCENARIO_INITIAL_1",
-        "anonymised_item_id": "S-001",
-        "scenario_id": accepted.scenario_id,
-        "decision": ReviewDecision.ACCEPT,
-        "labels": all_pass_labels(),
-        "specificity_elements": accepted.specificity_elements,
-        "reviewed_artifact_sha256": candidate.candidate_sha256,
-        "reviewed_at": datetime(2026, 7, 1, tzinfo=timezone.utc),
-        "researcher_id": "researcher",
-        "notes": "Single researcher review.",
-    }
-    with pytest.raises(ValidationError, match="both pair diagnostics"):
-        ResearcherScenarioReview(**common)
-    review = ResearcherScenarioReview(**common, pair_diagnostics=build_pair_diagnostics(candidate))
+    review = build_researcher_scenario_review(
+        scenario=candidate,
+        decision=ReviewDecision.ACCEPT,
+        researcher_id="researcher",
+        notes="Single researcher review.",
+        reviewed_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
+    )
+    assert len(review.pair_diagnostics) == 2
     store.save_scenario_review(review)
     with pytest.raises(ValueError, match="already exists"):
         store.save_scenario_review(review.model_copy(update={"review_id": "SCENARIO_INITIAL_2"}))
     assert store.scenario_reviews() == [review]
 
 
-def test_point_and_click_scenario_submission_writes_schema_v3_review(tmp_path: Path) -> None:
+def test_point_and_click_scenario_submission_writes_schema_v31_review(tmp_path: Path) -> None:
     """Build and persist one complete scenario review without a reference response."""
     store, _, _ = make_store(tmp_path)
     candidate = store.list_candidates()[0]
     reviewed_at = datetime.now(timezone.utc)
-    labels = {field_name: True for field_name in SCENARIO_REVIEW_LABELS}
     review = build_researcher_scenario_review(
         scenario=candidate,
         decision=ReviewDecision.ACCEPT,
-        labels=labels,
         researcher_id=" iman ",
-        notes=" Reviewed in the local checklist. ",
+        notes=" Reviewed in the local app. ",
         reviewed_at=reviewed_at,
         specificity_by_fact=specificity_by_fact(candidate),
     )
     store.save_scenario_submission(review)
 
-    assert review.schema_version == "3.0.0"
+    assert review.schema_version == "3.1.0"
     assert review.researcher_id == "iman"
-    assert review.notes == "Reviewed in the local checklist."
-    assert set(review.labels.model_dump()) == set(ScenarioReviewLabels.model_fields)
+    assert review.notes == "Reviewed in the local app."
+    assert "labels" not in type(review).model_fields
     assert store.scenario_reviews() == [review]
 
 
@@ -122,7 +108,6 @@ def test_scenario_submission_persists_a_non_accept_decision_without_extra_artifa
     revised = build_researcher_scenario_review(
         candidate,
         ReviewDecision.REVISE,
-        {field_name: False for field_name in SCENARIO_REVIEW_LABELS},
         "researcher",
         "Needs revision.",
         reviewed_at,
@@ -131,9 +116,29 @@ def test_scenario_submission_persists_a_non_accept_decision_without_extra_artifa
     assert store.scenario_reviews() == [revised]
 
 
-def test_scenario_form_labels_match_the_complete_typed_checklist() -> None:
-    """Keep every researcher acceptance criterion exposed as a named checkbox."""
-    assert set(SCENARIO_REVIEW_LABELS) == set(ScenarioReviewLabels.model_fields)
+def test_scenario_form_uses_concise_guidance_instead_of_a_checklist() -> None:
+    """Keep the review criteria concise and the record free of boolean checklist fields."""
+    assert len(SCENARIO_REVIEW_GUIDANCE) == 5
+    assert "labels" not in ResearcherScenarioReview.model_fields
+
+
+def test_review_launch_resolves_candidates_and_reviews_from_one_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep candidate decisions scoped to the selected generation run."""
+    run_root = tmp_path / "runs" / "20260726T120000000001Z"
+    candidate_root = run_root / "scenarios"
+    candidate_root.mkdir(parents=True)
+    monkeypatch.setattr(review_launch, "scenario_generation_run_root", lambda run_id: tmp_path / "runs" / run_id)
+    args = argparse.Namespace(
+        run_id="20260726T120000000001Z",
+        candidate_root=None,
+        scenario_review_root=None,
+        output_root=tmp_path / "conversation_reviews",
+    )
+
+    resolved_candidates, resolved_reviews = review_launch._resolve_scenario_roots(args)
+
+    assert resolved_candidates == candidate_root
+    assert resolved_reviews == run_root / "researcher_review"
 
 
 def test_specificity_markers_are_optional_per_fact() -> None:
@@ -187,20 +192,17 @@ def test_locked_evaluation_sample_contains_160_one_pass_items(tmp_path: Path) ->
     assert len(sampled_store.conversation_annotations()) == 1
 
 
-def test_invalid_review_forms_are_rejected_before_write(tmp_path: Path) -> None:
-    """Reject accepted scenario records with a failing mandatory pair judgement."""
+def test_researcher_review_rejects_non_binary_pipeline_decisions(tmp_path: Path) -> None:
+    """Restrict the researcher-facing decision to accept or revise."""
     store, accepted, _ = make_store(tmp_path)
     candidate = store.list_candidates()[0]
-    labels = all_pass_labels().model_copy(update={"pair_matching_acceptable": False})
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="only accept or revise"):
         ResearcherScenarioReview(
-            schema_version="3.0.0",
+            schema_version="3.1.0",
             review_id="INVALID_1",
             anonymised_item_id="S-002",
             scenario_id=accepted.scenario_id,
-            decision=ReviewDecision.ACCEPT,
-            labels=labels,
-            pair_diagnostics=build_pair_diagnostics(candidate),
+            decision=ReviewDecision.REJECT,
             reviewed_artifact_sha256=candidate.candidate_sha256,
             reviewed_at=datetime.now(timezone.utc),
             researcher_id="researcher",

@@ -37,7 +37,13 @@ from src.data_models.manifests import (
     WordBudgetManifest,
 )
 from src.data_models.scenario_review import ResearcherScenarioReview, ScenarioAcceptanceRecord, ScenarioPipelineDisposition, ScenarioReviewHistory
-from src.data_models.scenarios import AcceptedScenario, CandidateScenario, ScenarioSeedSet
+from src.data_models.scenarios import (
+    AcceptedScenario,
+    CandidateScenario,
+    ScenarioGenerationInvocationConfig,
+    ScenarioGenerationRunConfig,
+    ScenarioSeedSet,
+)
 from src.data_models.scoring import (
     AnalysisInputRow,
     AnalysisMissingnessReport,
@@ -103,6 +109,8 @@ SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
     "response_communication": ResponseCommunicationResult,
     "run_unit": RunUnit,
     "scenario_candidate": CandidateScenario,
+    "scenario_generation_invocation_config": ScenarioGenerationInvocationConfig,
+    "scenario_generation_run_config": ScenarioGenerationRunConfig,
     "scenario_acceptance_record": ScenarioAcceptanceRecord,
     "scenario_pipeline_disposition": ScenarioPipelineDisposition,
     "scenario_review_history": ScenarioReviewHistory,

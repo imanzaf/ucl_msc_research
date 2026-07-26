@@ -1,4 +1,4 @@
-"""Validate the immutable active V0.10.0 seed boundary."""
+"""Validate the immutable active V0.11.0 seed boundary."""
 
 from __future__ import annotations
 
