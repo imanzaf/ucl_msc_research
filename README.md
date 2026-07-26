@@ -49,9 +49,12 @@ All three use separate manifests, configs, run plans, outputs, logs, checkpoints
 
 The scenario viewer presents customer context, assistant remit, option information, hidden design, and compact pair diagnostics. Five concise
 criteria guide one overall `accept` or `revise` decision; optional specificity phrases remain separate, and no automatic balance threshold is used.
-Generated artifacts live under `data/outputs/scenario_generation/v0.11.0/runs/<run-id>/`. A fresh command creates a UTC-stamped logical run;
-`--run-id` continues it through separate timestamped invocations, allowing individual replications and interrupted work to resume without
-overwriting another run. Researcher scenario reviews remain scoped to the selected run.
+Generated artifacts live under `data/outputs/scenario_generation/v0.11.0/<run-id>/<round-id>/`. The required run ID is a stable, versioned name
+such as `c1_calibration_v1`; each generation or revision attempt creates a timestamped round within it. Reusing the run ID resumes that history,
+automatically resolves the newest candidate for each scenario, and regenerates only current `revise` decisions. A completely fresh run uses a new
+run ID, such as `c1_calibration_v2`. Researcher reviews remain run-scoped.
+The `scenarios publish` command performs final-set promotion in one step: it resolves current accepted hashes, stages their immutable bundles,
+builds the self-hashed scope manifest, and promotes both to the active scenario-input root.
 
 ## Analysis
 

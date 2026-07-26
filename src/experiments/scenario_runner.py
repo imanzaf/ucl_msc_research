@@ -25,7 +25,7 @@ from src.data_models.experiments import (
     TranscriptTurn,
     provider_request_sha256,
 )
-from src.data_models.manifests import EvaluatedModelSnapshot, FreezeStatus, WordBudgetManifest
+from src.data_models.manifests import C1EvaluationConfig, EvaluatedModelSnapshot, FreezeStatus, WordBudgetManifest
 from src.data_models.prompt_controls import group_run_units_by_block, validate_assigned_cue, validate_prompt_factor_isolation
 from src.data_models.scenarios import AcceptedScenario
 from src.data_models.study import (
@@ -383,6 +383,105 @@ def validate_calibration_plan_against_frozen_inputs(
         raise ValueError("calibration plan is not the exact product of its frozen scenarios, models, budgets, prompts, and seed")
 
 
+def build_c1_single_model_run_plan(
+    scenarios: Sequence[AcceptedScenario],
+    model: EvaluatedModelSnapshot,
+    tight_limits: Dict[str, int],
+    randomisation_seed: int,
+    created_at: datetime,
+) -> List[RunUnit]:
+    """Build one diagnostic four-cell block for each accepted C1 scenario."""
+    if len(scenarios) != 10 or {scenario.scenario_id for scenario in scenarios} != {f"CF{index:03d}_C1" for index in range(1, 11)}:
+        raise ValueError("single-model C1 planning requires exactly CF001_C1-CF010_C1")
+    run_units: List[RunUnit] = []
+    for scenario in sorted(scenarios, key=lambda item: item.scenario_id):
+        if scenario.use_case_id not in tight_limits:
+            raise ValueError(f"missing provisional tight limit for {scenario.use_case_id}")
+        block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id)
+        block_randomisation_seed = _block_seed(randomisation_seed, block_id)
+        cells = primary_experiment_cells()
+        random.Random(block_randomisation_seed).shuffle(cells)
+        block_units = [
+            _build_run_unit(
+                scenario=scenario,
+                model=model,
+                cell=cell,
+                assigned_word_limit=AMPLE_WORD_LIMIT if cell.word_budget == WordBudgetCondition.AMPLE else tight_limits[scenario.use_case_id],
+                global_randomisation_seed=randomisation_seed,
+                block_id=block_id,
+                block_randomisation_seed=block_randomisation_seed,
+                randomised_position=position,
+                created_at=created_at,
+            )
+            for position, cell in enumerate(cells)
+        ]
+        validate_prompt_factor_isolation(block_units)
+        run_units.extend(sorted(block_units, key=lambda item: item.randomised_position))
+    validate_c1_single_model_run_plan(run_units, randomisation_seed)
+    return run_units
+
+
+def validate_c1_single_model_run_plan(run_units: Iterable[RunUnit], global_randomisation_seed: int | None = None) -> None:
+    """Validate the exact ten-block, one-model, four-cell C1 diagnostic matrix."""
+    units = list(run_units)
+    if len(units) != 40:
+        raise ValueError("single-model C1 plan must contain exactly 40 conversations")
+    if {unit.scenario_id for unit in units} != {f"CF{index:03d}_C1" for index in range(1, 11)}:
+        raise ValueError("single-model C1 plan must contain exactly CF001_C1-CF010_C1")
+    if len({unit.model_id for unit in units}) != 1 or len({unit.model_snapshot_sha256 for unit in units}) != 1:
+        raise ValueError("single-model C1 plan must bind one evaluated-model snapshot")
+    stored_seeds = {unit.global_randomisation_seed for unit in units}
+    if len(stored_seeds) != 1:
+        raise ValueError("single-model C1 run units must share one global randomisation seed")
+    stored_seed = next(iter(stored_seeds))
+    if global_randomisation_seed is not None and stored_seed != global_randomisation_seed:
+        raise ValueError("single-model C1 run plan seed differs from its config")
+    grouped = group_run_units_by_block(units)
+    if len(grouped) != 10 or any(len(block) != 4 for block in grouped.values()):
+        raise ValueError("single-model C1 plan requires ten four-cell blocks")
+    if len({unit.run_unit_id for unit in units}) != 40:
+        raise ValueError("single-model C1 run-unit identifiers must be unique")
+    for block_id, block_units in grouped.items():
+        scenario_models = {(unit.scenario_id, unit.model_id) for unit in block_units}
+        if len(scenario_models) != 1:
+            raise ValueError("single-model C1 block must share one scenario and model")
+        scenario_id, model_id = next(iter(scenario_models))
+        expected_block_id = _short_identifier("BLOCK", scenario_id, model_id)
+        expected_seed = _block_seed(stored_seed, expected_block_id)
+        if block_id != expected_block_id or {unit.block_randomisation_seed for unit in block_units} != {expected_seed}:
+            raise ValueError("single-model C1 block id or seed does not derive from its assignment")
+        if {unit.randomised_position for unit in block_units} != set(range(4)):
+            raise ValueError("single-model C1 block positions must be exactly 0-3")
+        expected_cells = primary_experiment_cells()
+        random.Random(expected_seed).shuffle(expected_cells)
+        cell_by_position = {unit.randomised_position: unit.cell for unit in block_units}
+        if [cell_by_position[position] for position in range(4)] != expected_cells:
+            raise ValueError("single-model C1 cell order does not reproduce its seeded permutation")
+        validate_prompt_factor_isolation(block_units)
+
+
+def validate_c1_single_model_plan_against_inputs(
+    run_units: Iterable[RunUnit],
+    scenarios: Sequence[AcceptedScenario],
+    config: C1EvaluationConfig,
+) -> None:
+    """Rebuild a C1 diagnostic plan and require exact byte-equivalent assignments."""
+    units = list(run_units)
+    validate_c1_single_model_run_plan(units, config.randomisation_seed)
+    created_at_values = {unit.created_at for unit in units}
+    if created_at_values != {config.created_at}:
+        raise ValueError("single-model C1 plan creation time differs from its config")
+    rebuilt = build_c1_single_model_run_plan(
+        scenarios=scenarios,
+        model=config.evaluated_model,
+        tight_limits=config.provisional_tight_word_limits,
+        randomisation_seed=config.randomisation_seed,
+        created_at=config.created_at,
+    )
+    if [unit.model_dump(mode="json") for unit in units] != [unit.model_dump(mode="json") for unit in rebuilt]:
+        raise ValueError("single-model C1 plan is not the exact product of its frozen inputs")
+
+
 def validate_complete_run_plan(run_units: Iterable[RunUnit], global_randomisation_seed: int | None = None) -> None:
     """Recompute IDs, hashes, dimensions, seeds, positions, and four-cell isolation for the complete plan."""
     units = list(run_units)
@@ -641,7 +740,7 @@ def execute_run_unit(
 def execute_run_plan(
     run_units: Sequence[RunUnit],
     provider: TextCompletionProvider,
-    config: ExperimentConfig | CalibrationExperimentConfig,
+    config: ExperimentConfig | CalibrationExperimentConfig | C1EvaluationConfig,
     results_path: Path,
     existing_transcripts: Sequence[ConversationTranscript],
     paid_execution_approved: bool,
@@ -649,7 +748,9 @@ def execute_run_plan(
     """Resume a plan, persist every outcome immediately, and require the paid-run gate."""
     if not paid_execution_approved:
         raise PermissionError("paid execution requires an explicit approved dry-run/cost gate")
-    if isinstance(config, CalibrationExperimentConfig):
+    if isinstance(config, C1EvaluationConfig):
+        validate_c1_single_model_run_plan(run_units, config.randomisation_seed)
+    elif isinstance(config, CalibrationExperimentConfig):
         validate_calibration_run_plan(run_units, config.randomisation_seed)
     else:
         if config.experiment_name.value == "risk_comm_v1":

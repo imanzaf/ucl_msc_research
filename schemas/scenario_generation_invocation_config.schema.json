@@ -30,7 +30,7 @@
       "type": "string"
     },
     "run_id": {
-      "pattern": "^\\d{8}T\\d{12}Z$",
+      "pattern": "^[a-z][a-z0-9_]*_v[1-9][0-9]*$",
       "title": "Run Id",
       "type": "string"
     },

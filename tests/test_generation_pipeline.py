@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from argparse import Namespace
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, List, Tuple, cast
@@ -12,13 +13,15 @@ import pytest
 
 from src.cli.commands.scenarios import generate as generate_command
 from src.cli.commands.scenarios.generate import _archive_superseded_review, _read_completed_result, _write_pipeline_failure, _write_pipeline_result
-from src.data_models.common import artifact_sha256, utc_now
+from src.data_models.common import artifact_sha256, sha256_bytes, utc_now
 from src.data_models.experiments import CompletionFinishReason
+from src.data_models.manifests import AmplePilotSummary, CalibrationUseCaseBudget, FreezeStatus, TightLimitManifest
 from src.data_models.scenario_review import (
     AutomatedReviewKind,
     AutomatedScenarioReview,
     ControlledFieldChange,
     FindingSeverity,
+    ResearcherScenarioReview,
     ReviewDecision,
     ReviewFinding,
 )
@@ -34,6 +37,7 @@ from src.data_models.scenarios import (
 from src.llm.openrouter import OpenRouterClient, ProviderStructuredResponse
 from src.paths import ACTIVE_SCENARIO_INPUT_ROOT
 from src.prompts.scenario_generation import SCENARIO_GENERATION_SYSTEM_PROMPT, SCENARIO_REVIEW_SYSTEM_PROMPT
+from src.scenarios.budgets import material_fact_text_sha256, material_fact_word_count
 from src.scenarios.openrouter_backend import (
     STRUCTURED_MAX_OUTPUT_TOKENS,
     GeneratedOptionInformationDraft,
@@ -41,9 +45,10 @@ from src.scenarios.openrouter_backend import (
     ScenarioGenerationInput,
     ScenarioOptionInformationDraft,
 )
+from src.scenarios.pair_diagnostics import build_pair_diagnostics
 from src.scenarios.pipeline import default_revision_record_factory, run_scenario_batch_pipeline
 from src.scenarios.seed_validation import load_and_validate_seed
-from src.storage import read_model_json
+from src.storage import read_model_json, write_model_json_atomic, write_models_jsonl_atomic
 from tests.factories import ZERO_HASH, make_candidate_scenario
 
 
@@ -198,7 +203,7 @@ class BatchAcceptBackend:
                 findings=[],
                 reviewed_artifact_sha256=candidate.candidate_sha256,
                 reviewer_model_id="independent/reviewer",
-                reviewer_prompt_sha256=ZERO_HASH,
+                reviewer_prompt_sha256=sha256_bytes(SCENARIO_REVIEW_SYSTEM_PROMPT.encode("utf-8")),
                 reviewed_at=utc_now(),
             )
             for candidate in candidates
@@ -214,6 +219,43 @@ class BatchAcceptBackend:
     ) -> Tuple[CandidateScenario, List[ControlledFieldChange]]:
         """Reject an impossible revision call in this accepting fixture."""
         raise AssertionError("accepted candidates must not enter revision")
+
+
+class ResearcherRevisionBackend(BatchAcceptBackend):
+    """Regenerate one fixture candidate while capturing researcher feedback."""
+
+    def __init__(self) -> None:
+        """Initialise batch tracking and captured revision text."""
+        super().__init__()
+        self.researcher_feedback: str | None = None
+        self.revision_calls = 0
+
+    def revise_candidate(
+        self,
+        use_case: V11UseCaseSeed,
+        replication: V11ReplicationSeed,
+        candidate: CandidateScenario,
+        reviews: List[AutomatedScenarioReview],
+        cycle_number: int,
+    ) -> Tuple[CandidateScenario, List[ControlledFieldChange]]:
+        """Change one generated fact and bind the new candidate to its parent."""
+        self.revision_calls += 1
+        self.researcher_feedback = reviews[0].findings[0].message
+        facts = list(candidate.material_facts)
+        facts[0] = facts[0].model_copy(update={"canonical_proposition": f"{facts[0].canonical_proposition} Clarified."})
+        payload = candidate.model_dump(mode="json", exclude={"candidate_sha256"})
+        payload["material_facts"] = [fact.model_dump(mode="json") for fact in facts]
+        payload["provenance"] = candidate.provenance.model_copy(update={"parent_sha256": candidate.candidate_sha256}).model_dump(mode="json")
+        revised = CandidateScenario.model_validate({**payload, "candidate_sha256": artifact_sha256(payload)})
+        return revised, [
+            ControlledFieldChange(
+                field_path="material_facts",
+                previous_value_sha256=artifact_sha256(candidate.material_facts),
+                revised_value_sha256=artifact_sha256(revised.material_facts),
+                reason=f"Resolve researcher feedback in cycle {cycle_number}.",
+                finding_ids=[finding.finding_id for review in reviews for finding in review.findings],
+            )
+        ]
 
 
 def test_openrouter_backend_generates_option_information_in_one_call() -> None:
@@ -376,14 +418,12 @@ def test_pipeline_failure_is_persisted_without_a_terminal_marker(tmp_path: Path)
     assert failure["error_type"] == "ValueError"
 
 
-def test_timestamped_runs_are_fresh_while_explicit_run_ids_resume(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Create isolated fresh runs and authenticate an explicit continuation."""
-    run_ids = iter(["20260726T120000000001Z", "20260726T120000000002Z"])
-    monkeypatch.setattr(generate_command, "scenario_generation_run_id", lambda: next(run_ids))
-    monkeypatch.setattr(generate_command, "scenario_generation_run_root", lambda run_id: tmp_path / "runs" / run_id)
+def test_named_runs_are_isolated_while_the_same_run_id_resumes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Create distinct named runs and authenticate continuation by logical run id."""
+    monkeypatch.setattr(generate_command, "scenario_generation_run_root", lambda run_id: tmp_path / run_id)
 
-    first_id, first_root = generate_command._prepare_run_root(None)
-    second_id, second_root = generate_command._prepare_run_root(None)
+    first_id, first_root = generate_command._prepare_run_root("c1_calibration_v1")
+    second_id, second_root = generate_command._prepare_run_root("c1_calibration_v2")
     resumed_id, resumed_root = generate_command._prepare_run_root(first_id)
 
     assert first_id != second_id
@@ -391,7 +431,7 @@ def test_timestamped_runs_are_fresh_while_explicit_run_ids_resume(tmp_path: Path
     assert (first_root / "run_config.json").is_file()
     assert read_model_json(first_root / "run_config.json", ScenarioGenerationRunConfig).run_id == first_id
     assert (resumed_id, resumed_root) == (first_id, first_root)
-    with pytest.raises(FileNotFoundError, match="unknown"):
+    with pytest.raises(ValueError, match="String should match pattern"):
         generate_command._prepare_run_root("20260726T120000000003Z")
 
 
@@ -401,22 +441,22 @@ def test_separate_replication_invocations_share_one_logical_run(tmp_path: Path, 
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seeds.json",
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json",
     )
-    run_root = tmp_path / "runs" / "20260726T120000000001Z"
+    run_root = tmp_path / "c1_evaluation_v1"
     invocation_ids = iter(["20260726T120100000001Z", "20260726T120200000001Z"])
-    monkeypatch.setattr(generate_command, "scenario_generation_run_id", lambda: next(invocation_ids))
+    monkeypatch.setattr(generate_command, "scenario_generation_round_id", lambda: next(invocation_ids))
     r1 = generate_command._select_stage_seeds(seed.use_cases, ScenarioStage.EVALUATION, None, "CF001_R1")
     r2 = generate_command._select_stage_seeds(seed.use_cases, ScenarioStage.EVALUATION, None, "CF001_R2")
 
     first_root = generate_command._create_invocation_root(
         run_root,
-        "20260726T120000000001Z",
+        "c1_evaluation_v1",
         ScenarioStage.EVALUATION,
         r1,
         "src.scenarios.openrouter_backend:create_openrouter_scenario_backend",
     )
     second_root = generate_command._create_invocation_root(
         run_root,
-        "20260726T120000000001Z",
+        "c1_evaluation_v1",
         ScenarioStage.EVALUATION,
         r2,
         "src.scenarios.openrouter_backend:create_openrouter_scenario_backend",
@@ -424,7 +464,7 @@ def test_separate_replication_invocations_share_one_logical_run(tmp_path: Path, 
 
     first = read_model_json(first_root / "invocation_config.json", ScenarioGenerationInvocationConfig)
     second = read_model_json(second_root / "invocation_config.json", ScenarioGenerationInvocationConfig)
-    assert first.run_id == second.run_id
+    assert first.run_id == second.run_id == "c1_evaluation_v1"
     assert first.scenario_ids == ["CF001_R1"]
     assert second.scenario_ids == ["CF001_R2"]
     assert first_root != second_root
@@ -433,12 +473,14 @@ def test_separate_replication_invocations_share_one_logical_run(tmp_path: Path, 
 def test_separate_evaluation_commands_complete_one_family_review(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Persist R1 first and trigger the shared review when R2 joins the same run."""
     output_root = tmp_path / "scenario_generation" / "v0.11.0"
-    run_id = "20260726T120000000001Z"
-    generated_ids = iter([run_id, "20260726T120100000001Z", "20260726T120200000001Z"])
+    run_id = "cf001_evaluation_v1"
+    first_round_id = "20260726T120100000001Z"
+    second_round_id = "20260726T120200000001Z"
+    generated_ids = iter([first_round_id, second_round_id])
     backend = BatchAcceptBackend()
     monkeypatch.setattr(generate_command, "ACTIVE_SCENARIO_GENERATION_ROOT", output_root)
-    monkeypatch.setattr(generate_command, "scenario_generation_run_id", lambda: next(generated_ids))
-    monkeypatch.setattr(generate_command, "scenario_generation_run_root", lambda value: output_root / "runs" / value)
+    monkeypatch.setattr(generate_command, "scenario_generation_round_id", lambda: next(generated_ids))
+    monkeypatch.setattr(generate_command, "scenario_generation_run_root", lambda value: output_root / value)
     monkeypatch.setattr(generate_command, "_load_backend", lambda _specification, _invocation_root: backend)
     monkeypatch.setattr(
         generate_command,
@@ -451,21 +493,240 @@ def test_separate_evaluation_commands_complete_one_family_review(tmp_path: Path,
         "tests.fake:create_backend",
         "--stage",
         "evaluation",
+        "--run-id",
+        run_id,
         "--output-root",
         str(output_root),
     ]
     monkeypatch.setattr(sys, "argv", [*base_arguments, "--scenario-id", "CF001_R1"])
     generate_command.main()
 
-    scenario_root = output_root / "runs" / run_id / "scenarios"
-    assert (scenario_root / "CF001_R1" / "candidate.json").is_file()
-    assert not (scenario_root / "CF001_R1" / "terminal_decision.json").exists()
+    run_root = output_root / run_id
+    first_scenario_root = run_root / first_round_id / "scenarios"
+    assert (first_scenario_root / "CF001_R1" / "candidate.json").is_file()
+    assert not (first_scenario_root / "CF001_R1" / "terminal_decision.json").exists()
 
-    monkeypatch.setattr(sys, "argv", [*base_arguments, "--scenario-id", "CF001_R2", "--run-id", run_id])
+    monkeypatch.setattr(sys, "argv", [*base_arguments, "--scenario-id", "CF001_R2"])
     generate_command.main()
 
-    assert (scenario_root / "CF001_R1" / "terminal_decision.json").is_file()
-    assert (scenario_root / "CF001_R2" / "terminal_decision.json").is_file()
+    second_scenario_root = run_root / second_round_id / "scenarios"
+    assert (second_scenario_root / "CF001_R1" / "terminal_decision.json").is_file()
+    assert (second_scenario_root / "CF001_R2" / "terminal_decision.json").is_file()
     assert backend.generate_calls == 2
     assert backend.observed_batches == [["CF001_C1", "CF001_R1", "CF001_R2"]]
-    assert len(list((output_root / "runs" / run_id / "invocations").iterdir())) == 2
+    assert len([path for path in run_root.iterdir() if path.is_dir()]) == 2
+
+    monkeypatch.setattr(sys, "argv", [*base_arguments, "--scenario-id", "CF001_R1"])
+    generate_command.main()
+
+    assert backend.generate_calls == 2
+    assert len([path for path in run_root.iterdir() if path.is_dir()]) == 2
+
+
+def test_evaluation_anchor_resolves_the_current_accepted_calibration_candidate_by_run_id(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Resolve the newest accepted C1 without exposing its timestamped round path."""
+    base_candidate = make_candidate_scenario("CF001_C1")
+    candidate_payload = base_candidate.model_dump(mode="json", exclude={"candidate_sha256"})
+    current_word_count = material_fact_word_count(base_candidate.material_facts)
+    candidate_payload["material_facts"][0]["canonical_proposition"] += " " + " ".join(["documented"] * (68 - current_word_count))
+    candidate = CandidateScenario.model_validate({**candidate_payload, "candidate_sha256": artifact_sha256(candidate_payload)})
+    run_root = tmp_path / "c1_calibration_v1"
+    write_model_json_atomic(
+        run_root / "20260726T120000000001Z" / "scenarios" / candidate.scenario_id / "candidate.json",
+        candidate,
+    )
+    researcher_review = ResearcherScenarioReview(
+        schema_version="3.1.0",
+        review_id="CF001_C1_REVIEW_CURRENT",
+        anonymised_item_id="ITEM_CF001",
+        scenario_id=candidate.scenario_id,
+        decision=ReviewDecision.ACCEPT,
+        reviewed_artifact_sha256=candidate.candidate_sha256,
+        reviewed_at=utc_now(),
+        researcher_id="researcher",
+        notes="",
+    )
+    write_models_jsonl_atomic(run_root / "researcher_review" / "scenario_reviews.jsonl", [researcher_review])
+    budgets = [
+        CalibrationUseCaseBudget(
+            use_case_id=f"CF{index:03d}",
+            calibration_scenario_id=f"CF{index:03d}_C1",
+            calibration_fact_word_count=68,
+            tight_word_limit=80,
+            calibration_candidate_sha256=candidate.candidate_sha256 if index == 1 else ZERO_HASH,
+            calibration_material_facts_sha256=artifact_sha256(candidate.material_facts) if index == 1 else ZERO_HASH,
+            calibration_fact_text_sha256=material_fact_text_sha256(candidate.material_facts) if index == 1 else ZERO_HASH,
+        )
+        for index in range(1, 11)
+    ]
+    manifest_payload = {
+        "schema_version": "2.0.0",
+        "freeze_status": FreezeStatus.FROZEN,
+        "counter_version": "unicode_finance_v1",
+        "prompt_review_manifest_sha256": ZERO_HASH,
+        "evaluated_model_manifest_sha256": ZERO_HASH,
+        "use_case_budgets": budgets,
+        "ample_pilot": AmplePilotSummary(
+            outputs_within_ample_limit=57,
+            all_material_fact_lists_fit=True,
+            result_record_sha256=ZERO_HASH,
+        ),
+        "frozen_at": utc_now(),
+        "frozen_by": "researcher",
+    }
+    tight_manifest = TightLimitManifest.model_validate({**manifest_payload, "manifest_sha256": artifact_sha256(manifest_payload)})
+    tight_manifest_path = tmp_path / "tight_limit_manifest.json"
+    write_model_json_atomic(tight_manifest_path, tight_manifest)
+    monkeypatch.setattr(generate_command, "_authenticated_run_root", lambda run_id: run_root)
+
+    resolved = generate_command._load_evaluation_anchor(
+        Namespace(tight_limit_manifest=tight_manifest_path, calibration_run_id="c1_calibration_v1"),
+        "CF001",
+    )
+
+    assert resolved == candidate
+
+
+def test_researcher_directed_regeneration_uses_bound_notes_and_preserves_parent(tmp_path: Path) -> None:
+    """Pass one revise note into regeneration and retain both immutable inputs."""
+    scenario_id = "CF005_C1"
+    parent = make_candidate_scenario(scenario_id)
+    researcher_review = ResearcherScenarioReview(
+        schema_version="3.1.0",
+        review_id="CF005_C1_REVIEW_V1",
+        anonymised_item_id="ITEM_CF005",
+        scenario_id=scenario_id,
+        decision=ReviewDecision.REVISE,
+        pair_diagnostics=build_pair_diagnostics(parent),
+        reviewed_artifact_sha256=parent.candidate_sha256,
+        reviewed_at=utc_now(),
+        researcher_id="researcher",
+        notes="Clarify whether the fee is adverse and exactly which charges the new lender pays.",
+    )
+    seed = load_and_validate_seed(
+        ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seeds.json",
+        ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json",
+    )
+    scenario_seed = generate_command._select_stage_seeds(seed.use_cases, ScenarioStage.CALIBRATION, None, scenario_id)[0]
+    run_root = tmp_path / "replacement_run"
+    candidate_root = run_root / "scenarios"
+    backend = ResearcherRevisionBackend()
+
+    result = generate_command._run_researcher_directed_revision(
+        run_root,
+        candidate_root,
+        scenario_seed,
+        parent,
+        researcher_review,
+        backend,
+    )
+
+    assert result.terminal_decision == ReviewDecision.ACCEPT
+    assert result.candidate.provenance.parent_sha256 == parent.candidate_sha256
+    assert result.revisions[0].input_artifact_sha256 == parent.candidate_sha256
+    assert backend.researcher_feedback == researcher_review.notes
+    assert read_model_json(run_root / "inputs" / scenario_id / "parent_candidate.json", CandidateScenario) == parent
+    assert read_model_json(run_root / "inputs" / scenario_id / "researcher_revision.json", ResearcherScenarioReview) == researcher_review
+
+
+def test_named_run_regenerates_only_revise_cases_in_a_new_round(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Read current decisions and add only replacements under the same named run."""
+    output_root = tmp_path / "scenario_generation" / "v0.11.0"
+    run_id = "c1_calibration_v1"
+    initial_round_id = "20260726T120000000001Z"
+    revision_round_id = "20260726T130000000001Z"
+    run_root = output_root / run_id
+    initial_round_root = run_root / initial_round_id
+    write_model_json_atomic(run_root / "run_config.json", generate_command._run_config(run_id))
+    accepted_parent = make_candidate_scenario("CF001_C1")
+    revised_parent = make_candidate_scenario("CF002_C1")
+    for candidate in [accepted_parent, revised_parent]:
+        write_model_json_atomic(initial_round_root / "scenarios" / candidate.scenario_id / "candidate.json", candidate)
+    reviews = [
+        ResearcherScenarioReview(
+            schema_version="3.1.0",
+            review_id="CF001_C1_REVIEW_V1",
+            anonymised_item_id="ITEM_CF001",
+            scenario_id="CF001_C1",
+            decision=ReviewDecision.ACCEPT,
+            reviewed_artifact_sha256=accepted_parent.candidate_sha256,
+            reviewed_at=utc_now(),
+            researcher_id="researcher",
+            notes="",
+        ),
+        ResearcherScenarioReview(
+            schema_version="3.1.0",
+            review_id="CF002_C1_REVIEW_V1",
+            anonymised_item_id="ITEM_CF002",
+            scenario_id="CF002_C1",
+            decision=ReviewDecision.REVISE,
+            pair_diagnostics=build_pair_diagnostics(revised_parent),
+            reviewed_artifact_sha256=revised_parent.candidate_sha256,
+            reviewed_at=utc_now(),
+            researcher_id="researcher",
+            notes="Clarify the fee treatment.",
+        ),
+    ]
+    write_models_jsonl_atomic(run_root / "researcher_review" / "scenario_reviews.jsonl", reviews)
+    generated_ids = iter([revision_round_id])
+    backend = ResearcherRevisionBackend()
+    monkeypatch.setattr(generate_command, "ACTIVE_SCENARIO_GENERATION_ROOT", output_root)
+    monkeypatch.setattr(generate_command, "scenario_generation_round_id", lambda: next(generated_ids))
+    monkeypatch.setattr(generate_command, "scenario_generation_run_root", lambda value: output_root / value)
+    monkeypatch.setattr(generate_command, "_load_backend", lambda _specification, _invocation_root: backend)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "risk-comm scenarios generate",
+            "--backend",
+            "tests.fake:create_backend",
+            "--stage",
+            "calibration",
+            "--run-id",
+            run_id,
+            "--scenario-id",
+            "CF002_C1",
+            "--output-root",
+            str(output_root),
+        ],
+    )
+
+    generate_command.main()
+
+    revision_root = run_root / revision_round_id
+    assert [path.name for path in (revision_root / "scenarios").iterdir()] == ["CF002_C1"]
+    assert backend.researcher_feedback == "Clarify the fee treatment."
+    assert read_model_json(revision_root / "inputs" / "CF002_C1" / "parent_candidate.json", CandidateScenario) == revised_parent
+    assert (
+        read_model_json(
+            revision_root / "inputs" / "CF002_C1" / "researcher_revision.json",
+            ResearcherScenarioReview,
+        )
+        == reviews[1]
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "risk-comm scenarios generate",
+            "--backend",
+            "tests.fake:create_backend",
+            "--stage",
+            "calibration",
+            "--run-id",
+            run_id,
+            "--scenario-id",
+            "CF002_C1",
+            "--output-root",
+            str(output_root),
+        ],
+    )
+
+    generate_command.main()
+
+    assert backend.revision_calls == 1
+    assert len([path for path in run_root.iterdir() if path.is_dir() and path.name[0].isdigit()]) == 2

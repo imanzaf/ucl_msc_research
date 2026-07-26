@@ -28,7 +28,7 @@ def _application_arguments(args: argparse.Namespace) -> List[str]:
 
 
 def _resolve_scenario_roots(args: argparse.Namespace) -> Tuple[Path, Path]:
-    """Resolve an explicit or latest run while keeping researcher reviews run-scoped."""
+    """Resolve an explicit or latest named run while keeping reviews run-scoped."""
     if args.candidate_root is not None and args.run_id is not None:
         raise ValueError("use either --run-id or --candidate-root, not both")
     if args.candidate_root is not None:
@@ -36,7 +36,7 @@ def _resolve_scenario_roots(args: argparse.Namespace) -> Tuple[Path, Path]:
         default_review_root = candidate_root.parent / "researcher_review" if candidate_root.name == "scenarios" else args.output_root
     else:
         run_root = scenario_generation_run_root(args.run_id) if args.run_id is not None else latest_scenario_generation_run_root()
-        candidate_root = run_root / "scenarios"
+        candidate_root = run_root
         default_review_root = run_root / "researcher_review"
     if not candidate_root.is_dir():
         raise FileNotFoundError(f"candidate root does not exist: {candidate_root}")

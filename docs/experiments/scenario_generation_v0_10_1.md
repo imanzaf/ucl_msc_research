@@ -3,7 +3,7 @@
 V0.10.1 defines the active option-information generation contract and consumes the V0.11.0 task-family seed. V0.11.0 removes shared evaluated-agent
 factuality/style guidance and limits each family authority string to genuine action boundaries. Earlier paid C1 outputs remain preserved under
 `data/outputs/scenario_generation/v0.10.0/`; new work is isolated by logical run beneath the active seed version at
-`data/outputs/scenario_generation/v0.11.0/runs/<run-id>/`.
+`data/outputs/scenario_generation/v0.11.0/<run-id>/`.
 
 The active seed inputs are:
 
@@ -83,55 +83,81 @@ Internal `OPTION_A` and `OPTION_B` leakage is prevented structurally by the gene
 
 ## Commands and outputs
 
-The output hierarchy separates one logical seed run from the individual commands used to complete or resume it:
+The output hierarchy separates one named logical seed run from its timestamped generation and revision rounds:
 
 ```text
 data/outputs/scenario_generation/v0.11.0/
 ├── checkpoints/                         # shared frozen lifecycle gates
-└── runs/
-    └── <run-id>/                        # YYYYMMDDTHHMMSSffffffZ
-        ├── run_config.json              # immutable seed and generation-protocol identity
-        ├── invocations/
-        │   └── <invocation-id>/
-        │       ├── invocation_config.json
-        │       └── provider_logs/
-        │           ├── generation/
-        │           └── review/
-        ├── scenarios/
+└── <run-id>/                            # e.g. c1_calibration_v1
+    ├── run_config.json                  # immutable seed and generation-protocol identity
+    ├── researcher_review/
+    │   └── *.jsonl                      # append-only decisions across candidate versions
+    └── <round-id>/                      # YYYYMMDDTHHMMSSffffffZ
+        ├── invocation_config.json
+        ├── provider_logs/
+        │   ├── generation/
+        │   └── review/
+        ├── inputs/                      # present for researcher-directed replacements
         │   └── CF001_C1/
-        │       ├── candidate.json
-        │       ├── automated_reviews.jsonl
-        │       ├── revision_cycles.jsonl
-        │       ├── terminal_decision.json
-        │       ├── failures/
-        │       └── superseded_reviews/
-        └── researcher_review/
-            └── scenario_reviews.jsonl
+        │       ├── parent_candidate.json
+        │       └── researcher_revision.json
+        └── scenarios/
+            └── CF001_C1/
+                ├── candidate.json
+                ├── automated_reviews.jsonl
+                ├── revision_cycles.jsonl
+                ├── terminal_decision.json
+                ├── failures/
+                └── superseded_reviews/
 ```
 
-Omitting `--run-id` always creates a fresh timestamped run and prints its ID and path. Supplying that exact ID authenticates and continues the same
-run. Every continuation creates a separate timestamped invocation record and separate provider-log directories, while scenario artifacts retain
-stable paths. A continuation skips a hash-valid terminal scenario, reuses a valid saved candidate after an interrupted review, and records failures
-without creating a terminal marker.
+`--run-id` is required and uses lowercase snake case with an explicit version suffix. The first command with a run ID creates the run; later
+commands with that ID authenticate and continue it. Each attempt creates a timestamped round. Current-set resolution scans those rounds in
+chronological order and selects the newest candidate version for each scenario. A continuation resumes an incomplete matching round, reuses valid
+saved candidates, and records failures without creating a terminal marker. To start again from the same seed without mixing histories, increment
+the run name, for example from `c1_calibration_v1` to `c1_calibration_v2`.
 
-Generate the ten C1 candidates in a fresh run:
-
-```bash
-uv run python -m src.cli scenarios generate \
-  --backend src.scenarios.openrouter_backend:create_openrouter_scenario_backend \
-  --stage calibration
-```
-
-If that command stops partway through, repeat it with the printed run ID:
+Generate the ten C1 candidates in a new named run:
 
 ```bash
 uv run python -m src.cli scenarios generate \
   --backend src.scenarios.openrouter_backend:create_openrouter_scenario_backend \
   --stage calibration \
-  --run-id <run-id>
+  --run-id c1_calibration_v1
+```
+
+If that command stops partway through, repeat the same command. It resumes the incomplete round:
+
+```bash
+uv run python -m src.cli scenarios generate \
+  --backend src.scenarios.openrouter_backend:create_openrouter_scenario_backend \
+  --stage calibration \
+  --run-id c1_calibration_v1
 ```
 
 An exact C1 can also be generated or resumed with `--scenario-id CF001_C1`.
+
+Launch the reviewer for the logical run:
+
+```bash
+uv run python -m src.cli review launch \
+  --run-id c1_calibration_v1 \
+  --server-address 127.0.0.1
+```
+
+After review, repeat the generation command. It authenticates decisions against candidate hashes and creates a new round containing only current
+`revise` cases. Nonblank revision notes are supplied verbatim as typed feedback, every replacement records its parent hash, and independent
+semantic review reruns. Immutable parent and review copies are retained under the new round's `inputs/<scenario-id>/`:
+
+```bash
+uv run python -m src.cli scenarios generate \
+  --backend src.scenarios.openrouter_backend:create_openrouter_scenario_backend \
+  --stage calibration \
+  --run-id c1_calibration_v1
+```
+
+The same reviewer command now shows only regenerated candidate hashes without a decision. If a replacement is marked `revise` again, repeat the
+same generation command to create another round. Once every newest candidate is accepted, the command reports that no revisions remain.
 
 The active V0.11.0 seed contains R1 and R2 for each family. They can be generated in separate invocations within the same logical run after the C1
 lifecycle gates are frozen. The first invocation persists its candidate and reports which family candidate is still pending. Once the last family
@@ -142,34 +168,36 @@ uv run python -m src.cli scenarios generate \
   --backend src.scenarios.openrouter_backend:create_openrouter_scenario_backend \
   --stage evaluation \
   --scenario-id CF001_R1 \
-  --run-id <run-id> \
+  --run-id evaluation_scenarios_v1 \
   --tight-limit-manifest data/outputs/scenario_generation/v0.11.0/checkpoints/tight_limit_manifest.json \
-  --calibration-candidate data/outputs/scenario_generation/v0.11.0/runs/<run-id>/scenarios/CF001_C1/candidate.json
+  --calibration-run-id c1_calibration_v1
 
 uv run python -m src.cli scenarios generate \
   --backend src.scenarios.openrouter_backend:create_openrouter_scenario_backend \
   --stage evaluation \
   --scenario-id CF001_R2 \
-  --run-id <run-id> \
+  --run-id evaluation_scenarios_v1 \
   --tight-limit-manifest data/outputs/scenario_generation/v0.11.0/checkpoints/tight_limit_manifest.json \
-  --calibration-candidate data/outputs/scenario_generation/v0.11.0/runs/<run-id>/scenarios/CF001_C1/candidate.json
+  --calibration-run-id c1_calibration_v1
 ```
 
-Omit `--scenario-id` and use `--use-case-id CF001` to generate the complete current R1–R2 family in one invocation. The scenario-oriented layout
-does not assume that replications share an invocation, so a later seed with R3/R4 would use the same continuation mechanism and directory shape.
+Omit `--scenario-id` and use `--use-case-id CF001` to generate the complete current R1–R2 family in one round. The layout does not assume that
+replications share a round, so a later seed with R3/R4 would use the same run-ID resume mechanism and directory shape.
 
 Every request logs returned model version, request and response hashes, token usage, provider-reported billed cost, and upstream inference cost under
-its invocation. Launch `uv run risk-comm review launch --run-id <run-id>` to review that run; omitting the option selects the newest configured run.
+its round. Launch `uv run risk-comm review launch --run-id <run-id>` to review a run; omitting the option selects the newest configured run.
 Researcher review and acceptance remain mandatory.
 
-Publish an accepted candidate only from its own generated bundle and run-scoped researcher review:
+Publish the complete current accepted set and its self-hashed manifest from a run in one command:
 
 ```bash
 uv run risk-comm scenarios publish \
-  --candidate data/outputs/scenario_generation/v0.11.0/runs/<run-id>/scenarios/CF001_C1/candidate.json \
-  --automated-reviews data/outputs/scenario_generation/v0.11.0/runs/<run-id>/scenarios/CF001_C1/automated_reviews.jsonl \
-  --revision-cycles data/outputs/scenario_generation/v0.11.0/runs/<run-id>/scenarios/CF001_C1/revision_cycles.jsonl \
-  --researcher-reviews data/outputs/scenario_generation/v0.11.0/runs/<run-id>/researcher_review/scenario_reviews.jsonl \
-  --accepted-root data/inputs/scenarios/v0.11.0/accepted \
-  --accepted-by <researcher-id>
+  --run-id c1_calibration_v1 \
+  --scope calibration \
+  --published-by <researcher-id>
 ```
+
+Publication automatically takes the newest candidate for each scenario, requires an exact `accept` review for that hash, stages every immutable
+accepted bundle, builds the scope manifest, and then promotes both. It never falls back to an older accepted candidate when a newer version is
+pending or marked `revise`. The lower-level `scenarios build-manifest` command remains available for validation and recovery but is not part of the
+normal workflow.

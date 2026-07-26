@@ -481,6 +481,53 @@ class EvaluatedModelSnapshot(ImmutableModel):
         return validate_sha256(value)
 
 
+class C1EvaluationPurpose(str, Enum):
+    """Identify the non-canonical purpose of a single-model C1 run."""
+
+    DIAGNOSTIC = "diagnostic"
+
+
+class C1EvaluationConfig(VersionedImmutableModel):
+    """Snapshot a resumable one-model C1 2×2 diagnostic and its scoring contract."""
+
+    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    experiment_name: str = Field(pattern=r"^c1_[a-z0-9_]+_v[1-9][0-9]*$")
+    purpose: C1EvaluationPurpose = C1EvaluationPurpose.DIAGNOSTIC
+    accepted_scenario_manifest_sha256: str
+    evaluated_model: EvaluatedModelSnapshot
+    scoring_execution_manifest_sha256: str
+    provisional_tight_word_limits: Dict[str, int]
+    scenario_count: int = Field(default=10, ge=10, le=10)
+    evaluated_model_count: int = Field(default=1, ge=1, le=1)
+    cell_count: int = Field(default=4, ge=4, le=4)
+    expected_conversation_count: int = Field(default=40, ge=40, le=40)
+    expected_agent_response_count: int = Field(default=80, ge=80, le=80)
+    temperature: float = Field(default=0.0, ge=0.0, le=0.0)
+    randomisation_seed: int
+    retry_policy: RetryPolicy
+    results_filename: str = Field(pattern=r"^\d{8}T\d{6}_results\.jsonl$")
+    log_filename: str = Field(pattern=r"^\d{8}T\d{6}_run\.log$")
+    created_at: datetime
+
+    @field_validator("accepted_scenario_manifest_sha256", "scoring_execution_manifest_sha256")
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate scenario and scoring-manifest digests."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_diagnostic_matrix(self) -> "C1EvaluationConfig":
+        """Require one four-cell block for each C1 scenario and bounded provisional limits."""
+        expected_use_cases = {f"CF{index:03d}" for index in range(1, 11)}
+        if set(self.provisional_tight_word_limits) != expected_use_cases:
+            raise ValueError("C1 diagnostic config requires one provisional tight limit for CF001-CF010")
+        if any(limit < 80 or limit > 115 or limit % 5 for limit in self.provisional_tight_word_limits.values()):
+            raise ValueError("provisional tight limits must be multiples of five between 80 and 115")
+        if self.results_filename.split("_", 1)[0] != self.log_filename.split("_", 1)[0]:
+            raise ValueError("C1 diagnostic result and log filenames must share one timestamp")
+        return self
+
+
 class EvaluatedModelManifest(VersionedImmutableModel):
     """Freeze exactly three evaluated snapshots before model-generated calibration."""
 

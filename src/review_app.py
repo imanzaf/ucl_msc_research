@@ -18,6 +18,7 @@ from src.data_models.scenarios import CandidateScenario, DecisionOption, FactPol
 from src.data_models.scoring import ConditionBlindScoringInput, EvaluationCheckpoint, ResponseSpan
 from src.scenarios.acceptance import validate_candidate_scenario_hash
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
+from src.scenarios.run_resolution import current_scenario_artifacts, run_researcher_reviews
 from src.storage import append_model_jsonl_validated, read_model_json, read_model_jsonl
 
 
@@ -104,7 +105,10 @@ class ReviewStore:
 
     def list_candidates(self) -> List[CandidateScenario]:
         """Load hash-valid generated candidates awaiting researcher acceptance."""
-        candidates = [read_model_json(path, CandidateScenario) for path in sorted(self.candidate_root.glob("*/candidate.json"))]
+        if (self.candidate_root / "run_config.json").is_file():
+            candidates = [artifact.candidate for _, artifact in sorted(current_scenario_artifacts(self.candidate_root).items())]
+        else:
+            candidates = [read_model_json(path, CandidateScenario) for path in sorted(self.candidate_root.glob("*/candidate.json"))]
         for candidate in candidates:
             validate_candidate_scenario_hash(candidate)
         return candidates
@@ -115,6 +119,8 @@ class ReviewStore:
 
     def scenario_reviews(self) -> List[ResearcherScenarioReview]:
         """Load all persisted scenario review passes."""
+        if (self.candidate_root / "run_config.json").is_file():
+            return run_researcher_reviews(self.candidate_root)
         return read_model_jsonl(self.scenario_reviews_path, ResearcherScenarioReview)
 
     def conversation_annotations(self) -> List[ConversationAnnotation]:
@@ -159,13 +165,18 @@ class ReviewStore:
             raise ValueError("scenario review specificity elements must be exact phrases from their material fact")
         if review.reviewed_at > datetime.now(timezone.utc) + timedelta(minutes=5):
             raise ValueError("scenario review timestamp cannot be in the future")
+        all_existing = self.scenario_reviews()
+        if any(record.review_id == review.review_id for record in all_existing):
+            raise ValueError(f"duplicate scenario review id: {review.review_id}")
+        if any(record.reviewed_artifact_sha256 == review.reviewed_artifact_sha256 for record in all_existing):
+            raise ValueError("a researcher scenario review already exists for this candidate version")
 
         def validate(existing: List[ResearcherScenarioReview], new: ResearcherScenarioReview) -> None:
-            """Require one immutable researcher review per scenario."""
+            """Require one immutable researcher review per candidate version."""
             if any(record.review_id == new.review_id for record in existing):
                 raise ValueError(f"duplicate scenario review id: {new.review_id}")
-            if any(record.scenario_id == new.scenario_id for record in existing):
-                raise ValueError("a researcher scenario review already exists for this item")
+            if any(record.reviewed_artifact_sha256 == new.reviewed_artifact_sha256 for record in existing):
+                raise ValueError("a researcher scenario review already exists for this candidate version")
 
         append_model_jsonl_validated(self.scenario_reviews_path, review, validate)
 
@@ -275,10 +286,11 @@ def build_researcher_scenario_review(
 ) -> ResearcherScenarioReview:
     """Build a schema-valid researcher decision from point-and-click form values."""
     item_digest = sha256_bytes(scenario.scenario_id.encode("utf-8"))[:12].upper()
+    candidate_digest = scenario.candidate_sha256[:16].upper()
     specificity_elements = build_specificity_elements(scenario, specificity_by_fact or {}) if decision == ReviewDecision.ACCEPT else []
     return ResearcherScenarioReview(
         schema_version="3.1.0",
-        review_id=f"{scenario.scenario_id}_REVIEW_V1",
+        review_id=f"{scenario.scenario_id}_REVIEW_{candidate_digest}",
         anonymised_item_id=f"ITEM_{item_digest}",
         scenario_id=scenario.scenario_id,
         decision=decision,
@@ -494,8 +506,8 @@ def run_streamlit_app(store: ReviewStore) -> None:
         if not scenarios:
             st.info("No generated candidates are available for review.")
             return
-        review_by_id = {review.scenario_id: review for review in store.scenario_reviews()}
-        pending = [scenario for scenario in scenarios if scenario.scenario_id not in review_by_id]
+        reviewed_hashes = {review.reviewed_artifact_sha256 for review in store.scenario_reviews()}
+        pending = [scenario for scenario in scenarios if scenario.candidate_sha256 not in reviewed_hashes]
         completed = len(scenarios) - len(pending)
         st.sidebar.progress(completed / len(scenarios), text=f"{completed} of {len(scenarios)} reviewed")
         if not pending:

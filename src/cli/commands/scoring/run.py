@@ -57,58 +57,23 @@ def _append_unique(path: Path, model: ModelT, id_field: str) -> None:
     append_model_jsonl_validated(path, model, validate)
 
 
-def main() -> None:
-    """Score completed transcripts without exposing treatment/model labels to the backend."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", required=True)
-    parser.add_argument("--transcripts", type=Path, required=True)
-    parser.add_argument("--accepted-root", type=Path, required=True)
-    parser.add_argument("--accepted-scenario-manifest", type=Path, required=True)
-    parser.add_argument("--experiment-manifest", type=Path, required=True)
-    parser.add_argument("--scoring-execution-manifest", type=Path, required=True)
-    parser.add_argument("--results-dir", type=Path, required=True)
-    parser.add_argument("--execute-paid", action="store_true")
-    args = parser.parse_args()
-    if not args.execute_paid:
-        raise PermissionError("automated scoring may call paid APIs and requires --execute-paid")
-    accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
-    experiment_manifest = read_model_json(args.experiment_manifest, ExperimentManifest)
-    experiment_name = experiment_manifest.experiment_name.value
-    validate_experiment_path(args.transcripts, REPO_ROOT, "result", experiment_name)
-    validate_experiment_path(args.results_dir, REPO_ROOT, "results_tree", experiment_name)
-    scoring_manifest = read_model_json(args.scoring_execution_manifest, ScoringExecutionManifest)
-    validate_model_self_hash(accepted_manifest, "manifest_sha256")
-    validate_model_self_hash(experiment_manifest, "manifest_sha256")
-    validate_model_self_hash(scoring_manifest, "manifest_sha256")
-    if scoring_manifest.freeze_status != FreezeStatus.FROZEN or experiment_manifest.freeze_status != FreezeStatus.FROZEN:
-        raise ValueError("automated scoring requires frozen experiment and scoring-execution manifests")
-    if experiment_manifest.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
-        raise ValueError("experiment manifest does not bind the accepted-scenario manifest")
-    if experiment_manifest.scoring_execution_manifest_sha256 != scoring_manifest.manifest_sha256:
-        raise ValueError("experiment manifest does not bind the scoring-execution manifest")
-    if experiment_manifest.scoring_contract_sha256 != scoring_manifest.scoring_contract_sha256:
-        raise ValueError("experiment and scoring-execution manifests bind different scoring contracts")
-    if experiment_manifest.scoring_judge_model_ids != scoring_manifest.judge_model_ids:
-        raise ValueError("experiment and scoring-execution manifests bind different judges")
-    if scoring_manifest.scoring_contract_sha256 != scoring_contract_sha256():
-        raise ValueError("scoring manifest does not bind the active condition-blind contracts")
-    scenarios: Dict[str, AcceptedScenario] = {
-        scenario.scenario_id: scenario for scenario in load_accepted_evaluation_scenarios(args.accepted_root, accepted_manifest)
-    }
-    transcripts = read_model_jsonl(args.transcripts, ConversationTranscript)
+def execute_scoring_transcripts(
+    transcripts: List[ConversationTranscript],
+    scenarios: Dict[str, AcceptedScenario],
+    scoring_manifest: ScoringExecutionManifest,
+    results_dir: Path,
+    backend: ConditionBlindScoringBackend,
+    prompt_factor_isolation_valid: bool,
+) -> None:
+    """Resume condition-blind scoring and atomically persist every terminal result."""
     transcript_ids = [transcript.run_unit.run_unit_id for transcript in transcripts]
     if len(transcript_ids) != len(set(transcript_ids)):
         raise ValueError("transcript results contain duplicate run-unit ids")
-    run_units = [transcript.run_unit for transcript in transcripts]
-    if experiment_manifest.experiment_name == ExperimentName.RISK_COMM_V1:
-        validate_complete_run_plan(run_units)
-    else:
-        dimensions = EXPERIMENT_DIMENSIONS[experiment_manifest.experiment_name]
-        validate_exploratory_run_plan(run_units, dimensions.conversation_count, dimensions.cell_count)
-
-    bundle_path = args.results_dir / "scored_conversations.jsonl"
-    attempt_path = args.results_dir / "failed_attempts.jsonl"
-    queue_path = args.results_dir / "manual_scoring_queue.jsonl"
+    if any(transcript.run_unit.scenario_id not in scenarios for transcript in transcripts):
+        raise ValueError("a transcript refers to a scenario outside the authenticated scoring set")
+    bundle_path = results_dir / "scored_conversations.jsonl"
+    attempt_path = results_dir / "failed_attempts.jsonl"
+    queue_path = results_dir / "manual_scoring_queue.jsonl"
     existing_bundles = read_model_jsonl(bundle_path, ScoredConversationBundle)
     existing_attempts = read_model_jsonl(attempt_path, ScoringExecutionAttempt)
     existing_queue = read_model_jsonl(queue_path, ManualScoringQueueRecord)
@@ -135,7 +100,6 @@ def main() -> None:
 
     if len(scoring_manifest.judge_snapshots) != 1:
         raise ValueError("the current scoring backend requires exactly one independently frozen judge snapshot")
-    backend = _load_backend(args.backend, scoring_manifest.judge_snapshots[0])
     maximum_attempts = scoring_manifest.retry_policy.max_retries + 1
     for transcript in transcripts:
         run_unit_id = transcript.run_unit.run_unit_id
@@ -161,7 +125,7 @@ def main() -> None:
                     transcript=transcript,
                     scenario=scenarios[transcript.run_unit.scenario_id],
                     backend=backend,
-                    prompt_factor_isolation_valid=True,
+                    prompt_factor_isolation_valid=prompt_factor_isolation_valid,
                 )
                 judge_ids = {fact_result.judge_model_id, response_result.judge_model_id, claim_result.judge_model_id}
                 if not judge_ids.issubset(scoring_manifest.judge_model_ids):
@@ -239,6 +203,68 @@ def main() -> None:
         }
         queue_record = ManualScoringQueueRecord.model_validate({**queue_payload, "record_sha256": artifact_sha256(queue_payload)})
         _append_unique(queue_path, queue_record, "run_unit_id")
+
+
+def main() -> None:
+    """Score completed transcripts without exposing treatment/model labels to the backend."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--backend", required=True)
+    parser.add_argument("--transcripts", type=Path, required=True)
+    parser.add_argument("--accepted-root", type=Path, required=True)
+    parser.add_argument("--accepted-scenario-manifest", type=Path, required=True)
+    parser.add_argument("--experiment-manifest", type=Path, required=True)
+    parser.add_argument("--scoring-execution-manifest", type=Path, required=True)
+    parser.add_argument("--results-dir", type=Path, required=True)
+    parser.add_argument("--execute-paid", action="store_true")
+    args = parser.parse_args()
+    if not args.execute_paid:
+        raise PermissionError("automated scoring may call paid APIs and requires --execute-paid")
+    accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
+    experiment_manifest = read_model_json(args.experiment_manifest, ExperimentManifest)
+    experiment_name = experiment_manifest.experiment_name.value
+    validate_experiment_path(args.transcripts, REPO_ROOT, "result", experiment_name)
+    validate_experiment_path(args.results_dir, REPO_ROOT, "results_tree", experiment_name)
+    scoring_manifest = read_model_json(args.scoring_execution_manifest, ScoringExecutionManifest)
+    validate_model_self_hash(accepted_manifest, "manifest_sha256")
+    validate_model_self_hash(experiment_manifest, "manifest_sha256")
+    validate_model_self_hash(scoring_manifest, "manifest_sha256")
+    if scoring_manifest.freeze_status != FreezeStatus.FROZEN or experiment_manifest.freeze_status != FreezeStatus.FROZEN:
+        raise ValueError("automated scoring requires frozen experiment and scoring-execution manifests")
+    if experiment_manifest.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
+        raise ValueError("experiment manifest does not bind the accepted-scenario manifest")
+    if experiment_manifest.scoring_execution_manifest_sha256 != scoring_manifest.manifest_sha256:
+        raise ValueError("experiment manifest does not bind the scoring-execution manifest")
+    if experiment_manifest.scoring_contract_sha256 != scoring_manifest.scoring_contract_sha256:
+        raise ValueError("experiment and scoring-execution manifests bind different scoring contracts")
+    if experiment_manifest.scoring_judge_model_ids != scoring_manifest.judge_model_ids:
+        raise ValueError("experiment and scoring-execution manifests bind different judges")
+    if scoring_manifest.scoring_contract_sha256 != scoring_contract_sha256():
+        raise ValueError("scoring manifest does not bind the active condition-blind contracts")
+    scenarios: Dict[str, AcceptedScenario] = {
+        scenario.scenario_id: scenario for scenario in load_accepted_evaluation_scenarios(args.accepted_root, accepted_manifest)
+    }
+    transcripts = read_model_jsonl(args.transcripts, ConversationTranscript)
+    transcript_ids = [transcript.run_unit.run_unit_id for transcript in transcripts]
+    if len(transcript_ids) != len(set(transcript_ids)):
+        raise ValueError("transcript results contain duplicate run-unit ids")
+    run_units = [transcript.run_unit for transcript in transcripts]
+    if experiment_manifest.experiment_name == ExperimentName.RISK_COMM_V1:
+        validate_complete_run_plan(run_units)
+    else:
+        dimensions = EXPERIMENT_DIMENSIONS[experiment_manifest.experiment_name]
+        validate_exploratory_run_plan(run_units, dimensions.conversation_count, dimensions.cell_count)
+
+    if len(scoring_manifest.judge_snapshots) != 1:
+        raise ValueError("the current scoring backend requires exactly one independently frozen judge snapshot")
+    backend = _load_backend(args.backend, scoring_manifest.judge_snapshots[0])
+    execute_scoring_transcripts(
+        transcripts=transcripts,
+        scenarios=scenarios,
+        scoring_manifest=scoring_manifest,
+        results_dir=args.results_dir,
+        backend=backend,
+        prompt_factor_isolation_valid=True,
+    )
     print(f"Scoring bundles and any manual queue records are under {args.results_dir}")
 
 

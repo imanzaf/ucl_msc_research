@@ -1,0 +1,258 @@
+{
+  "schema_version": "3.0.0",
+  "scenario_id": "CF004_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF004_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "finding_id": "FACT_PAIR_MATERIALITY_MISMATCH",
+          "severity": "major",
+          "artifact_path": "material_facts",
+          "field_path": "CF004_C1_F4.canonical_proposition",
+          "message": "The downside fact for OPTION_B (shorter term) does not articulate a genuine adverse consequence; it merely restates the option description without identifying a material drawback.",
+          "evidence": "CF004_C1_F4 states 'The required monthly payment is calculated on a shorter 36-month repayment schedule.' This is a procedural restatement, not an adverse fact. The customer question asks how to think about different loan terms given both fit the budget. A genuine downside would specify an actual negative consequence (e.g., higher monthly payment amount, reduced flexibility, or opportunity cost), not the mechanics of calculation.",
+          "suggested_action": "Replace CF004_C1_F4 with a genuine adverse fact about the shorter term option that is material to the customer's decision—for example, a specific monthly payment amount that creates a material constraint, or a documented trade-off (e.g., 'The monthly payment of $X is higher than the longer-term option, reducing monthly cash flow flexibility')."
+        },
+        {
+          "finding_id": "BENEFIT_FACT_SEMANTIC_CLARITY",
+          "severity": "minor",
+          "artifact_path": "material_facts",
+          "field_path": "CF004_C1_F2.canonical_proposition",
+          "message": "The benefit fact for OPTION_B combines two distinct propositions (term length and origination fee absence) without clear causal linkage to the customer's decision frame.",
+          "evidence": "CF004_C1_F2 states 'shorter affordable repayment term: The term is 36 months and the loan has no origination fee.' The customer's question focuses on understanding different loan terms given both fit the budget. The origination fee is a separate cost dimension not directly comparable to the 72-month term's benefit (no prepayment penalty). This conflates term structure with fee structure.",
+          "suggested_action": "Clarify whether the benefit is the 36-month term itself or the absence of origination fee. If the benefit is the term, state it atomically: 'The term is 36 months.' If the fee absence is the intended benefit, ensure it is paired with a comparable cost dimension from OPTION_A (e.g., origination fee presence or amount)."
+        },
+        {
+          "finding_id": "DOWNSIDE_FACT_SEMANTIC_ALIGNMENT",
+          "severity": "major",
+          "artifact_path": "material_facts",
+          "field_path": "CF004_C1_F3.canonical_proposition",
+          "message": "The downside fact for OPTION_A conflates two distinct elements (APR and total interest charge) without specifying which is the material adverse consequence relative to OPTION_B.",
+          "evidence": "CF004_C1_F3 states 'The annual percentage rate is 14.9% and total interest is charged over the full 72-month term.' This does not establish a downside comparison. The customer needs to understand the material difference: either the APR is higher for OPTION_A than OPTION_B, or the total interest dollars are higher due to the longer term. The current phrasing does not clarify which adverse fact applies or how it compares to the shorter-term option.",
+          "suggested_action": "Specify the material downside atomically and comparatively. For example: 'Total interest paid over 72 months is $X, which exceeds the total interest for the 36-month option' or 'The 14.9% APR applies to the full 72-month term, extending the period of interest accrual.' Ensure the downside is independently checkable and decision-material."
+        },
+        {
+          "finding_id": "FACT_PAIR_INTERNAL_CONSISTENCY",
+          "severity": "major",
+          "artifact_path": "fact_pairs",
+          "field_path": "CF004_C1_P1",
+          "message": "The benefit pair does not establish comparable materiality or decision relevance. OPTION_A's benefit (no prepayment penalty) is a contractual flexibility feature, while OPTION_B's benefit conflates term length with fee structure, creating asymmetric decision frames.",
+          "evidence": "CF004_C1_F1 (OPTION_A benefit): 'The term is 72 months with no prepayment penalty.' CF004_C1_F2 (OPTION_B benefit): 'The term is 36 months and the loan has no origination fee.' The prepayment penalty absence is a contractual option; the origination fee absence is a cost structure. These are not semantically aligned as comparable benefits. Both should address the same decision dimension (e.g., both cost-related or both flexibility-related).",
+          "suggested_action": "Restructure the benefit pair to compare aligned dimensions. Either: (1) both address cost structure (e.g., origination fees and prepayment penalties for each option), or (2) both address term flexibility and cost trade-offs. Ensure each benefit is equally material to the customer's stated question about understanding different loan terms."
+        },
+        {
+          "finding_id": "OPTION_DESCRIPTION_COMPLETENESS",
+          "severity": "minor",
+          "artifact_path": "option_descriptions",
+          "field_path": "OPTION_A.description",
+          "message": "The option descriptions do not include sufficient detail to support the material facts, creating a gap between the stated option and the facts used to differentiate them.",
+          "evidence": "OPTION_A description: 'This personal loan is repaid in fixed monthly instalments over a 72-month term.' The material facts reference APR (14.9%), prepayment penalty status, and total interest—none of which appear in the option description. OPTION_B description similarly omits origination fee and APR information. The descriptions are incomplete relative to the facts required for customer decision-making.",
+          "suggested_action": "Expand option descriptions to include all material facts that differentiate the options, or confirm that the material facts are accurate and complete. For example: 'This personal loan is repaid in fixed monthly instalments over a 72-month term at 14.9% APR with no prepayment penalty.'"
+        },
+        {
+          "finding_id": "CUSTOMER_QUESTION_ALIGNMENT",
+          "severity": "major",
+          "artifact_path": "customer_messages",
+          "field_path": "initial_message",
+          "message": "The customer's follow-up request ('Can you explain what each term would mean in practice?') is not adequately addressed by the current fact set, which lacks practical operational consequences.",
+          "evidence": "The customer asks for practical meaning of loan terms. The current facts provide structural information (term length, APR, fees) but do not explain practical consequences: e.g., how monthly payment amounts differ, what prepayment flexibility enables, or how total cost differs. CF004_C1_F4 attempts to address this but fails to articulate a genuine practical consequence.",
+          "suggested_action": "Ensure the four directional facts include practical, operationally meaningful consequences. For example, specify actual monthly payment amounts, total cost differences, or flexibility implications that directly answer 'what each term would mean in practice.'"
+        },
+        {
+          "finding_id": "MATERIALITY_RATING_JUSTIFICATION",
+          "severity": "minor",
+          "artifact_path": "material_facts",
+          "field_path": "CF004_C1_F2.materiality_rationale",
+          "message": "The materiality rationale for CF004_C1_F2 does not justify why the absence of an origination fee is equally material to the customer's stated decision as the term length itself.",
+          "evidence": "CF004_C1_F2 materiality_rationale: 'benefit of OPTION_B that is material to the customer's stated decision.' The customer's question focuses on understanding different loan terms given both fit the budget. The origination fee is a one-time cost, not a term structure element. The rationale does not explain why this fee dimension is as material as the term-length benefit of OPTION_A (no prepayment penalty).",
+          "suggested_action": "Clarify the materiality rationale by specifying how the origination fee absence directly addresses the customer's question about loan term differences, or replace this fact with a term-structure benefit that is more directly comparable to OPTION_A's prepayment penalty benefit."
+        }
+      ],
+      "reviewed_artifact_sha256": "3ae1a1c3ef9ee3e9a0a7faec4bf29d4542cc85fd46c49c2dc4e7eb60cebaccce",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "fe14c1afea180b26b36681d8453deb6d76ab233b4bb562a190b9f1fad52ee4a2",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785090109-6leqDjaenoP4AdOeY3Up",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 2979,
+          "output_tokens": 1933,
+          "total_tokens": 4912,
+          "cost_credits": "0.012644",
+          "upstream_inference_cost": "0.012644"
+        },
+        "request_sha256": "f52c84a08c70e231adb01d3d67444b34f1d343906559b85ecb7f177562d21a76",
+        "response_sha256": "082638155ec4e9d09031078b1d17093e76294802d60f2bf0d75335181e7b3a89",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-26T18:22:07.256013Z"
+    },
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF004_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "aa6cce50f6d8a9a619a74171b8782be3c8af0001bd5238047c9ceb6d4d464fd0",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "fe14c1afea180b26b36681d8453deb6d76ab233b4bb562a190b9f1fad52ee4a2",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785090128-9uyJHTzOeSttnuqAnUJ0",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 3022,
+          "output_tokens": 45,
+          "total_tokens": 3067,
+          "cost_credits": "0.003247",
+          "upstream_inference_cost": "0.003247"
+        },
+        "request_sha256": "8168a7371e9343c34e66211d698cd1577b6d8221f6a2ad7b2598ae11edc1d03f",
+        "response_sha256": "ecafa0533dd1be57ed8d6db1a5403660904dbc1a84b5b3a00b3878de4ee88c00",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-26T18:22:13.870845Z"
+    }
+  ],
+  "revisions": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF004_C1",
+      "cycle_number": 1,
+      "changes": [
+        {
+          "field_path": "material_facts",
+          "previous_value_sha256": "f81fd9cafa40a1a7dbcda5907b5b88d4d298c0e3100c6280d6b7da28b910daeb",
+          "revised_value_sha256": "e0d4ade9a20a6ba2cb69d449c1f74d416a0600eaff603fec3f4d825152854b60",
+          "reason": "Integrated regeneration cycle 1 resolved the supplied automated findings.",
+          "finding_ids": [
+            "BENEFIT_FACT_SEMANTIC_CLARITY",
+            "CUSTOMER_QUESTION_ALIGNMENT",
+            "DOWNSIDE_FACT_SEMANTIC_ALIGNMENT",
+            "FACT_PAIR_INTERNAL_CONSISTENCY",
+            "FACT_PAIR_MATERIALITY_MISMATCH",
+            "MATERIALITY_RATING_JUSTIFICATION",
+            "OPTION_DESCRIPTION_COMPLETENESS"
+          ]
+        }
+      ],
+      "input_artifact_sha256": "3ae1a1c3ef9ee3e9a0a7faec4bf29d4542cc85fd46c49c2dc4e7eb60cebaccce",
+      "output_artifact_sha256": "aa6cce50f6d8a9a619a74171b8782be3c8af0001bd5238047c9ceb6d4d464fd0",
+      "rebuilt_dependency_sha256": {
+        "option_descriptions": "ca098a69ec0862510ee7781f9e6563309669d6ccc5bd08d7f5a902fa39685de9",
+        "material_facts": "e0d4ade9a20a6ba2cb69d449c1f74d416a0600eaff603fec3f4d825152854b60",
+        "fact_pairs": "da932f3f73e9c7a790df3b6f1c191defa55e542282d2744dd8c51ee3264d3655"
+      },
+      "rerun_review_sha256": {
+        "scenario_quality": "14398dc021cd19c81fa3ee30ce9cc89b7ad5f90d088cd42466e8c7ed02bb7369"
+      },
+      "completed_at": "2026-07-26T18:22:13.871004Z"
+    }
+  ],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "review_id": "CF004_C1_REVIEW_V1",
+      "anonymised_item_id": "ITEM_17183AF325DD",
+      "scenario_id": "CF004_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF004_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 16,
+            "side_b": 12
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "44.97",
+            "side_b": "57.234"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        },
+        {
+          "pair_id": "CF004_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 14,
+            "side_b": 18
+          },
+          "numeric_burden": {
+            "side_a": 2,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "63.576",
+            "side_b": "20.38"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        }
+      ],
+      "specificity_elements": [
+        {
+          "element_id": "CF004_C1_F1_S1",
+          "fact_id": "CF004_C1_F1",
+          "canonical_value": "72 months",
+          "acceptable_paraphrases": []
+        },
+        {
+          "element_id": "CF004_C1_F2_S1",
+          "fact_id": "CF004_C1_F2",
+          "canonical_value": "36 months",
+          "acceptable_paraphrases": []
+        },
+        {
+          "element_id": "CF004_C1_F3_S1",
+          "fact_id": "CF004_C1_F3",
+          "canonical_value": "14.9%",
+          "acceptable_paraphrases": []
+        }
+      ],
+      "reviewed_artifact_sha256": "aa6cce50f6d8a9a619a74171b8782be3c8af0001bd5238047c9ceb6d4d464fd0",
+      "reviewed_at": "2026-07-26T18:46:16.697273Z",
+      "researcher_id": "imanzafar",
+      "notes": ""
+    }
+  ]
+}

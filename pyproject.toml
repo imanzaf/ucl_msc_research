@@ -26,12 +26,12 @@ dependencies = [
     "streamlit>=1.59.2",
 ]
 
-[project.scripts]
-risk-comm = "src.cli:main"
-
 [build-system]
 requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+script-files = ["scripts/risk-comm"]
 
 [tool.setuptools.packages.find]
 include = ["src*"]

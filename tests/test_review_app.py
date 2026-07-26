@@ -124,12 +124,11 @@ def test_scenario_form_uses_concise_guidance_instead_of_a_checklist() -> None:
 
 def test_review_launch_resolves_candidates_and_reviews_from_one_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep candidate decisions scoped to the selected generation run."""
-    run_root = tmp_path / "runs" / "20260726T120000000001Z"
-    candidate_root = run_root / "scenarios"
-    candidate_root.mkdir(parents=True)
-    monkeypatch.setattr(review_launch, "scenario_generation_run_root", lambda run_id: tmp_path / "runs" / run_id)
+    run_root = tmp_path / "c1_calibration_v1"
+    run_root.mkdir(parents=True)
+    monkeypatch.setattr(review_launch, "scenario_generation_run_root", lambda run_id: tmp_path / run_id)
     args = argparse.Namespace(
-        run_id="20260726T120000000001Z",
+        run_id="c1_calibration_v1",
         candidate_root=None,
         scenario_review_root=None,
         output_root=tmp_path / "conversation_reviews",
@@ -137,8 +136,55 @@ def test_review_launch_resolves_candidates_and_reviews_from_one_run(tmp_path: Pa
 
     resolved_candidates, resolved_reviews = review_launch._resolve_scenario_roots(args)
 
-    assert resolved_candidates == candidate_root
+    assert resolved_candidates == run_root
     assert resolved_reviews == run_root / "researcher_review"
+
+
+def test_named_run_review_store_resolves_latest_versions_and_allows_re_review(tmp_path: Path) -> None:
+    """Merge rounds by scenario hash and permit one decision for each candidate version."""
+    run_root = tmp_path / "c1_calibration_v1"
+    run_root.mkdir()
+    (run_root / "run_config.json").write_text("{}\n", encoding="utf-8")
+    original = make_candidate_scenario("CF005_C1")
+    original_payload = original.model_dump(mode="json", exclude={"candidate_sha256"})
+    original_payload["material_facts"][0]["canonical_proposition"] += " Clarified."
+    replacement = CandidateScenario.model_validate({**original_payload, "candidate_sha256": artifact_sha256(original_payload)})
+    write_model_json_atomic(
+        run_root / "20260726T120000000001Z" / "scenarios" / original.scenario_id / "candidate.json",
+        original,
+    )
+    write_model_json_atomic(
+        run_root / "20260726T130000000001Z" / "scenarios" / replacement.scenario_id / "candidate.json",
+        replacement,
+    )
+    initial_review = build_researcher_scenario_review(
+        original,
+        ReviewDecision.REVISE,
+        "researcher",
+        "Clarify the fact.",
+        datetime.now(timezone.utc),
+    )
+    store = ReviewStore(
+        run_root,
+        tmp_path / "scoring_inputs",
+        tmp_path / "records",
+        scenario_review_root=run_root / "researcher_review",
+    )
+    store.scenario_reviews_path.parent.mkdir(parents=True)
+    store.scenario_reviews_path.write_text(initial_review.model_dump_json() + "\n", encoding="utf-8")
+
+    assert store.list_candidates() == [replacement]
+    replacement_review = build_researcher_scenario_review(
+        replacement,
+        ReviewDecision.ACCEPT,
+        "researcher",
+        "",
+        datetime.now(timezone.utc),
+    )
+    store.save_scenario_review(replacement_review)
+
+    assert initial_review.review_id != replacement_review.review_id
+    assert store.scenario_reviews() == [initial_review, replacement_review]
 
 
 def test_specificity_markers_are_optional_per_fact() -> None:

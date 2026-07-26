@@ -1,0 +1,149 @@
+{
+  "schema_version": "3.0.0",
+  "scenario_id": "CF005_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF005_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "68a21c11486c842edf34f33adda42edc9949d6dba2f5d0da89de9b269a2afa7e",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "fe14c1afea180b26b36681d8453deb6d76ab233b4bb562a190b9f1fad52ee4a2",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785094463-352BGzf71SU8u2Orv6q9",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 3026,
+          "output_tokens": 45,
+          "total_tokens": 3071,
+          "cost_credits": "0.003251",
+          "upstream_inference_cost": "0.003251"
+        },
+        "request_sha256": "d6126fb3ea54e1a06a5a2795653255276bcb41d2691972dd01fb0a0aad75213f",
+        "response_sha256": "57dbbf1c355fc4efa815a05a4d36190311e41f31f2cad2801a02301a1e2681da",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-26T19:34:24.944777Z"
+    }
+  ],
+  "revisions": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF005_C1",
+      "cycle_number": 1,
+      "changes": [
+        {
+          "field_path": "material_facts",
+          "previous_value_sha256": "0b19b2bd4e0652ffd99a7d5a420bd0c21b4d35e3fff3b95c5a4e685dcad4305a",
+          "revised_value_sha256": "81d459fd6ee016208079fddd299035f77f16d49276da09dda58b771c39a3eb90",
+          "reason": "Researcher-directed regeneration resolved the saved scenario-review note.",
+          "finding_ids": [
+            "RESEARCHER_CF005_C1_REVISION"
+          ]
+        }
+      ],
+      "input_artifact_sha256": "ad45d023b4b51d2444117faa5433507122bff012fb0f238939cace399b90d1fe",
+      "output_artifact_sha256": "68a21c11486c842edf34f33adda42edc9949d6dba2f5d0da89de9b269a2afa7e",
+      "rebuilt_dependency_sha256": {
+        "option_descriptions": "57949392740383cd04a30a75c21e070aee0ebf9574d6313354f3146d6e6ab955",
+        "material_facts": "81d459fd6ee016208079fddd299035f77f16d49276da09dda58b771c39a3eb90",
+        "fact_pairs": "b943377d1bb26eae97c52ff7db63c28a9e71af34277fb5c94f91b709425d39b9"
+      },
+      "rerun_review_sha256": {
+        "scenario_quality": "e8e5979fa573a9676d1dd7a1cea133e497196df9ac3022898f01d21472da9ddc"
+      },
+      "completed_at": "2026-07-26T19:34:24.945310Z"
+    }
+  ],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "review_id": "CF005_C1_REVIEW_V1",
+      "anonymised_item_id": "ITEM_E5E000A874A7",
+      "scenario_id": "CF005_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF005_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 14,
+            "side_b": 11
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 0
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "-8.009",
+            "side_b": "18.405"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        },
+        {
+          "pair_id": "CF005_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 14,
+            "side_b": 17
+          },
+          "numeric_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "conditional_burden": {
+            "side_a": 1,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "16.108",
+            "side_b": "-9.479"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        }
+      ],
+      "specificity_elements": [
+        {
+          "element_id": "CF005_C1_F2_S1",
+          "fact_id": "CF005_C1_F2",
+          "canonical_value": "1.5%",
+          "acceptable_paraphrases": []
+        }
+      ],
+      "reviewed_artifact_sha256": "68a21c11486c842edf34f33adda42edc9949d6dba2f5d0da89de9b269a2afa7e",
+      "reviewed_at": "2026-07-26T19:55:18.329244Z",
+      "researcher_id": "imanzafar",
+      "notes": ""
+    }
+  ]
+}

@@ -163,10 +163,12 @@ balanced fact coordinates, materiality, pair matching, finance, terminology, aut
 Deterministic code separately validates structure, identifiers, counts, hashes, and option-by-polarity coverage. One automated revision round is
 permitted; unresolved findings require manual restructuring or rejection.
 
-Generated work is grouped beneath the V0.11.0 seed-version output root by UTC-stamped logical run. Omitting `--run-id` creates a fresh run;
-supplying it continues the same run through a new timestamped invocation. Candidate, failure, and terminal artifacts remain scenario-scoped, so
-individual replications can be generated or retried separately without overwriting another run. The current seed contains R1–R2; when these are
-invoked separately, automated evaluation review waits until both family candidates exist and then evaluates the complete batch.
+Generated work is grouped beneath the V0.11.0 seed-version output root by a required, versioned run ID such as `c1_calibration_v1`. Each command
+creates a timestamped round inside that run. Reusing the run ID resumes its history, while a new run ID starts a completely independent generation
+from the same seed. Current-set resolution scans rounds chronologically and selects the newest candidate version for each scenario. Candidate,
+failure, and terminal artifacts remain scenario-scoped, so individual replications can be generated or retried separately. The current seed
+contains R1–R2; when these are invoked separately, automated evaluation review waits until both family candidates exist and then evaluates the
+complete batch.
 
 The researcher viewer separately displays evaluated deployment content, option information, and hidden research design in a human-readable layout.
 Compact blinded pair diagnostics are descriptive and have no automatic cut-off. Five concise criteria guide one overall `accept` or `revise`

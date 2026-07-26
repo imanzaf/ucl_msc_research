@@ -47,7 +47,7 @@ class ScenarioGenerationRunConfig(VersionedImmutableModel):
     """Record the immutable seed and protocol identity for one logical generation run."""
 
     schema_version: Literal["1.0.0"]
-    run_id: str = Field(pattern=r"^\d{8}T\d{12}Z$")
+    run_id: str = Field(pattern=r"^[a-z][a-z0-9_]*_v[1-9][0-9]*$")
     seed_version: Literal["v0.11.0"]
     generation_protocol_version: Literal["v0.10.1"]
     scenario_set_id: Literal["customer_facing_risk_communication_v0.11.0"]
@@ -62,10 +62,10 @@ class ScenarioGenerationRunConfig(VersionedImmutableModel):
         return validate_sha256(value)
 
     @model_validator(mode="after")
-    def validate_run_timestamp(self) -> "ScenarioGenerationRunConfig":
-        """Bind the sortable run identifier to its exact UTC creation timestamp."""
-        if self.created_at.tzinfo is None or self.created_at.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ") != self.run_id:
-            raise ValueError("run_id must equal the UTC created_at timestamp")
+    def validate_run_creation(self) -> "ScenarioGenerationRunConfig":
+        """Require one timezone-aware creation timestamp for the named run."""
+        if self.created_at.tzinfo is None:
+            raise ValueError("run created_at must be timezone-aware")
         return self
 
 
@@ -73,7 +73,7 @@ class ScenarioGenerationInvocationConfig(VersionedImmutableModel):
     """Record one resumable command invocation within a logical generation run."""
 
     schema_version: Literal["1.0.0"]
-    run_id: str = Field(pattern=r"^\d{8}T\d{12}Z$")
+    run_id: str = Field(pattern=r"^[a-z][a-z0-9_]*_v[1-9][0-9]*$")
     invocation_id: str = Field(pattern=r"^\d{8}T\d{12}Z$")
     stage: ScenarioStage
     scenario_ids: List[str] = Field(min_length=1, max_length=10)

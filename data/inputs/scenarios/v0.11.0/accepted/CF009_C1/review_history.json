@@ -1,0 +1,114 @@
+{
+  "schema_version": "3.0.0",
+  "scenario_id": "CF009_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF009_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "a0eb769a0731579d6191bb1588873ba57f0783a09ae8f4c18a90415d5f81c5d2",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "fe14c1afea180b26b36681d8453deb6d76ab233b4bb562a190b9f1fad52ee4a2",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785090156-UdFiDPuOiUCJ6lZMX5II",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 3000,
+          "output_tokens": 45,
+          "total_tokens": 3045,
+          "cost_credits": "0.003225",
+          "upstream_inference_cost": "0.003225"
+        },
+        "request_sha256": "41f7beeabc1e9a468f8a6c52f0ea7be736127236d85e5cc4f10aa1aca7585b3c",
+        "response_sha256": "e1831986532d7019a336e41acb27886d9206ee6d6c75ca03eded5f04650bac8b",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-26T18:22:38.094819Z"
+    }
+  ],
+  "revisions": [],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "review_id": "CF009_C1_REVIEW_V1",
+      "anonymised_item_id": "ITEM_245E4B2AD952",
+      "scenario_id": "CF009_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF009_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 13,
+            "side_b": 14
+          },
+          "numeric_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "-1.591",
+            "side_b": "11.13"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        },
+        {
+          "pair_id": "CF009_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 19,
+            "side_b": 18
+          },
+          "numeric_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 1
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "38.485",
+            "side_b": "-12.275"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        }
+      ],
+      "specificity_elements": [],
+      "reviewed_artifact_sha256": "a0eb769a0731579d6191bb1588873ba57f0783a09ae8f4c18a90415d5f81c5d2",
+      "reviewed_at": "2026-07-26T19:07:28.736897Z",
+      "researcher_id": "imanzafar",
+      "notes": ""
+    }
+  ]
+}

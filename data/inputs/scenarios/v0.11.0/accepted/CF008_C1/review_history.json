@@ -1,0 +1,127 @@
+{
+  "schema_version": "3.0.0",
+  "scenario_id": "CF008_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF008_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "9b2dabc6ae31cc8790a87a434e4d4c8fa3c002361a92fd3995e61093d2677037",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "fe14c1afea180b26b36681d8453deb6d76ab233b4bb562a190b9f1fad52ee4a2",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785090150-X9qcksQTdtDWSyhcB1da",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 3012,
+          "output_tokens": 45,
+          "total_tokens": 3057,
+          "cost_credits": "0.003237",
+          "upstream_inference_cost": "0.003237"
+        },
+        "request_sha256": "b23e6960ae21518f14c287c82697085cdf5f3988a6ce6b9124429d98b7f80fe5",
+        "response_sha256": "11e18c151a5c346c1b5fa775005aed690f4e093bb5fbb46e855f357e156058c0",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-26T18:22:35.185701Z"
+    }
+  ],
+  "revisions": [],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "review_id": "CF008_C1_REVIEW_V1",
+      "anonymised_item_id": "ITEM_AB0EC416F492",
+      "scenario_id": "CF008_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF008_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 22,
+            "side_b": 15
+          },
+          "numeric_burden": {
+            "side_a": 0,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "43.716",
+            "side_b": "23.425"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        },
+        {
+          "pair_id": "CF008_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 18,
+            "side_b": 16
+          },
+          "numeric_burden": {
+            "side_a": 0,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "22.803",
+            "side_b": "46.942"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        }
+      ],
+      "specificity_elements": [
+        {
+          "element_id": "CF008_C1_F1_S1",
+          "fact_id": "CF008_C1_F1",
+          "canonical_value": "age 55",
+          "acceptable_paraphrases": []
+        },
+        {
+          "element_id": "CF008_C1_F3_S1",
+          "fact_id": "CF008_C1_F3",
+          "canonical_value": "0.40%",
+          "acceptable_paraphrases": []
+        }
+      ],
+      "reviewed_artifact_sha256": "9b2dabc6ae31cc8790a87a434e4d4c8fa3c002361a92fd3995e61093d2677037",
+      "reviewed_at": "2026-07-26T19:03:27.498149Z",
+      "researcher_id": "imanzafar",
+      "notes": ""
+    }
+  ]
+}
