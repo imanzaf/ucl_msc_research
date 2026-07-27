@@ -32,6 +32,7 @@ COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
             "Record explicit ample-pilot cost approval.",
         ),
         "run-ample-pilot": Command("src.cli.commands.calibration.run_ample_pilot", "Run the ample-condition pilot."),
+        "run-c1": Command("src.cli.commands.calibration.run_c1", "Run or resume the one-model C1 2×2 diagnostic."),
         "build-plan": Command("src.cli.commands.calibration.build_plan", "Build the calibration run plan."),
         "run": Command("src.cli.commands.calibration.run", "Run the calibration experiment."),
         "assets": Command("src.cli.commands.calibration.assets", "Generate calibration paper assets."),
@@ -58,6 +59,7 @@ COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
     },
     "scoring": {
         "build-manifest": Command("src.cli.commands.scoring.build_manifest", "Build the scoring execution manifest."),
+        "run-c1": Command("src.cli.commands.scoring.run_c1", "Score the one-model C1 2×2 diagnostic."),
         "run": Command("src.cli.commands.scoring.run", "Score experiment outputs."),
         "resolve-manual": Command("src.cli.commands.scoring.resolve_manual", "Resolve records routed to manual scoring."),
         "validate": Command("src.cli.commands.scoring.validate", "Build the scoring validation report."),

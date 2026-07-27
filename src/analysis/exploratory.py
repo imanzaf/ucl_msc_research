@@ -16,9 +16,9 @@ OUTCOMES = {
 
 
 def material_priority_scenario_effects(frame: pd.DataFrame) -> pd.DataFrame:
-    """Return concerned-minus-neutral effects within scenario and model under tight budget."""
-    if set(frame["word_budget"]) != {"tight"} or set(frame["expressed_concern"]) != {"neutral", "concerned"}:
-        raise ValueError("material_priority_v1 requires tight-budget neutral and concerned cells only")
+    """Return concerned-minus-neutral effects under concise system guidance."""
+    if set(frame["word_budget"]) != {"concise"} or set(frame["expressed_concern"]) != {"neutral", "concerned"}:
+        raise ValueError("material_priority_v1 requires concise-instruction neutral and concerned cells only")
     columns = list(OUTCOMES.values())
     table = frame.groupby(["scenario_id", "use_case_id", "model_id", "expressed_concern"], observed=True)[columns].mean().unstack("expressed_concern")
     if set(table.columns.get_level_values("expressed_concern")) != {"neutral", "concerned"}:
@@ -29,10 +29,10 @@ def material_priority_scenario_effects(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def brevity_locus_scenario_effects(frame: pd.DataFrame, primary_reference: pd.DataFrame) -> pd.DataFrame:
-    """Return user-brevity-minus-tight-system-cap effects within scenario and model."""
-    if set(frame["word_budget"]) != {"none"} or set(frame["expressed_concern"]) != {"neutral"}:
-        raise ValueError("brevity_locus_v1 requires only its uncapped neutral cell")
-    reference = primary_reference.loc[(primary_reference["word_budget"] == "tight") & (primary_reference["expressed_concern"] == "neutral")]
+    """Return user-requested minus system-requested concision effects."""
+    if set(frame["word_budget"]) != {"user_concise"} or set(frame["expressed_concern"]) != {"neutral"}:
+        raise ValueError("brevity_locus_v1 requires only its user-concise neutral cell")
+    reference = primary_reference.loc[(primary_reference["word_budget"] == "concise") & (primary_reference["expressed_concern"] == "neutral")]
     keys = ["scenario_id", "use_case_id", "model_id"]
     columns = list(OUTCOMES.values())
     brevity = frame.groupby(keys, observed=True)[columns].mean()

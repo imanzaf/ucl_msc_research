@@ -1,5 +1,15 @@
 {
   "$defs": {
+    "ConcisionCondition": {
+      "description": "Identify whether the evaluated system prompt requests concise answers.",
+      "enum": [
+        "baseline",
+        "concise",
+        "user_concise"
+      ],
+      "title": "ConcisionCondition",
+      "type": "string"
+    },
     "ConversationMetrics": {
       "additionalProperties": false,
       "description": "Store the frozen composite, domains, pair gaps, and descriptive diagnostics.",
@@ -817,16 +827,6 @@
       ],
       "title": "FirstMentionedEvidence",
       "type": "string"
-    },
-    "WordBudgetCondition": {
-      "description": "Identify the assigned response-length condition.",
-      "enum": [
-        "ample",
-        "tight",
-        "none"
-      ],
-      "title": "WordBudgetCondition",
-      "type": "string"
     }
   },
   "additionalProperties": false,
@@ -878,7 +878,7 @@
       "type": "string"
     },
     "word_budget": {
-      "$ref": "#/$defs/WordBudgetCondition"
+      "$ref": "#/$defs/ConcisionCondition"
     }
   },
   "required": [

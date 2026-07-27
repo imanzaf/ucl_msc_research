@@ -15,7 +15,9 @@ from src.data_models.scoring import (
     ConversationMetrics,
     EvaluationCheckpoint,
     FactAssessmentResult,
+    ResponseCommunicationJudgment,
     ResponseCommunicationResult,
+    ResponseSpan,
     ScoringTranscriptTurn,
 )
 from src.scenarios.fact_rendering import render_visible_facts, visible_facts_sha256
@@ -37,6 +39,42 @@ class ConditionBlindScoringBackend(Protocol):
     def assess_claims(self, scoring_input: ConditionBlindScoringInput) -> ClaimAssessmentResult:
         """Assess false and unsupported claims against visible evidence."""
         ...
+
+
+def _response_spans_overlap(left: ResponseSpan, right: ResponseSpan) -> bool:
+    """Return whether two exact spans overlap within one assistant turn."""
+    return left.turn_index == right.turn_index and left.start_char < right.end_char and right.start_char < left.end_char
+
+
+def reconcile_other_supported_content_spans(
+    response_result: ResponseCommunicationResult,
+    fact_result: FactAssessmentResult,
+    claim_result: ClaimAssessmentResult,
+) -> ResponseCommunicationResult:
+    """Remove spans that an independent contract already assigns to material facts or claim errors."""
+    reconciled_judgments: List[ResponseCommunicationJudgment] = []
+    changed = False
+    for response_judgment in response_result.judgments:
+        occupied = [
+            span
+            for fact_judgment in fact_result.judgments
+            if fact_judgment.checkpoint == response_judgment.checkpoint
+            for span in fact_judgment.response_spans
+        ]
+        occupied.extend(claim.claim_span for claim in claim_result.claims if claim.checkpoint == response_judgment.checkpoint)
+        retained = [
+            span
+            for span in response_judgment.other_supported_content_spans
+            if not any(_response_spans_overlap(span, occupied_span) for occupied_span in occupied)
+        ]
+        changed = changed or retained != response_judgment.other_supported_content_spans
+        reconciled_judgments.append(response_judgment.model_copy(update={"other_supported_content_spans": retained}))
+    if not changed:
+        return response_result
+    provider_call = response_result.provider_call
+    if provider_call is not None and not provider_call.response_repaired:
+        provider_call = provider_call.model_copy(update={"response_repaired": True})
+    return response_result.model_copy(update={"judgments": reconciled_judgments, "provider_call": provider_call})
 
 
 def build_condition_blind_input(
@@ -112,6 +150,7 @@ def score_condition_blind_input(
     fact_result = backend.assess_facts(scoring_input)
     response_result = backend.assess_response(scoring_input)
     claim_result = backend.assess_claims(scoring_input)
+    response_result = reconcile_other_supported_content_spans(response_result, fact_result, claim_result)
     validate_scoring_results(scoring_input, transcript, fact_result, response_result, claim_result)
     metrics = [
         compute_conversation_metrics(

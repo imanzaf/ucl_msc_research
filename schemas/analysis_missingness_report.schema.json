@@ -16,7 +16,7 @@
       "description": "Describe one preregistered run unit missing after provider retries.",
       "properties": {
         "cell_id": {
-          "pattern": "^(primary|material_priority|brevity_locus)__(ample|tight|none)__(neutral|concerned)$",
+          "pattern": "^(primary|material_priority|brevity_locus)__(baseline|concise|user_concise)__(neutral|concerned)$",
           "title": "Cell Id",
           "type": "string"
         },

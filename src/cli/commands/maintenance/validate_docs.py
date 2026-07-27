@@ -1,4 +1,4 @@
-"""Offline documentation smoke checks for current commands and required runbooks."""
+"""Offline documentation smoke checks for current commands and stable workflows."""
 
 from __future__ import annotations
 
@@ -15,28 +15,24 @@ ACTIVE_DOCS = [REPO_ROOT / "README.md", *sorted((REPO_ROOT / "docs/experiments")
 def documented_cli_commands() -> List[Tuple[str, str]]:
     """Extract unified CLI commands referenced by active Markdown examples."""
     commands: List[Tuple[str, str]] = []
-    pattern = re.compile(r"uv run risk-comm\s+([a-z-]+)\s+([a-z-]+)")
+    pattern = re.compile(r"uv run risk-comm\s+([a-z0-9-]+)\s+([a-z0-9-]+)")
     for document in ACTIVE_DOCS:
         commands.extend(pattern.findall(document.read_text(encoding="utf-8")))
     return commands
 
 
 def main(argv: Optional[List[str]] = None) -> None:
-    """Require active runbooks and every documented unified CLI command to exist."""
+    """Require active workflow guides and every documented unified CLI command to exist."""
     argparse.ArgumentParser().parse_args(argv)
     required_documents = [
         REPO_ROOT / "CHANGELOG.md",
         REPO_ROOT / "docs/research-plan/RESEARCH_PLAN.md",
         REPO_ROOT / "docs/archive/REFERENCE_AUDIT.md",
-        REPO_ROOT / "docs/experiments/scenario_generation_v0_10_1.md",
+        REPO_ROOT / "docs/experiments/scenario_workflow.md",
         REPO_ROOT / "docs/experiments/scenario_research.md",
-        REPO_ROOT / "docs/experiments/review_and_annotation.md",
-        REPO_ROOT / "docs/experiments/scoring.md",
-        REPO_ROOT / "docs/experiments/calibration.md",
+        REPO_ROOT / "docs/experiments/experiment_execution.md",
+        REPO_ROOT / "docs/experiments/scoring_and_validation.md",
         REPO_ROOT / "docs/experiments/analysis.md",
-        REPO_ROOT / "docs/experiments/risk_comm_v1.md",
-        REPO_ROOT / "docs/experiments/material_priority_v1.md",
-        REPO_ROOT / "docs/experiments/brevity_locus_v1.md",
     ]
     missing = [str(path.relative_to(REPO_ROOT)) for path in required_documents if not path.exists()]
     unknown_commands = [

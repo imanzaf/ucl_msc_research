@@ -34,7 +34,7 @@ def _write_plan(
     scenarios = load_accepted_evaluation_scenarios(accepted_root, accepted_manifest)
     created_at = datetime.now(timezone.utc)
     if experiment_name == ExperimentName.MATERIAL_PRIORITY_V1:
-        units = build_material_priority_run_plan(scenarios, manifest.evaluated_models, budget_manifest, manifest.randomisation_seed, created_at)
+        units = build_material_priority_run_plan(scenarios, manifest.evaluated_models, manifest.randomisation_seed, created_at)
         cell_count = 2
     else:
         units = build_brevity_locus_run_plan(scenarios, manifest.evaluated_models, manifest.randomisation_seed, created_at)

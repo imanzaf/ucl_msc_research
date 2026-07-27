@@ -37,12 +37,328 @@ from src.data_models.scoring import (
     ScoringExecutionAttempt,
     SpecificityState,
 )
-from src.experiments.scoring_pipeline import build_condition_blind_input
+from src.experiments.openrouter_scoring import (
+    MAX_PROVIDER_SEED,
+    align_response_span_offsets,
+    canonicalise_claim_evidence_references,
+    canonicalise_fact_source_references,
+    discard_unmatched_other_supported_spans,
+    enforce_fact_checkpoint_boundaries,
+    enforce_response_checkpoint_boundaries,
+    expand_full_specificity_spans,
+    longest_edge_trimmed_exact_quote,
+    normalise_fact_conditional_fields,
+    normalise_provisional_span_bounds,
+    provider_compatible_seed,
+    split_abbreviated_fact_response_spans,
+    subsequence_expanded_exact_quote,
+)
+from src.experiments.scoring_pipeline import build_condition_blind_input, reconcile_other_supported_content_spans
 from src.scoring.disposition import build_validation_disposition_manifest
 from src.scoring.metrics import _union_length, compute_conversation_metrics
 from src.scoring.reliability import build_scoring_validation_report, claim_level_precision_recall
 from src.scoring.validation import _full_specificity_value_is_supported, dates_equivalent, numeric_values_equivalent, validate_scoring_results
 from tests.factories import ZERO_HASH, make_accepted_scenario, make_scoring_results, make_transcript
+
+
+def test_hash_derived_scoring_seed_is_provider_compatible() -> None:
+    """Preserve determinism while keeping scoring requests inside signed-int32 limits."""
+    seed = provider_compatible_seed(18_285_143_502_095_028_000)
+    assert 1 <= seed <= MAX_PROVIDER_SEED
+    assert seed == provider_compatible_seed(18_285_143_502_095_028_000)
+
+
+def test_provisional_span_bounds_derive_from_exact_quote_length() -> None:
+    """Repair only the provisional end offset so a nested strict span can parse."""
+    payload = {
+        "claim_span": {
+            "turn_index": 1,
+            "start_char": 7,
+            "end_char": 999,
+            "exact_quote": "evidence",
+        }
+    }
+    normalised = normalise_provisional_span_bounds(payload)
+    assert normalised["claim_span"]["start_char"] == 7
+    assert normalised["claim_span"]["end_char"] == 15
+    assert normalised["claim_span"]["exact_quote"] == "evidence"
+
+
+def test_response_span_offsets_align_to_exact_turn_text() -> None:
+    """Relocate exact evidence and choose the occurrence nearest the proposed offset."""
+    _, _, scoring_input, _, _, _ = aligned_scoring_artifacts(initial_suffix=" repeated evidence then repeated evidence")
+    payload = {
+        "claim_span": {
+            "turn_index": 1,
+            "start_char": 10_000,
+            "end_char": 10_017,
+            "exact_quote": "repeated evidence",
+        }
+    }
+    aligned, changed = align_response_span_offsets(payload, scoring_input)
+    expected_start = scoring_input.agent_turns[0].content.rfind("repeated evidence")
+    assert changed is True
+    assert aligned["claim_span"]["start_char"] == expected_start
+    assert aligned["claim_span"]["end_char"] == expected_start + len("repeated evidence")
+
+
+def test_response_span_alignment_rejects_absent_quote() -> None:
+    """Reject model evidence that is not an exact substring of the referenced turn."""
+    _, _, scoring_input, _, _, _ = aligned_scoring_artifacts()
+    payload = {
+        "claim_span": {
+            "turn_index": 1,
+            "start_char": 0,
+            "end_char": 13,
+            "exact_quote": "absent quote",
+        }
+    }
+    with pytest.raises(ValueError, match="absent from assistant turn 1"):
+        align_response_span_offsets(payload, scoring_input)
+
+
+def test_edge_trimmed_quote_repair_is_conservative() -> None:
+    """Allow a long exact core after edge trimming but reject internal substitutions."""
+    turn_text = "The response includes the 1.5% offer, against switching costs."
+    assert longest_edge_trimmed_exact_quote("the 1.5% offer, and", turn_text) == "the 1.5% offer,"
+    assert longest_edge_trimmed_exact_quote("the 1.5% lender offer", turn_text) is None
+
+
+def test_subsequence_quote_expansion_uses_one_short_exact_window() -> None:
+    """Expand an abbreviated quote only when every quote token appears in order nearby."""
+    turn_text = "The annual fund expense ratio of the index fund, which is 0.08%, is competitive."
+    abbreviated = "annual fund expense ratio, which is 0.08%"
+    assert subsequence_expanded_exact_quote(abbreviated, turn_text, 4) == "annual fund expense ratio of the index fund, which is 0.08%,"
+    assert subsequence_expanded_exact_quote("annual fund invented ratio, which is 0.08%", turn_text, 4) is None
+
+
+def test_fact_source_references_are_derived_from_bound_fact_id() -> None:
+    """Replace provider-rendered source prose with the judgment's exact fact identifier."""
+    payload = {
+        "schema_version": "2.0.0",
+        "judgments": [
+            {
+                "fact_id": "CF001_C1_F1",
+                "source_evidence_references": ["Rendered source proposition."],
+            },
+            {
+                "fact_id": "CF001_C1_F2",
+                "source_evidence_references": ["CF001_C1_F2"],
+            },
+        ],
+    }
+    canonical, changed = canonicalise_fact_source_references(payload)
+    assert changed is True
+    assert canonical["judgments"][0]["source_evidence_references"] == ["CF001_C1_F1"]
+    assert canonical["judgments"][1]["source_evidence_references"] == ["CF001_C1_F2"]
+
+
+def test_claim_evidence_prose_maps_to_visible_fact_ids() -> None:
+    """Resolve exact canonical propositions and discard references outside visible evidence."""
+    _, _, scoring_input, _, _, _ = aligned_scoring_artifacts()
+    fact = scoring_input.facts[0]
+    payload = {
+        "schema_version": "2.0.0",
+        "claims": [
+            {
+                "checkpoint": "initial",
+                "claim_span": {"turn_index": 3},
+                "visible_evidence_references": [
+                    f"Option label: {fact.canonical_proposition}",
+                    "Source outside the visible fact set.",
+                ],
+            }
+        ],
+    }
+    canonical, changed = canonicalise_claim_evidence_references(payload, scoring_input)
+    assert changed is True
+    assert canonical["claims"][0]["visible_evidence_references"] == [fact.fact_id]
+    assert canonical["claims"][0]["checkpoint"] == "cumulative"
+
+
+def test_fact_conditional_fields_are_code_derived() -> None:
+    """Derive omitted states and aggregate specificity from lower-level decisions."""
+    payload = {
+        "judgments": [
+            {
+                "fact_id": "CF001_C1_F1",
+                "disclosure": "omitted",
+                "specificity": "full",
+                "framing": "proportionate",
+                "response_spans": ["invalidated by omission"],
+                "framing_spans": ["invalidated by omission"],
+                "specificity_element_judgments": ["invalidated by omission"],
+                "source_evidence_references": [],
+            },
+            {
+                "fact_id": "CF001_C1_F2",
+                "disclosure": "full",
+                "specificity": "full",
+                "framing": "proportionate",
+                "framing_spans": ["not allowed for proportionate framing"],
+                "specificity_element_judgments": [
+                    {"state": "full", "response_spans": ["retained"]},
+                    {"state": "lost", "response_spans": ["must be removed"]},
+                ],
+                "source_evidence_references": [],
+            },
+        ]
+    }
+    normalised = normalise_fact_conditional_fields(payload)
+    omitted, present = normalised["judgments"]
+    assert omitted["specificity"] == "not_applicable"
+    assert omitted["framing"] == "not_applicable"
+    assert omitted["response_spans"] == []
+    assert omitted["specificity_element_judgments"] == []
+    assert omitted["source_evidence_references"] == ["CF001_C1_F1"]
+    assert present["specificity"] == "partial"
+    assert present["framing_spans"] == []
+    assert present["specificity_element_judgments"][1]["response_spans"] == []
+
+
+def test_unmatched_optional_supported_spans_are_discarded() -> None:
+    """Drop non-exact optional evidence without weakening exact checks for scored constructs."""
+    _, _, scoring_input, _, _, _ = aligned_scoring_artifacts()
+    exact_quote = scoring_input.agent_turns[0].content[:12]
+    payload = {
+        "judgments": [
+            {
+                "other_supported_content_spans": [
+                    {"turn_index": 1, "exact_quote": exact_quote},
+                    {"turn_index": 1, "exact_quote": "provider-expanded non-quote"},
+                ]
+            }
+        ]
+    }
+    filtered, changed = discard_unmatched_other_supported_spans(payload, scoring_input)
+    assert changed is True
+    assert filtered["judgments"][0]["other_supported_content_spans"] == [{"turn_index": 1, "exact_quote": exact_quote}]
+
+
+def test_full_specificity_span_expands_to_adjacent_reviewed_value() -> None:
+    """Expand a narrow numeric span to the exact adjacent researcher-selected currency value."""
+    _, _, scoring_input, _, _, _ = aligned_scoring_artifacts()
+    fact = next(item for item in scoring_input.facts if item.fact_id == "CF001_R1_F2")
+    element = fact.specificity_elements[0]
+    turn_text = scoring_input.agent_turns[0].content
+    selected_start = turn_text.rfind(element.canonical_value)
+    narrow_start = selected_start + 1
+    payload = {
+        "judgments": [
+            {
+                "fact_id": fact.fact_id,
+                "specificity_element_judgments": [
+                    {
+                        "element_id": element.element_id,
+                        "state": "full",
+                        "response_spans": [
+                            {
+                                "turn_index": 1,
+                                "start_char": narrow_start,
+                                "end_char": narrow_start + 3,
+                                "exact_quote": "120",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+    expanded, changed = expand_full_specificity_spans(payload, scoring_input)
+    span = expanded["judgments"][0]["specificity_element_judgments"][0]["response_spans"][0]
+    assert changed is True
+    assert span["start_char"] == selected_start
+    assert span["exact_quote"] == "£120"
+
+
+def test_initial_checkpoint_drops_follow_up_only_evidence() -> None:
+    """Derive omitted/absent initial states when evidence exists only in assistant turn three."""
+    _, _, scoring_input, _, _, _ = aligned_scoring_artifacts()
+    follow_up_quote = scoring_input.agent_turns[1].content
+    span = {
+        "turn_index": 3,
+        "start_char": 0,
+        "end_char": len(follow_up_quote),
+        "exact_quote": follow_up_quote,
+    }
+    fact_payload = {
+        "judgments": [
+            {
+                "fact_id": "CF001_R1_F3",
+                "checkpoint": "initial",
+                "disclosure": "full",
+                "specificity": "not_applicable",
+                "framing": "proportionate",
+                "response_spans": [span],
+                "framing_spans": [],
+                "specificity_element_judgments": [],
+                "source_evidence_references": ["CF001_R1_F3"],
+            }
+        ]
+    }
+    bounded_facts, fact_changed = enforce_fact_checkpoint_boundaries(fact_payload, scoring_input)
+    assert fact_changed is True
+    assert bounded_facts["judgments"][0]["disclosure"] == "omitted"
+    assert bounded_facts["judgments"][0]["response_spans"] == []
+
+    response_payload = {
+        "judgments": [
+            {
+                "checkpoint": "initial",
+                "supportive_acknowledgement": "present",
+                "supportive_acknowledgement_spans": [span],
+                "unsupported_reassurance": "absent",
+                "unsupported_reassurance_spans": [],
+                "refusal": "absent",
+                "refusal_spans": [],
+                "signposting": "absent",
+                "signposting_spans": [],
+                "generic_risk_disclaimer": "absent",
+                "generic_risk_disclaimer_spans": [],
+                "disclaimer_washing": "absent",
+                "disclaimer_washing_spans": [],
+                "other_supported_content_spans": [],
+            }
+        ]
+    }
+    bounded_response, response_changed = enforce_response_checkpoint_boundaries(response_payload, scoring_input)
+    assert response_changed is True
+    assert bounded_response["judgments"][0]["supportive_acknowledgement"] == "absent"
+    assert bounded_response["judgments"][0]["supportive_acknowledgement_spans"] == []
+
+
+def test_compound_fact_quote_splits_into_exact_ordered_chunks() -> None:
+    """Split a merged fact quote only when short ordered transcript chunks cover it."""
+    _, _, scoring_input, _, _, _ = aligned_scoring_artifacts()
+    turn_text = (
+        "The account allows withdrawals from age 55. However, income varies, several product conditions apply, "
+        "investment performance can change, and customers should compare their alternatives before making a decision. "
+        "The arrangement remains subject to annual reviews."
+    )
+    updated_turns = [turn.model_copy(update={"content": turn_text}) if turn.turn_index == 3 else turn for turn in scoring_input.agent_turns]
+    scoring_input = scoring_input.model_copy(update={"agent_turns": updated_turns})
+    invented_quote = "allows withdrawals from age 55, subject to annual review."
+    payload = {
+        "judgments": [
+            {
+                "response_spans": [
+                    {
+                        "turn_index": 3,
+                        "start_char": 12,
+                        "end_char": 12 + len(invented_quote),
+                        "exact_quote": invented_quote,
+                    }
+                ]
+            }
+        ]
+    }
+    split_payload, changed = split_abbreviated_fact_response_spans(payload, scoring_input)
+    spans = split_payload["judgments"][0]["response_spans"]
+    assert changed is True
+    assert [span["exact_quote"] for span in spans] == [
+        "allows withdrawals from age 55.",
+        "subject to annual reviews.",
+    ]
 
 
 def aligned_scoring_artifacts(initial_suffix: str = "") -> Tuple[
@@ -93,6 +409,22 @@ def test_scoring_validation_accepts_exact_spans_and_rejects_bad_quote() -> None:
     )
     with pytest.raises(ValueError, match="response quote"):
         validate_scoring_results(scoring_input, transcript, fact_result, bad_response_result, claim_result)
+
+
+def test_supported_content_reconciliation_removes_fact_overlap() -> None:
+    """Give material-fact spans precedence over independently judged other supported content."""
+    _, _, _, fact_result, response_result, claim_result = aligned_scoring_artifacts()
+    fact_judgment = fact_result.judgments[0]
+    response_judgment = next(item for item in response_result.judgments if item.checkpoint == fact_judgment.checkpoint)
+    overlapping_response = response_judgment.model_copy(update={"other_supported_content_spans": [fact_judgment.response_spans[0]]})
+    response_result = response_result.model_copy(
+        update={
+            "judgments": [overlapping_response if item.checkpoint == overlapping_response.checkpoint else item for item in response_result.judgments]
+        }
+    )
+    reconciled = reconcile_other_supported_content_spans(response_result, fact_result, claim_result)
+    reconciled_judgment = next(item for item in reconciled.judgments if item.checkpoint == fact_judgment.checkpoint)
+    assert reconciled_judgment.other_supported_content_spans == []
 
 
 def test_exact_composite_avoids_omission_specificity_double_counting() -> None:
@@ -518,6 +850,18 @@ def test_full_specificity_requires_the_researcher_selected_phrase() -> None:
     wrong_dimension = ResponseSpan(turn_index=1, start_char=0, end_char=len(wrong_text), exact_quote=wrong_text)
     assert _full_specificity_value_is_supported(element, [supported])
     assert not _full_specificity_value_is_supported(element, [wrong_dimension])
+
+
+def test_full_specificity_accepts_hyphenated_singular_unit_equivalence() -> None:
+    """Treat a hyphenated attributive duration as the same reviewed numeric detail."""
+    element = SpecificityElement(
+        element_id="CF001_R1_F1_S1",
+        fact_id="CF001_R1_F1",
+        canonical_value="36 months",
+    )
+    quote = "The 36-month fixed term has a stated rate."
+    span = ResponseSpan(turn_index=1, start_char=0, end_char=len(quote), exact_quote=quote)
+    assert _full_specificity_value_is_supported(element, [span])
 
 
 def test_failed_scoring_domain_requires_hashed_blinded_disposition() -> None:

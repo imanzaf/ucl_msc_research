@@ -13,7 +13,7 @@ from src.data_models.common import ImmutableModel, VersionedImmutableModel, arti
 from src.data_models.experiments import FailureReason, ProviderCallProvenance
 from src.data_models.manifests import FreezeStatus
 from src.data_models.scenarios import DecisionAlignment, DecisionOption, FactPolarity, SpecificityElement
-from src.data_models.study import ExpressedConcernCondition, WordBudgetCondition
+from src.data_models.study import ConcisionCondition, ExpressedConcernCondition
 
 
 class EvaluationCheckpoint(str, Enum):
@@ -789,7 +789,7 @@ class MissingRunRecord(ImmutableModel):
     scenario_id: str = Field(pattern=r"^CF\d{3}_R[12]$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     model_id: str = Field(min_length=1)
-    cell_id: str = Field(pattern=r"^(primary|material_priority|brevity_locus)__(ample|tight|none)__(neutral|concerned)$")
+    cell_id: str = Field(pattern=r"^(primary|material_priority|brevity_locus)__(baseline|concise|user_concise)__(neutral|concerned)$")
     failure_reason: FailureReason
     transcript_sha256: str
     terminal_attempt_count: int = Field(ge=1)
@@ -850,7 +850,7 @@ class AnalysisInputRow(VersionedImmutableModel):
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     model_id: str = Field(min_length=1)
     cue_template_id: int = Field(ge=1, le=4)
-    word_budget: WordBudgetCondition
+    word_budget: ConcisionCondition
     expressed_concern: ExpressedConcernCondition
     metrics: ConversationMetrics
     transcript_sha256: str
@@ -888,7 +888,7 @@ class FactAnalysisInputRow(VersionedImmutableModel):
     disclosure_ordinal: int = Field(ge=0, le=2)
     model_id: str = Field(min_length=1)
     cue_template_id: int = Field(ge=1, le=4)
-    word_budget: WordBudgetCondition
+    word_budget: ConcisionCondition
     expressed_concern: ExpressedConcernCondition
     transcript_sha256: str
     scoring_result_sha256: str

@@ -25,14 +25,13 @@ from src.data_models.experiments import (
     TranscriptTurn,
     provider_request_sha256,
 )
-from src.data_models.manifests import C1EvaluationConfig, EvaluatedModelSnapshot, FreezeStatus, WordBudgetManifest
+from src.data_models.manifests import C1EvaluationConfig, EvaluatedModelSnapshot, WordBudgetManifest
 from src.data_models.prompt_controls import group_run_units_by_block, validate_assigned_cue, validate_prompt_factor_isolation
 from src.data_models.scenarios import AcceptedScenario
 from src.data_models.study import (
-    AMPLE_WORD_LIMIT,
+    DEFAULT_MAX_RESPONSE_TOKENS,
     ExperimentCell,
     ExperimentName,
-    WordBudgetCondition,
     brevity_locus_cells,
     material_priority_cells,
     primary_experiment_cells,
@@ -70,18 +69,10 @@ def _block_seed(global_seed: int, block_id: str) -> int:
     return int(sha256_bytes(f"{global_seed}:{block_id}".encode("utf-8"))[:16], 16)
 
 
-def _tight_limit_by_use_case(manifest: WordBudgetManifest) -> Dict[str, int]:
-    """Return frozen tight limits only after the budget manifest is valid."""
-    if manifest.freeze_status != FreezeStatus.FROZEN or not manifest.ample_pilot.passes():
-        raise ValueError("run planning requires a frozen word-budget manifest and passing ample-limit pilot")
-    return {budget.use_case_id: budget.tight_word_limit for budget in manifest.use_case_budgets}
-
-
 def _build_run_unit(
     scenario: AcceptedScenario,
     model: EvaluatedModelSnapshot,
     cell: ExperimentCell,
-    assigned_word_limit: Optional[int],
     global_randomisation_seed: int,
     block_id: str,
     block_randomisation_seed: int,
@@ -92,7 +83,7 @@ def _build_run_unit(
     initial_messages, follow_up, initial_hash, follow_up_hash = compile_experiment_prompt(
         scenario,
         cell,
-        assigned_word_limit,
+        None,
     )
     return RunUnit(
         schema_version="3.0.0",
@@ -104,7 +95,7 @@ def _build_run_unit(
         expected_model_version=model.returned_model_version,
         model_snapshot_sha256=artifact_sha256(model),
         cell=cell,
-        assigned_word_limit=assigned_word_limit,
+        assigned_word_limit=None,
         global_randomisation_seed=global_randomisation_seed,
         block_randomisation_seed=block_randomisation_seed,
         randomised_position=randomised_position,
@@ -120,16 +111,12 @@ def _build_run_unit(
 def build_run_plan(
     scenarios: Sequence[AcceptedScenario],
     models: Sequence[EvaluatedModelSnapshot],
-    budget_manifest: WordBudgetManifest,
     randomisation_seed: int,
     created_at: datetime,
 ) -> List[RunUnit]:
-    """Construct and randomise four primary cells per scenario–model block."""
-    tight_limits = _tight_limit_by_use_case(budget_manifest)
+    """Construct and randomise four primary prompt cells per scenario–model block."""
     run_units: List[RunUnit] = []
     for scenario in sorted(scenarios, key=lambda item: item.scenario_id):
-        if scenario.use_case_id not in tight_limits:
-            raise ValueError(f"missing frozen tight limit for {scenario.use_case_id}")
         for model in sorted(models, key=lambda item: item.model_id):
             block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id)
             block_randomisation_seed = _block_seed(randomisation_seed, block_id)
@@ -137,13 +124,11 @@ def build_run_plan(
             random.Random(block_randomisation_seed).shuffle(cells)
             block_units: List[RunUnit] = []
             for position, cell in enumerate(cells):
-                assigned_limit = AMPLE_WORD_LIMIT if cell.word_budget == WordBudgetCondition.AMPLE else tight_limits[scenario.use_case_id]
                 block_units.append(
                     _build_run_unit(
                         scenario,
                         model,
                         cell,
-                        assigned_limit,
                         randomisation_seed,
                         block_id,
                         block_randomisation_seed,
@@ -166,7 +151,6 @@ def _build_exploratory_run_plan(
     cells: Sequence[ExperimentCell],
     randomisation_seed: int,
     created_at: datetime,
-    tight_limits: Optional[Dict[str, int]] = None,
 ) -> List[RunUnit]:
     """Build a separately identified exploratory plan without paid execution."""
     run_units: List[RunUnit] = []
@@ -177,17 +161,10 @@ def _build_exploratory_run_plan(
             ordered_cells = list(cells)
             random.Random(block_randomisation_seed).shuffle(ordered_cells)
             for position, cell in enumerate(ordered_cells):
-                if cell.word_budget == WordBudgetCondition.TIGHT:
-                    if tight_limits is None or scenario.use_case_id not in tight_limits:
-                        raise ValueError(f"missing tight limit for {scenario.use_case_id}")
-                    assigned_limit: Optional[int] = tight_limits[scenario.use_case_id]
-                else:
-                    assigned_limit = None
                 run_unit = _build_run_unit(
                     scenario,
                     model,
                     cell,
-                    assigned_limit,
                     randomisation_seed,
                     block_id,
                     block_randomisation_seed,
@@ -202,18 +179,16 @@ def _build_exploratory_run_plan(
 def build_material_priority_run_plan(
     scenarios: Sequence[AcceptedScenario],
     models: Sequence[EvaluatedModelSnapshot],
-    budget_manifest: WordBudgetManifest,
     randomisation_seed: int,
     created_at: datetime,
 ) -> List[RunUnit]:
-    """Build all 120 tight-budget scenario–model–cue conversations."""
+    """Build all 120 concise-instruction scenario–model–cue conversations."""
     units = _build_exploratory_run_plan(
         scenarios,
         models,
         material_priority_cells(),
         randomisation_seed,
         created_at,
-        _tight_limit_by_use_case(budget_manifest),
     )
     validate_exploratory_run_plan(units, expected_count=120, expected_cells=2)
     return units
@@ -270,7 +245,7 @@ def validate_exploratory_plan_against_frozen_inputs(
         raise ValueError("exploratory run units must share one plan-creation timestamp")
     created_at = next(iter(created_at_values))
     if config.experiment_name == ExperimentName.MATERIAL_PRIORITY_V1:
-        rebuilt = build_material_priority_run_plan(scenarios, models, budget_manifest, config.randomisation_seed, created_at)
+        rebuilt = build_material_priority_run_plan(scenarios, models, config.randomisation_seed, created_at)
     else:
         rebuilt = build_brevity_locus_run_plan(scenarios, models, config.randomisation_seed, created_at)
     if [unit.model_dump(mode="json") for unit in units] != [unit.model_dump(mode="json") for unit in rebuilt]:
@@ -280,12 +255,10 @@ def validate_exploratory_plan_against_frozen_inputs(
 def build_calibration_run_plan(
     scenarios: Sequence[AcceptedScenario],
     models: Sequence[EvaluatedModelSnapshot],
-    budget_manifest: WordBudgetManifest,
     randomisation_seed: int,
     created_at: datetime,
 ) -> List[RunUnit]:
     """Construct the 120 calibration conversations across four primary cells."""
-    tight_limits = _tight_limit_by_use_case(budget_manifest)
     if len(scenarios) != 10 or any(not scenario.scenario_id.endswith("_C1") for scenario in scenarios):
         raise ValueError("calibration plan requires exactly the ten accepted C1 scenarios")
     run_units: List[RunUnit] = []
@@ -297,13 +270,11 @@ def build_calibration_run_plan(
             random.Random(block_randomisation_seed).shuffle(cells)
             block_units: List[RunUnit] = []
             for position, cell in enumerate(cells):
-                assigned_limit = AMPLE_WORD_LIMIT if cell.word_budget == WordBudgetCondition.AMPLE else tight_limits[scenario.use_case_id]
                 block_units.append(
                     _build_run_unit(
                         scenario,
                         model,
                         cell,
-                        assigned_limit,
                         randomisation_seed,
                         block_id,
                         block_randomisation_seed,
@@ -375,7 +346,6 @@ def validate_calibration_plan_against_frozen_inputs(
     rebuilt = build_calibration_run_plan(
         scenarios,
         models,
-        budget_manifest,
         global_randomisation_seed,
         next(iter(created_at_values)),
     )
@@ -386,7 +356,6 @@ def validate_calibration_plan_against_frozen_inputs(
 def build_c1_single_model_run_plan(
     scenarios: Sequence[AcceptedScenario],
     model: EvaluatedModelSnapshot,
-    tight_limits: Dict[str, int],
     randomisation_seed: int,
     created_at: datetime,
 ) -> List[RunUnit]:
@@ -395,8 +364,6 @@ def build_c1_single_model_run_plan(
         raise ValueError("single-model C1 planning requires exactly CF001_C1-CF010_C1")
     run_units: List[RunUnit] = []
     for scenario in sorted(scenarios, key=lambda item: item.scenario_id):
-        if scenario.use_case_id not in tight_limits:
-            raise ValueError(f"missing provisional tight limit for {scenario.use_case_id}")
         block_id = _short_identifier("BLOCK", scenario.scenario_id, model.model_id)
         block_randomisation_seed = _block_seed(randomisation_seed, block_id)
         cells = primary_experiment_cells()
@@ -406,7 +373,6 @@ def build_c1_single_model_run_plan(
                 scenario=scenario,
                 model=model,
                 cell=cell,
-                assigned_word_limit=AMPLE_WORD_LIMIT if cell.word_budget == WordBudgetCondition.AMPLE else tight_limits[scenario.use_case_id],
                 global_randomisation_seed=randomisation_seed,
                 block_id=block_id,
                 block_randomisation_seed=block_randomisation_seed,
@@ -474,7 +440,6 @@ def validate_c1_single_model_plan_against_inputs(
     rebuilt = build_c1_single_model_run_plan(
         scenarios=scenarios,
         model=config.evaluated_model,
-        tight_limits=config.provisional_tight_word_limits,
         randomisation_seed=config.randomisation_seed,
         created_at=config.created_at,
     )
@@ -552,14 +517,13 @@ def validate_run_plan_against_frozen_inputs(
     rebuilt = build_run_plan(
         scenarios=scenarios,
         models=models,
-        budget_manifest=budget_manifest,
         randomisation_seed=global_randomisation_seed,
         created_at=next(iter(created_at_values)),
     )
     observed_payload = [unit.model_dump(mode="json") for unit in units]
     rebuilt_payload = [unit.model_dump(mode="json") for unit in rebuilt]
     if observed_payload != rebuilt_payload:
-        raise ValueError("run plan is not the exact deterministic product of its frozen scenarios, models, budgets, prompts, and seed")
+        raise ValueError("run plan is not the exact deterministic product of its frozen scenarios, models, prompts, and seed")
 
 
 def _provider_messages(messages: Sequence[PromptMessage]) -> List[Dict[str, str]]:
@@ -676,7 +640,7 @@ def execute_run_unit(
 ) -> ConversationTranscript:
     """Execute initial and cue-free follow-up turns for one immutable run unit."""
     initial_messages = _provider_messages(run_unit.initial_request_messages)
-    max_tokens = max(512, (run_unit.assigned_word_limit or AMPLE_WORD_LIMIT) * 4)
+    max_tokens = DEFAULT_MAX_RESPONSE_TOKENS
     initial_response, initial_attempts = _call_with_retries(
         provider=provider,
         run_unit=run_unit,

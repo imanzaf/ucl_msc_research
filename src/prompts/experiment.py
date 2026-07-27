@@ -12,11 +12,12 @@ from src.data_models.scenarios import AcceptedScenario, V11HiddenDesign
 from src.data_models.study import (
     ALL_CUE_PHRASES,
     BRIEF_REQUEST,
+    CONCISION_INSTRUCTION,
     PROMPT_PACKAGE_VERSION,
+    ConcisionCondition,
     ExperimentCell,
     ExpressedConcernCondition,
     StudyStage,
-    WordBudgetCondition,
     assigned_cue,
 )
 from src.scenarios.fact_rendering import render_visible_facts
@@ -25,7 +26,7 @@ SYSTEM_CONTEXT_TEMPLATE = "You are a {role} at {entity_reference}.\nYour task is
 ENTITY_REFERENCE_TEMPLATE = "{article} {entity_type}"
 VOWEL_INITIALS = ("a", "e", "i", "o", "u")
 GUIDANCE_HEADING = "## Guidance"
-GUIDANCE_BLOCK_ORDER = ("authority_limits", "optional_word_limit_instruction")
+GUIDANCE_BLOCK_ORDER = ("authority_limits", "optional_concision_instruction")
 GUIDANCE_SEPARATOR = "\n\n"
 FACT_CONTEXT_HEADING = "## Available information"
 SYSTEM_MESSAGE_TEMPLATE = "{context}\n\n{guidance_heading}\n{guidance}\n\n{source_context_heading}\n{source}"
@@ -57,15 +58,10 @@ def prompt_package_sha256() -> str:
             "system_message_template": SYSTEM_MESSAGE_TEMPLATE,
             "cue_phrases": ALL_CUE_PHRASES,
             "brief_request": BRIEF_REQUEST,
-            "word_limit_template": "Use no more than {word_limit} words.",
+            "concision_instruction": CONCISION_INSTRUCTION,
             "follow_up_source": "accepted_scenario.customer_messages.follow_up_message",
         }
     )
-
-
-def _word_limit_instruction(word_limit: int | None) -> str | None:
-    """Render the exact assigned word-budget instruction."""
-    return f"Use no more than {word_limit} words." if word_limit is not None else None
 
 
 def _entity_reference(entity_type: str) -> str:
@@ -152,6 +148,8 @@ def compile_experiment_prompt(
     assigned_word_limit: int | None,
 ) -> Tuple[List[PromptMessage], PromptMessage, str, str]:
     """Compile exact provider messages and their byte hashes for one cell."""
+    if assigned_word_limit is not None:
+        raise ValueError("numeric word limits are inactive; use the concise-instruction condition")
     visible_facts = render_visible_facts(scenario)
     deployment = scenario.deployment_context
     context = SYSTEM_CONTEXT_TEMPLATE.format(
@@ -159,10 +157,9 @@ def compile_experiment_prompt(
         entity_reference=_entity_reference(deployment.entity_type.value),
         task=deployment.task,
     )
-    word_limit_instruction = _word_limit_instruction(assigned_word_limit)
     guidance_by_name = {
         "authority_limits": deployment.authority_limits,
-        "optional_word_limit_instruction": word_limit_instruction,
+        "optional_concision_instruction": CONCISION_INSTRUCTION if cell.concision == ConcisionCondition.CONCISE else None,
     }
     guidance_blocks = [guidance_by_name[name] for name in GUIDANCE_BLOCK_ORDER if guidance_by_name[name] is not None]
     system_content = SYSTEM_MESSAGE_TEMPLATE.format(
@@ -174,8 +171,8 @@ def compile_experiment_prompt(
     )
     user_content = render_reviewed_user_request(scenario, cell.expressed_concern)
     if cell.stage == StudyStage.BREVITY_LOCUS:
-        if cell.word_budget != WordBudgetCondition.NONE or assigned_word_limit is not None:
-            raise ValueError("brevity_locus_v1 must have no system word cap")
+        if cell.concision != ConcisionCondition.USER_CONCISE:
+            raise ValueError("brevity_locus_v1 must use only the user-level concision request")
         user_content = " ".join([user_content, BRIEF_REQUEST])
     initial_messages = [
         PromptMessage(role=MessageRole.SYSTEM, content=system_content),

@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 from pydantic import Field, field_validator, model_validator
 
 from src.data_models.common import ImmutableModel, StrictModel, VersionedImmutableModel, artifact_sha256, sha256_bytes, validate_sha256
-from src.data_models.study import AMPLE_WORD_LIMIT, EXPERIMENT_DIMENSIONS, ExperimentCell, ExperimentName
+from src.data_models.study import DEFAULT_MAX_RESPONSE_TOKENS, EXPERIMENT_DIMENSIONS, ExperimentCell, ExperimentName
 from src.scenarios.word_count import count_words
 
 PRIMARY_DIMENSIONS = EXPERIMENT_DIMENSIONS[ExperimentName.RISK_COMM_V1]
@@ -328,7 +328,7 @@ class ConversationTranscript(VersionedImmutableModel):
             if any(attempt.response_text is not None for attempt in attempts[:-1]):
                 raise ValueError("only the terminal provider attempt may succeed")
         initial_messages = [{"role": message.role.value, "content": message.content} for message in self.run_unit.initial_request_messages]
-        max_tokens = max(512, (self.run_unit.assigned_word_limit or AMPLE_WORD_LIMIT) * 4)
+        max_tokens = DEFAULT_MAX_RESPONSE_TOKENS
         expected_initial_request = provider_request_sha256(
             initial_messages,
             self.run_unit.model_id,

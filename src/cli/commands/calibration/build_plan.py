@@ -74,7 +74,7 @@ def main() -> None:
         created_at=created_at,
     )
     write_model_json_atomic(experiment_dir / "config.json", config)
-    run_units = build_calibration_run_plan(scenarios, calibration.evaluated_models, budget, calibration.randomisation_seed, created_at)
+    run_units = build_calibration_run_plan(scenarios, calibration.evaluated_models, calibration.randomisation_seed, created_at)
     output = experiment_dir / "checkpoints/run_plan.jsonl"
     write_models_jsonl_atomic(output, run_units)
     print(f"Wrote calibration config then {len(run_units)} immutable run units to {output}")

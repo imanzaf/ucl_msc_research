@@ -83,7 +83,7 @@ def _paired_factor_difference(
 
 
 def estimate_confirmatory_contrasts(frame: pd.DataFrame) -> Dict[str, float]:
-    """Estimate H1 budget and H2 expressed-concern effects on the initial composite."""
+    """Estimate H1 concision-instruction and H2 expressed-concern effects."""
     required = {
         "scenario_id",
         "model_id",
@@ -99,8 +99,8 @@ def estimate_confirmatory_contrasts(frame: pd.DataFrame) -> Dict[str, float]:
         frame,
         "selective_risk_communication_score",
         "word_budget",
-        "tight",
-        "ample",
+        "concise",
+        "baseline",
         [*base, "expressed_concern"],
     )
     h2 = _paired_factor_difference(

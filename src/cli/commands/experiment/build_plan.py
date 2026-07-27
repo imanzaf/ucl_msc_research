@@ -114,7 +114,6 @@ def main() -> None:
     run_units = build_run_plan(
         scenarios=scenarios,
         models=experiment_manifest.evaluated_models,
-        budget_manifest=budget_manifest,
         randomisation_seed=experiment_manifest.randomisation_seed,
         created_at=created_at,
     )

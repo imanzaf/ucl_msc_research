@@ -25,7 +25,7 @@ from src.data_models.manifests import (
     PilotAttemptStatus,
 )
 from src.data_models.scenarios import AcceptedScenario
-from src.data_models.study import PILOT_WORD_LIMIT, ExperimentCell, ExpressedConcernCondition, WordBudgetCondition
+from src.data_models.study import PILOT_WORD_LIMIT, ConcisionCondition, ExperimentCell, ExpressedConcernCondition
 from src.experiments.io import load_accepted_calibration_scenarios
 from src.llm.openrouter import OpenRouterClient, ProviderTextResponse
 from src.paths import (
@@ -66,9 +66,9 @@ def compile_ample_pilot_messages(
     scenario: AcceptedScenario,
     cue: ExpressedConcernCondition,
 ) -> Tuple[List[Dict[str, str]], str]:
-    """Compile the exact 320-word pilot request without a follow-up turn."""
-    cell = ExperimentCell.create(WordBudgetCondition.AMPLE, cue)
-    messages, _follow_up, prompt_sha256, _follow_up_sha256 = compile_experiment_prompt(scenario, cell, PILOT_WORD_LIMIT)
+    """Compile the baseline request without a follow-up turn."""
+    cell = ExperimentCell.create(ConcisionCondition.BASELINE, cue)
+    messages, _follow_up, prompt_sha256, _follow_up_sha256 = compile_experiment_prompt(scenario, cell, None)
     return [{"role": message.role.value, "content": message.content} for message in messages], prompt_sha256
 
 

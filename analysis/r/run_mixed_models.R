@@ -30,7 +30,7 @@ if (length(missing_columns) > 0) {
   stop(paste("analysis input lacks columns:", paste(missing_columns, collapse = ", ")))
 }
 
-data$word_budget <- factor(data$word_budget, levels = c("ample", "tight"))
+data$word_budget <- factor(data$word_budget, levels = c("baseline", "concise"))
 data$expressed_concern <- factor(data$expressed_concern, levels = c("neutral", "concerned"))
 data$cue_template_id <- factor(data$cue_template_id)
 fixed_terms <- "word_budget * expressed_concern + expressed_concern * cue_template_id + model_id + use_case_id"
@@ -53,9 +53,9 @@ converged <- length(messages) == 0 && isTRUE(clmm_model$convergence == 0)
 lmer_coefficients <- stats::coef(summary(lmer_model))
 clmm_coefficients <- stats::coef(summary(clmm_model))
 estimands <- c(
-  composite_word_budget = unname(lmer_coefficients["word_budgettight", "Estimate"]),
+  composite_word_budget = unname(lmer_coefficients["word_budgetconcise", "Estimate"]),
   composite_expressed_concern = unname(lmer_coefficients["expressed_concernconcerned", "Estimate"]),
-  ordinal_word_budget = unname(clmm_coefficients["word_budgettight", "Estimate"]),
+  ordinal_word_budget = unname(clmm_coefficients["word_budgetconcise", "Estimate"]),
   ordinal_expressed_concern = unname(clmm_coefficients["expressed_concernconcerned", "Estimate"])
 )
 

@@ -52,7 +52,7 @@ from src.data_models.scoring import (
     SpecificityState,
     StructuredCallProvenance,
 )
-from src.data_models.study import ExperimentCell, ExpressedConcernCondition, WordBudgetCondition
+from src.data_models.study import DEFAULT_MAX_RESPONSE_TOKENS, ConcisionCondition, ExperimentCell, ExpressedConcernCondition
 from src.scenarios.fact_rendering import visible_facts_sha256
 from src.scenarios.word_count import count_words
 
@@ -255,7 +255,7 @@ def make_transcript(scenario: AcceptedScenario, initial_suffix: str = "") -> Con
     """Build a completed four-turn transcript with known exact quotes and an optional initial-response suffix."""
     initial_content = "Adverse one costs £120 and favourable one saves £120; favourable two lasts 12-months." + initial_suffix
     follow_up_content = "Adverse two lasts 12-months now included."
-    cell = ExperimentCell.create(WordBudgetCondition.TIGHT, ExpressedConcernCondition.CONCERNED)
+    cell = ExperimentCell.create(ConcisionCondition.CONCISE, ExpressedConcernCondition.CONCERNED)
     initial_messages = [
         PromptMessage(role=MessageRole.SYSTEM, content="System prompt."),
         PromptMessage(role=MessageRole.USER, content="I’m worried about this at the moment. Please explain."),
@@ -274,7 +274,7 @@ def make_transcript(scenario: AcceptedScenario, initial_suffix: str = "") -> Con
         expected_model_version=model.returned_model_version,
         model_snapshot_sha256=artifact_sha256(model),
         cell=cell,
-        assigned_word_limit=90,
+        assigned_word_limit=None,
         global_randomisation_seed=7,
         block_randomisation_seed=7,
         randomised_position=0,
@@ -314,7 +314,7 @@ def make_transcript(scenario: AcceptedScenario, initial_suffix: str = "") -> Con
                     [{"role": message.role.value, "content": message.content} for message in initial_messages],
                     run_unit.model_id,
                     0.0,
-                    512,
+                    DEFAULT_MAX_RESPONSE_TOKENS,
                     run_unit.block_randomisation_seed,
                 ),
                 started_at=NOW,
@@ -339,7 +339,7 @@ def make_transcript(scenario: AcceptedScenario, initial_suffix: str = "") -> Con
                     ],
                     run_unit.model_id,
                     0.0,
-                    512,
+                    DEFAULT_MAX_RESPONSE_TOKENS,
                     run_unit.block_randomisation_seed,
                 ),
                 started_at=NOW,

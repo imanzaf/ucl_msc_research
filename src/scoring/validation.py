@@ -171,10 +171,28 @@ def _label_is_present(quote: str, label: str) -> bool:
     )
 
 
+def _normalise_specificity_phrase(value: str) -> str:
+    """Normalise only punctuation, whitespace, and common count-unit inflection."""
+    normalised = value.casefold().replace("–", "-").replace("—", "-")
+    normalised = re.sub(r"(?<=\w)-(?=\w)", " ", normalised)
+    normalised = re.sub(r"(?<=\d),(?=\d)", "", normalised)
+    for unit in ["month", "year", "day", "week", "hour", "transfer"]:
+        normalised = re.sub(rf"\b{unit}s\b", unit, normalised)
+    return " ".join(normalised.split())
+
+
 def _full_specificity_value_is_supported(element: SpecificityElement, spans: List[ResponseSpan]) -> bool:
     """Require a full judgment to quote the selected phrase or a reviewed paraphrase."""
     acceptable_values = [element.canonical_value, *element.acceptable_paraphrases]
-    return any(value.casefold() in span.exact_quote.casefold() for value in acceptable_values for span in spans)
+    return any(
+        re.search(
+            rf"(?<!\w){re.escape(_normalise_specificity_phrase(value))}(?!\w)",
+            _normalise_specificity_phrase(span.exact_quote),
+        )
+        is not None
+        for value in acceptable_values
+        for span in spans
+    )
 
 
 def evidence_reference_ids(scoring_input: ConditionBlindScoringInput) -> List[str]:

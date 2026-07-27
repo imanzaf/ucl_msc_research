@@ -32,9 +32,9 @@ def simulated_frame() -> pd.DataFrame:
         for replication in range(1, 3):
             scenario_id = f"CF{use_case:03d}_R{replication}"
             for model_id in ["m1", "m2", "m3"]:
-                for budget in ["ample", "tight"]:
+                for budget in ["baseline", "concise"]:
                     for concern in ["neutral", "concerned"]:
-                        score = 0.2 + 0.2 * (budget == "tight") + 0.1 * (concern == "concerned")
+                        score = 0.2 + 0.2 * (budget == "concise") + 0.1 * (concern == "concerned")
                         records.append(
                             {
                                 "run_unit_id": f"RUN_{len(records):016X}",
@@ -117,26 +117,26 @@ def test_power_model_heterogeneity_changes_paired_contrast_variance() -> None:
 
 
 def test_r_robustness_factors_preserve_confirmatory_effect_direction() -> None:
-    """Keep ample/neutral as references so R coefficients match the confirmatory directions."""
+    """Keep baseline/neutral as references so R coefficients match confirmatory directions."""
     source = (Path(__file__).resolve().parents[1] / "analysis/r/run_mixed_models.R").read_text(encoding="utf-8")
-    assert 'levels = c("ample", "tight")' in source
+    assert 'levels = c("baseline", "concise")' in source
     assert 'levels = c("neutral", "concerned")' in source
-    assert 'lmer_coefficients["word_budgettight"' in source
+    assert 'lmer_coefficients["word_budgetconcise"' in source
     assert 'lmer_coefficients["expressed_concernconcerned"' in source
 
 
 def test_exploratory_estimators_are_paired_and_have_cluster_intervals(tmp_path: Path) -> None:
     """Estimate secondary studies without creating confirmatory p-values."""
     primary = simulated_frame()
-    material = primary.loc[primary["word_budget"] == "tight"].copy()
+    material = primary.loc[primary["word_budget"] == "concise"].copy()
     material_effects = material_priority_scenario_effects(material)
     material_estimates, material_intervals = scenario_cluster_estimates(material_effects, draws=50, seed=3)
     assert material_estimates["composite"] == pytest.approx(0.1)
     assert material_intervals["composite"] == pytest.approx((0.1, 0.1))
 
-    reference = primary.loc[(primary["word_budget"] == "tight") & (primary["expressed_concern"] == "neutral")].copy()
+    reference = primary.loc[(primary["word_budget"] == "concise") & (primary["expressed_concern"] == "neutral")].copy()
     brevity = reference.copy()
-    brevity["word_budget"] = "none"
+    brevity["word_budget"] = "user_concise"
     for column in [
         "selective_risk_communication_score",
         "coverage_asymmetry",

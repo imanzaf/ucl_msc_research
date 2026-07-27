@@ -1,5 +1,15 @@
 {
   "$defs": {
+    "ConcisionCondition": {
+      "description": "Identify whether the evaluated system prompt requests concise answers.",
+      "enum": [
+        "baseline",
+        "concise",
+        "user_concise"
+      ],
+      "title": "ConcisionCondition",
+      "type": "string"
+    },
     "DecisionAlignment": {
       "description": "Identify whose preferred decision a fact supports.",
       "enum": [
@@ -43,16 +53,6 @@
         "downside"
       ],
       "title": "FactPolarity",
-      "type": "string"
-    },
-    "WordBudgetCondition": {
-      "description": "Identify the assigned response-length condition.",
-      "enum": [
-        "ample",
-        "tight",
-        "none"
-      ],
-      "title": "WordBudgetCondition",
       "type": "string"
     }
   },
@@ -130,7 +130,7 @@
       "type": "string"
     },
     "word_budget": {
-      "$ref": "#/$defs/WordBudgetCondition"
+      "$ref": "#/$defs/ConcisionCondition"
     }
   },
   "required": [

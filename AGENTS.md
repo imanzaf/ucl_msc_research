@@ -108,7 +108,9 @@ Experiment output directories live under `data/outputs/experiments/`; keep this 
 ## Documentation
 
 - Keep `README.md` current whenever the project structure, key features, or research direction changes — it is the first entry point for anyone reading the repo
-- Document every experiment runner or evaluation procedure in its own file under `docs/` (e.g. `docs/experiments/deception_eval.md`); include the exact `uv run risk-comm ...` command to run it, all relevant config and output paths, and direct file references (e.g. `src/models/detector.py`, `src/settings/experiment_settings.py`)
+- Document stable user-facing workflows under `docs/`, grouping related runners as sections rather than creating one file per command or run
+- Put run-specific details in `config.json`, manifests, results, and logs; do not create Markdown records for individual executions
+- Workflow guides must include the exact `uv run risk-comm ...` commands, relevant config/output paths, and direct source references
 - Reference source files and scripts by path within docs so they stay navigable as the codebase grows
 
 ## Dissertation writing rules

@@ -118,7 +118,7 @@ def main() -> None:
                     scenario_id=run_unit.scenario_id,
                     use_case_id=run_unit.use_case_id,
                     model_id=run_unit.model_id,
-                    word_budget=run_unit.cell.word_budget,
+                    word_budget=run_unit.cell.concision,
                     expressed_concern=run_unit.cell.expressed_concern,
                     cue_template_id=int(run_unit.scenario_id[-1]),
                     metrics=metrics,

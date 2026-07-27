@@ -20,7 +20,7 @@ from src.data_models.study import ExperimentName, cue_template_id
 from src.experiments.scenario_runner import build_brevity_locus_run_plan, build_material_priority_run_plan, build_run_plan, execute_run_unit
 from src.experiments.scoring_pipeline import score_conversation
 from src.llm.openrouter import ProviderTextResponse
-from tests.factories import make_accepted_scenario, make_budget_manifest, make_models, make_scoring_results, make_transcript
+from tests.factories import make_accepted_scenario, make_models, make_scoring_results, make_transcript
 
 
 def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
@@ -28,9 +28,8 @@ def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     created_at = datetime(2026, 7, 22, tzinfo=timezone.utc)
     models = make_models()
-    budgets = make_budget_manifest()
-    primary_plan = build_run_plan(scenarios, models, budgets, 7, created_at)
-    material_plan = build_material_priority_run_plan(scenarios, models, budgets, 7, created_at)
+    primary_plan = build_run_plan(scenarios, models, 7, created_at)
+    material_plan = build_material_priority_run_plan(scenarios, models, 7, created_at)
     brevity_plan = build_brevity_locus_run_plan(scenarios, models, 7, created_at)
     assert len(primary_plan) == 240
     assert len(material_plan) == 120
@@ -102,7 +101,7 @@ def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
             use_case_id=scenario.use_case_id,
             model_id=transcript.run_unit.model_id,
             cue_template_id=cue_template_id(scenario.scenario_id),
-            word_budget=transcript.run_unit.cell.word_budget,
+            word_budget=transcript.run_unit.cell.concision,
             expressed_concern=transcript.run_unit.cell.expressed_concern,
             metrics=metric,
             transcript_sha256=transcript.transcript_sha256,

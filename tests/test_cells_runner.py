@@ -12,7 +12,7 @@ from src.data_models.common import artifact_sha256, sha256_bytes
 from src.data_models.experiments import CompletionFinishReason, ConversationTranscript, RetryPolicy
 from src.data_models.prompt_controls import validate_prompt_factor_isolation
 from src.data_models.scenarios import AcceptedScenario
-from src.data_models.study import ALL_CUE_PHRASES, BRIEF_REQUEST, WordBudgetCondition, all_experiment_cells
+from src.data_models.study import ALL_CUE_PHRASES, BRIEF_REQUEST, CONCISION_INSTRUCTION, ConcisionCondition, all_experiment_cells
 from src.experiments.layout import validate_experiment_path
 from src.experiments.scenario_runner import (
     build_brevity_locus_run_plan,
@@ -27,7 +27,7 @@ from src.llm.openrouter import ProviderTextResponse
 from src.prompts.experiment import _entity_reference, compile_experiment_prompt
 from src.scenarios.fact_rendering import render_visible_facts, visible_facts_sha256
 from src.scenarios.word_count import count_words
-from tests.factories import make_accepted_scenario, make_budget_manifest, make_models, make_transcript
+from tests.factories import make_accepted_scenario, make_models, make_transcript
 
 
 def test_all_cells_have_derived_stage_and_deterministic_ids() -> None:
@@ -69,8 +69,8 @@ def test_full_run_plan_has_240_conversations_480_responses_and_reproducible_orde
     """Build 60 canonical-order four-cell blocks and reproduce their order from one seed."""
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     created_at = datetime(2026, 7, 19, tzinfo=timezone.utc)
-    first = build_run_plan(scenarios, make_models(), make_budget_manifest(), randomisation_seed=17, created_at=created_at)
-    second = build_run_plan(scenarios, make_models(), make_budget_manifest(), randomisation_seed=17, created_at=created_at)
+    first = build_run_plan(scenarios, make_models(), randomisation_seed=17, created_at=created_at)
+    second = build_run_plan(scenarios, make_models(), randomisation_seed=17, created_at=created_at)
     validate_complete_run_plan(first)
 
     assert len(first) == 240
@@ -92,7 +92,6 @@ def test_calibration_plan_has_120_conversations() -> None:
     plan = build_calibration_run_plan(
         scenarios,
         make_models(),
-        make_budget_manifest(),
         randomisation_seed=19,
         created_at=datetime(2026, 7, 19, tzinfo=timezone.utc),
     )
@@ -102,12 +101,11 @@ def test_calibration_plan_has_120_conversations() -> None:
 
 
 def test_prompt_factor_isolation_one_cue_and_identical_follow_up() -> None:
-    """Allow byte differences only for budget and cue in one primary four-cell block."""
+    """Allow byte differences only for concision guidance and cue in one primary block."""
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     plan = build_run_plan(
         scenarios,
         make_models(),
-        make_budget_manifest(),
         randomisation_seed=7,
         created_at=datetime(2026, 7, 19, tzinfo=timezone.utc),
     )
@@ -127,8 +125,11 @@ def test_prompt_factor_isolation_one_cue_and_identical_follow_up() -> None:
         assert "decision_conflict" not in content
         assert "customer-aligned" not in content
         assert "institution-aligned" not in content
-        expected_limit = 240 if unit.cell.word_budget == WordBudgetCondition.AMPLE else 90
-        assert unit.assigned_word_limit == expected_limit
+        assert unit.assigned_word_limit is None
+        if unit.cell.concision == ConcisionCondition.CONCISE:
+            assert CONCISION_INSTRUCTION in unit.initial_request_messages[0].content
+        else:
+            assert CONCISION_INSTRUCTION not in unit.initial_request_messages[0].content
 
 
 def test_prompt_contains_only_broad_deployment_guidance_and_seeded_dialogue() -> None:
@@ -137,7 +138,7 @@ def test_prompt_contains_only_broad_deployment_guidance_and_seeded_dialogue() ->
     initial, follow_up, _, _ = compile_experiment_prompt(
         scenario,
         all_experiment_cells()[0],
-        assigned_word_limit=240,
+        assigned_word_limit=None,
     )
     system_content = initial[0].content
     expected_opening = (
@@ -177,7 +178,7 @@ def test_prompt_compilation_rejects_simulation_framing_even_if_model_validation_
         compile_experiment_prompt(
             leaked_scenario,
             all_experiment_cells()[0],
-            assigned_word_limit=240,
+            assigned_word_limit=None,
         )
 
 
@@ -192,7 +193,7 @@ def test_prompt_compilation_rejects_hidden_decision_conflict_leakage() -> None:
             compile_experiment_prompt(
                 leaked_scenario,
                 all_experiment_cells()[0],
-                assigned_word_limit=240,
+                assigned_word_limit=None,
             )
     punctuated_action = "Retain the provider's interest-bearing balance."
     compact_leak = "Retain the providers interest bearing balance"
@@ -203,7 +204,7 @@ def test_prompt_compilation_rejects_hidden_decision_conflict_leakage() -> None:
         compile_experiment_prompt(
             leaked_scenario,
             all_experiment_cells()[0],
-            assigned_word_limit=240,
+            assigned_word_limit=None,
         )
 
 
@@ -227,7 +228,7 @@ def test_prompt_compilation_rejects_reserved_conflict_labels(reserved_label: str
         compile_experiment_prompt(
             leaked_scenario,
             all_experiment_cells()[0],
-            assigned_word_limit=240,
+            assigned_word_limit=None,
         )
 
 
@@ -235,7 +236,7 @@ def test_exploratory_plan_count_gates_and_brevity_locus() -> None:
     """Enforce exact 120/60 matrices and no system cap in brevity_locus_v1."""
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     created_at = datetime(2026, 7, 19, tzinfo=timezone.utc)
-    material = build_material_priority_run_plan(scenarios, make_models(), make_budget_manifest(), 7, created_at)
+    material = build_material_priority_run_plan(scenarios, make_models(), 7, created_at)
     brevity = build_brevity_locus_run_plan(scenarios, make_models(), 7, created_at)
     assert len(material) == 120
     assert len(brevity) == 60
@@ -250,7 +251,6 @@ def test_retry_attempts_reuse_identical_prompt_bytes() -> None:
     run_unit = build_run_plan(
         scenarios,
         make_models(),
-        make_budget_manifest(),
         randomisation_seed=7,
         created_at=datetime(2026, 7, 19, tzinfo=timezone.utc),
     )[0]
@@ -297,7 +297,6 @@ def test_returned_model_version_mismatch_is_a_recorded_failed_attempt() -> None:
     run_unit = build_run_plan(
         scenarios,
         make_models(),
-        make_budget_manifest(),
         randomisation_seed=7,
         created_at=datetime(2026, 7, 19, tzinfo=timezone.utc),
     )[0]

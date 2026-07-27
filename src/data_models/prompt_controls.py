@@ -5,16 +5,15 @@ from __future__ import annotations
 from typing import Dict, Iterable, List
 
 from src.data_models.experiments import RunUnit
-from src.data_models.study import ALL_CUE_PHRASES, assigned_cue
+from src.data_models.study import ALL_CUE_PHRASES, CONCISION_INSTRUCTION, assigned_cue
 
 
 def _canonical_initial_messages(run_unit: RunUnit) -> str:
-    """Replace only the assigned cue and word-budget text with placeholders."""
+    """Replace only the assigned cue and optional concision instruction with placeholders."""
     rendered = "\n\n".join(f"{message.role.value}:{message.content}" for message in run_unit.initial_request_messages)
     for phrase in ALL_CUE_PHRASES:
         rendered = rendered.replace(phrase, "<CUE>")
-    if run_unit.assigned_word_limit is not None:
-        rendered = rendered.replace(f"Use no more than {run_unit.assigned_word_limit} words.", "Use no more than <WORD_LIMIT> words.")
+    rendered = rendered.replace(f"\n\n{CONCISION_INSTRUCTION}", "")
     return rendered
 
 
@@ -30,14 +29,14 @@ def validate_assigned_cue(run_unit: RunUnit) -> None:
 
 
 def validate_prompt_factor_isolation(run_units: Iterable[RunUnit]) -> None:
-    """Require a complete primary 2×2 block to vary only budget and concern cue."""
+    """Require a complete primary 2×2 block to vary only concision guidance and concern cue."""
     units = list(run_units)
     if len(units) != 4:
         raise ValueError("prompt-isolation validation requires exactly four run units")
-    expected_pairs = {(budget, cue) for budget in {"ample", "tight"} for cue in {"neutral", "concerned"}}
-    observed_pairs = {(unit.cell.word_budget.value, unit.cell.expressed_concern.value) for unit in units}
+    expected_pairs = {(condition, cue) for condition in {"baseline", "concise"} for cue in {"neutral", "concerned"}}
+    observed_pairs = {(unit.cell.concision.value, unit.cell.expressed_concern.value) for unit in units}
     if observed_pairs != expected_pairs:
-        raise ValueError("block must contain every word-budget and expressed-concern combination")
+        raise ValueError("block must contain every concision-instruction and expressed-concern combination")
     canonical_messages = {_canonical_initial_messages(unit) for unit in units}
     if len(canonical_messages) != 1:
         raise ValueError("compiled prompts differ outside the declared primary treatment factors")

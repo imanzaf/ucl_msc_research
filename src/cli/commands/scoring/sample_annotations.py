@@ -59,13 +59,13 @@ def _select_evaluation(
     probabilities: Dict[str, Decimal] = {}
     for scenario_id in sorted(by_scenario):
         candidates = by_scenario[scenario_id]
-        for word_budget in ["ample", "tight"]:
+        for word_budget in ["baseline", "concise"]:
             for expressed_concern in ["neutral", "concerned"]:
                 matches = sorted(
                     [
                         item
                         for item in candidates
-                        if item.run_unit.cell.word_budget.value == word_budget and item.run_unit.cell.expressed_concern.value == expressed_concern
+                        if item.run_unit.cell.concision.value == word_budget and item.run_unit.cell.expressed_concern.value == expressed_concern
                     ],
                     key=lambda item: item.run_unit.run_unit_id,
                 )

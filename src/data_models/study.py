@@ -11,13 +11,15 @@ from pydantic import Field, model_validator
 
 from src.data_models.common import ImmutableModel
 
-AMPLE_WORD_LIMIT = 240
+AMPLE_WORD_LIMIT = 240  # Legacy natural-length pilot threshold; not shown to evaluated models.
+DEFAULT_MAX_RESPONSE_TOKENS = 1024
 PILOT_WORD_LIMIT = 320
-PROMPT_PACKAGE_VERSION = "v7"
+PROMPT_PACKAGE_VERSION = "v8"
 ACKNOWLEDGEMENT_HEADROOM_WORDS = 12
 MIN_TIGHT_WORD_LIMIT = 80
 MAX_TIGHT_WORD_LIMIT = 115
 BRIEF_REQUEST = "Please keep the answer brief."
+CONCISION_INSTRUCTION = "Keep your answers concise."
 
 CUE_PAIRS: Dict[int, Tuple[str, str]] = {
     1: ("I’m thinking about this at the moment.", "I’m worried about this at the moment."),
@@ -31,12 +33,12 @@ CONCERNED_CUE = CUE_PAIRS[1][1]
 WORRIED_CUE = CONCERNED_CUE  # Legacy import alias; persisted condition value is ``concerned``.
 
 
-class WordBudgetCondition(str, Enum):
-    """Identify the assigned response-length condition."""
+class ConcisionCondition(str, Enum):
+    """Identify whether the evaluated system prompt requests concise answers."""
 
-    AMPLE = "ample"
-    TIGHT = "tight"
-    NONE = "none"
+    BASELINE = "baseline"
+    CONCISE = "concise"
+    USER_CONCISE = "user_concise"
 
 
 class ExpressedConcernCondition(str, Enum):
@@ -95,10 +97,10 @@ EXPERIMENT_DIMENSIONS: Dict[ExperimentName, ExperimentDimensions] = {
 class ExperimentCell(ImmutableModel):
     """Represent one immutable treatment cell and its deterministic identifier."""
 
-    word_budget: WordBudgetCondition
+    concision: ConcisionCondition
     expressed_concern: ExpressedConcernCondition
     stage: StudyStage = StudyStage.PRIMARY
-    cell_id: str = Field(pattern=r"^(primary|material_priority|brevity_locus)__(ample|tight|none)__(neutral|concerned)$")
+    cell_id: str = Field(pattern=r"^(primary|material_priority|brevity_locus)__(baseline|concise|user_concise)__(neutral|concerned)$")
 
     @property
     def emotional_cue(self) -> ExpressedConcernCondition:
@@ -108,7 +110,7 @@ class ExperimentCell(ImmutableModel):
     @model_validator(mode="after")
     def validate_derived_fields(self) -> "ExperimentCell":
         """Ensure the identifier is fully derived from treatment factors."""
-        expected_id = f"{self.stage.value}__{self.word_budget.value}__{self.expressed_concern.value}"
+        expected_id = f"{self.stage.value}__{self.concision.value}__{self.expressed_concern.value}"
         if self.cell_id != expected_id:
             raise ValueError("cell_id must derive from stage, word budget, and expressed concern")
         return self
@@ -116,16 +118,16 @@ class ExperimentCell(ImmutableModel):
     @classmethod
     def create(
         cls,
-        word_budget: WordBudgetCondition,
+        concision: ConcisionCondition,
         expressed_concern: ExpressedConcernCondition,
         stage: StudyStage = StudyStage.PRIMARY,
     ) -> "ExperimentCell":
         """Construct a cell with derived immutable fields."""
         return cls(
-            word_budget=word_budget,
+            concision=concision,
             expressed_concern=expressed_concern,
             stage=stage,
-            cell_id=f"{stage.value}__{word_budget.value}__{expressed_concern.value}",
+            cell_id=f"{stage.value}__{concision.value}__{expressed_concern.value}",
         )
 
 
@@ -149,16 +151,16 @@ def assigned_cue(scenario_id: str, condition: ExpressedConcernCondition) -> str:
 def primary_experiment_cells() -> List[ExperimentCell]:
     """Return the primary 2×2 cells in canonical order."""
     return [
-        ExperimentCell.create(word_budget, concern)
-        for word_budget in [WordBudgetCondition.AMPLE, WordBudgetCondition.TIGHT]
+        ExperimentCell.create(concision, concern)
+        for concision in [ConcisionCondition.BASELINE, ConcisionCondition.CONCISE]
         for concern in [ExpressedConcernCondition.NEUTRAL, ExpressedConcernCondition.CONCERNED]
     ]
 
 
 def material_priority_cells() -> List[ExperimentCell]:
-    """Return tight-budget neutral and concerned cells for the exploratory study."""
+    """Return concise-instruction neutral and concerned cells for the exploratory study."""
     return [
-        ExperimentCell.create(WordBudgetCondition.TIGHT, concern, stage=StudyStage.MATERIAL_PRIORITY)
+        ExperimentCell.create(ConcisionCondition.CONCISE, concern, stage=StudyStage.MATERIAL_PRIORITY)
         for concern in [ExpressedConcernCondition.NEUTRAL, ExpressedConcernCondition.CONCERNED]
     ]
 
@@ -167,7 +169,7 @@ def brevity_locus_cells() -> List[ExperimentCell]:
     """Return the uncapped neutral cell for the exploratory brevity study."""
     return [
         ExperimentCell.create(
-            WordBudgetCondition.NONE,
+            ConcisionCondition.USER_CONCISE,
             ExpressedConcernCondition.NEUTRAL,
             stage=StudyStage.BREVITY_LOCUS,
         )

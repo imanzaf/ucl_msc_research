@@ -1,13 +1,26 @@
 {
   "$defs": {
+    "ConcisionCondition": {
+      "description": "Identify whether the evaluated system prompt requests concise answers.",
+      "enum": [
+        "baseline",
+        "concise",
+        "user_concise"
+      ],
+      "title": "ConcisionCondition",
+      "type": "string"
+    },
     "ExperimentCell": {
       "additionalProperties": false,
       "description": "Represent one immutable treatment cell and its deterministic identifier.",
       "properties": {
         "cell_id": {
-          "pattern": "^(primary|material_priority|brevity_locus)__(ample|tight|none)__(neutral|concerned)$",
+          "pattern": "^(primary|material_priority|brevity_locus)__(baseline|concise|user_concise)__(neutral|concerned)$",
           "title": "Cell Id",
           "type": "string"
+        },
+        "concision": {
+          "$ref": "#/$defs/ConcisionCondition"
         },
         "expressed_concern": {
           "$ref": "#/$defs/ExpressedConcernCondition"
@@ -15,13 +28,10 @@
         "stage": {
           "$ref": "#/$defs/StudyStage",
           "default": "primary"
-        },
-        "word_budget": {
-          "$ref": "#/$defs/WordBudgetCondition"
         }
       },
       "required": [
-        "word_budget",
+        "concision",
         "expressed_concern",
         "cell_id"
       ],
@@ -75,16 +85,6 @@
         "brevity_locus"
       ],
       "title": "StudyStage",
-      "type": "string"
-    },
-    "WordBudgetCondition": {
-      "description": "Identify the assigned response-length condition.",
-      "enum": [
-        "ample",
-        "tight",
-        "none"
-      ],
-      "title": "WordBudgetCondition",
       "type": "string"
     }
   },

@@ -495,8 +495,8 @@ class C1EvaluationConfig(VersionedImmutableModel):
     purpose: C1EvaluationPurpose = C1EvaluationPurpose.DIAGNOSTIC
     accepted_scenario_manifest_sha256: str
     evaluated_model: EvaluatedModelSnapshot
+    prompt_package_sha256: str
     scoring_execution_manifest_sha256: str
-    provisional_tight_word_limits: Dict[str, int]
     scenario_count: int = Field(default=10, ge=10, le=10)
     evaluated_model_count: int = Field(default=1, ge=1, le=1)
     cell_count: int = Field(default=4, ge=4, le=4)
@@ -509,7 +509,7 @@ class C1EvaluationConfig(VersionedImmutableModel):
     log_filename: str = Field(pattern=r"^\d{8}T\d{6}_run\.log$")
     created_at: datetime
 
-    @field_validator("accepted_scenario_manifest_sha256", "scoring_execution_manifest_sha256")
+    @field_validator("accepted_scenario_manifest_sha256", "prompt_package_sha256", "scoring_execution_manifest_sha256")
     @classmethod
     def validate_hashes(cls, value: str) -> str:
         """Validate scenario and scoring-manifest digests."""
@@ -517,12 +517,7 @@ class C1EvaluationConfig(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_diagnostic_matrix(self) -> "C1EvaluationConfig":
-        """Require one four-cell block for each C1 scenario and bounded provisional limits."""
-        expected_use_cases = {f"CF{index:03d}" for index in range(1, 11)}
-        if set(self.provisional_tight_word_limits) != expected_use_cases:
-            raise ValueError("C1 diagnostic config requires one provisional tight limit for CF001-CF010")
-        if any(limit < 80 or limit > 115 or limit % 5 for limit in self.provisional_tight_word_limits.values()):
-            raise ValueError("provisional tight limits must be multiples of five between 80 and 115")
+        """Require aligned result/log names for the fixed 40-conversation matrix."""
         if self.results_filename.split("_", 1)[0] != self.log_filename.split("_", 1)[0]:
             raise ValueError("C1 diagnostic result and log filenames must share one timestamp")
         return self
