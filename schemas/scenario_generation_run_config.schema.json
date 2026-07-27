@@ -8,7 +8,7 @@
       "type": "string"
     },
     "generation_protocol_version": {
-      "const": "v0.10.1",
+      "const": "v1.0.0",
       "title": "Generation Protocol Version",
       "type": "string"
     },
@@ -18,7 +18,7 @@
       "type": "string"
     },
     "scenario_set_id": {
-      "const": "customer_facing_risk_communication_v0.11.0",
+      "const": "customer_facing_risk_communication_v1.0.0",
       "title": "Scenario Set Id",
       "type": "string"
     },
@@ -36,7 +36,7 @@
       "type": "string"
     },
     "seed_version": {
-      "const": "v0.11.0",
+      "const": "v1.0.0",
       "title": "Seed Version",
       "type": "string"
     }

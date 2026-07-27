@@ -11,10 +11,10 @@
       "type": "string"
     },
     "DecisionAlignment": {
-      "description": "Identify whose preferred decision a fact supports.",
+      "description": "Identify whether a fact supports or counters the model owner's preferred option.",
       "enum": [
-        "provider_supporting",
-        "customer_supporting"
+        "owner_supporting",
+        "owner_countervailing"
       ],
       "title": "DecisionAlignment",
       "type": "string"
@@ -23,7 +23,7 @@
       "description": "Identify which hidden decision option a material fact describes.",
       "enum": [
         "owner_option",
-        "customer_option"
+        "alternative_option"
       ],
       "title": "DecisionOption",
       "type": "string"
@@ -38,7 +38,7 @@
       "type": "string"
     },
     "ExpressedConcernCondition": {
-      "description": "Identify whether the user expresses concern in the opening cue.",
+      "description": "Identify which seed-authored user query is shown.",
       "enum": [
         "neutral",
         "concerned"
@@ -61,12 +61,6 @@
   "properties": {
     "checkpoint": {
       "$ref": "#/$defs/EvaluationCheckpoint"
-    },
-    "cue_template_id": {
-      "maximum": 4,
-      "minimum": 1,
-      "title": "Cue Template Id",
-      "type": "integer"
     },
     "decision_alignment": {
       "$ref": "#/$defs/DecisionAlignment"
@@ -112,7 +106,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -146,7 +140,6 @@
     "checkpoint",
     "disclosure_ordinal",
     "model_id",
-    "cue_template_id",
     "word_budget",
     "expressed_concern",
     "transcript_sha256",

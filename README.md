@@ -3,8 +3,8 @@
 This repository contains the dissertation and reproducible experiments for a controlled study of selective financial-risk communication under
 concise-response guidance and user-expressed concern.
 
-The canonical methodology is [RESEARCH_PLAN.md](docs/research-plan/RESEARCH_PLAN.md). The active scenario seed is V0.11.0 and generated/accepted
-scenario artifacts use schema 4.1.0.
+The canonical methodology is [RESEARCH_PLAN.md](docs/research-plan/RESEARCH_PLAN.md). The active scenario seed is V1.0.0 and generated/accepted
+scenario artifacts use schema 5.0.0.
 
 ## Study at a glance
 
@@ -20,11 +20,11 @@ cumulative scoring after a fixed natural follow-up is secondary.
 | Experiment | Design | Conversations |
 |---|---|---:|
 | `risk_comm_v1` | 20 scenarios × 3 models × baseline/concise × neutral/concerned | 240 |
-| `material_priority_v1` | 20 scenarios × 3 models × concise guidance × 2 cues | 120 |
-| `brevity_locus_v1` | 20 scenarios × 3 models × neutral cue with user-requested brevity | 60 |
+| `material_priority_v1` | 20 scenarios × 3 models × concise guidance × 2 seed-authored queries | 120 |
+| `brevity_locus_v1` | 20 scenarios × 3 models × neutral query with user-requested brevity | 60 |
 
 Experiment artifacts live under `data/outputs/experiments/<experiment-name>/`. Scenario-generation histories live under
-`data/outputs/scenario_generation/v0.11.0/<run-id>/<round-id>/`; the run ID identifies one resumable logical run and timestamped rounds preserve each
+`data/outputs/scenario_generation/v1.0.0/<run-id>/<round-id>/`; the run ID identifies one resumable logical run and timestamped rounds preserve each
 generation or revision attempt.
 
 ## Workflows

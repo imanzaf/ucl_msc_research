@@ -13,9 +13,9 @@ from src.data_models.experiments import CalibrationExperimentConfig, RunUnit
 from src.data_models.manifests import (
     AcceptedScenarioManifest,
     CalibrationExperimentManifest,
-    CueReviewDecision,
     EvaluatedModelManifest,
     FreezeStatus,
+    PromptReviewDecision,
     PromptReviewManifest,
     WordBudgetManifest,
 )
@@ -73,7 +73,7 @@ def main() -> None:
     ]
     if any(expected != actual for expected, actual in links):
         raise ValueError("calibration manifest does not bind every supplied frozen input")
-    if prompt_review.decision != CueReviewDecision.APPROVE or calibration.evaluated_models != models.evaluated_models:
+    if prompt_review.decision != PromptReviewDecision.APPROVE or calibration.evaluated_models != models.evaluated_models:
         raise ValueError("calibration inputs differ from the approved prompt or evaluated snapshots")
     run_units = read_model_jsonl(plan_path, RunUnit)
     scenarios = [scenario for scenario in load_all_accepted_scenarios(args.accepted_root, accepted) if scenario.scenario_id.endswith("_C1")]

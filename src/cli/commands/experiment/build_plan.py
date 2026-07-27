@@ -10,10 +10,10 @@ from src.data_models.common import validate_model_self_hash
 from src.data_models.experiments import ExperimentConfig
 from src.data_models.manifests import (
     AcceptedScenarioManifest,
-    CueReviewDecision,
     EvaluatedModelManifest,
     ExperimentManifest,
     FreezeStatus,
+    PromptReviewDecision,
     PromptReviewManifest,
     ScoringExecutionManifest,
     WordBudgetManifest,
@@ -68,10 +68,10 @@ def main() -> None:
         raise ValueError("run-plan construction requires a frozen evaluated-model manifest")
     if scoring_manifest.freeze_status != FreezeStatus.FROZEN:
         raise ValueError("run-plan construction requires a frozen scoring-execution manifest")
-    if prompt_review.decision != CueReviewDecision.APPROVE:
-        raise ValueError("run-plan construction requires an approved cue review")
+    if prompt_review.decision != PromptReviewDecision.APPROVE:
+        raise ValueError("run-plan construction requires an approved query review")
     if prompt_review.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
-        raise ValueError("cue review does not bind the supplied accepted scenarios")
+        raise ValueError("query review does not bind the supplied accepted scenarios")
     if experiment_manifest.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
         raise ValueError("experiment manifest does not bind the supplied accepted-scenario manifest")
     if experiment_manifest.evaluated_model_manifest_sha256 != model_manifest.manifest_sha256:

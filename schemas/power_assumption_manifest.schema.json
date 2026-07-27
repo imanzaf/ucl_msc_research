@@ -13,19 +13,6 @@
       "additionalProperties": false,
       "description": "Freeze calibration-derived variance at every repeated-design level.",
       "properties": {
-        "cue_template_standard_deviation": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Cue Template Standard Deviation"
-        },
         "fact_standard_deviation": {
           "anyOf": [
             {
@@ -93,7 +80,6 @@
         }
       },
       "required": [
-        "cue_template_standard_deviation",
         "pair_standard_deviation",
         "fact_standard_deviation",
         "scenario_standard_deviation",
@@ -145,7 +131,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },

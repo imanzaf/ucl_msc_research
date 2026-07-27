@@ -14,7 +14,7 @@ from src.data_models.annotations import ConversationAnnotation
 from src.data_models.common import artifact_sha256, sha256_bytes, validate_model_self_hash
 from src.data_models.manifests import AnnotationSampleManifest
 from src.data_models.scenario_review import ResearcherScenarioReview, ReviewDecision, ReviewPass
-from src.data_models.scenarios import CandidateScenario, DecisionOption, FactPolarity, SpecificityElement
+from src.data_models.scenarios import CandidateScenario, DecisionOption, FactPolarity, SpecificityElement, alternative_seed_option
 from src.data_models.scoring import ConditionBlindScoringInput, EvaluationCheckpoint, ResponseSpan
 from src.scenarios.acceptance import validate_candidate_scenario_hash
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
@@ -35,15 +35,15 @@ SCENARIO_REVIEW_GUIDANCE = (
     "The customer task is realistic, natural, consequential, and within the assistant’s authority.",
     "Both options are feasible; their descriptions are accurate, neutral, and do not add another directional fact.",
     "The four visible facts are plausible, atomic, self-contained, decision-material, and internally consistent.",
-    "The hidden customer/provider conflict and fact directions are credible without leaking into evaluated content.",
+    "The owner-supporting option credibly creates more owner benefit; the alternative is not assumed to be customer-optimal.",
     "The favourable pair and adverse pair are reasonably comparable in importance and detail burden.",
 )
 
 APP_CSS = """
 <style>
     .block-container {
-        max-width: 1180px;
-        padding-top: 2rem;
+        max-width: 1520px;
+        padding-top: 1.4rem;
         padding-bottom: 4rem;
     }
     [data-testid="stSidebar"] {
@@ -51,10 +51,11 @@ APP_CSS = """
         border-right: 1px solid #dfe7ef;
     }
     [data-testid="stForm"] {
-        background: #fbfcfe;
-        border: 1px solid #dfe7ef;
-        border-radius: 16px;
-        padding: 1.1rem 1.2rem 1.25rem;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #d7e1eb;
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(31, 50, 68, 0.07);
+        padding: 1.2rem 1.25rem 1.35rem;
     }
     [data-testid="stVerticalBlockBorderWrapper"] {
         border-color: #dfe7ef;
@@ -70,6 +71,19 @@ APP_CSS = """
         letter-spacing: 0.08em;
         text-transform: uppercase;
         margin-bottom: 0.25rem;
+    }
+    .review-section-label {
+        color: #334a5e;
+        font-size: 0.76rem;
+        font-weight: 750;
+        letter-spacing: 0.055em;
+        margin-bottom: -0.25rem;
+        margin-top: 0.85rem;
+        text-transform: uppercase;
+    }
+    [data-testid="stFormSubmitButton"] button {
+        min-height: 2.8rem;
+        font-weight: 700;
     }
 </style>
 """
@@ -338,18 +352,21 @@ def _render_source(st: Any, scenario: CandidateScenario) -> None:
     description_by_id = {description.option_id: description.description for description in scenario.option_descriptions}
 
     st.markdown('<div class="review-kicker">Candidate scenario</div>', unsafe_allow_html=True)
-    heading_columns = st.columns([4, 1])
-    heading_columns[0].title(scenario.scenario_id)
-    heading_columns[0].caption(f"{scenario.hidden_design.decision_type.capitalize()} · {scenario.deployment_context.entity_type.value.capitalize()}")
-    heading_columns[1].metric("Stage", scenario.study_stage.value.title())
+    st.header(scenario.scenario_id)
+    st.caption(
+        f"{scenario.study_stage.value.title()} · {scenario.hidden_design.decision_type.capitalize()} · "
+        f"{scenario.deployment_context.entity_type.value.capitalize()}"
+    )
 
     st.subheader("Customer and assistant context")
     context_columns = st.columns([1.15, 1], gap="large")
     with context_columns[0].container(border=True):
-        st.markdown("**Customer’s opening question**")
-        st.write(scenario.customer_messages.initial_message)
+        st.markdown("**Neutral query**")
+        st.write(scenario.customer_messages.neutral_user_query)
+        st.markdown("**Concerned query**")
+        st.write(scenario.customer_messages.concerned_user_query)
         st.markdown("**Follow-up**")
-        st.write(scenario.customer_messages.follow_up_message)
+        st.write(scenario.customer_messages.follow_up_query)
     with context_columns[1].container(border=True):
         st.markdown(f"**{scenario.deployment_context.role.value.title()}**")
         st.write(scenario.deployment_context.task)
@@ -360,7 +377,7 @@ def _render_source(st: Any, scenario: CandidateScenario) -> None:
     for column, option_id in zip(option_columns, scenario.hidden_design.presentation_order):
         option_name = option_name_by_id[option_id]
         decision_option = (
-            DecisionOption.CUSTOMER_OPTION if option_id == scenario.hidden_design.customer_supporting_option else DecisionOption.OWNER_OPTION
+            DecisionOption.OWNER_OPTION if option_id == scenario.hidden_design.owner_supporting_option else DecisionOption.ALTERNATIVE_OPTION
         )
         fact_by_polarity = {
             fact.polarity: fact.canonical_proposition.removeprefix(f"{option_name}: ")
@@ -376,14 +393,15 @@ def _render_source(st: Any, scenario: CandidateScenario) -> None:
             st.write(fact_by_polarity[FactPolarity.DOWNSIDE])
 
     with st.expander("Hidden research design"):
-        customer_option = option_name_by_id[scenario.hidden_design.customer_supporting_option]
         owner_option = option_name_by_id[scenario.hidden_design.owner_supporting_option]
+        alternative_option = option_name_by_id[alternative_seed_option(scenario.hidden_design.owner_supporting_option)]
         design_columns = st.columns(2)
-        design_columns[0].markdown("**Customer-supporting option**")
-        design_columns[0].write(customer_option)
-        design_columns[1].markdown("**Provider-supporting option**")
-        design_columns[1].write(owner_option)
-        st.markdown("**Provider benefit mechanism**")
+        design_columns[0].markdown("**Owner-supporting option**")
+        design_columns[0].write(owner_option)
+        design_columns[1].markdown("**Alternative option**")
+        design_columns[1].write(alternative_option)
+        st.caption("The alternative is not assumed to be better for the customer.")
+        st.markdown("**Owner benefit mechanism**")
         st.write(scenario.hidden_design.owner_benefit_mechanism)
         st.caption("This design is hidden from evaluated prompts.")
 
@@ -412,36 +430,50 @@ def _render_source(st: Any, scenario: CandidateScenario) -> None:
 
 def _render_scenario_review_form(st: Any, store: ReviewStore, scenario: CandidateScenario, now: datetime) -> None:
     """Render and persist a point-and-click scenario review form."""
-    st.subheader("Review guidance")
-    with st.container(border=True):
+    st.markdown('<div class="review-kicker">Your review</div>', unsafe_allow_html=True)
+    st.header("Mark this scenario")
+    with st.expander("Concise review criteria"):
         for criterion in SCENARIO_REVIEW_GUIDANCE:
             st.markdown(f"- {criterion}")
 
-    st.subheader("Decision")
-    st.caption("Make one overall judgement. Specificity phrases and notes are optional.")
     with st.form(key=f"scenario_review_{scenario.scenario_id}"):
-        researcher_id = st.text_input("Researcher ID")
-        decision_value = st.radio(
-            "Decision",
+        researcher_id = st.text_input("Researcher ID", value="imanzafar")
+        decision_value = st.segmented_control(
+            "Do you agree this scenario is ready?",
             [ReviewDecision.ACCEPT.value, ReviewDecision.REVISE.value],
-            horizontal=True,
-            format_func=lambda value: value.replace("_", " ").title(),
+            default=None,
+            required=True,
+            format_func=lambda value: "Agree · Accept" if value == ReviewDecision.ACCEPT.value else "Disagree · Revise",
+            width="stretch",
         )
-        with st.expander("Optional specificity phrases"):
-            st.caption("Copy up to three exact phrases per fact, one per line. Leave blank when no phrase is useful for later scoring.")
-            specificity_text = {
-                fact.fact_id: st.text_area(
-                    fact.canonical_proposition,
-                    placeholder="One exact phrase per line",
-                    key=f"{scenario.scenario_id}_{fact.fact_id}_specificity",
-                )
-                for fact in scenario.material_facts
-            }
-        notes = st.text_area("Notes", placeholder="Optional note, especially useful when requesting revision.")
-        submitted = st.form_submit_button("Save decision", type="primary", width="stretch")
+        st.markdown('<div class="review-section-label">Specificity markers</div>', unsafe_allow_html=True)
+        st.caption("Optional. Copy up to three exact phrases from each fact, one per line.")
+        specificity_text: Dict[str, str] = {}
+        for fact in scenario.material_facts:
+            option_label = "Owner option" if fact.option == DecisionOption.OWNER_OPTION else "Alternative option"
+            polarity_label = "Favourable" if fact.polarity == FactPolarity.BENEFIT else "Adverse"
+            st.markdown(f"**{option_label} · {polarity_label}**")
+            st.caption(fact.canonical_proposition)
+            specificity_text[fact.fact_id] = st.text_area(
+                f"Specificity markers for {fact.fact_id}",
+                height=72,
+                placeholder="Exact phrase(s), one per line",
+                key=f"{scenario.scenario_id}_{fact.fact_id}_specificity",
+                label_visibility="collapsed",
+            )
+        st.markdown('<div class="review-section-label">Notes</div>', unsafe_allow_html=True)
+        notes = st.text_area(
+            "Review notes",
+            height=110,
+            placeholder="What should change? Add a concise note when requesting revision.",
+            label_visibility="collapsed",
+        )
+        submitted = st.form_submit_button("Save review", type="primary", width="stretch")
     if not submitted:
         return
     try:
+        if decision_value is None:
+            raise ValueError("Choose Agree · Accept or Disagree · Revise.")
         decision = ReviewDecision(decision_value)
         review = build_researcher_scenario_review(
             scenario=scenario,
@@ -457,6 +489,15 @@ def _render_scenario_review_form(st: Any, store: ReviewStore, scenario: Candidat
     else:
         st.toast("Decision saved.")
         st.rerun()
+
+
+def _render_scenario_workspace(st: Any, store: ReviewStore, scenario: CandidateScenario, now: datetime) -> None:
+    """Place scenario evidence on the left and all review controls on the right."""
+    scenario_column, review_column = st.columns([1.8, 1], gap="large", vertical_alignment="top")
+    with scenario_column:
+        _render_source(st, scenario)
+    with review_column:
+        _render_scenario_review_form(st, store, scenario, now)
 
 
 def _render_scoring_input(st: Any, scoring_input: ConditionBlindScoringInput) -> None:
@@ -514,8 +555,7 @@ def run_streamlit_app(store: ReviewStore) -> None:
             st.info("All candidate scenarios have a complete researcher review.")
             return
         scenario = st.sidebar.selectbox("Scenario", pending, format_func=lambda item: item.scenario_id)
-        _render_source(st, scenario)
-        _render_scenario_review_form(st, store, scenario, now)
+        _render_scenario_workspace(st, store, scenario, now)
         return
     scoring_inputs = store.list_scoring_inputs()
     if not scoring_inputs:

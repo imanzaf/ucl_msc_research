@@ -13,7 +13,7 @@
       "type": "string"
     },
     "ExpressedConcernCondition": {
-      "description": "Identify whether the user expresses concern in the opening cue.",
+      "description": "Identify which seed-authored user query is shown.",
       "enum": [
         "neutral",
         "concerned"

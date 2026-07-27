@@ -92,9 +92,8 @@ def test_equal_domain_and_leave_one_domain_out_sensitivities() -> None:
 
 
 def test_power_simulation_uses_complete_composite_design() -> None:
-    """Represent cue-template, pair, fact, scenario, model, and scoring variation."""
+    """Represent pair, fact, scenario, model, and scoring variation."""
     components = VarianceComponents(
-        cue_template_standard_deviation=0.01,
         pair_standard_deviation=0.01,
         fact_standard_deviation=0.01,
         scenario_standard_deviation=0.01,
@@ -108,8 +107,8 @@ def test_power_simulation_uses_complete_composite_design() -> None:
 
 def test_power_model_heterogeneity_changes_paired_contrast_variance() -> None:
     """Ensure simulated model variation affects treatment contrasts rather than cancelling as an intercept."""
-    baseline = VarianceComponents(0.01, 0.01, 0.01, 0.01, 0.0, 0.01)
-    heterogeneous = VarianceComponents(0.01, 0.01, 0.01, 0.01, 0.20, 0.01)
+    baseline = VarianceComponents(0.01, 0.01, 0.01, 0.0, 0.01)
+    heterogeneous = VarianceComponents(0.01, 0.01, 0.01, 0.20, 0.01)
     baseline_draws = _composite_contrasts({"H1": 0.05, "H2": 0.05}, baseline, simulations=250, seed=11)
     heterogeneous_draws = _composite_contrasts({"H1": 0.05, "H2": 0.05}, heterogeneous, simulations=250, seed=11)
     assert heterogeneous_draws["H1"].var() > baseline_draws["H1"].var()

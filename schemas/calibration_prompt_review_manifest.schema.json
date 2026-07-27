@@ -4,17 +4,6 @@
       "additionalProperties": false,
       "description": "Store one holistic review of a rendered C1 calibration request.",
       "properties": {
-        "assigned_phrase": {
-          "minLength": 1,
-          "title": "Assigned Phrase",
-          "type": "string"
-        },
-        "cue_template_id": {
-          "maximum": 4,
-          "minimum": 1,
-          "title": "Cue Template Id",
-          "type": "integer"
-        },
         "decision_preference_confounded": {
           "title": "Decision Preference Confounded",
           "type": "boolean"
@@ -65,8 +54,6 @@
       "required": [
         "scenario_id",
         "expressed_concern",
-        "cue_template_id",
-        "assigned_phrase",
         "rendered_request_text",
         "rendered_request_sha256",
         "natural",
@@ -80,22 +67,22 @@
       "title": "CalibrationRenderedRequestReview",
       "type": "object"
     },
-    "CueReviewDecision": {
-      "description": "Identify the outcome of the researcher cue self-review.",
-      "enum": [
-        "approve",
-        "revise"
-      ],
-      "title": "CueReviewDecision",
-      "type": "string"
-    },
     "ExpressedConcernCondition": {
-      "description": "Identify whether the user expresses concern in the opening cue.",
+      "description": "Identify which seed-authored user query is shown.",
       "enum": [
         "neutral",
         "concerned"
       ],
       "title": "ExpressedConcernCondition",
+      "type": "string"
+    },
+    "PromptReviewDecision": {
+      "description": "Identify the outcome of the researcher query-pair review.",
+      "enum": [
+        "approve",
+        "revise"
+      ],
+      "title": "PromptReviewDecision",
       "type": "string"
     }
   },
@@ -106,18 +93,8 @@
       "title": "Accepted Scenario Manifest Sha256",
       "type": "string"
     },
-    "cue_pairs": {
-      "additionalProperties": {
-        "items": {
-          "type": "string"
-        },
-        "type": "array"
-      },
-      "title": "Cue Pairs",
-      "type": "object"
-    },
     "decision": {
-      "$ref": "#/$defs/CueReviewDecision"
+      "$ref": "#/$defs/PromptReviewDecision"
     },
     "manifest_sha256": {
       "title": "Manifest Sha256",
@@ -153,7 +130,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     }
@@ -162,7 +139,6 @@
     "schema_version",
     "prompt_version",
     "accepted_scenario_manifest_sha256",
-    "cue_pairs",
     "request_reviews",
     "researcher_notes",
     "decision",

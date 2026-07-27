@@ -1,4 +1,4 @@
-"""Build the self-hashed 30-scenario V0.11.0 accepted-set manifest."""
+"""Build the self-hashed 30-scenario V1.0.0 accepted-set manifest."""
 
 from __future__ import annotations
 
@@ -77,7 +77,7 @@ def main() -> None:
 
     scope = ScenarioManifestScope(args.scope)
     if args.accepted_root.resolve() != ACTIVE_SCENARIO_ACCEPTED_ROOT.resolve():
-        raise ValueError("accepted-set manifests must read only the active V0.11.0 accepted root")
+        raise ValueError("accepted-set manifests must read only the active V1.0.0 accepted root")
     expected_output = accepted_manifest_output_path(scope)
     if args.output.resolve() != expected_output.resolve():
         raise ValueError(f"{scope.value} accepted-set manifest must use {expected_output}")

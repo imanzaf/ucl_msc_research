@@ -19,7 +19,7 @@ from src.data_models.scenario_review import (
     ScenarioAcceptanceRecord,
     ScenarioReviewHistory,
 )
-from src.data_models.scenarios import AcceptedScenario, CandidateScenario, ScenarioGenerationRunConfig, ScenarioSeedSet, V11HiddenDesign
+from src.data_models.scenarios import AcceptedScenario, CandidateScenario, ScenarioGenerationRunConfig, ScenarioSeedSet, V100HiddenDesign
 from src.paths import (
     ACTIVE_SCENARIO_ACCEPTED_ROOT,
     ACTIVE_SCENARIO_INPUT_ROOT,
@@ -37,22 +37,21 @@ def validate_candidate_seed_ownership(candidate: CandidateScenario, seed: Scenar
     """Require candidate identity and researcher-owned fields to match the approved seed."""
     use_case = next((item for item in seed.use_cases if item.use_case_id == candidate.use_case_id), None)
     if use_case is None or candidate.scenario_id not in {replication.scenario_id for replication in use_case.replications}:
-        raise ValueError("candidate scenario id is not present in its V0.11.0 task-family seed")
+        raise ValueError("candidate scenario id is not present in its V1.0.0 task-family seed")
     replication = next(replication for replication in use_case.replications if replication.scenario_id == candidate.scenario_id)
     seed_owned_fields = {
         "deployment_context": use_case.deployment_context,
         "customer_messages": replication.customer_messages,
-        "hidden_design": V11HiddenDesign(
+        "hidden_design": V100HiddenDesign(
             decision_type=replication.decision_type,
             options=replication.options,
-            customer_supporting_option=replication.customer_supporting_option,
             owner_supporting_option=replication.owner_supporting_option,
             owner_benefit_mechanism=replication.owner_benefit_mechanism,
             presentation_order=replication.presentation_order,
         ),
     }
     if any(getattr(candidate, field_name) != value for field_name, value in seed_owned_fields.items()):
-        raise ValueError("candidate seed-owned metadata differs from the approved V0.11.0 seed")
+        raise ValueError("candidate seed-owned metadata differs from the approved V1.0.0 seed")
 
 
 def _build_current_accepted_bundles(
@@ -71,7 +70,7 @@ def _build_current_accepted_bundles(
         or run_config.seed_sha256 != ACTIVE_SCENARIO_SEED_SHA256
         or run_config.seed_schema_sha256 != ACTIVE_SCENARIO_SEED_SCHEMA_SHA256
     ):
-        raise ValueError("scenario publication run does not bind the active V0.11.0 seed")
+        raise ValueError("scenario publication run does not bind the active V1.0.0 seed")
     seed = load_and_validate_seed(
         seed_path=ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seeds.json",
         schema_path=ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json",

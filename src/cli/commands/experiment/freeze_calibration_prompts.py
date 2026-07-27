@@ -12,10 +12,10 @@ from src.data_models.manifests import (
     AcceptedScenarioManifest,
     CalibrationPromptReviewManifest,
     CalibrationRenderedRequestReview,
-    CueReviewDecision,
+    PromptReviewDecision,
     ScenarioManifestScope,
 )
-from src.data_models.study import CUE_PAIRS, PROMPT_PACKAGE_VERSION
+from src.data_models.study import PROMPT_PACKAGE_VERSION
 from src.experiments.io import load_accepted_calibration_scenarios
 from src.paths import ACTIVE_SCENARIO_ACCEPTED_ROOT, ACTIVE_SCENARIO_CHECKPOINT_ROOT, ACTIVE_SCENARIO_INPUT_ROOT
 from src.prompts.experiment import validate_complete_request_reviews
@@ -29,14 +29,14 @@ def main() -> None:
     parser.add_argument("--accepted-root", type=Path, required=True)
     parser.add_argument("--calibration-scenario-manifest", type=Path, required=True)
     parser.add_argument("--researcher-notes", required=True)
-    parser.add_argument("--decision", choices=[CueReviewDecision.APPROVE.value], required=True)
+    parser.add_argument("--decision", choices=[PromptReviewDecision.APPROVE.value], required=True)
     parser.add_argument("--reviewed-by", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     expected_manifest = ACTIVE_SCENARIO_INPUT_ROOT / "calibration_accepted_scenario_manifest.json"
     expected_output = ACTIVE_SCENARIO_CHECKPOINT_ROOT / "calibration_prompt_review.json"
     if args.accepted_root.resolve() != ACTIVE_SCENARIO_ACCEPTED_ROOT.resolve():
-        raise ValueError("calibration prompt review must use the active V0.11.0 accepted root")
+        raise ValueError("calibration prompt review must use the active V1.0.0 accepted root")
     if args.calibration_scenario_manifest.resolve() != expected_manifest.resolve():
         raise ValueError("calibration prompt review must use the fixed calibration accepted-set manifest")
     if args.output.resolve() != expected_output.resolve():
@@ -54,13 +54,12 @@ def main() -> None:
     scenarios = load_accepted_calibration_scenarios(args.accepted_root, accepted)
     validate_complete_request_reviews(reviews, scenarios)
     payload = {
-        "schema_version": "2.0.0",
+        "schema_version": "3.0.0",
         "prompt_version": PROMPT_PACKAGE_VERSION,
         "accepted_scenario_manifest_sha256": accepted.manifest_sha256,
-        "cue_pairs": {index: list(pair) for index, pair in CUE_PAIRS.items()},
         "request_reviews": reviews,
         "researcher_notes": args.researcher_notes,
-        "decision": CueReviewDecision(args.decision),
+        "decision": PromptReviewDecision(args.decision),
         "reviewed_by": args.reviewed_by,
         "reviewed_at": datetime.now(timezone.utc),
     }

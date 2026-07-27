@@ -1,4 +1,4 @@
-"""Freeze the four cue pairs after review of all 80 complete requests."""
+"""Freeze the reviewed seed-authored queries for all 40 evaluation requests."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.data_models.common import artifact_sha256, validate_model_self_hash
-from src.data_models.manifests import AcceptedScenarioManifest, CueReviewDecision, EvaluationRenderedRequestReview, PromptReviewManifest
-from src.data_models.study import CUE_PAIRS, PROMPT_PACKAGE_VERSION
+from src.data_models.manifests import AcceptedScenarioManifest, EvaluationRenderedRequestReview, PromptReviewDecision, PromptReviewManifest
+from src.data_models.study import PROMPT_PACKAGE_VERSION
 from src.experiments.io import load_accepted_evaluation_scenarios
 from src.paths import ACTIVE_SCENARIO_ACCEPTED_ROOT, ACTIVE_SCENARIO_INPUT_ROOT, RISK_COMM_V1_MANIFEST_ROOT
 from src.prompts.experiment import validate_complete_request_reviews
@@ -19,18 +19,18 @@ from src.storage import read_model_json, write_model_json_atomic
 def main() -> None:
     """Validate researcher-completed request reviews and write a self-hashed manifest."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--request-reviews", type=Path, required=True, help="JSON array containing all 80 review records")
+    parser.add_argument("--request-reviews", type=Path, required=True, help="JSON array containing all 40 review records")
     parser.add_argument("--accepted-root", type=Path, required=True)
     parser.add_argument("--accepted-scenario-manifest", type=Path, required=True)
     parser.add_argument("--researcher-notes", required=True)
-    parser.add_argument("--decision", choices=[CueReviewDecision.APPROVE.value], required=True)
+    parser.add_argument("--decision", choices=[PromptReviewDecision.APPROVE.value], required=True)
     parser.add_argument("--reviewed-by", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     expected_manifest = ACTIVE_SCENARIO_INPUT_ROOT / "accepted_scenario_manifest.json"
     expected_output = RISK_COMM_V1_MANIFEST_ROOT / "prompt_review.json"
     if args.accepted_root.resolve() != ACTIVE_SCENARIO_ACCEPTED_ROOT.resolve():
-        raise ValueError("prompt review must use the active V0.11.0 accepted root")
+        raise ValueError("prompt review must use the active V1.0.0 accepted root")
     if args.accepted_scenario_manifest.resolve() != expected_manifest.resolve():
         raise ValueError("prompt review must use the fixed complete accepted-set manifest")
     if args.output.resolve() != expected_output.resolve():
@@ -46,19 +46,18 @@ def main() -> None:
     scenarios = load_accepted_evaluation_scenarios(args.accepted_root, accepted)
     validate_complete_request_reviews(reviews, scenarios)
     payload = {
-        "schema_version": "2.0.0",
+        "schema_version": "3.0.0",
         "prompt_version": PROMPT_PACKAGE_VERSION,
         "accepted_scenario_manifest_sha256": accepted.manifest_sha256,
-        "cue_pairs": {index: list(pair) for index, pair in CUE_PAIRS.items()},
         "request_reviews": reviews,
         "researcher_notes": args.researcher_notes,
-        "decision": CueReviewDecision(args.decision),
+        "decision": PromptReviewDecision(args.decision),
         "reviewed_by": args.reviewed_by,
         "reviewed_at": datetime.now(timezone.utc),
     }
     manifest = PromptReviewManifest.model_validate({**payload, "manifest_sha256": artifact_sha256(payload)})
     write_model_json_atomic(args.output, manifest)
-    print(f"Wrote reviewed {PROMPT_PACKAGE_VERSION.upper()} cue manifest for {len(reviews)} complete requests")
+    print(f"Wrote reviewed {PROMPT_PACKAGE_VERSION.upper()} query manifest for {len(reviews)} complete requests")
 
 
 if __name__ == "__main__":

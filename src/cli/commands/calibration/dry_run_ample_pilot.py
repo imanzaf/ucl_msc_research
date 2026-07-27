@@ -16,11 +16,11 @@ from src.data_models.manifests import (
     AcceptedScenarioManifest,
     AmplePilotCostReport,
     CalibrationPromptReviewManifest,
-    CueReviewDecision,
     EvaluatedModelManifest,
     FreezeStatus,
     ModelPricingAssumption,
     PricingAssumptionInput,
+    PromptReviewDecision,
 )
 from src.data_models.study import PILOT_WORD_LIMIT, ExpressedConcernCondition
 from src.experiments.io import load_accepted_calibration_scenarios
@@ -83,7 +83,7 @@ def main() -> None:
     retry_policy = read_model_json(args.retry_policy, RetryPolicy)
     for manifest in [accepted_manifest, model_manifest, prompt_review]:
         validate_model_self_hash(manifest, "manifest_sha256")
-    if model_manifest.freeze_status != FreezeStatus.FROZEN or prompt_review.decision != CueReviewDecision.APPROVE:
+    if model_manifest.freeze_status != FreezeStatus.FROZEN or prompt_review.decision != PromptReviewDecision.APPROVE:
         raise ValueError("ample-pilot cost reporting requires frozen models and approved C1 prompts")
     if prompt_review.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
         raise ValueError("C1 prompt review does not bind the supplied calibration scenario manifest")

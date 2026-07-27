@@ -47,8 +47,8 @@ def build_pair_diagnostics(scenario: CandidateScenario | AcceptedScenario) -> Li
     for pair in scenario.fact_pairs:
         facts = _blinded_pair_facts(
             pair.pair_id,
-            fact_by_id[pair.provider_option_fact_id],
-            fact_by_id[pair.customer_option_fact_id],
+            fact_by_id[pair.owner_option_fact_id],
+            fact_by_id[pair.alternative_option_fact_id],
         )
         keys = ["side_a", "side_b"]
         visible_text = [fact.canonical_proposition for fact in facts]

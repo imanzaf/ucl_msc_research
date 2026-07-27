@@ -12,7 +12,7 @@ from src.data_models.common import artifact_sha256, sha256_bytes
 from src.data_models.experiments import CompletionFinishReason, ConversationTranscript, RetryPolicy
 from src.data_models.prompt_controls import validate_prompt_factor_isolation
 from src.data_models.scenarios import AcceptedScenario
-from src.data_models.study import ALL_CUE_PHRASES, BRIEF_REQUEST, CONCISION_INSTRUCTION, ConcisionCondition, all_experiment_cells
+from src.data_models.study import BRIEF_REQUEST, CONCISION_INSTRUCTION, ConcisionCondition, ExpressedConcernCondition, all_experiment_cells
 from src.experiments.layout import validate_experiment_path
 from src.experiments.scenario_runner import (
     build_brevity_locus_run_plan,
@@ -100,8 +100,8 @@ def test_calibration_plan_has_120_conversations() -> None:
     assert {unit.scenario_id for unit in plan} == {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
 
 
-def test_prompt_factor_isolation_one_cue_and_identical_follow_up() -> None:
-    """Allow byte differences only for concision guidance and cue in one primary block."""
+def test_prompt_factor_isolation_authored_queries_and_identical_follow_up() -> None:
+    """Allow byte differences only for concision guidance and the authored condition query."""
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     plan = build_run_plan(
         scenarios,
@@ -111,16 +111,18 @@ def test_prompt_factor_isolation_one_cue_and_identical_follow_up() -> None:
     )
     block = [unit for unit in plan if unit.block_id == plan[0].block_id]
     validate_prompt_factor_isolation(block)
-    expected_follow_up = make_accepted_scenario(block[0].scenario_id).customer_messages.follow_up_message
+    scenario = make_accepted_scenario(block[0].scenario_id)
+    expected_follow_up = scenario.customer_messages.follow_up_query
     assert {unit.follow_up_message.content for unit in block} == {expected_follow_up}
+    expected_queries = {
+        ExpressedConcernCondition.NEUTRAL: scenario.customer_messages.neutral_user_query,
+        ExpressedConcernCondition.CONCERNED: scenario.customer_messages.concerned_user_query,
+    }
     for unit in block:
         content = "\n".join(message.content for message in unit.initial_request_messages)
-        observed = [phrase for phrase in ALL_CUE_PHRASES if phrase in content]
-        assert len(observed) == 1
-        assert content.count(observed[0]) == 1
-        assert all(phrase not in unit.follow_up_message.content for phrase in ALL_CUE_PHRASES)
+        assert unit.initial_request_messages[-1].content == expected_queries[unit.cell.expressed_concern]
         design = make_accepted_scenario(unit.scenario_id).hidden_design
-        hidden_values = [design.owner_benefit_mechanism, design.customer_supporting_option.value, design.owner_supporting_option.value]
+        hidden_values = [design.owner_benefit_mechanism, design.owner_supporting_option.value]
         assert all(value not in content for value in hidden_values)
         assert "decision_conflict" not in content
         assert "customer-aligned" not in content
@@ -150,8 +152,8 @@ def test_prompt_contains_only_broad_deployment_guidance_and_seeded_dialogue() ->
     assert scenario.deployment_context.authority_limits in system_content
     assert "\n\n## Available information\n" in system_content
     assert render_visible_facts(scenario) in system_content
-    assert scenario.customer_messages.initial_message in initial[1].content
-    assert follow_up.content == scenario.customer_messages.follow_up_message
+    assert scenario.customer_messages.neutral_user_query == initial[1].content
+    assert follow_up.content == scenario.customer_messages.follow_up_query
     assert all(label not in system_content for label in ["Role:", "Model owner:", "Task:", "Response genre:", "Source packet:"])
     assert all(term not in "\n".join(message.content for message in [*initial, follow_up]).casefold() for term in ["fictional", "synthetic"])
 
@@ -172,7 +174,7 @@ def test_deployment_entity_reference_uses_correct_article(entity_type: str, expe
 def test_prompt_compilation_rejects_simulation_framing_even_if_model_validation_is_bypassed() -> None:
     """Defend the final prompt boundary against constructed-case language in any visible field."""
     scenario = make_accepted_scenario()
-    leaked_messages = scenario.customer_messages.model_copy(update={"initial_message": "Is this fictional account example the one I should use?"})
+    leaked_messages = scenario.customer_messages.model_copy(update={"neutral_user_query": "Is this fictional account example the one I should use?"})
     leaked_scenario = scenario.model_copy(update={"customer_messages": leaked_messages})
     with pytest.raises(ValueError, match="simulation or research framing"):
         compile_experiment_prompt(
@@ -187,7 +189,7 @@ def test_prompt_compilation_rejects_hidden_decision_conflict_leakage() -> None:
     scenario = make_accepted_scenario()
     hidden_action = scenario.hidden_design.owner_benefit_mechanism
     for leaked_action in [hidden_action, hidden_action.rstrip(".")]:
-        leaked_messages = scenario.customer_messages.model_copy(update={"initial_message": f"{leaked_action}?"})
+        leaked_messages = scenario.customer_messages.model_copy(update={"neutral_user_query": f"{leaked_action}?"})
         leaked_scenario = scenario.model_copy(update={"customer_messages": leaked_messages})
         with pytest.raises(ValueError, match="decision-conflict metadata"):
             compile_experiment_prompt(
@@ -198,7 +200,7 @@ def test_prompt_compilation_rejects_hidden_decision_conflict_leakage() -> None:
     punctuated_action = "Retain the provider's interest-bearing balance."
     compact_leak = "Retain the providers interest bearing balance"
     hidden_design = scenario.hidden_design.model_copy(update={"owner_benefit_mechanism": punctuated_action})
-    leaked_messages = scenario.customer_messages.model_copy(update={"initial_message": f"{compact_leak}?"})
+    leaked_messages = scenario.customer_messages.model_copy(update={"neutral_user_query": f"{compact_leak}?"})
     leaked_scenario = scenario.model_copy(update={"hidden_design": hidden_design, "customer_messages": leaked_messages})
     with pytest.raises(ValueError, match="decision-conflict metadata"):
         compile_experiment_prompt(
@@ -222,7 +224,7 @@ def test_prompt_compilation_rejects_hidden_decision_conflict_leakage() -> None:
 def test_prompt_compilation_rejects_reserved_conflict_labels(reserved_label: str) -> None:
     """Reject human-readable and structured research labels from evaluated prompts."""
     scenario = make_accepted_scenario()
-    leaked_messages = scenario.customer_messages.model_copy(update={"initial_message": f"What does {reserved_label} mean?"})
+    leaked_messages = scenario.customer_messages.model_copy(update={"neutral_user_query": f"What does {reserved_label} mean?"})
     leaked_scenario = scenario.model_copy(update={"customer_messages": leaked_messages})
     with pytest.raises(ValueError, match="decision-conflict metadata"):
         compile_experiment_prompt(

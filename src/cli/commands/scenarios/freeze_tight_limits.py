@@ -12,9 +12,9 @@ from src.data_models.manifests import (
     AmplePilotRecord,
     CalibrationPromptReviewManifest,
     CalibrationUseCaseBudget,
-    CueReviewDecision,
     EvaluatedModelManifest,
     FreezeStatus,
+    PromptReviewDecision,
     TightLimitManifest,
 )
 from src.data_models.scenario_review import ScenarioAcceptanceRecord
@@ -64,7 +64,7 @@ def main() -> None:
     validate_model_self_hash(accepted_manifest, "manifest_sha256")
     validate_model_self_hash(model_manifest, "manifest_sha256")
     validate_model_self_hash(prompt_review, "manifest_sha256")
-    if model_manifest.freeze_status != FreezeStatus.FROZEN or prompt_review.decision != CueReviewDecision.APPROVE:
+    if model_manifest.freeze_status != FreezeStatus.FROZEN or prompt_review.decision != PromptReviewDecision.APPROVE:
         raise ValueError("tight limits require frozen evaluated-model snapshots and an approved C1 prompt review")
     if prompt_review.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
         raise ValueError("C1 prompt review does not bind the supplied calibration scenario manifest")

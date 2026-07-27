@@ -11,8 +11,8 @@ model run is complete.
 | `c1_llama_2x2_v1` | Ten published C1 scenarios × Llama 3.3 70B × baseline/concise × neutral/concerned | 40 |
 | `risk_comm_calibration_v1` | Ten C1 scenarios × three models × the four primary cells | 120 |
 | `risk_comm_v1` | Twenty R1–R2 scenarios × three models × the four primary cells | 240 |
-| `material_priority_v1` | Twenty R1–R2 scenarios × three models × concise guidance × two cues | 120 |
-| `brevity_locus_v1` | Twenty R1–R2 scenarios × three models × neutral cue with user-requested brevity | 60 |
+| `material_priority_v1` | Twenty R1–R2 scenarios × three models × concise guidance × two seed-authored queries | 120 |
+| `brevity_locus_v1` | Twenty R1–R2 scenarios × three models × neutral query with user-requested brevity | 60 |
 
 The baseline system prompt has no response-length instruction. The concise condition adds exactly `Keep your answers concise.` under Guidance.
 Neither condition has a numeric word limit.
@@ -27,7 +27,7 @@ uv run risk-comm calibration run-c1 \
   --execute-paid
 ```
 
-The command authenticates `data/inputs/scenarios/v0.11.0/calibration_accepted_scenario_manifest.json`, persists the immutable plan under
+The command authenticates `data/inputs/scenarios/v1.0.0/calibration_accepted_scenario_manifest.json`, persists the immutable plan under
 `data/outputs/experiments/c1_llama_2x2_v1/checkpoints/`, and resumes the transcript named in the experiment's `config.json`.
 
 Run or resume condition-blind scoring:
@@ -46,7 +46,7 @@ experiments:
 
 ```bash
 uv run risk-comm experiment build-manifests \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.11.0/accepted_scenario_manifest.json \
+  --accepted-scenario-manifest data/inputs/scenarios/v1.0.0/accepted_scenario_manifest.json \
   --evaluated-model-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluated_models.json \
   --prompt-review-manifest data/outputs/experiments/risk_comm_v1/manifests/prompt_review.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
@@ -65,8 +65,8 @@ Build the complete 120-conversation plan:
 ```bash
 uv run risk-comm calibration build-plan \
   --calibration-manifest data/outputs/experiments/risk_comm_calibration_v1/checkpoints/calibration_manifest.json \
-  --accepted-root data/inputs/scenarios/v0.11.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.11.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v1.0.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v1.0.0/accepted_scenario_manifest.json \
   --evaluated-model-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluated_models.json \
   --prompt-review-manifest data/outputs/experiments/risk_comm_v1/manifests/prompt_review.json \
   --word-budget-manifest data/outputs/experiments/risk_comm_v1/manifests/word_budgets.json
@@ -77,8 +77,8 @@ Run or resume it:
 ```bash
 uv run risk-comm calibration run \
   --calibration-manifest data/outputs/experiments/risk_comm_calibration_v1/checkpoints/calibration_manifest.json \
-  --accepted-root data/inputs/scenarios/v0.11.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.11.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v1.0.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v1.0.0/accepted_scenario_manifest.json \
   --evaluated-model-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluated_models.json \
   --prompt-review-manifest data/outputs/experiments/risk_comm_v1/manifests/prompt_review.json \
   --word-budget-manifest data/outputs/experiments/risk_comm_v1/manifests/word_budgets.json \
@@ -96,9 +96,9 @@ Build the complete 240-conversation plan:
 
 ```bash
 uv run risk-comm experiment build-plan \
-  --accepted-root data/inputs/scenarios/v0.11.0/accepted \
+  --accepted-root data/inputs/scenarios/v1.0.0/accepted \
   --experiment-manifest data/outputs/experiments/risk_comm_v1/manifests/experiment_manifest.json \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.11.0/accepted_scenario_manifest.json \
+  --accepted-scenario-manifest data/inputs/scenarios/v1.0.0/accepted_scenario_manifest.json \
   --evaluated-model-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluated_models.json \
   --prompt-review-manifest data/outputs/experiments/risk_comm_v1/manifests/prompt_review.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
@@ -131,8 +131,8 @@ uv run risk-comm experiment run \
   --run-plan data/outputs/experiments/risk_comm_v1/checkpoints/run_plan.jsonl \
   --config data/outputs/experiments/risk_comm_v1/config.json \
   --experiment-manifest data/outputs/experiments/risk_comm_v1/manifests/experiment_manifest.json \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.11.0/accepted_scenario_manifest.json \
-  --accepted-root data/inputs/scenarios/v0.11.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v1.0.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v1.0.0/accepted \
   --evaluated-model-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluated_models.json \
   --word-budget-manifest data/outputs/experiments/risk_comm_v1/manifests/word_budgets.json \
   --preregistration-manifest data/outputs/experiments/risk_comm_v1/manifests/preregistration.json \
@@ -150,8 +150,8 @@ Build both plans together from their separately frozen manifests:
 
 ```bash
 uv run risk-comm experiment build-exploratory-plans \
-  --accepted-root data/inputs/scenarios/v0.11.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.11.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v1.0.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v1.0.0/accepted_scenario_manifest.json \
   --word-budget-manifest data/outputs/experiments/risk_comm_v1/manifests/word_budgets.json \
   --material-priority-manifest data/outputs/experiments/material_priority_v1/manifests/experiment_manifest.json \
   --material-priority-config data/outputs/experiments/material_priority_v1/config.json \

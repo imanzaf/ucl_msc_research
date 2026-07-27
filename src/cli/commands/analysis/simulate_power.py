@@ -17,7 +17,6 @@ from src.storage import read_model_json, write_model_json_atomic
 def _components(values: PowerVarianceComponents, model_multiplier: float = 1.0, scoring_multiplier: float = 1.0) -> VarianceComponents:
     """Convert frozen Decimal components into simulation inputs with declared stress multipliers."""
     return VarianceComponents(
-        cue_template_standard_deviation=float(values.cue_template_standard_deviation),
         pair_standard_deviation=float(values.pair_standard_deviation),
         fact_standard_deviation=float(values.fact_standard_deviation),
         scenario_standard_deviation=float(values.scenario_standard_deviation),

@@ -1,0 +1,8 @@
+{
+  "timestamp": "2026-07-27T20:33:42",
+  "decision_type": "methodology",
+  "author": "codex",
+  "content": "The evaluated-model study uses a 2\u00d72 neutral/worried-by-base/concise design, where concise adds only \u201cKeep your answers concise\u201d; scenarios require only a credible owner-benefiting option, while human validation uses one accept/revise decision plus optional exact specificity markers and makes no assumption that the alternative is customer-optimal.",
+  "source": "transcript",
+  "content_hash": "555fb5d7f1e44a09e61ef9325633755417a33bd8da55853239321846261b7d54"
+}

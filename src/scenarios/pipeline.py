@@ -15,13 +15,13 @@ from src.data_models.scenario_review import (
     RevisionCycleRecord,
     required_automated_review_kinds,
 )
-from src.data_models.scenarios import CandidateScenario, V11ReplicationSeed, V11UseCaseSeed
+from src.data_models.scenarios import CandidateScenario, V100ReplicationSeed, V100UseCaseSeed
 
 
 class ScenarioPipelineBackend(Protocol):
     """Define model-backed generation and review operations without hard-coding a provider."""
 
-    def generate_candidate(self, use_case: V11UseCaseSeed, replication: V11ReplicationSeed) -> CandidateScenario:
+    def generate_candidate(self, use_case: V100UseCaseSeed, replication: V100ReplicationSeed) -> CandidateScenario:
         """Generate option descriptions and four product-documentation facts in one call."""
         ...
 
@@ -35,8 +35,8 @@ class ScenarioPipelineBackend(Protocol):
 
     def revise_candidate(
         self,
-        use_case: V11UseCaseSeed,
-        replication: V11ReplicationSeed,
+        use_case: V100UseCaseSeed,
+        replication: V100ReplicationSeed,
         candidate: CandidateScenario,
         reviews: List[AutomatedScenarioReview],
         cycle_number: int,
@@ -117,7 +117,7 @@ def _terminal_review_decision(reviews: List[AutomatedScenarioReview]) -> ReviewD
 
 
 def run_scenario_batch_pipeline(
-    scenario_seeds: List[Tuple[V11UseCaseSeed, V11ReplicationSeed]],
+    scenario_seeds: List[Tuple[V100UseCaseSeed, V100ReplicationSeed]],
     backend: ScenarioPipelineBackend,
     revision_record_factory: Callable[
         [

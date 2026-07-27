@@ -12,8 +12,8 @@ uv run risk-comm analysis build-inputs \
   --scored-bundles data/outputs/experiments/risk_comm_v1/results/scored_conversations.jsonl \
   --manual-resolutions data/outputs/experiments/risk_comm_v1/results/manual_scoring_resolutions.jsonl \
   --experiment-manifest data/outputs/experiments/risk_comm_v1/manifests/experiment_manifest.json \
-  --accepted-root data/inputs/scenarios/v0.11.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v0.11.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v1.0.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v1.0.0/accepted_scenario_manifest.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
   --output data/outputs/experiments/risk_comm_v1/results/analysis_input.jsonl \
   --fact-analysis-output data/outputs/experiments/risk_comm_v1/results/fact_analysis_input.jsonl \
@@ -55,7 +55,9 @@ uv run risk-comm analysis run \
 
 If the blinded validation disposition chooses full-sample manual scoring for any failed domain, add `--manual-domain-analysis-input data/outputs/experiments/risk_comm_v1/results/manual_domain_analysis_input.jsonl`.
 
-The sensitivity summary reports H1/H2 for every domain, every signed and reverse pairwise gap, the cumulative composite, and cumulative-minus-initial spontaneous additional communication. Robustness includes cue-template fixed effects/heterogeneity, fact/pair/scenario random effects, leave-one-template-out, equal-domain, and leave-one-domain-out analyses. Exploratory experiments use paired estimates and scenario-cluster intervals without confirmatory p-values.
+The sensitivity summary reports H1/H2 for every domain, every signed and reverse pairwise gap, the cumulative composite, and
+cumulative-minus-initial spontaneous additional communication. Robustness includes fact/pair/scenario random effects, equal-domain, and
+leave-one-domain-out analyses. Exploratory experiments use paired estimates and scenario-cluster intervals without confirmatory p-values.
 
 ## Exploratory analysis
 

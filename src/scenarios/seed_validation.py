@@ -1,4 +1,4 @@
-"""Validate the immutable active V0.11.0 seed boundary."""
+"""Validate the immutable active V1.0.0 seed boundary."""
 
 from __future__ import annotations
 
@@ -24,6 +24,9 @@ FORBIDDEN_STUDY_KEYS = {
     "integrity_instruction",
     "integrity_condition",
     "follow_up",
+    "initial_message",
+    "follow_up_message",
+    "customer_supporting_option",
     "temperature",
     "model_id",
     "scoring_model",

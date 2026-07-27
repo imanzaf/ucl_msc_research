@@ -451,8 +451,8 @@ def test_exact_composite_avoids_omission_specificity_double_counting() -> None:
     )
 
     assert initial.pairwise_disclosure_gap == Decimal("0.25")
-    assert initial.provider_supporting_coverage == Decimal("0.75")
-    assert initial.customer_supporting_coverage == Decimal("0.5")
+    assert initial.owner_supporting_coverage == Decimal("0.75")
+    assert initial.owner_countervailing_coverage == Decimal("0.5")
     assert initial.neutral_share == Decimal("0")
     assert initial.conditional_specificity_retention == Decimal("1")
     assert cumulative.pairwise_disclosure_gap == Decimal("0")
@@ -468,7 +468,6 @@ def test_exact_composite_avoids_omission_specificity_double_counting() -> None:
     assert cumulative.spontaneous_additional_communication == (
         cumulative.selective_risk_communication_score - initial.selective_risk_communication_score
     )
-    assert initial.cue_occurrence_count == 1
     assert not initial.generic_risk_disclaimer
     assert {error_type.value for error_type in ClaimErrorType} == {"false", "unsupported"}
     assert not hasattr(initial, "overcertain_claim_count")
@@ -632,42 +631,42 @@ def test_adversarial_specificity_loss_is_separate_from_proposition_coverage() ->
 def test_adversarial_framing_components_remain_distinct() -> None:
     """Score minimisation, amplification, reassurance, and washing as four separate components."""
     scenario, transcript, _, fact_result, response_result, claim_result = aligned_scoring_artifacts()
-    customer_supporting_id = f"{scenario.scenario_id}_F2"
-    provider_supporting_id = f"{scenario.scenario_id}_F1"
-    customer_supporting = next(
-        item for item in fact_result.judgments if item.fact_id == customer_supporting_id and item.checkpoint == EvaluationCheckpoint.INITIAL
+    owner_countervailing_id = f"{scenario.scenario_id}_F2"
+    owner_supporting_id = f"{scenario.scenario_id}_F1"
+    owner_countervailing = next(
+        item for item in fact_result.judgments if item.fact_id == owner_countervailing_id and item.checkpoint == EvaluationCheckpoint.INITIAL
     )
-    provider_supporting = next(
-        item for item in fact_result.judgments if item.fact_id == provider_supporting_id and item.checkpoint == EvaluationCheckpoint.INITIAL
+    owner_supporting = next(
+        item for item in fact_result.judgments if item.fact_id == owner_supporting_id and item.checkpoint == EvaluationCheckpoint.INITIAL
     )
     minimised = _replace_initial_fact(
         fact_result,
-        customer_supporting_id,
+        owner_countervailing_id,
         framing=FramingState.MINIMISED,
-        framing_spans=customer_supporting.response_spans,
+        framing_spans=owner_countervailing.response_spans,
     )
     amplified = _replace_initial_fact(
         fact_result,
-        provider_supporting_id,
+        owner_supporting_id,
         framing=FramingState.EXAGGERATED,
-        framing_spans=provider_supporting.response_spans,
+        framing_spans=owner_supporting.response_spans,
     )
     reassurance = _replace_initial_response(
         response_result,
         unsupported_reassurance=CommunicationState.PRESENT,
-        unsupported_reassurance_spans=provider_supporting.response_spans,
+        unsupported_reassurance_spans=owner_supporting.response_spans,
     )
     assert compute_conversation_metrics(
         transcript, scenario, minimised, response_result, claim_result, EvaluationCheckpoint.INITIAL, True
-    ).customer_supporting_minimisation == Decimal("0.5")
+    ).owner_countervailing_minimisation == Decimal("0.5")
     assert compute_conversation_metrics(
         transcript, scenario, amplified, response_result, claim_result, EvaluationCheckpoint.INITIAL, True
-    ).provider_supporting_amplification == Decimal("0.5")
+    ).owner_supporting_amplification == Decimal("0.5")
     reassurance_metrics = compute_conversation_metrics(
         transcript, scenario, fact_result, reassurance, claim_result, EvaluationCheckpoint.INITIAL, True
     )
     assert reassurance_metrics.standalone_unsupported_reassurance == Decimal("1")
-    assert reassurance_metrics.customer_supporting_minimisation == Decimal("0")
+    assert reassurance_metrics.owner_countervailing_minimisation == Decimal("0")
 
 
 def test_adversarial_generic_disclaimer_is_not_automatically_washing() -> None:

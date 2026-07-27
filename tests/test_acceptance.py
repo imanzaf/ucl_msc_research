@@ -22,7 +22,7 @@ from src.data_models.scenario_review import (
     ScenarioAcceptanceRecord,
     ScenarioReviewHistory,
 )
-from src.data_models.scenarios import AcceptedScenario, CandidateScenario, V11HiddenDesign, V11UseCaseSeed
+from src.data_models.scenarios import AcceptedScenario, CandidateScenario, V100HiddenDesign, V100UseCaseSeed
 from src.scenarios.acceptance import build_accepted_scenario, publish_accepted_scenario, validate_accepted_bundle
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
 from src.scenarios.seed_validation import load_and_validate_seed
@@ -137,9 +137,9 @@ def test_publish_stages_bundles_and_calibration_manifest_as_one_final_set(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Publish ten staged C1 bundles and their self-hashed manifest together."""
-    input_root = tmp_path / "v0.11.0"
+    input_root = tmp_path / "v1.0.0"
     accepted_root = input_root / "accepted"
-    source_seed_root = REPO_ROOT / "data/inputs/scenarios/v0.11.0"
+    source_seed_root = REPO_ROOT / "data/inputs/scenarios/v1.0.0"
     input_root.mkdir(parents=True)
     for filename in ["scenario_generation_seeds.json", "scenario_generation_seed_schema.json"]:
         shutil.copy2(source_seed_root / filename, input_root / filename)
@@ -169,13 +169,13 @@ def test_publish_stages_bundles_and_calibration_manifest_as_one_final_set(
 
 def test_candidate_publication_requires_exact_seed_owned_metadata() -> None:
     """Reject a hash-valid reviewed candidate whose researcher-owned task fields drift."""
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v0.11.0"
+    seed_root = REPO_ROOT / "data/inputs/scenarios/v1.0.0"
     seed = load_and_validate_seed(
         seed_root / "scenario_generation_seeds.json",
         seed_root / "scenario_generation_seed_schema.json",
     )
     use_case = seed.use_cases[0]
-    assert isinstance(use_case, V11UseCaseSeed)
+    assert isinstance(use_case, V100UseCaseSeed)
     replication = next(item for item in use_case.replications if item.scenario_id == "CF001_R1")
     candidate = make_candidate_scenario("CF001_R1")
     payload = candidate.model_dump(mode="json", exclude={"candidate_sha256"})
@@ -183,10 +183,9 @@ def test_candidate_publication_requires_exact_seed_owned_metadata() -> None:
         {
             "deployment_context": use_case.deployment_context.model_dump(mode="json"),
             "customer_messages": replication.customer_messages.model_dump(mode="json"),
-            "hidden_design": V11HiddenDesign(
+            "hidden_design": V100HiddenDesign(
                 decision_type=replication.decision_type,
                 options=replication.options,
-                customer_supporting_option=replication.customer_supporting_option,
                 owner_supporting_option=replication.owner_supporting_option,
                 owner_benefit_mechanism=replication.owner_benefit_mechanism,
                 presentation_order=replication.presentation_order,

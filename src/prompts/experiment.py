@@ -8,9 +8,8 @@ from typing import List, Sequence, Tuple
 from src.data_models.common import artifact_sha256, sha256_bytes
 from src.data_models.experiments import MessageRole, PromptMessage
 from src.data_models.manifests import CompleteRenderedRequestReview
-from src.data_models.scenarios import AcceptedScenario, V11HiddenDesign
+from src.data_models.scenarios import AcceptedScenario, V100HiddenDesign
 from src.data_models.study import (
-    ALL_CUE_PHRASES,
     BRIEF_REQUEST,
     CONCISION_INSTRUCTION,
     PROMPT_PACKAGE_VERSION,
@@ -18,7 +17,6 @@ from src.data_models.study import (
     ExperimentCell,
     ExpressedConcernCondition,
     StudyStage,
-    assigned_cue,
 )
 from src.scenarios.fact_rendering import render_visible_facts
 
@@ -56,10 +54,10 @@ def prompt_package_sha256() -> str:
             "guidance_separator": GUIDANCE_SEPARATOR,
             "source_context_heading": FACT_CONTEXT_HEADING,
             "system_message_template": SYSTEM_MESSAGE_TEMPLATE,
-            "cue_phrases": ALL_CUE_PHRASES,
+            "condition_query_source": "accepted_scenario.customer_messages.<condition>_user_query",
             "brief_request": BRIEF_REQUEST,
             "concision_instruction": CONCISION_INSTRUCTION,
-            "follow_up_source": "accepted_scenario.customer_messages.follow_up_message",
+            "follow_up_source": "accepted_scenario.customer_messages.follow_up_query",
         }
     )
 
@@ -79,12 +77,11 @@ def _normalise_conflict_label(value: str) -> str:
 def _validate_decision_conflict_isolation(scenario: AcceptedScenario, rendered_prompt: str) -> None:
     """Reject any exact researcher-only conflict field or research label in an evaluated prompt."""
     normalised_prompt = _normalise_conflict_label(rendered_prompt)
-    if not isinstance(scenario.hidden_design, V11HiddenDesign):
-        raise ValueError("active evaluated prompts require a V0.11.0 scenario")
+    if not isinstance(scenario.hidden_design, V100HiddenDesign):
+        raise ValueError("active evaluated prompts require a V1.0.0 scenario")
     conflict = scenario.hidden_design
     hidden_values = [
         conflict.owner_benefit_mechanism,
-        conflict.customer_supporting_option.value,
         conflict.owner_supporting_option.value,
     ]
     leaked_values = [value for value in hidden_values if _normalise_conflict_label(value) in normalised_prompt]
@@ -117,15 +114,17 @@ def _validate_deployment_framing(rendered_prompt: str) -> None:
 
 
 def render_reviewed_user_request(scenario: AcceptedScenario, expressed_concern: ExpressedConcernCondition) -> str:
-    """Render the complete primary user request reviewed for one scenario and cue."""
-    return " ".join([assigned_cue(scenario.scenario_id, expressed_concern), scenario.customer_messages.initial_message])
+    """Return the complete seed-authored user query for one concern condition."""
+    if expressed_concern == ExpressedConcernCondition.CONCERNED:
+        return scenario.customer_messages.concerned_user_query
+    return scenario.customer_messages.neutral_user_query
 
 
 def validate_complete_request_reviews(
     reviews: Sequence[CompleteRenderedRequestReview],
     scenarios: Sequence[AcceptedScenario],
 ) -> None:
-    """Require both cue reviews for every supplied accepted scenario to match compiled requests."""
+    """Require both query reviews for every supplied accepted scenario to match compiled requests."""
     scenario_by_id = {scenario.scenario_id: scenario for scenario in scenarios}
     if len(scenario_by_id) != len(scenarios) or not scenario_by_id:
         raise ValueError("complete-request review validation requires unique accepted scenarios")
@@ -178,7 +177,7 @@ def compile_experiment_prompt(
         PromptMessage(role=MessageRole.SYSTEM, content=system_content),
         PromptMessage(role=MessageRole.USER, content=user_content),
     ]
-    follow_up = PromptMessage(role=MessageRole.USER, content=scenario.customer_messages.follow_up_message)
+    follow_up = PromptMessage(role=MessageRole.USER, content=scenario.customer_messages.follow_up_query)
     rendered_prompt = "\n".join([*(message.content for message in initial_messages), follow_up.content])
     _validate_decision_conflict_isolation(
         scenario,

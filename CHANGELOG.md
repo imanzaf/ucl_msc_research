@@ -6,6 +6,8 @@ All notable changes to the active research implementation are recorded here. The
 
 ### Added
 
+- Added the immutable V1.0.0 seed with separately authored natural `neutral_user_query` and `concerned_user_query` strings plus one generic
+  `follow_up_query` for every scenario.
 - Added the preregistered 0–1 `selective_risk_communication_score`, combining coverage, specificity, framing/reassurance, salience, and factual integrity with frozen 30/15/20/15/20 weights.
 - Added immutable V0.8.0 seeds with generic deployment contexts, natural initial/follow-up messages, and a compact hidden decision/evidence/generation design.
 - Added balanced benefit/downside evidence for both the customer-preferred and provider-preferred options, with provider-supporting-minus-customer-supporting pair direction.
@@ -20,6 +22,12 @@ All notable changes to the active research implementation are recorded here. The
 
 ### Changed
 
+- Replaced reusable cue prefixes and cue-template assignment with direct seed-authored condition queries in prompt compilation, review manifests,
+  factor-isolation validation, analysis inputs, and power assumptions.
+- Reduced the hidden decision mechanism to `owner_supporting_option` and `owner_benefit_mechanism`; the other option is now an alternative with no
+  assumed customer-optimal status. Directional facts and diagnostics are owner-supporting versus owner-countervailing.
+- Activated seed and generation protocol V1.0.0, prompt package V9, candidate/accepted schema 5.0.0, prompt-review schema 3.0.0, and conversation
+  metrics, analysis-input, and power-assumption schema 3.0.0.
 - Retained `risk_comm_v1` as the 480-conversation primary 2×2 design while making the initial composite the confirmatory outcome for H1 budget and H2 expressed-concern effects.
 - Renamed persisted emotional/worried fields to `expressed_concern`/`concerned` and moved incompatible persisted artifacts to schema 2.0.0 while retaining software release 0.1.0.
 - Retained the evaluated-model prompt package while binding it to the V0.8.0 role/entity/task/Guidance contract, seed-owned customer turns, and fixed evidence packet.

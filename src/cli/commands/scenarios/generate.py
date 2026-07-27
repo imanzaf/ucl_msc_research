@@ -27,8 +27,8 @@ from src.data_models.scenarios import (
     ScenarioGenerationInvocationConfig,
     ScenarioGenerationRunConfig,
     ScenarioStage,
-    V11ReplicationSeed,
-    V11UseCaseSeed,
+    V100ReplicationSeed,
+    V100UseCaseSeed,
 )
 from src.paths import (
     ACTIVE_SCENARIO_GENERATION_ROOT,
@@ -60,11 +60,11 @@ def _load_backend(specification: str, invocation_root: Path) -> ScenarioPipeline
 
 
 def _select_stage_seeds(
-    use_cases: List[V11UseCaseSeed],
+    use_cases: List[V100UseCaseSeed],
     stage: ScenarioStage,
     use_case_id: Optional[str],
     scenario_id: Optional[str],
-) -> List[Tuple[V11UseCaseSeed, V11ReplicationSeed]]:
+) -> List[Tuple[V100UseCaseSeed, V100ReplicationSeed]]:
     """Select a complete lifecycle batch or one exact scenario without crossing stages."""
     stage_seeds = [
         (use_case, replication)
@@ -137,7 +137,7 @@ def _create_invocation_root(
     run_root: Path,
     run_id: str,
     stage: ScenarioStage,
-    selected: List[Tuple[V11UseCaseSeed, V11ReplicationSeed]],
+    selected: List[Tuple[V100UseCaseSeed, V100ReplicationSeed]],
     backend_specification: str,
 ) -> Path:
     """Create a timestamped round with an isolated provider-log directory."""
@@ -160,7 +160,7 @@ def _create_invocation_root(
 def _matching_incomplete_round(
     run_root: Path,
     stage: ScenarioStage,
-    selected: List[Tuple[V11UseCaseSeed, V11ReplicationSeed]],
+    selected: List[Tuple[V100UseCaseSeed, V100ReplicationSeed]],
     backend_specification: str,
 ) -> Optional[Path]:
     """Find the newest matching round whose selected scenario work is incomplete."""
@@ -292,7 +292,7 @@ def _write_pipeline_failure(output_root: Path, scenario_id: str, error: Exceptio
 
 def _generate_candidate_if_missing(
     candidate_root: Path,
-    scenario_seed: Tuple[V11UseCaseSeed, V11ReplicationSeed],
+    scenario_seed: Tuple[V100UseCaseSeed, V100ReplicationSeed],
     backend: ScenarioPipelineBackend,
 ) -> CandidateScenario:
     """Load an existing candidate or generate and persist it once for safe resume."""
@@ -306,9 +306,9 @@ def _generate_candidate_if_missing(
 
 
 def _family_evaluation_seeds(
-    use_cases: List[V11UseCaseSeed],
+    use_cases: List[V100UseCaseSeed],
     use_case_id: str,
-) -> List[Tuple[V11UseCaseSeed, V11ReplicationSeed]]:
+) -> List[Tuple[V100UseCaseSeed, V100ReplicationSeed]]:
     """Return every non-C1 replication for one task family in seed order."""
     selected = [
         (use_case, replication)
@@ -324,8 +324,8 @@ def _family_evaluation_seeds(
 
 def _load_run_researcher_revisions(
     run_root: Path,
-    calibration_seeds: List[Tuple[V11UseCaseSeed, V11ReplicationSeed]],
-) -> List[Tuple[Tuple[V11UseCaseSeed, V11ReplicationSeed], CandidateScenario, ResearcherScenarioReview]]:
+    calibration_seeds: List[Tuple[V100UseCaseSeed, V100ReplicationSeed]],
+) -> List[Tuple[Tuple[V100UseCaseSeed, V100ReplicationSeed], CandidateScenario, ResearcherScenarioReview]]:
     """Select current hash-bound revise decisions from one named run."""
     current = current_scenario_artifacts(run_root)
     reviews_by_hash = reviews_by_artifact_hash(run_root)
@@ -346,8 +346,8 @@ def _load_run_researcher_revisions(
 
 def _load_round_researcher_revisions(
     round_root: Path,
-    selected: List[Tuple[V11UseCaseSeed, V11ReplicationSeed]],
-) -> List[Tuple[Tuple[V11UseCaseSeed, V11ReplicationSeed], CandidateScenario, ResearcherScenarioReview]]:
+    selected: List[Tuple[V100UseCaseSeed, V100ReplicationSeed]],
+) -> List[Tuple[Tuple[V100UseCaseSeed, V100ReplicationSeed], CandidateScenario, ResearcherScenarioReview]]:
     """Reload immutable researcher-revision inputs when a round resumes."""
     stored = []
     for scenario_seed in selected:
@@ -420,7 +420,7 @@ def _researcher_revision_changes(
 def _run_researcher_directed_revision(
     run_root: Path,
     candidate_root: Path,
-    scenario_seed: Tuple[V11UseCaseSeed, V11ReplicationSeed],
+    scenario_seed: Tuple[V100UseCaseSeed, V100ReplicationSeed],
     parent_candidate: CandidateScenario,
     researcher_review: ResearcherScenarioReview,
     backend: ScenarioPipelineBackend,
@@ -492,7 +492,7 @@ def main() -> None:
     stage = ScenarioStage(args.stage)
     expected_output_root = ACTIVE_SCENARIO_GENERATION_ROOT.resolve()
     if args.output_root.resolve() != expected_output_root:
-        raise ValueError("scenario generation output must remain under the active V0.11.0 seed-version root")
+        raise ValueError("scenario generation output must remain under the active V1.0.0 seed-version root")
     seed_root = ACTIVE_SCENARIO_INPUT_ROOT
     seed = load_and_validate_seed(
         seed_path=seed_root / "scenario_generation_seeds.json",

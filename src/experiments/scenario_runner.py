@@ -26,7 +26,7 @@ from src.data_models.experiments import (
     provider_request_sha256,
 )
 from src.data_models.manifests import C1EvaluationConfig, EvaluatedModelSnapshot, WordBudgetManifest
-from src.data_models.prompt_controls import group_run_units_by_block, validate_assigned_cue, validate_prompt_factor_isolation
+from src.data_models.prompt_controls import group_run_units_by_block, validate_condition_query, validate_prompt_factor_isolation
 from src.data_models.scenarios import AcceptedScenario
 from src.data_models.study import (
     DEFAULT_MAX_RESPONSE_TOKENS,
@@ -171,7 +171,7 @@ def _build_exploratory_run_plan(
                     position,
                     created_at,
                 )
-                validate_assigned_cue(run_unit)
+                validate_condition_query(run_unit)
                 run_units.append(run_unit)
     return run_units
 
@@ -225,7 +225,7 @@ def validate_exploratory_run_plan(run_units: Iterable[RunUnit], expected_count: 
     if len({unit.run_unit_id for unit in units}) != expected_count:
         raise ValueError("exploratory run-unit ids must be unique")
     for unit in units:
-        validate_assigned_cue(unit)
+        validate_condition_query(unit)
 
 
 def validate_exploratory_plan_against_frozen_inputs(
@@ -638,7 +638,7 @@ def execute_run_unit(
     provider: TextCompletionProvider,
     retry_policy: RetryPolicy,
 ) -> ConversationTranscript:
-    """Execute initial and cue-free follow-up turns for one immutable run unit."""
+    """Execute initial and shared follow-up turns for one immutable run unit."""
     initial_messages = _provider_messages(run_unit.initial_request_messages)
     max_tokens = DEFAULT_MAX_RESPONSE_TOKENS
     initial_response, initial_attempts = _call_with_retries(

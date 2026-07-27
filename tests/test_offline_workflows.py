@@ -16,7 +16,7 @@ from src.data_models.scoring import (
     FactAssessmentResult,
     ResponseCommunicationResult,
 )
-from src.data_models.study import ExperimentName, cue_template_id
+from src.data_models.study import ExperimentName
 from src.experiments.scenario_runner import build_brevity_locus_run_plan, build_material_priority_run_plan, build_run_plan, execute_run_unit
 from src.experiments.scoring_pipeline import score_conversation
 from src.llm.openrouter import ProviderTextResponse
@@ -95,12 +95,11 @@ def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
     )
     rows = [
         AnalysisInputRow(
-            schema_version="2.0.0",
+            schema_version="3.0.0",
             run_unit_id=transcript.run_unit.run_unit_id,
             scenario_id=scenario.scenario_id,
             use_case_id=scenario.use_case_id,
             model_id=transcript.run_unit.model_id,
-            cue_template_id=cue_template_id(scenario.scenario_id),
             word_budget=transcript.run_unit.cell.concision,
             expressed_concern=transcript.run_unit.cell.expressed_concern,
             metrics=metric,

@@ -13,16 +13,12 @@ from src.data_models.common import ImmutableModel, VersionedImmutableModel, arti
 from src.data_models.experiments import CompletionFinishReason, RetryPolicy
 from src.data_models.scenarios import ScenarioStage
 from src.data_models.study import (
-    ALL_CUE_PHRASES,
     AMPLE_WORD_LIMIT,
-    CUE_PAIRS,
     EXPERIMENT_DIMENSIONS,
     PILOT_WORD_LIMIT,
     PROMPT_PACKAGE_VERSION,
     ExperimentName,
     ExpressedConcernCondition,
-    assigned_cue,
-    cue_template_id,
 )
 from src.paths import ACTIVE_SCENARIO_SEED_SCHEMA_SHA256, ACTIVE_SCENARIO_SEED_SHA256, ACTIVE_SCENARIO_SET_ID
 from src.scenarios.word_count import count_words
@@ -35,8 +31,8 @@ class FreezeStatus(str, Enum):
     FROZEN = "frozen"
 
 
-class CueReviewDecision(str, Enum):
-    """Identify the outcome of the researcher cue self-review."""
+class PromptReviewDecision(str, Enum):
+    """Identify the outcome of the researcher query-pair review."""
 
     APPROVE = "approve"
     REVISE = "revise"
@@ -54,8 +50,6 @@ class CompleteRenderedRequestReview(ImmutableModel):
 
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
     expressed_concern: ExpressedConcernCondition
-    cue_template_id: int = Field(ge=1, le=4)
-    assigned_phrase: str = Field(min_length=1)
     rendered_request_text: str = Field(min_length=1)
     rendered_request_sha256: str
     natural: bool
@@ -74,16 +68,9 @@ class CompleteRenderedRequestReview(ImmutableModel):
 
     @model_validator(mode="after")
     def validate_rendering(self) -> "CompleteRenderedRequestReview":
-        """Bind the exact assigned phrase, template, and complete rendered bytes."""
-        if self.assigned_phrase != assigned_cue(self.scenario_id, self.expressed_concern):
-            raise ValueError("request review does not use the assigned cue phrase")
-        if self.cue_template_id != cue_template_id(self.scenario_id):
-            raise ValueError("request review cue template does not match the frozen scenario mapping")
+        """Bind the review to the exact complete rendered query bytes."""
         if self.rendered_request_sha256 != sha256_bytes(self.rendered_request_text.encode("utf-8")):
             raise ValueError("rendered-request hash does not match exact text")
-        observed = [phrase for phrase in ALL_CUE_PHRASES if phrase in self.rendered_request_text]
-        if observed != [self.assigned_phrase] or self.rendered_request_text.count(self.assigned_phrase) != 1:
-            raise ValueError("rendered request must contain exactly its assigned cue and no alternative phrase")
         return self
 
 
@@ -119,13 +106,12 @@ def _request_reviews_are_acceptable(request_reviews: List[CompleteRenderedReques
 class CalibrationPromptReviewManifest(VersionedImmutableModel):
     """Freeze holistic researcher review of the twenty C1 pilot requests."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     prompt_version: str = Field(pattern=r"^v[1-9][0-9]*$")
     accepted_scenario_manifest_sha256: str
-    cue_pairs: Dict[int, List[str]]
     request_reviews: List[CalibrationRenderedRequestReview] = Field(min_length=20, max_length=20)
     researcher_notes: str = Field(min_length=1)
-    decision: CueReviewDecision
+    decision: PromptReviewDecision
     reviewed_by: str = Field(min_length=1)
     reviewed_at: datetime
     manifest_sha256: str
@@ -139,14 +125,13 @@ class CalibrationPromptReviewManifest(VersionedImmutableModel):
     @model_validator(mode="after")
     def validate_approval(self) -> "CalibrationPromptReviewManifest":
         """Permit approval only after every C1-by-concern request passes review."""
-        expected_pairs = {index: list(pair) for index, pair in CUE_PAIRS.items()}
-        if self.prompt_version != PROMPT_PACKAGE_VERSION or self.cue_pairs != expected_pairs:
-            raise ValueError("calibration prompt review must bind the active prompt version and cue pairs")
+        if self.prompt_version != PROMPT_PACKAGE_VERSION:
+            raise ValueError("calibration prompt review must bind the active prompt version")
         expected_keys = {(f"CF{use_case:03d}_C1", condition) for use_case in range(1, 11) for condition in ExpressedConcernCondition}
         observed_keys = {(review.scenario_id, review.expressed_concern) for review in self.request_reviews}
         if observed_keys != expected_keys or len(observed_keys) != len(self.request_reviews):
             raise ValueError("calibration prompt review must contain each of the twenty C1-by-concern requests exactly once")
-        if self.decision == CueReviewDecision.APPROVE and not _request_reviews_are_acceptable(self.request_reviews):
+        if self.decision == PromptReviewDecision.APPROVE and not _request_reviews_are_acceptable(self.request_reviews):
             raise ValueError("calibration prompts cannot be approved while a complete-request review fails")
         expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"manifest_sha256"}))
         if self.manifest_sha256 != expected_hash:
@@ -157,13 +142,12 @@ class CalibrationPromptReviewManifest(VersionedImmutableModel):
 class PromptReviewManifest(VersionedImmutableModel):
     """Freeze holistic researcher review of all 40 rendered evaluation requests."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     prompt_version: str = Field(pattern=r"^v[1-9][0-9]*$")
     accepted_scenario_manifest_sha256: str
-    cue_pairs: Dict[int, List[str]]
     request_reviews: List[EvaluationRenderedRequestReview] = Field(min_length=40, max_length=40)
     researcher_notes: str = Field(min_length=1)
-    decision: CueReviewDecision
+    decision: PromptReviewDecision
     reviewed_by: str = Field(min_length=1)
     reviewed_at: datetime
     manifest_sha256: str
@@ -177,9 +161,8 @@ class PromptReviewManifest(VersionedImmutableModel):
     @model_validator(mode="after")
     def validate_approval(self) -> "PromptReviewManifest":
         """Permit approval only after all 20×2 complete requests pass holistic review."""
-        expected_pairs = {index: list(pair) for index, pair in CUE_PAIRS.items()}
-        if self.prompt_version != PROMPT_PACKAGE_VERSION or self.cue_pairs != expected_pairs:
-            raise ValueError("prompt review must bind the exact active prompt version and four cue pairs")
+        if self.prompt_version != PROMPT_PACKAGE_VERSION:
+            raise ValueError("prompt review must bind the exact active prompt version")
         expected_keys = {
             (f"CF{use_case:03d}_R{replication}", condition)
             for use_case in range(1, 11)
@@ -189,8 +172,8 @@ class PromptReviewManifest(VersionedImmutableModel):
         observed_keys = {(review.scenario_id, review.expressed_concern) for review in self.request_reviews}
         if observed_keys != expected_keys or len(observed_keys) != len(self.request_reviews):
             raise ValueError("prompt review must contain each of the 40 scenario-by-concern requests exactly once")
-        if self.decision == CueReviewDecision.APPROVE and not _request_reviews_are_acceptable(self.request_reviews):
-            raise ValueError("cue wording cannot be approved while any complete-request review fails")
+        if self.decision == PromptReviewDecision.APPROVE and not _request_reviews_are_acceptable(self.request_reviews):
+            raise ValueError("query wording cannot be approved while any complete-request review fails")
         expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"manifest_sha256"}))
         if self.manifest_sha256 != expected_hash:
             raise ValueError("prompt-review manifest digest does not match canonical content")
@@ -584,7 +567,7 @@ class ScenarioManifestScope(str, Enum):
 class AcceptedScenarioSetId(str, Enum):
     """Identify the active accepted scenario family."""
 
-    V0_11_0 = ACTIVE_SCENARIO_SET_ID
+    V1_0_0 = ACTIVE_SCENARIO_SET_ID
 
 
 class AcceptedScenarioManifest(VersionedImmutableModel):
@@ -610,7 +593,7 @@ class AcceptedScenarioManifest(VersionedImmutableModel):
     def validate_complete_scenario_set(self) -> "AcceptedScenarioManifest":
         """Require exactly C1, R1, and R2 for every one of the ten use cases."""
         if self.seed_sha256 != ACTIVE_SCENARIO_SEED_SHA256 or self.seed_schema_sha256 != ACTIVE_SCENARIO_SEED_SCHEMA_SHA256:
-            raise ValueError("accepted-scenario manifest must bind the approved immutable V0.11.0 seed and schema")
+            raise ValueError("accepted-scenario manifest must bind the approved immutable V1.0.0 seed and schema")
         calibration_ids = {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
         evaluation_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 3)}
         expected_ids = calibration_ids if self.manifest_scope == ScenarioManifestScope.CALIBRATION else calibration_ids | evaluation_ids
@@ -909,7 +892,6 @@ class SmallestEffectManifest(VersionedImmutableModel):
 class PowerVarianceComponents(ImmutableModel):
     """Freeze calibration-derived variance at every repeated-design level."""
 
-    cue_template_standard_deviation: Decimal = Field(ge=0)
     pair_standard_deviation: Decimal = Field(ge=0)
     fact_standard_deviation: Decimal = Field(ge=0)
     scenario_standard_deviation: Decimal = Field(ge=0)
@@ -927,7 +909,7 @@ class PowerVarianceComponents(ImmutableModel):
 class AnalysisAssumptionInput(VersionedImmutableModel):
     """Validate researcher-authored effect, rationale, and variance inputs before freezing."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     absolute_bounds: Dict[str, Decimal] = Field(min_length=2, max_length=2)
     rationales: Dict[str, str] = Field(min_length=2, max_length=2)
     variance_components: PowerVarianceComponents
@@ -946,7 +928,7 @@ class AnalysisAssumptionInput(VersionedImmutableModel):
 class PowerAssumptionManifest(VersionedImmutableModel):
     """Freeze pre-evaluation variance assumptions for the composite estimator."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     freeze_status: FreezeStatus
     smallest_effect_manifest_sha256: str
     variance_components: PowerVarianceComponents

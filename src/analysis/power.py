@@ -20,7 +20,6 @@ BASE_DOMAIN_SCORE = 0.35
 class VarianceComponents:
     """Represent calibrated heterogeneity in the actual composite estimator."""
 
-    cue_template_standard_deviation: float
     pair_standard_deviation: float
     fact_standard_deviation: float
     scenario_standard_deviation: float
@@ -30,7 +29,6 @@ class VarianceComponents:
     def validate(self) -> None:
         """Reject negative or entirely degenerate calibration components."""
         values = [
-            self.cue_template_standard_deviation,
             self.pair_standard_deviation,
             self.fact_standard_deviation,
             self.scenario_standard_deviation,
@@ -54,11 +52,8 @@ def _composite_contrasts(
     if set(effects) != CONFIRMATORY_NAMES:
         raise ValueError("power effects must cover exactly H1 and H2")
     generator = np.random.default_rng(seed)
-    # Axes: simulation, scenario (10 use cases × R1-R2), model, budget, cue, domain.
+    # Axes: simulation, scenario (10 use cases × R1-R2), model, budget, concern, domain.
     shape = (simulations, 20, 3, 2, 2, len(DOMAIN_NAMES))
-    template_ids = np.tile(np.arange(2), 10)
-    template = generator.normal(0, components.cue_template_standard_deviation, size=(simulations, 2))[:, template_ids]
-    template = template[:, :, None, None, None, None]
     # Cell-varying components represent treatment-effect heterogeneity; pure random intercepts
     # would cancel from the paired H1/H2 contrasts and therefore contribute no power uncertainty.
     scenario = generator.normal(
@@ -85,7 +80,7 @@ def _composite_contrasts(
     scoring = generator.normal(0, components.scoring_error_standard_deviation, size=shape)
     domains = BASE_DOMAIN_SCORE + scenario + model + pair + fact + scoring
     domains[:, :, :, 1, :, :] += effects["H1"]
-    domains[:, :, :, :, 1, :] += effects["H2"] + template[:, :, 0, 0, 0, 0][:, :, None, None, None]
+    domains[:, :, :, :, 1, :] += effects["H2"]
     domains = np.clip(domains, 0.0, 1.0)
     scores = np.tensordot(domains, WEIGHT_VECTOR, axes=([-1], [0]))
     # Average nuisance factor and model within each scenario, matching the analysis estimator.

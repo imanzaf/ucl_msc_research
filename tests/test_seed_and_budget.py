@@ -1,4 +1,4 @@
-"""Test immutable seeds, cue review, word counting, and budget gates."""
+"""Test immutable seeds, query review, word counting, and budget gates."""
 
 from __future__ import annotations
 
@@ -25,14 +25,14 @@ from src.data_models.manifests import (
     CalibrationPromptReviewManifest,
     CalibrationRenderedRequestReview,
     CompleteRenderedRequestReview,
-    CueReviewDecision,
     EvaluationRenderedRequestReview,
     PilotAttemptStatus,
+    PromptReviewDecision,
     PromptReviewManifest,
     ScenarioManifestScope,
 )
-from src.data_models.scenarios import SeedOptionId, V11HiddenDesign
-from src.data_models.study import CUE_PAIRS, PROMPT_PACKAGE_VERSION, ExpressedConcernCondition, assigned_cue, cue_template_id
+from src.data_models.scenarios import SeedOptionId, V100HiddenDesign
+from src.data_models.study import PROMPT_PACKAGE_VERSION, ExpressedConcernCondition
 from src.llm.openrouter import OpenRouterClient, ProviderTextResponse
 from src.prompts.experiment import render_reviewed_user_request, validate_complete_request_reviews
 from src.scenarios.budgets import build_ample_pilot_summary, calculate_tight_word_limit, require_ample_pilot_gate, validate_evaluation_headroom
@@ -41,11 +41,11 @@ from src.scenarios.word_count import count_words, tokenize_words
 from tests.factories import ZERO_HASH, make_accepted_scenario
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SEED_ROOT = REPO_ROOT / "data/inputs/scenarios/v0.11.0"
+SEED_ROOT = REPO_ROOT / "data/inputs/scenarios/v1.0.0"
 
 
 def test_active_seed_has_approved_bytes_and_exact_structure() -> None:
-    """Authenticate the only runtime-supported V0.11.0 seed."""
+    """Authenticate the only runtime-supported V1.0.0 seed."""
     hashes = validate_seed_hashes(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
     seed = load_and_validate_seed(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
     assert hashes == {"seed_sha256": EXPECTED_SEED_SHA256, "schema_sha256": EXPECTED_SCHEMA_SHA256}
@@ -55,7 +55,7 @@ def test_active_seed_has_approved_bytes_and_exact_structure() -> None:
 
 
 def test_exported_seed_schema_matches_the_active_runtime_boundary() -> None:
-    """Require both exported seed schemas to accept only the V0.11.0 structure."""
+    """Require both exported seed schemas to accept only the V1.0.0 structure."""
     exported_schema = json.loads((REPO_ROOT / "schemas/scenario_seed_set.schema.json").read_text(encoding="utf-8"))
     active_schema = json.loads((SEED_ROOT / "scenario_generation_seed_schema.json").read_text(encoding="utf-8"))
     active_payload = json.loads((SEED_ROOT / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
@@ -69,20 +69,20 @@ def test_exported_seed_schema_matches_the_active_runtime_boundary() -> None:
     assert list(validator.iter_errors(active_payload))
 
 
-def test_hidden_design_rejects_equivalent_or_same_owner_options() -> None:
-    """Require distinct option names and opposed customer/owner mappings."""
+def test_hidden_design_requires_one_owner_option_and_distinct_option_names() -> None:
+    """Require distinct option names and one valid owner-supporting option."""
     seed = load_and_validate_seed(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
     payload = seed.use_cases[0].replications[0].model_dump(mode="json", exclude={"scenario_id", "customer_messages"})
-    assert V11HiddenDesign.model_validate(payload).customer_supporting_option == SeedOptionId.OPTION_A
-    payload["owner_supporting_option"] = payload["customer_supporting_option"]
-    with pytest.raises(ValidationError, match="must differ"):
-        V11HiddenDesign.model_validate(payload)
+    assert V100HiddenDesign.model_validate(payload).owner_supporting_option == SeedOptionId.OPTION_B
+    payload["options"][1]["option_name"] = payload["options"][0]["option_name"]
+    with pytest.raises(ValidationError, match="option names must be distinct"):
+        V100HiddenDesign.model_validate(payload)
 
 
 def test_seed_tampering_is_rejected_before_use(tmp_path: Path) -> None:
     """Reject any changed byte in the active immutable seed."""
     root = SEED_ROOT
-    version_root = tmp_path / "v0.11.0"
+    version_root = tmp_path / "v1.0.0"
     version_root.mkdir()
     payload = json.loads((root / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
     payload["use_cases"][0]["word_budget"] = 100
@@ -187,14 +187,11 @@ def _complete_request_reviews() -> List[CompleteRenderedRequestReview]:
             scenario_id = f"CF{use_case:03d}_R{replication}"
             scenario = make_accepted_scenario(scenario_id)
             for concern in ExpressedConcernCondition:
-                phrase = assigned_cue(scenario_id, concern)
                 rendered = render_reviewed_user_request(scenario, concern)
                 reviews.append(
                     EvaluationRenderedRequestReview(
                         scenario_id=scenario_id,
                         expressed_concern=concern,
-                        cue_template_id=replication,
-                        assigned_phrase=phrase,
                         rendered_request_text=rendered,
                         rendered_request_sha256=sha256_bytes(rendered.encode("utf-8")),
                         natural=True,
@@ -216,14 +213,11 @@ def _calibration_request_reviews() -> List[CompleteRenderedRequestReview]:
         scenario_id = f"CF{use_case:03d}_C1"
         scenario = make_accepted_scenario(scenario_id)
         for concern in ExpressedConcernCondition:
-            phrase = assigned_cue(scenario_id, concern)
             rendered = render_reviewed_user_request(scenario, concern)
             reviews.append(
                 CalibrationRenderedRequestReview(
                     scenario_id=scenario_id,
                     expressed_concern=concern,
-                    cue_template_id=cue_template_id(scenario_id),
-                    assigned_phrase=phrase,
                     rendered_request_text=rendered,
                     rendered_request_sha256=sha256_bytes(rendered.encode("utf-8")),
                     natural=True,
@@ -244,13 +238,12 @@ def test_calibration_prompt_review_breaks_the_pre_r_generation_cycle() -> None:
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_C1") for use_case in range(1, 11)]
     validate_complete_request_reviews(reviews, scenarios)
     payload = {
-        "schema_version": "2.0.0",
+        "schema_version": "3.0.0",
         "prompt_version": PROMPT_PACKAGE_VERSION,
         "accepted_scenario_manifest_sha256": ZERO_HASH,
-        "cue_pairs": {index: list(pair) for index, pair in CUE_PAIRS.items()},
         "request_reviews": reviews,
         "researcher_notes": "All twenty C1 requests reviewed before the ample pilot.",
-        "decision": CueReviewDecision.APPROVE,
+        "decision": PromptReviewDecision.APPROVE,
         "reviewed_by": "researcher",
         "reviewed_at": datetime(2026, 7, 23, tzinfo=timezone.utc),
     }
@@ -258,20 +251,21 @@ def test_calibration_prompt_review_breaks_the_pre_r_generation_cycle() -> None:
     assert len(manifest.request_reviews) == 20
 
 
-def test_prompt_review_freezes_all_40_requests_and_exact_cue_mapping() -> None:
-    """Require the cue pairs, R mapping, C1 round-robin, and no alternatives."""
-    assert [cue_template_id(f"CF{index:03d}_C1") for index in range(1, 11)] == [1, 2, 3, 4, 1, 2, 3, 4, 1, 2]
+def test_prompt_review_freezes_all_40_seed_authored_requests() -> None:
+    """Require one neutral/concerned pair per scenario and one shared generic follow-up."""
     active_seed = load_and_validate_seed(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
-    assert len({replication.customer_messages.follow_up_message for use_case in active_seed.use_cases for replication in use_case.replications}) == 30
+    replications = [replication for use_case in active_seed.use_cases for replication in use_case.replications]
+    assert len({replication.customer_messages.follow_up_query for replication in replications}) == 1
+    assert all(replication.customer_messages.neutral_user_query != replication.customer_messages.concerned_user_query for replication in replications)
+    assert all("really worried" in replication.customer_messages.concerned_user_query.casefold() for replication in replications)
     reviews = _complete_request_reviews()
     payload = {
-        "schema_version": "2.0.0",
+        "schema_version": "3.0.0",
         "prompt_version": PROMPT_PACKAGE_VERSION,
         "accepted_scenario_manifest_sha256": ZERO_HASH,
-        "cue_pairs": {index: list(pair) for index, pair in CUE_PAIRS.items()},
         "request_reviews": reviews,
         "researcher_notes": "Reviewed all complete requests before generation.",
-        "decision": CueReviewDecision.APPROVE,
+        "decision": PromptReviewDecision.APPROVE,
         "reviewed_by": "researcher",
         "reviewed_at": datetime(2026, 7, 19, tzinfo=timezone.utc),
     }
@@ -295,15 +289,8 @@ def test_prompt_review_freezes_all_40_requests_and_exact_cue_mapping() -> None:
             [tampered, *reviews[1:]],
             [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)],
         )
-    alternative = CUE_PAIRS[2][0]
-    with pytest.raises(ValidationError, match="no alternative"):
-        CompleteRenderedRequestReview.model_validate(
-            {
-                **first.model_dump(mode="json"),
-                "rendered_request_text": first.rendered_request_text + " " + alternative,
-                "rendered_request_sha256": sha256_bytes((first.rendered_request_text + " " + alternative).encode("utf-8")),
-            }
-        )
+    assert "cue_template_id" not in CompleteRenderedRequestReview.model_fields
+    assert "assigned_phrase" not in CompleteRenderedRequestReview.model_fields
 
 
 def test_prompt_review_schemas_restrict_calibration_and_evaluation_ids() -> None:
@@ -447,11 +434,11 @@ def test_successful_ample_pilot_attempt_recovers_only_from_matching_cache() -> N
 
 
 def test_accepted_manifest_rejects_unapproved_seed_hashes_before_publication() -> None:
-    """Prevent a self-hashed accepted set from blessing altered V0.11.0 seed bytes."""
-    with pytest.raises(ValidationError, match="approved immutable V0.11.0 seed"):
+    """Prevent a self-hashed accepted set from blessing altered V1.0.0 seed bytes."""
+    with pytest.raises(ValidationError, match="approved immutable V1.0.0 seed"):
         AcceptedScenarioManifest(
             schema_version="2.0.0",
-            scenario_set_id="customer_facing_risk_communication_v0.11.0",
+            scenario_set_id="customer_facing_risk_communication_v1.0.0",
             manifest_scope=ScenarioManifestScope.COMPLETE,
             seed_sha256=ZERO_HASH,
             seed_schema_sha256=ZERO_HASH,

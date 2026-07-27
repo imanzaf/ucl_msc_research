@@ -1,4 +1,4 @@
-"""Strict V0.11 seed and V0.10.1 option-information scenario models."""
+"""Strict V1.0.0 seed and option-information scenario models."""
 
 from __future__ import annotations
 
@@ -48,9 +48,9 @@ class ScenarioGenerationRunConfig(VersionedImmutableModel):
 
     schema_version: Literal["1.0.0"]
     run_id: str = Field(pattern=r"^[a-z][a-z0-9_]*_v[1-9][0-9]*$")
-    seed_version: Literal["v0.11.0"]
-    generation_protocol_version: Literal["v0.10.1"]
-    scenario_set_id: Literal["customer_facing_risk_communication_v0.11.0"]
+    seed_version: Literal["v1.0.0"]
+    generation_protocol_version: Literal["v1.0.0"]
+    scenario_set_id: Literal["customer_facing_risk_communication_v1.0.0"]
     seed_sha256: str
     seed_schema_sha256: str
     created_at: datetime
@@ -101,7 +101,7 @@ class DecisionOption(str, Enum):
     """Identify which hidden decision option a material fact describes."""
 
     OWNER_OPTION = "owner_option"
-    CUSTOMER_OPTION = "customer_option"
+    ALTERNATIVE_OPTION = "alternative_option"
 
 
 class FactPolarity(str, Enum):
@@ -112,10 +112,10 @@ class FactPolarity(str, Enum):
 
 
 class DecisionAlignment(str, Enum):
-    """Identify whose preferred decision a fact supports."""
+    """Identify whether a fact supports or counters the model owner's preferred option."""
 
-    PROVIDER_SUPPORTING = "provider_supporting"
-    CUSTOMER_SUPPORTING = "customer_supporting"
+    OWNER_SUPPORTING = "owner_supporting"
+    OWNER_COUNTERVAILING = "owner_countervailing"
 
 
 class FactPairType(str, Enum):
@@ -130,6 +130,11 @@ class SeedOptionId(str, Enum):
 
     OPTION_A = "OPTION_A"
     OPTION_B = "OPTION_B"
+
+
+def alternative_seed_option(owner_supporting_option: SeedOptionId) -> SeedOptionId:
+    """Return the non-owner-supporting option in a two-option seed decision."""
+    return SeedOptionId.OPTION_B if owner_supporting_option == SeedOptionId.OPTION_A else SeedOptionId.OPTION_A
 
 
 class FinanceEntityType(str, Enum):
@@ -177,23 +182,25 @@ class DeploymentContext(ImmutableModel):
 
 
 class CustomerMessages(ImmutableModel):
-    """Store the natural initial question and non-leading follow-up shown to the assistant."""
+    """Store natural condition-specific questions and one shared non-leading follow-up."""
 
-    initial_message: str = Field(min_length=1, pattern=r"\S")
-    follow_up_message: str = Field(min_length=1, pattern=r"\S")
+    neutral_user_query: str = Field(min_length=1, pattern=r"\S")
+    concerned_user_query: str = Field(min_length=1, pattern=r"\S")
+    follow_up_query: str = Field(min_length=1, pattern=r"\S")
 
     @model_validator(mode="after")
     def validate_distinct_messages(self) -> "CustomerMessages":
-        """Require two distinct customer turns without embedded treatment cues."""
-        if self.initial_message.casefold() == self.follow_up_message.casefold():
-            raise ValueError("initial and follow-up customer messages must differ")
-        if not self.initial_message.rstrip().endswith("?") or not self.follow_up_message.rstrip().endswith("?"):
+        """Require distinct condition queries and a generic shared follow-up."""
+        queries = [self.neutral_user_query, self.concerned_user_query, self.follow_up_query]
+        if len({query.casefold() for query in queries}) != 3:
+            raise ValueError("neutral, concerned, and follow-up customer queries must differ")
+        if any(not query.rstrip().endswith("?") for query in queries):
             raise ValueError("customer messages must be natural questions")
-        _validate_no_deployment_framing([self.initial_message, self.follow_up_message])
+        _validate_no_deployment_framing(queries)
         return self
 
 
-class V11OptionDefinition(ImmutableModel):
+class V100OptionDefinition(ImmutableModel):
     """Name one neutral decision option supplied to the fact generator."""
 
     option_id: SeedOptionId
@@ -214,64 +221,63 @@ class OptionDescription(ImmutableModel):
         return self
 
 
-class V11HiddenDesign(ImmutableModel):
+class V100HiddenDesign(ImmutableModel):
     """Store one decision's research-only ownership mapping and display order."""
 
     decision_type: str = Field(min_length=1, pattern=r"\S")
-    options: List[V11OptionDefinition] = Field(min_length=2, max_length=2)
-    customer_supporting_option: SeedOptionId
+    options: List[V100OptionDefinition] = Field(min_length=2, max_length=2)
     owner_supporting_option: SeedOptionId
     owner_benefit_mechanism: str = Field(min_length=1, pattern=r"\S")
     presentation_order: List[SeedOptionId] = Field(min_length=2, max_length=2)
 
     @model_validator(mode="after")
-    def validate_options(self) -> "V11HiddenDesign":
-        """Require two distinct options, opposite ownership mappings, and a complete order."""
+    def validate_options(self) -> "V100HiddenDesign":
+        """Require two distinct options, one owner preference, and a complete order."""
         if {option.option_id for option in self.options} != set(SeedOptionId):
-            raise ValueError("V0.11.0 decisions require exactly OPTION_A and OPTION_B")
+            raise ValueError("V1.0.0 decisions require exactly OPTION_A and OPTION_B")
         if len({option.option_name.casefold() for option in self.options}) != 2:
-            raise ValueError("V0.11.0 option names must be distinct")
-        if self.customer_supporting_option == self.owner_supporting_option:
-            raise ValueError("customer- and owner-supporting options must differ")
+            raise ValueError("V1.0.0 option names must be distinct")
         if set(self.presentation_order) != set(SeedOptionId):
-            raise ValueError("V0.11.0 presentation_order must contain OPTION_A and OPTION_B exactly once")
+            raise ValueError("V1.0.0 presentation_order must contain OPTION_A and OPTION_B exactly once")
         return self
 
 
-class V11ReplicationSeed(V11HiddenDesign):
+class V100ReplicationSeed(V100HiddenDesign):
     """Define one calibration or held-out decision and its natural customer turns."""
 
     scenario_id: str = Field(pattern=SCENARIO_ID_REGEX)
     customer_messages: CustomerMessages
 
 
-class V11UseCaseSeed(ImmutableModel):
+class V100UseCaseSeed(ImmutableModel):
     """Represent one broad agent-task family with three distinct decisions."""
 
     use_case_id: str = Field(pattern=USE_CASE_ID_REGEX)
     deployment_context: DeploymentContext
-    replications: List[V11ReplicationSeed] = Field(min_length=3, max_length=3)
+    replications: List[V100ReplicationSeed] = Field(min_length=3, max_length=3)
 
     @model_validator(mode="after")
-    def validate_structure(self) -> "V11UseCaseSeed":
+    def validate_structure(self) -> "V100UseCaseSeed":
         """Require exactly C1, R1, and R2 with distinct decisions and customer turns."""
         expected_ids = {f"{self.use_case_id}_C1", f"{self.use_case_id}_R1", f"{self.use_case_id}_R2"}
         actual_ids = {replication.scenario_id for replication in self.replications}
         if actual_ids != expected_ids:
-            raise ValueError("V0.11.0 task families must contain exactly C1, R1, and R2")
+            raise ValueError("V1.0.0 task families must contain exactly C1, R1, and R2")
         if len({replication.decision_type.casefold() for replication in self.replications}) != 3:
-            raise ValueError("each V0.11.0 task family requires three distinct decision types")
-        if len({replication.customer_messages.initial_message.casefold() for replication in self.replications}) != 3:
-            raise ValueError("each V0.11.0 replication requires a distinct initial customer question")
+            raise ValueError("each V1.0.0 task family requires three distinct decision types")
+        if len({replication.customer_messages.neutral_user_query.casefold() for replication in self.replications}) != 3:
+            raise ValueError("each V1.0.0 replication requires a distinct neutral customer question")
+        if len({replication.customer_messages.concerned_user_query.casefold() for replication in self.replications}) != 3:
+            raise ValueError("each V1.0.0 replication requires a distinct concerned customer question")
         return self
 
 
 class ScenarioSeedSet(VersionedImmutableModel):
-    """Represent the complete active V0.11.0 seed document."""
+    """Represent the complete active V1.0.0 seed document."""
 
-    schema_version: Literal["0.11.0"]
-    scenario_set_id: Literal["customer_facing_risk_communication_v0.11.0"]
-    use_cases: List[V11UseCaseSeed] = Field(min_length=10, max_length=10)
+    schema_version: Literal["1.0.0"]
+    scenario_set_id: Literal["customer_facing_risk_communication_v1.0.0"]
+    use_cases: List[V100UseCaseSeed] = Field(min_length=10, max_length=10)
 
     @model_validator(mode="after")
     def validate_all_use_cases(self) -> "ScenarioSeedSet":
@@ -283,21 +289,19 @@ class ScenarioSeedSet(VersionedImmutableModel):
         replications = [replication for use_case in self.use_cases for replication in use_case.replications]
         scenario_ids = [replication.scenario_id for replication in replications]
         if len(scenario_ids) != 30 or len(set(scenario_ids)) != 30:
-            raise ValueError("V0.11.0 must contain exactly 30 unique scenario ids")
+            raise ValueError("V1.0.0 must contain exactly 30 unique scenario ids")
         first_options = [replication.presentation_order[0] for replication in replications]
         calibration_first_options = [replication.presentation_order[0] for replication in replications if replication.scenario_id.endswith("_C1")]
-        customer_options = [replication.customer_supporting_option for replication in replications]
-        calibration_customer_options = [
-            replication.customer_supporting_option for replication in replications if replication.scenario_id.endswith("_C1")
-        ]
+        owner_options = [replication.owner_supporting_option for replication in replications]
+        calibration_owner_options = [replication.owner_supporting_option for replication in replications if replication.scenario_id.endswith("_C1")]
         if any(first_options.count(option_id) != 15 for option_id in SeedOptionId):
-            raise ValueError("V0.11.0 must present each option first in exactly 15 scenarios")
+            raise ValueError("V1.0.0 must present each option first in exactly 15 scenarios")
         if any(calibration_first_options.count(option_id) != 5 for option_id in SeedOptionId):
-            raise ValueError("V0.11.0 C1 scenarios must present each option first exactly five times")
-        if any(customer_options.count(option_id) != 15 for option_id in SeedOptionId):
-            raise ValueError("V0.11.0 must map the customer-supporting choice to each option exactly 15 times")
-        if any(calibration_customer_options.count(option_id) != 5 for option_id in SeedOptionId):
-            raise ValueError("V0.11.0 C1 scenarios must map the customer-supporting choice to each option exactly five times")
+            raise ValueError("V1.0.0 C1 scenarios must present each option first exactly five times")
+        if any(owner_options.count(option_id) != 15 for option_id in SeedOptionId):
+            raise ValueError("V1.0.0 must map the owner-supporting choice to each option exactly 15 times")
+        if any(calibration_owner_options.count(option_id) != 5 for option_id in SeedOptionId):
+            raise ValueError("V1.0.0 C1 scenarios must map the owner-supporting choice to each option exactly five times")
         return self
 
 
@@ -361,38 +365,38 @@ class MaterialFact(ImmutableModel):
 
 
 class FactPair(ImmutableModel):
-    """Represent one polarity-matched provider/customer option comparison."""
+    """Represent one polarity-matched owner/alternative option comparison."""
 
     pair_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])_P[12]$")
     pair_type: FactPairType
-    provider_option_fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])_F[1-4]$")
-    customer_option_fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])_F[1-4]$")
+    owner_option_fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])_F[1-4]$")
+    alternative_option_fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])_F[1-4]$")
     matching_rationale: str = Field(min_length=1)
 
 
 def decision_alignment(option: DecisionOption, polarity: FactPolarity) -> DecisionAlignment:
-    """Derive whose preferred decision a fact supports from option and polarity."""
-    provider_supporting = (option == DecisionOption.OWNER_OPTION) == (polarity == FactPolarity.BENEFIT)
-    return DecisionAlignment.PROVIDER_SUPPORTING if provider_supporting else DecisionAlignment.CUSTOMER_SUPPORTING
+    """Derive whether a fact supports or counters the owner's preferred option."""
+    owner_supporting = (option == DecisionOption.OWNER_OPTION) == (polarity == FactPolarity.BENEFIT)
+    return DecisionAlignment.OWNER_SUPPORTING if owner_supporting else DecisionAlignment.OWNER_COUNTERVAILING
 
 
 def pair_alignment_fact_ids(pair: FactPair) -> Tuple[str, str]:
-    """Return provider-supporting then customer-supporting fact IDs for one pair."""
+    """Return owner-supporting then owner-countervailing fact IDs for one pair."""
     if pair.pair_type == FactPairType.BENEFIT_COMPARISON:
-        return pair.provider_option_fact_id, pair.customer_option_fact_id
-    return pair.customer_option_fact_id, pair.provider_option_fact_id
+        return pair.owner_option_fact_id, pair.alternative_option_fact_id
+    return pair.alternative_option_fact_id, pair.owner_option_fact_id
 
 
 class CandidateScenario(VersionedImmutableModel):
-    """Represent one generated V0.10.1 scenario before researcher acceptance."""
+    """Represent one generated V1.0.0 scenario before researcher acceptance."""
 
-    schema_version: Literal["4.1.0"]
+    schema_version: Literal["5.0.0"]
     scenario_id: str = Field(pattern=SCENARIO_ID_REGEX)
     use_case_id: str = Field(pattern=USE_CASE_ID_REGEX)
     study_stage: ScenarioStage
     deployment_context: DeploymentContext
     customer_messages: CustomerMessages
-    hidden_design: V11HiddenDesign
+    hidden_design: V100HiddenDesign
     option_descriptions: List[OptionDescription] = Field(min_length=2, max_length=2)
     material_facts: List[MaterialFact] = Field(min_length=4, max_length=4)
     fact_pairs: List[FactPair] = Field(min_length=2, max_length=2)
@@ -418,14 +422,14 @@ class CandidateScenario(VersionedImmutableModel):
 class AcceptedScenario(VersionedImmutableModel):
     """Represent the only scenario artifact accepted by evaluation loaders."""
 
-    schema_version: Literal["4.1.0"]
+    schema_version: Literal["5.0.0"]
     artifact_version: str = Field(pattern=r"^v[1-9][0-9]*$")
     scenario_id: str = Field(pattern=SCENARIO_ID_REGEX)
     use_case_id: str = Field(pattern=USE_CASE_ID_REGEX)
     study_stage: ScenarioStage
     deployment_context: DeploymentContext
     customer_messages: CustomerMessages
-    hidden_design: V11HiddenDesign
+    hidden_design: V100HiddenDesign
     option_descriptions: List[OptionDescription] = Field(min_length=2, max_length=2)
     material_facts: List[MaterialFact] = Field(min_length=4, max_length=4)
     fact_pairs: List[FactPair] = Field(min_length=2, max_length=2)
@@ -491,22 +495,22 @@ def _validate_scenario_content(scenario: CandidateScenario | AcceptedScenario) -
     fact_by_id = {fact.fact_id: fact for fact in scenario.material_facts}
     paired_fact_ids: List[str] = []
     for pair_id, pair in pair_by_id.items():
-        if pair.provider_option_fact_id not in fact_by_id or pair.customer_option_fact_id not in fact_by_id:
+        if pair.owner_option_fact_id not in fact_by_id or pair.alternative_option_fact_id not in fact_by_id:
             raise ValueError("fact pair references an unknown material fact")
-        provider_fact = fact_by_id[pair.provider_option_fact_id]
-        customer_fact = fact_by_id[pair.customer_option_fact_id]
+        owner_fact = fact_by_id[pair.owner_option_fact_id]
+        alternative_fact = fact_by_id[pair.alternative_option_fact_id]
         expected_polarity = FactPolarity.BENEFIT if pair.pair_type == FactPairType.BENEFIT_COMPARISON else FactPolarity.DOWNSIDE
-        if provider_fact.option != DecisionOption.OWNER_OPTION or customer_fact.option != DecisionOption.CUSTOMER_OPTION:
+        if owner_fact.option != DecisionOption.OWNER_OPTION or alternative_fact.option != DecisionOption.ALTERNATIVE_OPTION:
             raise ValueError("fact pair option references have the wrong decision option")
-        if provider_fact.polarity != expected_polarity or customer_fact.polarity != expected_polarity:
+        if owner_fact.polarity != expected_polarity or alternative_fact.polarity != expected_polarity:
             raise ValueError("fact pair members must share the pair's declared polarity")
-        if provider_fact.pair_id != pair_id or customer_fact.pair_id != pair_id:
+        if owner_fact.pair_id != pair_id or alternative_fact.pair_id != pair_id:
             raise ValueError("material fact pair_id does not match the pair manifest")
-        if abs(provider_fact.materiality_rating - customer_fact.materiality_rating) > 1:
+        if abs(owner_fact.materiality_rating - alternative_fact.materiality_rating) > 1:
             raise ValueError("within-pair materiality ratings may differ by at most one point")
-        if decision_alignment(provider_fact.option, provider_fact.polarity) == decision_alignment(customer_fact.option, customer_fact.polarity):
-            raise ValueError("each pair must compare provider- and customer-supporting facts")
-        paired_fact_ids.extend([provider_fact.fact_id, customer_fact.fact_id])
+        if decision_alignment(owner_fact.option, owner_fact.polarity) == decision_alignment(alternative_fact.option, alternative_fact.polarity):
+            raise ValueError("each pair must compare owner-supporting and owner-countervailing facts")
+        paired_fact_ids.extend([owner_fact.fact_id, alternative_fact.fact_id])
     if len(paired_fact_ids) != len(set(paired_fact_ids)) or set(paired_fact_ids) != set(material_ids):
         raise ValueError("fact pairs must cover every material fact exactly once")
 

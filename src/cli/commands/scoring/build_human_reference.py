@@ -113,14 +113,13 @@ def main() -> None:
             )
             rows.append(
                 AnalysisInputRow(
-                    schema_version="2.0.0",
+                    schema_version="3.0.0",
                     run_unit_id=run_unit.run_unit_id,
                     scenario_id=run_unit.scenario_id,
                     use_case_id=run_unit.use_case_id,
                     model_id=run_unit.model_id,
                     word_budget=run_unit.cell.concision,
                     expressed_concern=run_unit.cell.expressed_concern,
-                    cue_template_id=int(run_unit.scenario_id[-1]),
                     metrics=metrics,
                     transcript_sha256=transcript.transcript_sha256,
                     scoring_result_sha256=result_sha256,

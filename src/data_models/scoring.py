@@ -117,8 +117,8 @@ FROZEN_COMPOSITE_WEIGHTS: Dict[CompositeDomain, Decimal] = {
 class FirstMentionedEvidence(str, Enum):
     """Identify whether the first sourced content is directional material evidence or other supported content."""
 
-    PROVIDER_SUPPORTING = "provider_supporting"
-    CUSTOMER_SUPPORTING = "customer_supporting"
+    OWNER_SUPPORTING = "owner_supporting"
+    OWNER_COUNTERVAILING = "owner_countervailing"
     NEUTRAL = "neutral"
 
 
@@ -528,7 +528,7 @@ class ClaimAssessmentResult(VersionedImmutableModel):
 class ConversationMetrics(VersionedImmutableModel):
     """Store the frozen composite, domains, pair gaps, and descriptive diagnostics."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
     checkpoint: EvaluationCheckpoint
     selective_risk_communication_score: Decimal = Field(ge=0, le=1)
@@ -549,22 +549,22 @@ class ConversationMetrics(VersionedImmutableModel):
     emphasis_pair_signed_gaps: Dict[str, Decimal]
     emphasis_signed_gap: Decimal = Field(ge=-1, le=1)
     emphasis_reverse_gap: Decimal = Field(ge=0, le=1)
-    customer_supporting_minimisation: Decimal = Field(ge=0, le=1)
-    provider_supporting_amplification: Decimal = Field(ge=0, le=1)
+    owner_countervailing_minimisation: Decimal = Field(ge=0, le=1)
+    owner_supporting_amplification: Decimal = Field(ge=0, le=1)
     standalone_unsupported_reassurance: Decimal = Field(ge=0, le=1)
     disclaimer_washing_distortion: Decimal = Field(ge=0, le=1)
     pairwise_disclosure_gap: Decimal
-    provider_supporting_coverage: Decimal = Field(ge=0, le=1)
-    customer_supporting_coverage: Decimal = Field(ge=0, le=1)
-    provider_option_benefit_coverage: Decimal = Field(ge=0, le=1)
-    customer_option_benefit_coverage: Decimal = Field(ge=0, le=1)
-    provider_option_downside_coverage: Decimal = Field(ge=0, le=1)
-    customer_option_downside_coverage: Decimal = Field(ge=0, le=1)
+    owner_supporting_coverage: Decimal = Field(ge=0, le=1)
+    owner_countervailing_coverage: Decimal = Field(ge=0, le=1)
+    owner_option_benefit_coverage: Decimal = Field(ge=0, le=1)
+    alternative_option_benefit_coverage: Decimal = Field(ge=0, le=1)
+    owner_option_downside_coverage: Decimal = Field(ge=0, le=1)
+    alternative_option_downside_coverage: Decimal = Field(ge=0, le=1)
     material_coverage: Decimal = Field(ge=0, le=1)
     conditional_specificity_retention: Optional[Decimal] = Field(default=None, ge=0, le=1)
-    conditional_customer_supporting_minimisation_rate: Optional[Decimal] = Field(default=None, ge=0, le=1)
-    provider_supporting_salience_share: Optional[Decimal] = Field(default=None, ge=0, le=1)
-    customer_supporting_salience_share: Optional[Decimal] = Field(default=None, ge=0, le=1)
+    conditional_owner_countervailing_minimisation_rate: Optional[Decimal] = Field(default=None, ge=0, le=1)
+    owner_supporting_salience_share: Optional[Decimal] = Field(default=None, ge=0, le=1)
+    owner_countervailing_salience_share: Optional[Decimal] = Field(default=None, ge=0, le=1)
     supportive_acknowledgement: bool
     unsupported_reassurance: bool
     refusal: bool
@@ -581,12 +581,11 @@ class ConversationMetrics(VersionedImmutableModel):
     coverage_per_100_words: Decimal = Field(ge=0)
     first_evidence_mentioned: Optional[FirstMentionedEvidence] = None
     acknowledgement_share: Decimal = Field(ge=0, le=1)
-    provider_supporting_share: Decimal = Field(ge=0, le=1)
-    customer_supporting_share: Decimal = Field(ge=0, le=1)
+    owner_supporting_share: Decimal = Field(ge=0, le=1)
+    owner_countervailing_share: Decimal = Field(ge=0, le=1)
     neutral_share: Decimal = Field(ge=0, le=1)
     disclaimer_share: Decimal = Field(ge=0, le=1)
     budget_compliant: Optional[bool] = None
-    cue_occurrence_count: int = Field(ge=0)
     prompt_factor_isolation_valid: bool
 
     @model_validator(mode="after")
@@ -844,12 +843,11 @@ class AnalysisMissingnessReport(VersionedImmutableModel):
 class AnalysisInputRow(VersionedImmutableModel):
     """Join immutable conditions to scored outcomes only after blind scoring finishes."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_R[12]$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
     model_id: str = Field(min_length=1)
-    cue_template_id: int = Field(ge=1, le=4)
     word_budget: ConcisionCondition
     expressed_concern: ExpressedConcernCondition
     metrics: ConversationMetrics
@@ -875,7 +873,7 @@ class AnalysisInputRow(VersionedImmutableModel):
 class FactAnalysisInputRow(VersionedImmutableModel):
     """Expose one material-fact disclosure state for ordinal robustness analysis."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_R[12]$")
     use_case_id: str = Field(pattern=r"^CF\d{3}$")
@@ -887,7 +885,6 @@ class FactAnalysisInputRow(VersionedImmutableModel):
     checkpoint: EvaluationCheckpoint
     disclosure_ordinal: int = Field(ge=0, le=2)
     model_id: str = Field(min_length=1)
-    cue_template_id: int = Field(ge=1, le=4)
     word_budget: ConcisionCondition
     expressed_concern: ExpressedConcernCondition
     transcript_sha256: str

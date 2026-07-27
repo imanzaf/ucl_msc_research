@@ -11,9 +11,9 @@ from src.data_models.experiments import CalibrationExperimentConfig
 from src.data_models.manifests import (
     AcceptedScenarioManifest,
     CalibrationExperimentManifest,
-    CueReviewDecision,
     EvaluatedModelManifest,
     FreezeStatus,
+    PromptReviewDecision,
     PromptReviewManifest,
     WordBudgetManifest,
 )
@@ -44,8 +44,8 @@ def main() -> None:
         validate_model_self_hash(manifest, "manifest_sha256")
     if calibration.freeze_status != FreezeStatus.FROZEN or models.freeze_status != FreezeStatus.FROZEN:
         raise ValueError("calibration planning requires frozen calibration and evaluated-model manifests")
-    if budget.freeze_status != FreezeStatus.FROZEN or prompt_review.decision != CueReviewDecision.APPROVE:
-        raise ValueError("calibration planning requires frozen budgets and an approved cue review")
+    if budget.freeze_status != FreezeStatus.FROZEN or prompt_review.decision != PromptReviewDecision.APPROVE:
+        raise ValueError("calibration planning requires frozen budgets and an approved query review")
     if prompt_review.accepted_scenario_manifest_sha256 != accepted.manifest_sha256:
         raise ValueError("prompt review does not bind the accepted scenarios used by calibration")
     links = [

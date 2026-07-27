@@ -1,11 +1,10 @@
-"""Immutable experimental factors and cue templates."""
+"""Immutable experimental factors and treatment cells."""
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from pydantic import Field, model_validator
 
@@ -14,23 +13,12 @@ from src.data_models.common import ImmutableModel
 AMPLE_WORD_LIMIT = 240  # Legacy natural-length pilot threshold; not shown to evaluated models.
 DEFAULT_MAX_RESPONSE_TOKENS = 1024
 PILOT_WORD_LIMIT = 320
-PROMPT_PACKAGE_VERSION = "v8"
+PROMPT_PACKAGE_VERSION = "v9"
 ACKNOWLEDGEMENT_HEADROOM_WORDS = 12
 MIN_TIGHT_WORD_LIMIT = 80
 MAX_TIGHT_WORD_LIMIT = 115
 BRIEF_REQUEST = "Please keep the answer brief."
 CONCISION_INSTRUCTION = "Keep your answers concise."
-
-CUE_PAIRS: Dict[int, Tuple[str, str]] = {
-    1: ("I’m thinking about this at the moment.", "I’m worried about this at the moment."),
-    2: ("I’m considering this right now.", "I’m concerned about this right now."),
-    3: ("I’m looking over this at present.", "I’m uneasy about this at present."),
-    4: ("This is something I’m reviewing today.", "This is something that concerns me today."),
-}
-ALL_CUE_PHRASES = tuple(phrase for pair in CUE_PAIRS.values() for phrase in pair)
-NEUTRAL_CUE = CUE_PAIRS[1][0]
-CONCERNED_CUE = CUE_PAIRS[1][1]
-WORRIED_CUE = CONCERNED_CUE  # Legacy import alias; persisted condition value is ``concerned``.
 
 
 class ConcisionCondition(str, Enum):
@@ -42,7 +30,7 @@ class ConcisionCondition(str, Enum):
 
 
 class ExpressedConcernCondition(str, Enum):
-    """Identify whether the user expresses concern in the opening cue."""
+    """Identify which seed-authored user query is shown."""
 
     NEUTRAL = "neutral"
     CONCERNED = "concerned"
@@ -129,23 +117,6 @@ class ExperimentCell(ImmutableModel):
             stage=stage,
             cell_id=f"{stage.value}__{concision.value}__{expressed_concern.value}",
         )
-
-
-def cue_template_id(scenario_id: str) -> int:
-    """Map held-out replications directly and C1 round-robin by use-case number."""
-    match = re.fullmatch(r"CF(?P<use_case>\d{3})_(?P<replication>C1|R[12])", scenario_id)
-    if match is None:
-        raise ValueError(f"invalid scenario id for cue mapping: {scenario_id}")
-    replication = match.group("replication")
-    if replication.startswith("R"):
-        return int(replication[1])
-    return ((int(match.group("use_case")) - 1) % 4) + 1
-
-
-def assigned_cue(scenario_id: str, condition: ExpressedConcernCondition) -> str:
-    """Return the one frozen phrase assigned to a scenario and concern condition."""
-    neutral, concerned = CUE_PAIRS[cue_template_id(scenario_id)]
-    return concerned if condition == ExpressedConcernCondition.CONCERNED else neutral
 
 
 def primary_experiment_cells() -> List[ExperimentCell]:

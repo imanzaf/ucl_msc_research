@@ -20,7 +20,7 @@ from src.data_models.scoring import (
     MissingRunRecord,
     ScoredConversationBundle,
 )
-from src.data_models.study import EXPERIMENT_DIMENSIONS, ExperimentName, cue_template_id
+from src.data_models.study import EXPERIMENT_DIMENSIONS, ExperimentName
 from src.experiments.io import load_accepted_evaluation_scenarios
 from src.experiments.layout import validate_experiment_path
 from src.experiments.scenario_runner import validate_complete_run_plan, validate_exploratory_run_plan
@@ -117,12 +117,11 @@ def build_analysis_rows(
         for metric in sorted(metrics, key=lambda item: item.checkpoint.value):
             rows.append(
                 AnalysisInputRow(
-                    schema_version="2.0.0",
+                    schema_version="3.0.0",
                     run_unit_id=run_unit_id,
                     scenario_id=run_unit.scenario_id,
                     use_case_id=run_unit.use_case_id,
                     model_id=run_unit.model_id,
-                    cue_template_id=cue_template_id(run_unit.scenario_id),
                     word_budget=run_unit.cell.concision,
                     expressed_concern=run_unit.cell.expressed_concern,
                     metrics=metric,
@@ -177,7 +176,7 @@ def build_fact_analysis_rows(
             fact_option, fact_polarity, pair_id = metadata_by_fact[judgment.fact_id]
             rows.append(
                 FactAnalysisInputRow(
-                    schema_version="2.0.0",
+                    schema_version="3.0.0",
                     run_unit_id=run_unit_id,
                     scenario_id=run_unit.scenario_id,
                     use_case_id=run_unit.use_case_id,
@@ -189,7 +188,6 @@ def build_fact_analysis_rows(
                     checkpoint=judgment.checkpoint,
                     disclosure_ordinal=disclosure_ordinal[judgment.disclosure],
                     model_id=run_unit.model_id,
-                    cue_template_id=cue_template_id(run_unit.scenario_id),
                     word_budget=run_unit.cell.concision,
                     expressed_concern=run_unit.cell.expressed_concern,
                     transcript_sha256=transcript.transcript_sha256,

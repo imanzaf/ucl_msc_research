@@ -2,24 +2,31 @@
   "$defs": {
     "CustomerMessages": {
       "additionalProperties": false,
-      "description": "Store the natural initial question and non-leading follow-up shown to the assistant.",
+      "description": "Store natural condition-specific questions and one shared non-leading follow-up.",
       "properties": {
-        "follow_up_message": {
+        "concerned_user_query": {
           "minLength": 1,
           "pattern": "\\S",
-          "title": "Follow Up Message",
+          "title": "Concerned User Query",
           "type": "string"
         },
-        "initial_message": {
+        "follow_up_query": {
           "minLength": 1,
           "pattern": "\\S",
-          "title": "Initial Message",
+          "title": "Follow Up Query",
+          "type": "string"
+        },
+        "neutral_user_query": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Neutral User Query",
           "type": "string"
         }
       },
       "required": [
-        "initial_message",
-        "follow_up_message"
+        "neutral_user_query",
+        "concerned_user_query",
+        "follow_up_query"
       ],
       "title": "CustomerMessages",
       "type": "object"
@@ -28,7 +35,7 @@
       "description": "Identify which hidden decision option a material fact describes.",
       "enum": [
         "owner_option",
-        "customer_option"
+        "alternative_option"
       ],
       "title": "DecisionOption",
       "type": "string"
@@ -67,16 +74,21 @@
     },
     "FactPair": {
       "additionalProperties": false,
-      "description": "Represent one polarity-matched provider/customer option comparison.",
+      "description": "Represent one polarity-matched owner/alternative option comparison.",
       "properties": {
-        "customer_option_fact_id": {
+        "alternative_option_fact_id": {
           "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
-          "title": "Customer Option Fact Id",
+          "title": "Alternative Option Fact Id",
           "type": "string"
         },
         "matching_rationale": {
           "minLength": 1,
           "title": "Matching Rationale",
+          "type": "string"
+        },
+        "owner_option_fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
+          "title": "Owner Option Fact Id",
           "type": "string"
         },
         "pair_id": {
@@ -86,18 +98,13 @@
         },
         "pair_type": {
           "$ref": "#/$defs/FactPairType"
-        },
-        "provider_option_fact_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
-          "title": "Provider Option Fact Id",
-          "type": "string"
         }
       },
       "required": [
         "pair_id",
         "pair_type",
-        "provider_option_fact_id",
-        "customer_option_fact_id",
+        "owner_option_fact_id",
+        "alternative_option_fact_id",
         "matching_rationale"
       ],
       "title": "FactPair",
@@ -284,13 +291,10 @@
       "title": "SpecificityElement",
       "type": "object"
     },
-    "V11HiddenDesign": {
+    "V100HiddenDesign": {
       "additionalProperties": false,
       "description": "Store one decision's research-only ownership mapping and display order.",
       "properties": {
-        "customer_supporting_option": {
-          "$ref": "#/$defs/SeedOptionId"
-        },
         "decision_type": {
           "minLength": 1,
           "pattern": "\\S",
@@ -299,7 +303,7 @@
         },
         "options": {
           "items": {
-            "$ref": "#/$defs/V11OptionDefinition"
+            "$ref": "#/$defs/V100OptionDefinition"
           },
           "maxItems": 2,
           "minItems": 2,
@@ -328,15 +332,14 @@
       "required": [
         "decision_type",
         "options",
-        "customer_supporting_option",
         "owner_supporting_option",
         "owner_benefit_mechanism",
         "presentation_order"
       ],
-      "title": "V11HiddenDesign",
+      "title": "V100HiddenDesign",
       "type": "object"
     },
-    "V11OptionDefinition": {
+    "V100OptionDefinition": {
       "additionalProperties": false,
       "description": "Name one neutral decision option supplied to the fact generator.",
       "properties": {
@@ -354,7 +357,7 @@
         "option_id",
         "option_name"
       ],
-      "title": "V11OptionDefinition",
+      "title": "V100OptionDefinition",
       "type": "object"
     }
   },
@@ -400,7 +403,7 @@
       "type": "array"
     },
     "hidden_design": {
-      "$ref": "#/$defs/V11HiddenDesign"
+      "$ref": "#/$defs/V100HiddenDesign"
     },
     "material_facts": {
       "items": {
@@ -430,7 +433,7 @@
       "type": "string"
     },
     "schema_version": {
-      "const": "4.1.0",
+      "const": "5.0.0",
       "title": "Schema Version",
       "type": "string"
     },

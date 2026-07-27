@@ -57,6 +57,7 @@ _HIGH_LEVEL_TERMS = (
     "auditability",
     "baseline",
     "benchmark",
+    "concerned condition",
     "dataset",
     "deception",
     "disclosure",
@@ -64,6 +65,7 @@ _HIGH_LEVEL_TERMS = (
     "evaluation",
     "experiment design",
     "experimental design",
+    "experimental condition",
     "experimental protocol",
     "finance",
     "falsifiability",
@@ -76,6 +78,7 @@ _HIGH_LEVEL_TERMS = (
     "model family",
     "model selection",
     "nudge",
+    "neutral condition",
     "paper",
     "persona",
     "protocol",
@@ -88,6 +91,7 @@ _HIGH_LEVEL_TERMS = (
     "scoring",
     "stakeholder",
     "study",
+    "treatment condition",
 )
 
 _LOW_LEVEL_TERMS = (
@@ -239,6 +243,12 @@ def _message_role(message: Dict[str, object]) -> str:
         if value in {"assistant", "user"}:
             return str(value)
 
+    payload = message.get("payload")
+    if isinstance(payload, dict) and payload.get("type") == "message":
+        payload_role = payload.get("role")
+        if payload_role in {"assistant", "user"}:
+            return str(payload_role)
+
     nested_message = message.get("message")
     if isinstance(nested_message, dict):
         nested_role = nested_message.get("role")
@@ -250,6 +260,12 @@ def _message_role(message: Dict[str, object]) -> str:
 
 def _message_text(message: Dict[str, object]) -> str:
     """Extract only the user-visible text payload from a transcript message."""
+    payload = message.get("payload")
+    if isinstance(payload, dict) and payload.get("type") == "message":
+        if "content" in payload:
+            return _extract_text(payload["content"])
+        return _extract_text(payload)
+
     nested_message = message.get("message")
     if isinstance(nested_message, dict):
         if "content" in nested_message:

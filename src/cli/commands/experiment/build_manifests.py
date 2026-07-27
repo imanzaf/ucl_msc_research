@@ -11,10 +11,10 @@ from src.data_models.experiments import RetryPolicy
 from src.data_models.manifests import (
     AcceptedScenarioManifest,
     CalibrationExperimentManifest,
-    CueReviewDecision,
     EvaluatedModelManifest,
     ExperimentManifest,
     FreezeStatus,
+    PromptReviewDecision,
     PromptReviewManifest,
     ScoringExecutionManifest,
     WordBudgetManifest,
@@ -47,7 +47,7 @@ def main() -> None:
     if args.evaluated_model_manifest.resolve() != EVALUATED_MODEL_MANIFEST_PATH.resolve():
         raise ValueError("experiment manifests must use the canonical frozen evaluated-model manifest")
     if args.word_budget_manifest.resolve() != WORD_BUDGET_MANIFEST_PATH.resolve():
-        raise ValueError("experiment manifests must use the canonical V0.11.0 word-budget manifest")
+        raise ValueError("experiment manifests must use the canonical V1.0.0 word-budget manifest")
     calibration_path = REPO_ROOT / "data/outputs/experiments/risk_comm_calibration_v1/checkpoints/calibration_manifest.json"
     if args.calibration_output.resolve() != calibration_path.resolve():
         raise ValueError("calibration manifest must use the fixed risk_comm_calibration_v1 checkpoint path")
@@ -63,7 +63,7 @@ def main() -> None:
         validate_model_self_hash(manifest, "manifest_sha256")
     if models.freeze_status != FreezeStatus.FROZEN or scoring.freeze_status != FreezeStatus.FROZEN or budget.freeze_status != FreezeStatus.FROZEN:
         raise ValueError("experiment manifests require frozen model, scoring, and budget inputs")
-    if prompt_review.decision != CueReviewDecision.APPROVE:
+    if prompt_review.decision != PromptReviewDecision.APPROVE:
         raise ValueError("experiment manifests require an approved prompt self-review")
     if prompt_review.accepted_scenario_manifest_sha256 != accepted.manifest_sha256:
         raise ValueError("prompt review does not bind the accepted scenarios used by the experiment")

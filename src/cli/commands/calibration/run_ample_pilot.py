@@ -19,10 +19,10 @@ from src.data_models.manifests import (
     AmplePilotCostReport,
     AmplePilotRecord,
     CalibrationPromptReviewManifest,
-    CueReviewDecision,
     EvaluatedModelManifest,
     FreezeStatus,
     PilotAttemptStatus,
+    PromptReviewDecision,
 )
 from src.data_models.scenarios import AcceptedScenario
 from src.data_models.study import PILOT_WORD_LIMIT, ConcisionCondition, ExperimentCell, ExpressedConcernCondition
@@ -192,7 +192,7 @@ def main() -> None:
         validate_model_self_hash(manifest, "manifest_sha256")
     validate_model_self_hash(cost_report, "report_sha256")
     validate_model_self_hash(approval, "approval_sha256")
-    if model_manifest.freeze_status != FreezeStatus.FROZEN or prompt_review.decision != CueReviewDecision.APPROVE:
+    if model_manifest.freeze_status != FreezeStatus.FROZEN or prompt_review.decision != PromptReviewDecision.APPROVE:
         raise ValueError("ample pilot requires frozen model snapshots and an approved C1 prompt review")
     if prompt_review.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
         raise ValueError("prompt review does not bind the accepted calibration scenarios")

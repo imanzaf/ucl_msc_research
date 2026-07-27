@@ -278,7 +278,6 @@ def main() -> None:
             "fact_polarity": row.fact_polarity,
             "decision_alignment": row.decision_alignment,
             "model_id": row.model_id,
-            "cue_template_id": row.cue_template_id,
             "word_budget": row.word_budget,
             "expressed_concern": row.expressed_concern,
             "disclosure_ordinal": row.disclosure_ordinal,

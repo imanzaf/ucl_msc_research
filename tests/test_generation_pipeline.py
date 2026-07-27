@@ -31,8 +31,8 @@ from src.data_models.scenarios import (
     ScenarioGenerationRunConfig,
     ScenarioStage,
     SeedOptionId,
-    V11ReplicationSeed,
-    V11UseCaseSeed,
+    V100ReplicationSeed,
+    V100UseCaseSeed,
 )
 from src.llm.openrouter import OpenRouterClient, ProviderStructuredResponse
 from src.paths import ACTIVE_SCENARIO_INPUT_ROOT
@@ -97,13 +97,13 @@ def make_fact_draft() -> ScenarioOptionInformationDraft:
     )
 
 
-def active_use_case() -> V11UseCaseSeed:
-    """Load the first active V0.10 task family."""
+def active_use_case() -> V100UseCaseSeed:
+    """Load the first active V1.0.0 task family."""
     seed = load_and_validate_seed(
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seeds.json",
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json",
     )
-    return cast(V11UseCaseSeed, seed.use_cases[0])
+    return cast(V100UseCaseSeed, seed.use_cases[0])
 
 
 class AlwaysReviseBackend:
@@ -113,7 +113,7 @@ class AlwaysReviseBackend:
         """Create a backend with a stable candidate."""
         self.candidate = make_candidate_scenario()
 
-    def generate_candidate(self, use_case: V11UseCaseSeed, replication: V11ReplicationSeed) -> CandidateScenario:
+    def generate_candidate(self, use_case: V100UseCaseSeed, replication: V100ReplicationSeed) -> CandidateScenario:
         """Return the fixture candidate."""
         return make_candidate_scenario(replication.scenario_id)
 
@@ -150,8 +150,8 @@ class AlwaysReviseBackend:
 
     def revise_candidate(
         self,
-        use_case: V11UseCaseSeed,
-        replication: V11ReplicationSeed,
+        use_case: V100UseCaseSeed,
+        replication: V100ReplicationSeed,
         candidate: CandidateScenario,
         reviews: List[AutomatedScenarioReview],
         cycle_number: int,
@@ -181,7 +181,7 @@ class BatchAcceptBackend:
         self.observed_batches: List[List[str]] = []
         self.generate_calls = 0
 
-    def generate_candidate(self, use_case: V11UseCaseSeed, replication: V11ReplicationSeed) -> CandidateScenario:
+    def generate_candidate(self, use_case: V100UseCaseSeed, replication: V100ReplicationSeed) -> CandidateScenario:
         """Build a valid candidate for the requested replication."""
         self.generate_calls += 1
         return make_candidate_scenario(replication.scenario_id)
@@ -211,8 +211,8 @@ class BatchAcceptBackend:
 
     def revise_candidate(
         self,
-        use_case: V11UseCaseSeed,
-        replication: V11ReplicationSeed,
+        use_case: V100UseCaseSeed,
+        replication: V100ReplicationSeed,
         candidate: CandidateScenario,
         reviews: List[AutomatedScenarioReview],
         cycle_number: int,
@@ -232,8 +232,8 @@ class ResearcherRevisionBackend(BatchAcceptBackend):
 
     def revise_candidate(
         self,
-        use_case: V11UseCaseSeed,
-        replication: V11ReplicationSeed,
+        use_case: V100UseCaseSeed,
+        replication: V100ReplicationSeed,
         candidate: CandidateScenario,
         reviews: List[AutomatedScenarioReview],
         cycle_number: int,
@@ -259,7 +259,7 @@ class ResearcherRevisionBackend(BatchAcceptBackend):
 
 
 def test_openrouter_backend_generates_option_information_in_one_call() -> None:
-    """Build a V4.1 candidate with two descriptions and four directional facts."""
+    """Build a V5.0 candidate with two descriptions and four directional facts."""
     use_case = active_use_case()
     replication = next(item for item in use_case.replications if item.scenario_id == "CF001_C1")
     client = FactGenerationClient(make_fact_draft())
@@ -278,12 +278,11 @@ def test_openrouter_backend_generates_option_information_in_one_call() -> None:
     assert set(request_payload["decision"]) == {
         "decision_type",
         "options",
-        "customer_query",
-        "customer_supporting_option",
+        "neutral_user_query",
         "owner_supporting_option",
         "owner_benefit_mechanism",
     }
-    assert candidate.schema_version == "4.1.0"
+    assert candidate.schema_version == "5.0.0"
     assert len(candidate.option_descriptions) == 2
     assert [description.option_id for description in candidate.option_descriptions] == replication.presentation_order
     assert len(candidate.material_facts) == 4
@@ -309,7 +308,7 @@ def test_generation_prompt_requests_documentation_style_option_information() -> 
     assert "`description`: one neutral statement" in SCENARIO_GENERATION_SYSTEM_PROMPT
     assert "`favourable_fact`" in SCENARIO_GENERATION_SYSTEM_PROMPT
     assert "`adverse_fact`" in SCENARIO_GENERATION_SYSTEM_PROMPT
-    assert "These fields control which facts you select" in SCENARIO_GENERATION_SYSTEM_PROMPT
+    assert "The owner field controls which" in SCENARIO_GENERATION_SYSTEM_PROMPT
     assert "Use `option_id` only as structured mapping metadata" in SCENARIO_GENERATION_SYSTEM_PROMPT
     assert "return only `options`" in SCENARIO_GENERATION_SYSTEM_PROMPT
     assert "schema_version" not in SCENARIO_GENERATION_SYSTEM_PROMPT
@@ -363,7 +362,7 @@ def test_calibration_candidates_receive_individual_semantic_reviews() -> None:
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json",
     )
     backend = BatchAcceptBackend()
-    use_cases = [cast(V11UseCaseSeed, use_case) for use_case in seed.use_cases]
+    use_cases = [cast(V100UseCaseSeed, use_case) for use_case in seed.use_cases]
     calibration_seeds = [(use_case, next(item for item in use_case.replications if item.scenario_id.endswith("_C1"))) for use_case in use_cases]
     results = run_scenario_batch_pipeline(calibration_seeds, backend, default_revision_record_factory)
     assert len(results) == 10
@@ -472,7 +471,7 @@ def test_separate_replication_invocations_share_one_logical_run(tmp_path: Path, 
 
 def test_separate_evaluation_commands_complete_one_family_review(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Persist R1 first and trigger the shared review when R2 joins the same run."""
-    output_root = tmp_path / "scenario_generation" / "v0.11.0"
+    output_root = tmp_path / "scenario_generation" / "v1.0.0"
     run_id = "cf001_evaluation_v1"
     first_round_id = "20260726T120100000001Z"
     second_round_id = "20260726T120200000001Z"
@@ -634,7 +633,7 @@ def test_researcher_directed_regeneration_uses_bound_notes_and_preserves_parent(
 
 def test_named_run_regenerates_only_revise_cases_in_a_new_round(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Read current decisions and add only replacements under the same named run."""
-    output_root = tmp_path / "scenario_generation" / "v0.11.0"
+    output_root = tmp_path / "scenario_generation" / "v1.0.0"
     run_id = "c1_calibration_v1"
     initial_round_id = "20260726T120000000001Z"
     revision_round_id = "20260726T130000000001Z"
