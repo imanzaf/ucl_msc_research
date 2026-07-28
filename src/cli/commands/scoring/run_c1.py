@@ -76,7 +76,6 @@ def main() -> None:
         scoring_manifest=scoring_manifest,
         results_dir=results_dir,
         backend=backend,
-        prompt_factor_isolation_valid=True,
     )
     bundles = read_model_jsonl(results_dir / "scored_conversations.jsonl", ScoredConversationBundle)
     queued = read_model_jsonl(results_dir / "manual_scoring_queue.jsonl", ManualScoringQueueRecord)

@@ -1,5 +1,119 @@
 {
   "$defs": {
+    "AccuracyAssessmentResult": {
+      "additionalProperties": false,
+      "description": "Store one response's visible-facts-only factual findings.",
+      "properties": {
+        "blind_conversation_id": {
+          "minLength": 1,
+          "title": "Blind Conversation Id",
+          "type": "string"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/AccuracyFinding"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "judge_model_id": {
+          "minLength": 1,
+          "title": "Judge Model Id",
+          "type": "string"
+        },
+        "provider_call": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProviderCallProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "schema_version": {
+          "pattern": "^3\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scored_at": {
+          "format": "date-time",
+          "title": "Scored At",
+          "type": "string"
+        },
+        "scored_response": {
+          "$ref": "#/$defs/ScoredResponse"
+        },
+        "scoring_prompt_sha256": {
+          "title": "Scoring Prompt Sha256",
+          "type": "string"
+        },
+        "visible_facts_sha256": {
+          "title": "Visible Facts Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "blind_conversation_id",
+        "scored_response",
+        "findings",
+        "visible_facts_sha256",
+        "judge_model_id",
+        "scoring_prompt_sha256",
+        "scored_at"
+      ],
+      "title": "AccuracyAssessmentResult",
+      "type": "object"
+    },
+    "AccuracyBehaviour": {
+      "description": "Identify one type of material factual inaccuracy.",
+      "enum": [
+        "false_claim",
+        "unsupported_claim"
+      ],
+      "title": "AccuracyBehaviour",
+      "type": "string"
+    },
+    "AccuracyFinding": {
+      "additionalProperties": false,
+      "description": "Store one typed material inaccuracy grounded in response text.",
+      "properties": {
+        "behaviour": {
+          "$ref": "#/$defs/AccuracyBehaviour"
+        },
+        "finding_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "response_span": {
+          "$ref": "#/$defs/ResponseSpan"
+        },
+        "visible_evidence_references": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Visible Evidence References",
+          "type": "array"
+        }
+      },
+      "required": [
+        "finding_id",
+        "behaviour",
+        "response_span",
+        "visible_evidence_references",
+        "reason"
+      ],
+      "title": "AccuracyFinding",
+      "type": "object"
+    },
     "BlindFactReference": {
       "additionalProperties": false,
       "description": "Provide a scoring judge one visible fact and optional detail rules.",
@@ -30,130 +144,6 @@
       "title": "BlindFactReference",
       "type": "object"
     },
-    "ClaimAssessmentJudgment": {
-      "additionalProperties": false,
-      "description": "Store one false or unsupported claim grounded in response text.",
-      "properties": {
-        "checkpoint": {
-          "$ref": "#/$defs/EvaluationCheckpoint"
-        },
-        "claim_id": {
-          "pattern": "^[A-Z0-9_]+$",
-          "title": "Claim Id",
-          "type": "string"
-        },
-        "claim_span": {
-          "$ref": "#/$defs/ResponseSpan"
-        },
-        "error_type": {
-          "$ref": "#/$defs/ClaimErrorType"
-        },
-        "rationale": {
-          "minLength": 1,
-          "title": "Rationale",
-          "type": "string"
-        },
-        "visible_evidence_references": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Visible Evidence References",
-          "type": "array"
-        }
-      },
-      "required": [
-        "claim_id",
-        "checkpoint",
-        "error_type",
-        "claim_span",
-        "visible_evidence_references",
-        "rationale"
-      ],
-      "title": "ClaimAssessmentJudgment",
-      "type": "object"
-    },
-    "ClaimAssessmentResult": {
-      "additionalProperties": false,
-      "description": "Store the visible-facts-only claim-assessment contract output.",
-      "properties": {
-        "blind_conversation_id": {
-          "minLength": 1,
-          "title": "Blind Conversation Id",
-          "type": "string"
-        },
-        "claims": {
-          "items": {
-            "$ref": "#/$defs/ClaimAssessmentJudgment"
-          },
-          "title": "Claims",
-          "type": "array"
-        },
-        "judge_model_id": {
-          "minLength": 1,
-          "title": "Judge Model Id",
-          "type": "string"
-        },
-        "provider_call": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ProviderCallProvenance"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "schema_version": {
-          "pattern": "^2\\.0\\.0$",
-          "title": "Schema Version",
-          "type": "string"
-        },
-        "scored_at": {
-          "format": "date-time",
-          "title": "Scored At",
-          "type": "string"
-        },
-        "scoring_prompt_sha256": {
-          "title": "Scoring Prompt Sha256",
-          "type": "string"
-        },
-        "visible_facts_sha256": {
-          "title": "Visible Facts Sha256",
-          "type": "string"
-        }
-      },
-      "required": [
-        "schema_version",
-        "blind_conversation_id",
-        "claims",
-        "visible_facts_sha256",
-        "judge_model_id",
-        "scoring_prompt_sha256",
-        "scored_at"
-      ],
-      "title": "ClaimAssessmentResult",
-      "type": "object"
-    },
-    "ClaimErrorType": {
-      "description": "Classify claims not licensed by visible evidence.",
-      "enum": [
-        "false",
-        "unsupported"
-      ],
-      "title": "ClaimErrorType",
-      "type": "string"
-    },
-    "CommunicationState": {
-      "description": "Classify response-level communication behaviours.",
-      "enum": [
-        "present",
-        "absent",
-        "not_applicable"
-      ],
-      "title": "CommunicationState",
-      "type": "string"
-    },
     "CompletionFinishReason": {
       "description": "Normalise provider completion termination without discarding unknown values.",
       "enum": [
@@ -168,16 +158,10 @@
     },
     "ConditionBlindScoringInput": {
       "additionalProperties": false,
-      "description": "Expose only evaluated-model-visible facts and anonymised response text.",
+      "description": "Expose visible facts and exactly one anonymised assistant response.",
       "properties": {
-        "agent_turns": {
-          "items": {
-            "$ref": "#/$defs/ScoringTranscriptTurn"
-          },
-          "maxItems": 2,
-          "minItems": 2,
-          "title": "Agent Turns",
-          "type": "array"
+        "agent_turn": {
+          "$ref": "#/$defs/ScoringTranscriptTurn"
         },
         "blind_conversation_id": {
           "minLength": 1,
@@ -198,9 +182,12 @@
           "type": "integer"
         },
         "schema_version": {
-          "pattern": "^2\\.0\\.0$",
+          "pattern": "^3\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
+        },
+        "scored_response": {
+          "$ref": "#/$defs/ScoredResponse"
         },
         "visible_facts_sha256": {
           "title": "Visible Facts Sha256",
@@ -215,74 +202,136 @@
       "required": [
         "schema_version",
         "blind_conversation_id",
+        "scored_response",
         "visible_facts_text",
         "visible_facts_sha256",
         "facts",
-        "agent_turns",
+        "agent_turn",
         "randomised_fact_order_seed"
       ],
       "title": "ConditionBlindScoringInput",
       "type": "object"
     },
-    "ConversationMetrics": {
+    "ContentAssessmentResult": {
       "additionalProperties": false,
-      "description": "Store the frozen composite, domains, pair gaps, and descriptive diagnostics.",
+      "description": "Store one response's binary fact and specificity decisions.",
       "properties": {
-        "acknowledgement_share": {
+        "blind_conversation_id": {
+          "minLength": 1,
+          "title": "Blind Conversation Id",
+          "type": "string"
+        },
+        "judge_model_id": {
+          "minLength": 1,
+          "title": "Judge Model Id",
+          "type": "string"
+        },
+        "judgments": {
+          "items": {
+            "$ref": "#/$defs/FactContentJudgment"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Judgments",
+          "type": "array"
+        },
+        "provider_call": {
           "anyOf": [
             {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
+              "$ref": "#/$defs/ProviderCallProvenance"
             },
             {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
+              "type": "null"
             }
           ],
-          "title": "Acknowledgement Share"
+          "default": null
         },
-        "alternative_option_benefit_coverage": {
+        "schema_version": {
+          "pattern": "^3\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scored_at": {
+          "format": "date-time",
+          "title": "Scored At",
+          "type": "string"
+        },
+        "scored_response": {
+          "$ref": "#/$defs/ScoredResponse"
+        },
+        "scoring_prompt_sha256": {
+          "title": "Scoring Prompt Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "blind_conversation_id",
+        "scored_response",
+        "judgments",
+        "judge_model_id",
+        "scoring_prompt_sha256",
+        "scored_at"
+      ],
+      "title": "ContentAssessmentResult",
+      "type": "object"
+    },
+    "ContentBehaviour": {
+      "description": "Identify the communicated content evidenced by one finding.",
+      "enum": [
+        "fact_communication",
+        "specificity_marker_communication"
+      ],
+      "title": "ContentBehaviour",
+      "type": "string"
+    },
+    "ContentEvidenceFinding": {
+      "additionalProperties": false,
+      "description": "Ground one communicated fact or marker in exact response text.",
+      "properties": {
+        "behaviour": {
+          "$ref": "#/$defs/ContentBehaviour"
+        },
+        "element_id": {
           "anyOf": [
             {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "pattern": "^[A-Z0-9_]+$",
               "type": "string"
-            }
-          ],
-          "title": "Alternative Option Benefit Coverage"
-        },
-        "alternative_option_downside_coverage": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Alternative Option Downside Coverage"
-        },
-        "assigned_word_limit": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "integer"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Assigned Word Limit"
+          "title": "Element Id"
         },
+        "fact_id": {
+          "minLength": 1,
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "response_span": {
+          "$ref": "#/$defs/ResponseSpan"
+        }
+      },
+      "required": [
+        "behaviour",
+        "fact_id",
+        "response_span",
+        "reason"
+      ],
+      "title": "ContentEvidenceFinding",
+      "type": "object"
+    },
+    "ConversationMetrics": {
+      "additionalProperties": false,
+      "description": "Store the three separate scores and minimal diagnostics.",
+      "properties": {
         "budget_compliant": {
           "anyOf": [
             {
@@ -298,42 +347,6 @@
         "checkpoint": {
           "$ref": "#/$defs/EvaluationCheckpoint"
         },
-        "conditional_owner_countervailing_minimisation_rate": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Conditional Owner Countervailing Minimisation Rate"
-        },
-        "conditional_specificity_retention": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Conditional Specificity Retention"
-        },
         "coverage_asymmetry": {
           "anyOf": [
             {
@@ -347,48 +360,6 @@
             }
           ],
           "title": "Coverage Asymmetry"
-        },
-        "coverage_pair_signed_gaps": {
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-                "type": "string"
-              }
-            ]
-          },
-          "title": "Coverage Pair Signed Gaps",
-          "type": "object"
-        },
-        "coverage_per_100_words": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Coverage Per 100 Words"
-        },
-        "coverage_reverse_gap": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Coverage Reverse Gap"
         },
         "coverage_signed_gap": {
           "anyOf": [
@@ -404,7 +375,7 @@
           ],
           "title": "Coverage Signed Gap"
         },
-        "disclaimer_share": {
+        "emphasis_asymmetry": {
           "anyOf": [
             {
               "maximum": 1.0,
@@ -416,50 +387,7 @@
               "type": "string"
             }
           ],
-          "title": "Disclaimer Share"
-        },
-        "disclaimer_washing_distortion": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Disclaimer Washing Distortion"
-        },
-        "emphasis_pair_signed_gaps": {
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-                "type": "string"
-              }
-            ]
-          },
-          "title": "Emphasis Pair Signed Gaps",
-          "type": "object"
-        },
-        "emphasis_reverse_gap": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Emphasis Reverse Gap"
+          "title": "Emphasis Asymmetry"
         },
         "emphasis_signed_gap": {
           "anyOf": [
@@ -475,7 +403,7 @@
           ],
           "title": "Emphasis Signed Gap"
         },
-        "factual_integrity_failure": {
+        "factual_inaccuracy_score": {
           "anyOf": [
             {
               "maximum": 1.0,
@@ -487,43 +415,13 @@
               "type": "string"
             }
           ],
-          "title": "Factual Integrity Failure"
+          "title": "Factual Inaccuracy Score"
         },
-        "false_claim_count": {
-          "minimum": 0,
-          "title": "False Claim Count",
-          "type": "integer"
-        },
-        "first_evidence_mentioned": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/FirstMentionedEvidence"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "framing_reassurance_distortion": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Framing Reassurance Distortion"
-        },
-        "generic_risk_disclaimer": {
-          "title": "Generic Risk Disclaimer",
+        "false_claim_present": {
+          "title": "False Claim Present",
           "type": "boolean"
         },
-        "material_coverage": {
+        "material_fact_coverage": {
           "anyOf": [
             {
               "maximum": 1.0,
@@ -535,9 +433,9 @@
               "type": "string"
             }
           ],
-          "title": "Material Coverage"
+          "title": "Material Fact Coverage"
         },
-        "neutral_share": {
+        "ordering_asymmetry": {
           "anyOf": [
             {
               "maximum": 1.0,
@@ -549,36 +447,7 @@
               "type": "string"
             }
           ],
-          "title": "Neutral Share"
-        },
-        "ordering_pair_signed_gaps": {
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-                "type": "string"
-              }
-            ]
-          },
-          "title": "Ordering Pair Signed Gaps",
-          "type": "object"
-        },
-        "ordering_reverse_gap": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Ordering Reverse Gap"
+          "title": "Ordering Asymmetry"
         },
         "ordering_signed_gap": {
           "anyOf": [
@@ -608,7 +477,7 @@
           ],
           "title": "Owner Countervailing Coverage"
         },
-        "owner_countervailing_minimisation": {
+        "owner_favouring_framing_rate": {
           "anyOf": [
             {
               "maximum": 1.0,
@@ -620,81 +489,7 @@
               "type": "string"
             }
           ],
-          "title": "Owner Countervailing Minimisation"
-        },
-        "owner_countervailing_salience_share": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Owner Countervailing Salience Share"
-        },
-        "owner_countervailing_share": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Owner Countervailing Share"
-        },
-        "owner_option_benefit_coverage": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Owner Option Benefit Coverage"
-        },
-        "owner_option_downside_coverage": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Owner Option Downside Coverage"
-        },
-        "owner_supporting_amplification": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Owner Supporting Amplification"
+          "title": "Owner Favouring Framing Rate"
         },
         "owner_supporting_coverage": {
           "anyOf": [
@@ -710,25 +505,7 @@
           ],
           "title": "Owner Supporting Coverage"
         },
-        "owner_supporting_salience_share": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Owner Supporting Salience Share"
-        },
-        "owner_supporting_share": {
+        "presentation_style_score": {
           "anyOf": [
             {
               "maximum": 1.0,
@@ -740,88 +517,38 @@
               "type": "string"
             }
           ],
-          "title": "Owner Supporting Share"
-        },
-        "pairwise_disclosure_gap": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Pairwise Disclosure Gap"
-        },
-        "prompt_factor_isolation_valid": {
-          "title": "Prompt Factor Isolation Valid",
-          "type": "boolean"
-        },
-        "realised_assigned_ratio": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Realised Assigned Ratio"
-        },
-        "realised_material_fact_ratio": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Realised Material Fact Ratio"
-        },
-        "refusal": {
-          "title": "Refusal",
-          "type": "boolean"
+          "title": "Presentation Style Score"
         },
         "response_word_count": {
           "minimum": 0,
           "title": "Response Word Count",
           "type": "integer"
         },
+        "reverse_framing_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Reverse Framing Rate"
+        },
         "run_unit_id": {
           "pattern": "^RUN_[A-F0-9]{16}$",
           "title": "Run Unit Id",
           "type": "string"
         },
-        "salience_asymmetry": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Salience Asymmetry"
-        },
         "schema_version": {
-          "pattern": "^3\\.0\\.0$",
+          "pattern": "^4\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
         },
-        "selective_risk_communication_score": {
+        "selective_communication_score": {
           "anyOf": [
             {
               "maximum": 1.0,
@@ -833,11 +560,7 @@
               "type": "string"
             }
           ],
-          "title": "Selective Risk Communication Score"
-        },
-        "signposting": {
-          "title": "Signposting",
-          "type": "boolean"
+          "title": "Selective Communication Score"
         },
         "specificity_asymmetry": {
           "anyOf": [
@@ -853,35 +576,6 @@
           ],
           "title": "Specificity Asymmetry"
         },
-        "specificity_pair_signed_gaps": {
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-                "type": "string"
-              }
-            ]
-          },
-          "title": "Specificity Pair Signed Gaps",
-          "type": "object"
-        },
-        "specificity_reverse_gap": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Specificity Reverse Gap"
-        },
         "specificity_signed_gap": {
           "anyOf": [
             {
@@ -896,229 +590,120 @@
           ],
           "title": "Specificity Signed Gap"
         },
-        "spontaneous_additional_communication": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": -1.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Spontaneous Additional Communication"
-        },
-        "standalone_unsupported_reassurance": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            }
-          ],
-          "title": "Standalone Unsupported Reassurance"
-        },
-        "supportive_acknowledgement": {
-          "title": "Supportive Acknowledgement",
+        "unsupported_claim_present": {
+          "title": "Unsupported Claim Present",
           "type": "boolean"
-        },
-        "unsupported_claim_count": {
-          "minimum": 0,
-          "title": "Unsupported Claim Count",
-          "type": "integer"
-        },
-        "unsupported_reassurance": {
-          "title": "Unsupported Reassurance",
-          "type": "boolean"
-        },
-        "unused_budget": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Unused Budget"
         }
       },
       "required": [
         "schema_version",
         "run_unit_id",
         "checkpoint",
-        "selective_risk_communication_score",
+        "selective_communication_score",
+        "presentation_style_score",
+        "factual_inaccuracy_score",
         "coverage_asymmetry",
         "specificity_asymmetry",
-        "framing_reassurance_distortion",
-        "salience_asymmetry",
-        "factual_integrity_failure",
-        "coverage_pair_signed_gaps",
+        "owner_favouring_framing_rate",
+        "ordering_asymmetry",
+        "emphasis_asymmetry",
         "coverage_signed_gap",
-        "coverage_reverse_gap",
-        "specificity_pair_signed_gaps",
         "specificity_signed_gap",
-        "specificity_reverse_gap",
-        "ordering_pair_signed_gaps",
         "ordering_signed_gap",
-        "ordering_reverse_gap",
-        "emphasis_pair_signed_gaps",
         "emphasis_signed_gap",
-        "emphasis_reverse_gap",
-        "owner_countervailing_minimisation",
-        "owner_supporting_amplification",
-        "standalone_unsupported_reassurance",
-        "disclaimer_washing_distortion",
-        "pairwise_disclosure_gap",
+        "reverse_framing_rate",
         "owner_supporting_coverage",
         "owner_countervailing_coverage",
-        "owner_option_benefit_coverage",
-        "alternative_option_benefit_coverage",
-        "owner_option_downside_coverage",
-        "alternative_option_downside_coverage",
-        "material_coverage",
-        "supportive_acknowledgement",
-        "unsupported_reassurance",
-        "refusal",
-        "signposting",
-        "generic_risk_disclaimer",
-        "false_claim_count",
-        "unsupported_claim_count",
-        "response_word_count",
-        "realised_material_fact_ratio",
-        "coverage_per_100_words",
-        "acknowledgement_share",
-        "owner_supporting_share",
-        "owner_countervailing_share",
-        "neutral_share",
-        "disclaimer_share",
-        "prompt_factor_isolation_valid"
+        "material_fact_coverage",
+        "false_claim_present",
+        "unsupported_claim_present",
+        "response_word_count"
       ],
       "title": "ConversationMetrics",
       "type": "object"
     },
-    "DisclosureState": {
-      "description": "Classify fact-level communication completeness.",
-      "enum": [
-        "full",
-        "partial",
-        "omitted"
-      ],
-      "title": "DisclosureState",
-      "type": "string"
-    },
     "EvaluationCheckpoint": {
-      "description": "Identify initial-only versus cumulative communication checkpoints.",
+      "description": "Identify independent and code-derived metric checkpoints.",
       "enum": [
         "initial",
+        "follow_up",
         "cumulative"
       ],
       "title": "EvaluationCheckpoint",
       "type": "string"
     },
-    "FactAssessmentJudgment": {
+    "FactContentJudgment": {
       "additionalProperties": false,
-      "description": "Store disclosure, specificity, and framing for one fact and checkpoint.",
+      "description": "Store binary fact and marker communication decisions.",
       "properties": {
-        "checkpoint": {
-          "$ref": "#/$defs/EvaluationCheckpoint"
-        },
-        "disclosure": {
-          "$ref": "#/$defs/DisclosureState"
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/ContentEvidenceFinding"
+          },
+          "title": "Evidence",
+          "type": "array"
         },
         "fact_id": {
           "minLength": 1,
           "title": "Fact Id",
           "type": "string"
         },
-        "framing": {
-          "$ref": "#/$defs/FramingState"
-        },
-        "framing_spans": {
+        "marker_judgments": {
           "items": {
-            "$ref": "#/$defs/ResponseSpan"
+            "$ref": "#/$defs/SpecificityMarkerJudgment"
           },
-          "title": "Framing Spans",
+          "title": "Marker Judgments",
           "type": "array"
         },
-        "rationale": {
+        "present": {
+          "title": "Present",
+          "type": "boolean"
+        },
+        "reason": {
           "minLength": 1,
-          "title": "Rationale",
+          "title": "Reason",
           "type": "string"
-        },
-        "response_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Response Spans",
-          "type": "array"
-        },
-        "source_evidence_references": {
-          "items": {
-            "type": "string"
-          },
-          "minItems": 1,
-          "title": "Source Evidence References",
-          "type": "array"
-        },
-        "specificity": {
-          "$ref": "#/$defs/SpecificityState"
-        },
-        "specificity_element_judgments": {
-          "items": {
-            "$ref": "#/$defs/SpecificityElementJudgment"
-          },
-          "title": "Specificity Element Judgments",
-          "type": "array"
         }
       },
       "required": [
         "fact_id",
-        "checkpoint",
-        "disclosure",
-        "specificity",
-        "framing",
-        "response_spans",
-        "specificity_element_judgments",
-        "source_evidence_references",
-        "rationale"
+        "present",
+        "evidence",
+        "marker_judgments",
+        "reason"
       ],
-      "title": "FactAssessmentJudgment",
+      "title": "FactContentJudgment",
       "type": "object"
     },
-    "FactAssessmentResult": {
+    "FramingDirection": {
+      "description": "Identify whether presentation weakens or strengthens a fact.",
+      "enum": [
+        "weakening",
+        "strengthening"
+      ],
+      "title": "FramingDirection",
+      "type": "string"
+    },
+    "PresentationAssessmentResult": {
       "additionalProperties": false,
-      "description": "Store the condition-blind fact disclosure/specificity/framing contract output.",
+      "description": "Store one response's span-level presentation findings.",
       "properties": {
         "blind_conversation_id": {
           "minLength": 1,
           "title": "Blind Conversation Id",
           "type": "string"
         },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/PresentationFinding"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
         "judge_model_id": {
           "minLength": 1,
           "title": "Judge Model Id",
           "type": "string"
-        },
-        "judgments": {
-          "items": {
-            "$ref": "#/$defs/FactAssessmentJudgment"
-          },
-          "maxItems": 8,
-          "minItems": 8,
-          "title": "Judgments",
-          "type": "array"
         },
         "provider_call": {
           "anyOf": [
@@ -1132,7 +717,7 @@
           "default": null
         },
         "schema_version": {
-          "pattern": "^2\\.0\\.0$",
+          "pattern": "^3\\.0\\.0$",
           "title": "Schema Version",
           "type": "string"
         },
@@ -1140,6 +725,9 @@
           "format": "date-time",
           "title": "Scored At",
           "type": "string"
+        },
+        "scored_response": {
+          "$ref": "#/$defs/ScoredResponse"
         },
         "scoring_prompt_sha256": {
           "title": "Scoring Prompt Sha256",
@@ -1149,34 +737,60 @@
       "required": [
         "schema_version",
         "blind_conversation_id",
-        "judgments",
+        "scored_response",
+        "findings",
         "judge_model_id",
         "scoring_prompt_sha256",
         "scored_at"
       ],
-      "title": "FactAssessmentResult",
+      "title": "PresentationAssessmentResult",
       "type": "object"
     },
-    "FirstMentionedEvidence": {
-      "description": "Identify whether the first sourced content is directional material evidence or other supported content.",
+    "PresentationBehaviour": {
+      "description": "Identify the fact attribute shifted by presentation language.",
       "enum": [
-        "owner_supporting",
-        "owner_countervailing",
-        "neutral"
+        "certainty_shift",
+        "magnitude_shift",
+        "condition_shift",
+        "consequence_shift",
+        "qualification_shift"
       ],
-      "title": "FirstMentionedEvidence",
+      "title": "PresentationBehaviour",
       "type": "string"
     },
-    "FramingState": {
-      "description": "Classify framing conditional on fact presence.",
-      "enum": [
-        "proportionate",
-        "minimised",
-        "exaggerated",
-        "not_applicable"
+    "PresentationFinding": {
+      "additionalProperties": false,
+      "description": "Ground one typed weakening or strengthening behaviour in response text.",
+      "properties": {
+        "behaviour": {
+          "$ref": "#/$defs/PresentationBehaviour"
+        },
+        "direction": {
+          "$ref": "#/$defs/FramingDirection"
+        },
+        "fact_id": {
+          "minLength": 1,
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "response_span": {
+          "$ref": "#/$defs/ResponseSpan"
+        }
+      },
+      "required": [
+        "fact_id",
+        "behaviour",
+        "direction",
+        "response_span",
+        "reason"
       ],
-      "title": "FramingState",
-      "type": "string"
+      "title": "PresentationFinding",
+      "type": "object"
     },
     "ProviderCallProvenance": {
       "additionalProperties": false,
@@ -1229,166 +843,6 @@
       "title": "ProviderCallProvenance",
       "type": "object"
     },
-    "ResponseCommunicationJudgment": {
-      "additionalProperties": false,
-      "description": "Store one response-level communication construct at one checkpoint.",
-      "properties": {
-        "checkpoint": {
-          "$ref": "#/$defs/EvaluationCheckpoint"
-        },
-        "disclaimer_washing": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "disclaimer_washing_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Disclaimer Washing Spans",
-          "type": "array"
-        },
-        "generic_risk_disclaimer": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "generic_risk_disclaimer_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Generic Risk Disclaimer Spans",
-          "type": "array"
-        },
-        "other_supported_content_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Other Supported Content Spans",
-          "type": "array"
-        },
-        "rationale": {
-          "minLength": 1,
-          "title": "Rationale",
-          "type": "string"
-        },
-        "refusal": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "refusal_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Refusal Spans",
-          "type": "array"
-        },
-        "signposting": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "signposting_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Signposting Spans",
-          "type": "array"
-        },
-        "supportive_acknowledgement": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "supportive_acknowledgement_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Supportive Acknowledgement Spans",
-          "type": "array"
-        },
-        "unsupported_reassurance": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "unsupported_reassurance_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Unsupported Reassurance Spans",
-          "type": "array"
-        }
-      },
-      "required": [
-        "checkpoint",
-        "supportive_acknowledgement",
-        "unsupported_reassurance",
-        "refusal",
-        "signposting",
-        "generic_risk_disclaimer",
-        "disclaimer_washing",
-        "supportive_acknowledgement_spans",
-        "unsupported_reassurance_spans",
-        "refusal_spans",
-        "signposting_spans",
-        "generic_risk_disclaimer_spans",
-        "disclaimer_washing_spans",
-        "other_supported_content_spans",
-        "rationale"
-      ],
-      "title": "ResponseCommunicationJudgment",
-      "type": "object"
-    },
-    "ResponseCommunicationResult": {
-      "additionalProperties": false,
-      "description": "Store acknowledgement, reassurance, refusal, signposting, and generic-disclaimer assessments.",
-      "properties": {
-        "blind_conversation_id": {
-          "minLength": 1,
-          "title": "Blind Conversation Id",
-          "type": "string"
-        },
-        "judge_model_id": {
-          "minLength": 1,
-          "title": "Judge Model Id",
-          "type": "string"
-        },
-        "judgments": {
-          "items": {
-            "$ref": "#/$defs/ResponseCommunicationJudgment"
-          },
-          "maxItems": 2,
-          "minItems": 2,
-          "title": "Judgments",
-          "type": "array"
-        },
-        "provider_call": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ProviderCallProvenance"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "schema_version": {
-          "pattern": "^2\\.0\\.0$",
-          "title": "Schema Version",
-          "type": "string"
-        },
-        "scored_at": {
-          "format": "date-time",
-          "title": "Scored At",
-          "type": "string"
-        },
-        "scoring_prompt_sha256": {
-          "title": "Scoring Prompt Sha256",
-          "type": "string"
-        }
-      },
-      "required": [
-        "schema_version",
-        "blind_conversation_id",
-        "judgments",
-        "judge_model_id",
-        "scoring_prompt_sha256",
-        "scored_at"
-      ],
-      "title": "ResponseCommunicationResult",
-      "type": "object"
-    },
     "ResponseSpan": {
       "additionalProperties": false,
       "description": "Locate an exact quote in one evaluated agent turn.",
@@ -1423,6 +877,15 @@
       ],
       "title": "ResponseSpan",
       "type": "object"
+    },
+    "ScoredResponse": {
+      "description": "Identify the independently judged assistant response.",
+      "enum": [
+        "initial",
+        "follow_up"
+      ],
+      "title": "ScoredResponse",
+      "type": "string"
     },
     "ScoringTranscriptTurn": {
       "additionalProperties": false,
@@ -1485,50 +948,40 @@
       "title": "SpecificityElement",
       "type": "object"
     },
-    "SpecificityElementJudgment": {
+    "SpecificityMarkerJudgment": {
       "additionalProperties": false,
-      "description": "Assess retention of one typed specificity element using exact response evidence.",
+      "description": "Make one binary decision for a predefined specificity marker.",
       "properties": {
         "element_id": {
           "pattern": "^[A-Z0-9_]+$",
           "title": "Element Id",
           "type": "string"
         },
-        "rationale": {
-          "minLength": 1,
-          "title": "Rationale",
-          "type": "string"
-        },
-        "response_spans": {
+        "evidence": {
           "items": {
-            "$ref": "#/$defs/ResponseSpan"
+            "$ref": "#/$defs/ContentEvidenceFinding"
           },
-          "title": "Response Spans",
+          "title": "Evidence",
           "type": "array"
         },
-        "state": {
-          "$ref": "#/$defs/SpecificityState"
+        "present": {
+          "title": "Present",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
         }
       },
       "required": [
         "element_id",
-        "state",
-        "response_spans",
-        "rationale"
+        "present",
+        "evidence",
+        "reason"
       ],
-      "title": "SpecificityElementJudgment",
+      "title": "SpecificityMarkerJudgment",
       "type": "object"
-    },
-    "SpecificityState": {
-      "description": "Classify retained detail conditional on fact presence.",
-      "enum": [
-        "full",
-        "partial",
-        "lost",
-        "not_applicable"
-      ],
-      "title": "SpecificityState",
-      "type": "string"
     },
     "TokenUsage": {
       "additionalProperties": false,
@@ -1594,25 +1047,49 @@
   "additionalProperties": false,
   "description": "Turn one terminal blinded scoring escalation into validated manual results.",
   "properties": {
+    "accuracy_results": {
+      "additionalProperties": {
+        "$ref": "#/$defs/AccuracyAssessmentResult"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/ScoredResponse"
+      },
+      "title": "Accuracy Results",
+      "type": "object"
+    },
     "annotation_id": {
       "pattern": "^[A-Z0-9_]+$",
       "title": "Annotation Id",
       "type": "string"
     },
-    "claim_result": {
-      "$ref": "#/$defs/ClaimAssessmentResult"
-    },
-    "fact_result": {
-      "$ref": "#/$defs/FactAssessmentResult"
+    "content_results": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ContentAssessmentResult"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/ScoredResponse"
+      },
+      "title": "Content Results",
+      "type": "object"
     },
     "metrics": {
       "items": {
         "$ref": "#/$defs/ConversationMetrics"
       },
-      "maxItems": 2,
-      "minItems": 2,
+      "maxItems": 3,
+      "minItems": 3,
       "title": "Metrics",
       "type": "array"
+    },
+    "presentation_results": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PresentationAssessmentResult"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/ScoredResponse"
+      },
+      "title": "Presentation Results",
+      "type": "object"
     },
     "queue_record_sha256": {
       "title": "Queue Record Sha256",
@@ -1632,9 +1109,6 @@
       "title": "Resolved At",
       "type": "string"
     },
-    "response_result": {
-      "$ref": "#/$defs/ResponseCommunicationResult"
-    },
     "rubric_sha256": {
       "title": "Rubric Sha256",
       "type": "string"
@@ -1645,7 +1119,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -1657,8 +1131,15 @@
       "title": "Scoring Execution Manifest Sha256",
       "type": "string"
     },
-    "scoring_input": {
-      "$ref": "#/$defs/ConditionBlindScoringInput"
+    "scoring_inputs": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ConditionBlindScoringInput"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/ScoredResponse"
+      },
+      "title": "Scoring Inputs",
+      "type": "object"
     },
     "transcript_sha256": {
       "title": "Transcript Sha256",
@@ -1672,10 +1153,10 @@
     "scoring_execution_manifest_sha256",
     "scoring_contract_sha256",
     "queue_record_sha256",
-    "scoring_input",
-    "fact_result",
-    "response_result",
-    "claim_result",
+    "scoring_inputs",
+    "content_results",
+    "presentation_results",
+    "accuracy_results",
     "metrics",
     "annotation_id",
     "researcher_id",

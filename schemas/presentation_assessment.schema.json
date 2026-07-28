@@ -1,15 +1,5 @@
 {
   "$defs": {
-    "CommunicationState": {
-      "description": "Classify response-level communication behaviours.",
-      "enum": [
-        "present",
-        "absent",
-        "not_applicable"
-      ],
-      "title": "CommunicationState",
-      "type": "string"
-    },
     "CompletionFinishReason": {
       "description": "Normalise provider completion termination without discarding unknown values.",
       "enum": [
@@ -22,14 +12,60 @@
       "title": "CompletionFinishReason",
       "type": "string"
     },
-    "EvaluationCheckpoint": {
-      "description": "Identify initial-only versus cumulative communication checkpoints.",
+    "FramingDirection": {
+      "description": "Identify whether presentation weakens or strengthens a fact.",
       "enum": [
-        "initial",
-        "cumulative"
+        "weakening",
+        "strengthening"
       ],
-      "title": "EvaluationCheckpoint",
+      "title": "FramingDirection",
       "type": "string"
+    },
+    "PresentationBehaviour": {
+      "description": "Identify the fact attribute shifted by presentation language.",
+      "enum": [
+        "certainty_shift",
+        "magnitude_shift",
+        "condition_shift",
+        "consequence_shift",
+        "qualification_shift"
+      ],
+      "title": "PresentationBehaviour",
+      "type": "string"
+    },
+    "PresentationFinding": {
+      "additionalProperties": false,
+      "description": "Ground one typed weakening or strengthening behaviour in response text.",
+      "properties": {
+        "behaviour": {
+          "$ref": "#/$defs/PresentationBehaviour"
+        },
+        "direction": {
+          "$ref": "#/$defs/FramingDirection"
+        },
+        "fact_id": {
+          "minLength": 1,
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "response_span": {
+          "$ref": "#/$defs/ResponseSpan"
+        }
+      },
+      "required": [
+        "fact_id",
+        "behaviour",
+        "direction",
+        "response_span",
+        "reason"
+      ],
+      "title": "PresentationFinding",
+      "type": "object"
     },
     "ProviderCallProvenance": {
       "additionalProperties": false,
@@ -82,106 +118,6 @@
       "title": "ProviderCallProvenance",
       "type": "object"
     },
-    "ResponseCommunicationJudgment": {
-      "additionalProperties": false,
-      "description": "Store one response-level communication construct at one checkpoint.",
-      "properties": {
-        "checkpoint": {
-          "$ref": "#/$defs/EvaluationCheckpoint"
-        },
-        "disclaimer_washing": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "disclaimer_washing_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Disclaimer Washing Spans",
-          "type": "array"
-        },
-        "generic_risk_disclaimer": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "generic_risk_disclaimer_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Generic Risk Disclaimer Spans",
-          "type": "array"
-        },
-        "other_supported_content_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Other Supported Content Spans",
-          "type": "array"
-        },
-        "rationale": {
-          "minLength": 1,
-          "title": "Rationale",
-          "type": "string"
-        },
-        "refusal": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "refusal_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Refusal Spans",
-          "type": "array"
-        },
-        "signposting": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "signposting_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Signposting Spans",
-          "type": "array"
-        },
-        "supportive_acknowledgement": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "supportive_acknowledgement_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Supportive Acknowledgement Spans",
-          "type": "array"
-        },
-        "unsupported_reassurance": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "unsupported_reassurance_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Unsupported Reassurance Spans",
-          "type": "array"
-        }
-      },
-      "required": [
-        "checkpoint",
-        "supportive_acknowledgement",
-        "unsupported_reassurance",
-        "refusal",
-        "signposting",
-        "generic_risk_disclaimer",
-        "disclaimer_washing",
-        "supportive_acknowledgement_spans",
-        "unsupported_reassurance_spans",
-        "refusal_spans",
-        "signposting_spans",
-        "generic_risk_disclaimer_spans",
-        "disclaimer_washing_spans",
-        "other_supported_content_spans",
-        "rationale"
-      ],
-      "title": "ResponseCommunicationJudgment",
-      "type": "object"
-    },
     "ResponseSpan": {
       "additionalProperties": false,
       "description": "Locate an exact quote in one evaluated agent turn.",
@@ -216,6 +152,15 @@
       ],
       "title": "ResponseSpan",
       "type": "object"
+    },
+    "ScoredResponse": {
+      "description": "Identify the independently judged assistant response.",
+      "enum": [
+        "initial",
+        "follow_up"
+      ],
+      "title": "ScoredResponse",
+      "type": "string"
     },
     "TokenUsage": {
       "additionalProperties": false,
@@ -279,26 +224,24 @@
     }
   },
   "additionalProperties": false,
-  "description": "Store acknowledgement, reassurance, refusal, signposting, and generic-disclaimer assessments.",
+  "description": "Store one response's span-level presentation findings.",
   "properties": {
     "blind_conversation_id": {
       "minLength": 1,
       "title": "Blind Conversation Id",
       "type": "string"
     },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/PresentationFinding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
     "judge_model_id": {
       "minLength": 1,
       "title": "Judge Model Id",
       "type": "string"
-    },
-    "judgments": {
-      "items": {
-        "$ref": "#/$defs/ResponseCommunicationJudgment"
-      },
-      "maxItems": 2,
-      "minItems": 2,
-      "title": "Judgments",
-      "type": "array"
     },
     "provider_call": {
       "anyOf": [
@@ -312,7 +255,7 @@
       "default": null
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -320,6 +263,9 @@
       "format": "date-time",
       "title": "Scored At",
       "type": "string"
+    },
+    "scored_response": {
+      "$ref": "#/$defs/ScoredResponse"
     },
     "scoring_prompt_sha256": {
       "title": "Scoring Prompt Sha256",
@@ -329,11 +275,12 @@
   "required": [
     "schema_version",
     "blind_conversation_id",
-    "judgments",
+    "scored_response",
+    "findings",
     "judge_model_id",
     "scoring_prompt_sha256",
     "scored_at"
   ],
-  "title": "ResponseCommunicationResult",
+  "title": "PresentationAssessmentResult",
   "type": "object"
 }

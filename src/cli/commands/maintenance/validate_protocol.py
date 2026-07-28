@@ -36,6 +36,12 @@ def validate_removed_active_interfaces() -> None:
         REPO_ROOT / "src" / "scenarios" / "source_rendering.py",
         REPO_ROOT / "src" / "prompts" / "scenario_generation 2.py",
         REPO_ROOT / "tests" / "test_generation_pipeline 2.py",
+        REPO_ROOT / "src" / "analysis" / "composite.py",
+        REPO_ROOT / "src" / "analysis" / "equivalence.py",
+        REPO_ROOT / "schemas" / "claim_assessment.schema.json",
+        REPO_ROOT / "schemas" / "fact_assessment.schema.json",
+        REPO_ROOT / "schemas" / "response_communication.schema.json",
+        REPO_ROOT / "schemas" / "domain_validation_gate_manifest.schema.json",
     ]
     existing = [str(path.relative_to(REPO_ROOT)) for path in forbidden_paths if path.is_file() or (path.is_dir() and any(path.rglob("*.py")))]
     if existing:

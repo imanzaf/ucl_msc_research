@@ -1,4 +1,4 @@
-"""Build treatment-linked human-reference metrics only after blinded annotation closes."""
+"""Build treatment-linked human-reference metrics after blinded annotation closes."""
 
 from __future__ import annotations
 
@@ -6,30 +6,23 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from src.cli.commands.scoring.resolve_manual import build_manual_results
 from src.data_models.annotations import ConversationAnnotation
 from src.data_models.common import artifact_sha256, sha256_bytes, validate_model_self_hash
 from src.data_models.experiments import ConversationTranscript, RunOutcomeStatus
 from src.data_models.manifests import AcceptedScenarioManifest, AnnotationSampleManifest, FreezeStatus, ScoringExecutionManifest
 from src.data_models.scenarios import AcceptedScenario
-from src.data_models.scoring import (
-    AnalysisInputRow,
-    ClaimAssessmentResult,
-    ConditionBlindScoringInput,
-    EvaluationCheckpoint,
-    FactAssessmentResult,
-    ResponseCommunicationResult,
-)
+from src.data_models.scoring import AnalysisInputRow, ConditionBlindScoringInput, EvaluationCheckpoint, ScoredResponse
 from src.experiments.io import load_all_accepted_scenarios
 from src.experiments.scenario_runner import validate_complete_run_plan
-from src.experiments.scoring_pipeline import build_condition_blind_input
+from src.experiments.scoring_pipeline import build_condition_blind_inputs
 from src.scoring.annotation_resolution import final_annotations
 from src.scoring.metrics import compute_conversation_metrics
-from src.scoring.validation import validate_scoring_results
 from src.storage import read_model_json, read_model_jsonl, write_models_jsonl_atomic
 
 
 def main() -> None:
-    """Convert the final blinded reference labels into a locked sensitivity input."""
+    """Convert final blinded labels into three-checkpoint human-reference rows."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--annotation-sample-manifest", type=Path, required=True)
     parser.add_argument("--annotations", type=Path, required=True)
@@ -40,22 +33,38 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     sample = read_model_json(args.annotation_sample_manifest, AnnotationSampleManifest)
-    accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
-    scoring_manifest = read_model_json(args.scoring_execution_manifest, ScoringExecutionManifest)
+    accepted_manifest = read_model_json(
+        args.accepted_scenario_manifest,
+        AcceptedScenarioManifest,
+    )
+    scoring_manifest = read_model_json(
+        args.scoring_execution_manifest,
+        ScoringExecutionManifest,
+    )
     for manifest in [sample, accepted_manifest, scoring_manifest]:
         validate_model_self_hash(manifest, "manifest_sha256")
     if scoring_manifest.freeze_status != FreezeStatus.FROZEN:
-        raise ValueError("human-reference input requires the frozen scoring manifest")
+        raise ValueError("human reference requires the frozen scoring manifest")
     if sample.scoring_execution_manifest_sha256 != scoring_manifest.manifest_sha256:
-        raise ValueError("annotation sample does not bind the supplied scoring manifest")
+        raise ValueError("annotation sample does not bind the scoring manifest")
     annotations = read_model_jsonl(args.annotations, ConversationAnnotation)
-    resolved_annotations, _unused_pairs = final_annotations(sample, annotations)
+    resolved_annotations = final_annotations(sample, annotations)
     scenarios: Dict[str, AcceptedScenario] = {
-        scenario.scenario_id: scenario for scenario in load_all_accepted_scenarios(args.accepted_root, accepted_manifest)
+        scenario.scenario_id: scenario
+        for scenario in load_all_accepted_scenarios(
+            args.accepted_root,
+            accepted_manifest,
+        )
     }
     transcripts = read_model_jsonl(args.transcripts, ConversationTranscript)
     validate_complete_run_plan([transcript.run_unit for transcript in transcripts])
-    selected: Dict[str, Tuple[ConversationTranscript, ConditionBlindScoringInput]] = {}
+    selected: Dict[
+        str,
+        Tuple[
+            ConversationTranscript,
+            Dict[ScoredResponse, ConditionBlindScoringInput],
+        ],
+    ] = {}
     for transcript in transcripts:
         if transcript.outcome_status != RunOutcomeStatus.COMPLETED:
             continue
@@ -63,57 +72,45 @@ def main() -> None:
             sha256_bytes(f"{scoring_manifest.fact_order_seed}:{transcript.run_unit.run_unit_id}".encode("utf-8"))[:16],
             16,
         )
-        scoring_input = build_condition_blind_input(transcript, scenarios[transcript.run_unit.scenario_id], fact_seed)
-        if scoring_input.blind_conversation_id in set(sample.conversation_ids):
-            selected[scoring_input.blind_conversation_id] = (transcript, scoring_input)
+        scoring_inputs = build_condition_blind_inputs(
+            transcript,
+            scenarios[transcript.run_unit.scenario_id],
+            fact_seed,
+        )
+        blind_id = next(iter(scoring_inputs.values())).blind_conversation_id
+        if blind_id in set(sample.conversation_ids):
+            selected[blind_id] = (transcript, scoring_inputs)
     if set(selected) != set(sample.conversation_ids):
-        raise ValueError("human-reference sample does not resolve to completed source transcripts")
+        raise ValueError("human-reference sample does not resolve to completed transcripts")
+
     rows: List[AnalysisInputRow] = []
     for blind_id in sorted(selected):
-        transcript, scoring_input = selected[blind_id]
+        transcript, scoring_inputs = selected[blind_id]
         annotation = resolved_annotations[blind_id]
-        manual_judge_id = f"manual:{annotation.researcher_id}"
-        fact_result = FactAssessmentResult(
-            schema_version="2.0.0",
-            blind_conversation_id=blind_id,
-            judgments=annotation.fact_judgments,
-            judge_model_id=manual_judge_id,
-            scoring_prompt_sha256=annotation.rubric_sha256,
-            scored_at=annotation.submitted_at,
+        content_results, presentation_results, accuracy_results = build_manual_results(
+            annotation,
+            scoring_inputs,
+            transcript,
         )
-        response_result = ResponseCommunicationResult(
-            schema_version="2.0.0",
-            blind_conversation_id=blind_id,
-            judgments=annotation.response_judgments,
-            judge_model_id=manual_judge_id,
-            scoring_prompt_sha256=annotation.rubric_sha256,
-            scored_at=annotation.submitted_at,
+        result_sha256 = artifact_sha256(
+            {
+                "annotation": annotation,
+                "source_scoring_inputs": scoring_inputs,
+            }
         )
-        claim_result = ClaimAssessmentResult(
-            schema_version="2.0.0",
-            blind_conversation_id=blind_id,
-            claims=annotation.claim_judgments,
-            visible_facts_sha256=scoring_input.visible_facts_sha256,
-            judge_model_id=manual_judge_id,
-            scoring_prompt_sha256=annotation.rubric_sha256,
-            scored_at=annotation.submitted_at,
-        )
-        validate_scoring_results(scoring_input, transcript, fact_result, response_result, claim_result)
-        result_sha256 = artifact_sha256({"annotation": annotation, "source_scoring_input": scoring_input})
         run_unit = transcript.run_unit
         for checkpoint in EvaluationCheckpoint:
             metrics = compute_conversation_metrics(
                 transcript,
                 scenarios[run_unit.scenario_id],
-                fact_result,
-                response_result,
-                claim_result,
+                content_results,
+                presentation_results,
+                accuracy_results,
                 checkpoint,
-                prompt_factor_isolation_valid=True,
             )
             rows.append(
                 AnalysisInputRow(
-                    schema_version="3.0.0",
+                    schema_version="4.0.0",
                     run_unit_id=run_unit.run_unit_id,
                     scenario_id=run_unit.scenario_id,
                     use_case_id=run_unit.use_case_id,

@@ -875,7 +875,7 @@ class ProtocolDeviationManifest(VersionedImmutableModel):
 
 
 class SmallestEffectManifest(VersionedImmutableModel):
-    """Freeze the two smallest composite effects used for power and equivalence checks."""
+    """Freeze the two smallest selective-communication effects used for power."""
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
     freeze_status: FreezeStatus
@@ -921,13 +921,25 @@ class PowerVarianceComponents(ImmutableModel):
         return self
 
 
+SECONDARY_PRECISION_ESTIMANDS = {
+    "initial:presentation_style_score:H1",
+    "initial:presentation_style_score:H2",
+    "initial:factual_inaccuracy_score:H1",
+    "initial:factual_inaccuracy_score:H2",
+}
+
+
 class AnalysisAssumptionInput(VersionedImmutableModel):
     """Validate researcher-authored effect, rationale, and variance inputs before freezing."""
 
-    schema_version: str = Field(pattern=r"^3\.0\.0$")
+    schema_version: str = Field(pattern=r"^4\.0\.0$")
     absolute_bounds: Dict[str, Decimal] = Field(min_length=2, max_length=2)
     rationales: Dict[str, str] = Field(min_length=2, max_length=2)
     variance_components: PowerVarianceComponents
+    secondary_contrast_standard_deviations: Dict[str, Decimal] = Field(
+        min_length=4,
+        max_length=4,
+    )
 
     @model_validator(mode="after")
     def validate_estimands(self) -> "AnalysisAssumptionInput":
@@ -937,16 +949,24 @@ class AnalysisAssumptionInput(VersionedImmutableModel):
             raise ValueError("analysis assumptions must cover exactly H1 and H2")
         if any(bound <= 0 for bound in self.absolute_bounds.values()) or any(not rationale.strip() for rationale in self.rationales.values()):
             raise ValueError("analysis assumptions require positive bounds and nonblank rationales")
+        if set(self.secondary_contrast_standard_deviations) != SECONDARY_PRECISION_ESTIMANDS:
+            raise ValueError("secondary precision assumptions must cover presentation and factual inaccuracy for H1/H2")
+        if any(value <= 0 for value in self.secondary_contrast_standard_deviations.values()):
+            raise ValueError("secondary contrast standard deviations must be positive")
         return self
 
 
 class PowerAssumptionManifest(VersionedImmutableModel):
-    """Freeze pre-evaluation variance assumptions for the composite estimator."""
+    """Freeze pre-evaluation variance assumptions for the selective score."""
 
-    schema_version: str = Field(pattern=r"^3\.0\.0$")
+    schema_version: str = Field(pattern=r"^4\.0\.0$")
     freeze_status: FreezeStatus
     smallest_effect_manifest_sha256: str
     variance_components: PowerVarianceComponents
+    secondary_contrast_standard_deviations: Dict[str, Decimal] = Field(
+        min_length=4,
+        max_length=4,
+    )
     calibration_source_sha256: str
     frozen_at: Optional[datetime] = None
     frozen_by: Optional[str] = Field(default=None, min_length=1)
@@ -960,16 +980,20 @@ class PowerAssumptionManifest(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_assumptions(self) -> "PowerAssumptionManifest":
-        """Require calibrated composite variance and frozen researcher provenance."""
+        """Require calibrated selective-score variance and frozen researcher provenance."""
         if self.freeze_status == FreezeStatus.FROZEN and (self.frozen_at is None or self.frozen_by is None):
             raise ValueError("frozen power assumptions require timestamp and researcher")
+        if set(self.secondary_contrast_standard_deviations) != SECONDARY_PRECISION_ESTIMANDS:
+            raise ValueError("frozen secondary precision assumptions must cover both secondary outcomes and H1/H2")
+        if any(value <= 0 for value in self.secondary_contrast_standard_deviations.values()):
+            raise ValueError("frozen secondary contrast standard deviations must be positive")
         return self
 
 
 class PowerSimulationReport(VersionedImmutableModel):
     """Persist Holm-corrected repeated-design power and heterogeneity sensitivities."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     power_assumption_manifest_sha256: str
     smallest_effect_manifest_sha256: str
     simulations: int = Field(ge=5_000)
@@ -977,6 +1001,10 @@ class PowerSimulationReport(VersionedImmutableModel):
     random_seed: int
     power: Dict[str, Decimal] = Field(min_length=2, max_length=2)
     sensitivity_power: Dict[str, Dict[str, Decimal]] = Field(min_length=2, max_length=2)
+    secondary_expected_95_interval_half_widths: Dict[str, Decimal] = Field(
+        min_length=4,
+        max_length=4,
+    )
     generated_at: datetime
     report_sha256: str
 
@@ -999,6 +1027,10 @@ class PowerSimulationReport(VersionedImmutableModel):
             raise ValueError("every power sensitivity must cover both estimands")
         if any(not Decimal("0") <= value <= Decimal("1") for values in self.sensitivity_power.values() for value in values.values()):
             raise ValueError("power sensitivity values must lie in [0, 1]")
+        if set(self.secondary_expected_95_interval_half_widths) != SECONDARY_PRECISION_ESTIMANDS:
+            raise ValueError("secondary precision report must cover presentation and factual inaccuracy for H1/H2")
+        if any(value <= 0 for value in self.secondary_expected_95_interval_half_widths.values()):
+            raise ValueError("secondary expected interval half-widths must be positive")
         expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"report_sha256"}))
         if self.report_sha256 != expected_hash:
             raise ValueError("power report digest does not match canonical content")

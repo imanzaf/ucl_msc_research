@@ -91,7 +91,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Freeze pre-evaluation variance assumptions for the composite estimator.",
+  "description": "Freeze pre-evaluation variance assumptions for the selective score.",
   "properties": {
     "calibration_source_sha256": {
       "title": "Calibration Source Sha256",
@@ -131,9 +131,26 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^3\\.0\\.0$",
+      "pattern": "^4\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
+    },
+    "secondary_contrast_standard_deviations": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "type": "string"
+          }
+        ]
+      },
+      "maxProperties": 4,
+      "minProperties": 4,
+      "title": "Secondary Contrast Standard Deviations",
+      "type": "object"
     },
     "smallest_effect_manifest_sha256": {
       "title": "Smallest Effect Manifest Sha256",
@@ -148,6 +165,7 @@
     "freeze_status",
     "smallest_effect_manifest_sha256",
     "variance_components",
+    "secondary_contrast_standard_deviations",
     "calibration_source_sha256",
     "manifest_sha256"
   ],

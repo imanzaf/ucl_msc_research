@@ -7,11 +7,15 @@ from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
 
-from src.data_models.scoring import COMPOSITE_DOMAIN_COLUMNS
-
 OUTCOMES = {
-    "composite": "selective_risk_communication_score",
-    **{domain.value: column for domain, column in COMPOSITE_DOMAIN_COLUMNS.items()},
+    "selective_communication": "selective_communication_score",
+    "presentation_style": "presentation_style_score",
+    "factual_inaccuracy": "factual_inaccuracy_score",
+    "coverage": "coverage_asymmetry",
+    "specificity": "specificity_asymmetry",
+    "framing": "owner_favouring_framing_rate",
+    "ordering": "ordering_asymmetry",
+    "emphasis": "emphasis_asymmetry",
 }
 
 
@@ -20,15 +24,29 @@ def material_priority_scenario_effects(frame: pd.DataFrame) -> pd.DataFrame:
     if set(frame["word_budget"]) != {"concise"} or set(frame["expressed_concern"]) != {"neutral", "concerned"}:
         raise ValueError("material_priority_v1 requires concise-instruction neutral and concerned cells only")
     columns = list(OUTCOMES.values())
-    table = frame.groupby(["scenario_id", "use_case_id", "model_id", "expressed_concern"], observed=True)[columns].mean().unstack("expressed_concern")
+    table = (
+        frame.groupby(
+            ["scenario_id", "use_case_id", "model_id", "expressed_concern"],
+            observed=True,
+        )[columns]
+        .mean()
+        .unstack("expressed_concern")
+    )
     if set(table.columns.get_level_values("expressed_concern")) != {"neutral", "concerned"}:
         raise ValueError("material-priority pairing is incomplete")
-    effects = table.xs("concerned", axis=1, level="expressed_concern") - table.xs("neutral", axis=1, level="expressed_concern")
+    effects = table.xs("concerned", axis=1, level="expressed_concern") - table.xs(
+        "neutral",
+        axis=1,
+        level="expressed_concern",
+    )
     effects = effects.rename(columns={column: name for name, column in OUTCOMES.items()})
     return effects.groupby(["scenario_id", "use_case_id"], observed=True).mean().reset_index()
 
 
-def brevity_locus_scenario_effects(frame: pd.DataFrame, primary_reference: pd.DataFrame) -> pd.DataFrame:
+def brevity_locus_scenario_effects(
+    frame: pd.DataFrame,
+    primary_reference: pd.DataFrame,
+) -> pd.DataFrame:
     """Return user-requested minus system-requested concision effects."""
     if set(frame["word_budget"]) != {"user_concise"} or set(frame["expressed_concern"]) != {"neutral"}:
         raise ValueError("brevity_locus_v1 requires only its user-concise neutral cell")
@@ -37,7 +55,12 @@ def brevity_locus_scenario_effects(frame: pd.DataFrame, primary_reference: pd.Da
     columns = list(OUTCOMES.values())
     brevity = frame.groupby(keys, observed=True)[columns].mean()
     tight_reference = reference.groupby(keys, observed=True)[columns].mean()
-    paired = brevity.join(tight_reference, how="inner", lsuffix="__brevity", rsuffix="__tight")
+    paired = brevity.join(
+        tight_reference,
+        how="inner",
+        lsuffix="__brevity",
+        rsuffix="__tight",
+    )
     if len(paired) != 60:
         raise ValueError("brevity-locus comparison requires all 60 scenario-model pairs")
     effects = pd.DataFrame(index=paired.index)
@@ -68,7 +91,10 @@ def scenario_cluster_estimates(
         )
         samples[draw] = selected.mean(axis=0)
     intervals = {
-        column: (float(np.quantile(samples[:, index], 0.025)), float(np.quantile(samples[:, index], 0.975)))
+        column: (
+            float(np.quantile(samples[:, index], 0.025)),
+            float(np.quantile(samples[:, index], 0.975)),
+        )
         for index, column in enumerate(outcome_columns)
     }
     return estimates, intervals

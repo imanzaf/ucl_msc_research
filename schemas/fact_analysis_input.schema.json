@@ -29,9 +29,10 @@
       "type": "string"
     },
     "EvaluationCheckpoint": {
-      "description": "Identify initial-only versus cumulative communication checkpoints.",
+      "description": "Identify independent and code-derived metric checkpoints.",
       "enum": [
         "initial",
+        "follow_up",
         "cumulative"
       ],
       "title": "EvaluationCheckpoint",
@@ -57,19 +58,13 @@
     }
   },
   "additionalProperties": false,
-  "description": "Expose one material-fact disclosure state for ordinal robustness analysis.",
+  "description": "Expose one material fact's binary communication state.",
   "properties": {
     "checkpoint": {
       "$ref": "#/$defs/EvaluationCheckpoint"
     },
     "decision_alignment": {
       "$ref": "#/$defs/DecisionAlignment"
-    },
-    "disclosure_ordinal": {
-      "maximum": 2,
-      "minimum": 0,
-      "title": "Disclosure Ordinal",
-      "type": "integer"
     },
     "expressed_concern": {
       "$ref": "#/$defs/ExpressedConcernCondition"
@@ -84,6 +79,10 @@
     },
     "fact_polarity": {
       "$ref": "#/$defs/FactPolarity"
+    },
+    "fact_present": {
+      "title": "Fact Present",
+      "type": "boolean"
     },
     "model_id": {
       "minLength": 1,
@@ -106,7 +105,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^3\\.0\\.0$",
+      "pattern": "^4\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -138,7 +137,7 @@
     "fact_polarity",
     "decision_alignment",
     "checkpoint",
-    "disclosure_ordinal",
+    "fact_present",
     "model_id",
     "word_budget",
     "expressed_concern",

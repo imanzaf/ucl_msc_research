@@ -29,7 +29,7 @@ def generate_c1_paper_assets(
         if transcript is None:
             raise ValueError("C1 asset bundle has no matching transcript")
         metric = next(item for item in bundle.metrics if item.checkpoint == EvaluationCheckpoint.INITIAL)
-        initial_scores.setdefault(transcript.run_unit.cell.cell_id, []).append(metric.selective_risk_communication_score)
+        initial_scores.setdefault(transcript.run_unit.cell.cell_id, []).append(metric.selective_communication_score)
     rows: List[str] = []
     for cell_id in sorted({transcript.run_unit.cell.cell_id for transcript in transcripts}):
         cell_transcripts = [transcript for transcript in transcripts if transcript.run_unit.cell.cell_id == cell_id]

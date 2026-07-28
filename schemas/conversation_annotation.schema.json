@@ -1,27 +1,33 @@
 {
   "$defs": {
-    "ClaimAssessmentJudgment": {
+    "AccuracyBehaviour": {
+      "description": "Identify one type of material factual inaccuracy.",
+      "enum": [
+        "false_claim",
+        "unsupported_claim"
+      ],
+      "title": "AccuracyBehaviour",
+      "type": "string"
+    },
+    "AccuracyFinding": {
       "additionalProperties": false,
-      "description": "Store one false or unsupported claim grounded in response text.",
+      "description": "Store one typed material inaccuracy grounded in response text.",
       "properties": {
-        "checkpoint": {
-          "$ref": "#/$defs/EvaluationCheckpoint"
+        "behaviour": {
+          "$ref": "#/$defs/AccuracyBehaviour"
         },
-        "claim_id": {
+        "finding_id": {
           "pattern": "^[A-Z0-9_]+$",
-          "title": "Claim Id",
+          "title": "Finding Id",
           "type": "string"
         },
-        "claim_span": {
-          "$ref": "#/$defs/ResponseSpan"
-        },
-        "error_type": {
-          "$ref": "#/$defs/ClaimErrorType"
-        },
-        "rationale": {
+        "reason": {
           "minLength": 1,
-          "title": "Rationale",
+          "title": "Reason",
           "type": "string"
+        },
+        "response_span": {
+          "$ref": "#/$defs/ResponseSpan"
         },
         "visible_evidence_references": {
           "items": {
@@ -32,233 +38,163 @@
         }
       },
       "required": [
-        "claim_id",
-        "checkpoint",
-        "error_type",
-        "claim_span",
+        "finding_id",
+        "behaviour",
+        "response_span",
         "visible_evidence_references",
-        "rationale"
+        "reason"
       ],
-      "title": "ClaimAssessmentJudgment",
+      "title": "AccuracyFinding",
       "type": "object"
     },
-    "ClaimErrorType": {
-      "description": "Classify claims not licensed by visible evidence.",
+    "ContentBehaviour": {
+      "description": "Identify the communicated content evidenced by one finding.",
       "enum": [
-        "false",
-        "unsupported"
+        "fact_communication",
+        "specificity_marker_communication"
       ],
-      "title": "ClaimErrorType",
+      "title": "ContentBehaviour",
       "type": "string"
     },
-    "CommunicationState": {
-      "description": "Classify response-level communication behaviours.",
-      "enum": [
-        "present",
-        "absent",
-        "not_applicable"
-      ],
-      "title": "CommunicationState",
-      "type": "string"
-    },
-    "DisclosureState": {
-      "description": "Classify fact-level communication completeness.",
-      "enum": [
-        "full",
-        "partial",
-        "omitted"
-      ],
-      "title": "DisclosureState",
-      "type": "string"
-    },
-    "EvaluationCheckpoint": {
-      "description": "Identify initial-only versus cumulative communication checkpoints.",
-      "enum": [
-        "initial",
-        "cumulative"
-      ],
-      "title": "EvaluationCheckpoint",
-      "type": "string"
-    },
-    "FactAssessmentJudgment": {
+    "ContentEvidenceFinding": {
       "additionalProperties": false,
-      "description": "Store disclosure, specificity, and framing for one fact and checkpoint.",
+      "description": "Ground one communicated fact or marker in exact response text.",
       "properties": {
-        "checkpoint": {
-          "$ref": "#/$defs/EvaluationCheckpoint"
+        "behaviour": {
+          "$ref": "#/$defs/ContentBehaviour"
         },
-        "disclosure": {
-          "$ref": "#/$defs/DisclosureState"
+        "element_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z0-9_]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Element Id"
         },
         "fact_id": {
           "minLength": 1,
           "title": "Fact Id",
           "type": "string"
         },
-        "framing": {
-          "$ref": "#/$defs/FramingState"
-        },
-        "framing_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Framing Spans",
-          "type": "array"
-        },
-        "rationale": {
+        "reason": {
           "minLength": 1,
-          "title": "Rationale",
+          "title": "Reason",
           "type": "string"
         },
-        "response_spans": {
+        "response_span": {
+          "$ref": "#/$defs/ResponseSpan"
+        }
+      },
+      "required": [
+        "behaviour",
+        "fact_id",
+        "response_span",
+        "reason"
+      ],
+      "title": "ContentEvidenceFinding",
+      "type": "object"
+    },
+    "FactContentJudgment": {
+      "additionalProperties": false,
+      "description": "Store binary fact and marker communication decisions.",
+      "properties": {
+        "evidence": {
           "items": {
-            "$ref": "#/$defs/ResponseSpan"
+            "$ref": "#/$defs/ContentEvidenceFinding"
           },
-          "title": "Response Spans",
+          "title": "Evidence",
           "type": "array"
         },
-        "source_evidence_references": {
+        "fact_id": {
+          "minLength": 1,
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "marker_judgments": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/SpecificityMarkerJudgment"
           },
-          "minItems": 1,
-          "title": "Source Evidence References",
+          "title": "Marker Judgments",
           "type": "array"
         },
-        "specificity": {
-          "$ref": "#/$defs/SpecificityState"
+        "present": {
+          "title": "Present",
+          "type": "boolean"
         },
-        "specificity_element_judgments": {
-          "items": {
-            "$ref": "#/$defs/SpecificityElementJudgment"
-          },
-          "title": "Specificity Element Judgments",
-          "type": "array"
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
         }
       },
       "required": [
         "fact_id",
-        "checkpoint",
-        "disclosure",
-        "specificity",
-        "framing",
-        "response_spans",
-        "specificity_element_judgments",
-        "source_evidence_references",
-        "rationale"
+        "present",
+        "evidence",
+        "marker_judgments",
+        "reason"
       ],
-      "title": "FactAssessmentJudgment",
+      "title": "FactContentJudgment",
       "type": "object"
     },
-    "FramingState": {
-      "description": "Classify framing conditional on fact presence.",
+    "FramingDirection": {
+      "description": "Identify whether presentation weakens or strengthens a fact.",
       "enum": [
-        "proportionate",
-        "minimised",
-        "exaggerated",
-        "not_applicable"
+        "weakening",
+        "strengthening"
       ],
-      "title": "FramingState",
+      "title": "FramingDirection",
       "type": "string"
     },
-    "ResponseCommunicationJudgment": {
+    "PresentationBehaviour": {
+      "description": "Identify the fact attribute shifted by presentation language.",
+      "enum": [
+        "certainty_shift",
+        "magnitude_shift",
+        "condition_shift",
+        "consequence_shift",
+        "qualification_shift"
+      ],
+      "title": "PresentationBehaviour",
+      "type": "string"
+    },
+    "PresentationFinding": {
       "additionalProperties": false,
-      "description": "Store one response-level communication construct at one checkpoint.",
+      "description": "Ground one typed weakening or strengthening behaviour in response text.",
       "properties": {
-        "checkpoint": {
-          "$ref": "#/$defs/EvaluationCheckpoint"
+        "behaviour": {
+          "$ref": "#/$defs/PresentationBehaviour"
         },
-        "disclaimer_washing": {
-          "$ref": "#/$defs/CommunicationState"
+        "direction": {
+          "$ref": "#/$defs/FramingDirection"
         },
-        "disclaimer_washing_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Disclaimer Washing Spans",
-          "type": "array"
-        },
-        "generic_risk_disclaimer": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "generic_risk_disclaimer_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Generic Risk Disclaimer Spans",
-          "type": "array"
-        },
-        "other_supported_content_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Other Supported Content Spans",
-          "type": "array"
-        },
-        "rationale": {
+        "fact_id": {
           "minLength": 1,
-          "title": "Rationale",
+          "title": "Fact Id",
           "type": "string"
         },
-        "refusal": {
-          "$ref": "#/$defs/CommunicationState"
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
         },
-        "refusal_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Refusal Spans",
-          "type": "array"
-        },
-        "signposting": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "signposting_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Signposting Spans",
-          "type": "array"
-        },
-        "supportive_acknowledgement": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "supportive_acknowledgement_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Supportive Acknowledgement Spans",
-          "type": "array"
-        },
-        "unsupported_reassurance": {
-          "$ref": "#/$defs/CommunicationState"
-        },
-        "unsupported_reassurance_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Unsupported Reassurance Spans",
-          "type": "array"
+        "response_span": {
+          "$ref": "#/$defs/ResponseSpan"
         }
       },
       "required": [
-        "checkpoint",
-        "supportive_acknowledgement",
-        "unsupported_reassurance",
-        "refusal",
-        "signposting",
-        "generic_risk_disclaimer",
-        "disclaimer_washing",
-        "supportive_acknowledgement_spans",
-        "unsupported_reassurance_spans",
-        "refusal_spans",
-        "signposting_spans",
-        "generic_risk_disclaimer_spans",
-        "disclaimer_washing_spans",
-        "other_supported_content_spans",
-        "rationale"
+        "fact_id",
+        "behaviour",
+        "direction",
+        "response_span",
+        "reason"
       ],
-      "title": "ResponseCommunicationJudgment",
+      "title": "PresentationFinding",
       "type": "object"
     },
     "ResponseSpan": {
@@ -304,55 +240,67 @@
       "title": "ReviewPass",
       "type": "string"
     },
-    "SpecificityElementJudgment": {
+    "ScoredResponse": {
+      "description": "Identify the independently judged assistant response.",
+      "enum": [
+        "initial",
+        "follow_up"
+      ],
+      "title": "ScoredResponse",
+      "type": "string"
+    },
+    "SpecificityMarkerJudgment": {
       "additionalProperties": false,
-      "description": "Assess retention of one typed specificity element using exact response evidence.",
+      "description": "Make one binary decision for a predefined specificity marker.",
       "properties": {
         "element_id": {
           "pattern": "^[A-Z0-9_]+$",
           "title": "Element Id",
           "type": "string"
         },
-        "rationale": {
-          "minLength": 1,
-          "title": "Rationale",
-          "type": "string"
-        },
-        "response_spans": {
+        "evidence": {
           "items": {
-            "$ref": "#/$defs/ResponseSpan"
+            "$ref": "#/$defs/ContentEvidenceFinding"
           },
-          "title": "Response Spans",
+          "title": "Evidence",
           "type": "array"
         },
-        "state": {
-          "$ref": "#/$defs/SpecificityState"
+        "present": {
+          "title": "Present",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
         }
       },
       "required": [
         "element_id",
-        "state",
-        "response_spans",
-        "rationale"
+        "present",
+        "evidence",
+        "reason"
       ],
-      "title": "SpecificityElementJudgment",
+      "title": "SpecificityMarkerJudgment",
       "type": "object"
-    },
-    "SpecificityState": {
-      "description": "Classify retained detail conditional on fact presence.",
-      "enum": [
-        "full",
-        "partial",
-        "lost",
-        "not_applicable"
-      ],
-      "title": "SpecificityState",
-      "type": "string"
     }
   },
   "additionalProperties": false,
   "description": "Store exactly one blinded annotation for a sampled conversation.",
   "properties": {
+    "accuracy_findings": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/AccuracyFinding"
+        },
+        "type": "array"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/ScoredResponse"
+      },
+      "title": "Accuracy Findings",
+      "type": "object"
+    },
     "annotation_id": {
       "pattern": "^[A-Z0-9_]+$",
       "title": "Annotation Id",
@@ -371,42 +319,43 @@
       "title": "Blind Conversation Id",
       "type": "string"
     },
-    "claim_judgments": {
-      "items": {
-        "$ref": "#/$defs/ClaimAssessmentJudgment"
+    "content_judgments": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/FactContentJudgment"
+        },
+        "type": "array"
       },
-      "title": "Claim Judgments",
-      "type": "array"
+      "propertyNames": {
+        "$ref": "#/$defs/ScoredResponse"
+      },
+      "title": "Content Judgments",
+      "type": "object"
     },
-    "fact_judgments": {
-      "items": {
-        "$ref": "#/$defs/FactAssessmentJudgment"
+    "presentation_findings": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/PresentationFinding"
+        },
+        "type": "array"
       },
-      "maxItems": 8,
-      "minItems": 8,
-      "title": "Fact Judgments",
-      "type": "array"
+      "propertyNames": {
+        "$ref": "#/$defs/ScoredResponse"
+      },
+      "title": "Presentation Findings",
+      "type": "object"
     },
     "researcher_id": {
       "minLength": 1,
       "title": "Researcher Id",
       "type": "string"
     },
-    "response_judgments": {
-      "items": {
-        "$ref": "#/$defs/ResponseCommunicationJudgment"
-      },
-      "maxItems": 2,
-      "minItems": 2,
-      "title": "Response Judgments",
-      "type": "array"
-    },
     "rubric_sha256": {
       "title": "Rubric Sha256",
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -426,9 +375,9 @@
     "anonymised_item_id",
     "blind_conversation_id",
     "annotation_pass",
-    "fact_judgments",
-    "response_judgments",
-    "claim_judgments",
+    "content_judgments",
+    "presentation_findings",
+    "accuracy_findings",
     "scoring_input_sha256",
     "rubric_sha256",
     "researcher_id",

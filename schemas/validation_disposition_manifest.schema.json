@@ -1,30 +1,31 @@
 {
   "$defs": {
-    "CompositeDomain": {
-      "description": "Identify one domain in the frozen confirmatory composite.",
-      "enum": [
-        "coverage",
-        "specificity",
-        "framing",
-        "salience",
-        "integrity"
-      ],
-      "title": "CompositeDomain",
-      "type": "string"
-    },
     "FailedConstructAction": {
       "description": "Identify the blinded disposition for a scoring construct that fails validation.",
       "enum": [
         "full_manual_scoring",
         "remove_and_renormalise",
-        "withhold_confirmatory_inference"
+        "withhold_outcome"
       ],
       "title": "FailedConstructAction",
+      "type": "string"
+    },
+    "ScoringConstruct": {
+      "description": "Identify one independently validated score component.",
+      "enum": [
+        "coverage",
+        "specificity",
+        "framing",
+        "ordering",
+        "emphasis",
+        "accuracy"
+      ],
+      "title": "ScoringConstruct",
       "type": "string"
     }
   },
   "additionalProperties": false,
-  "description": "Bind blinded failed-domain dispositions to the resulting score definition.",
+  "description": "Bind blinded failed-construct dispositions to resulting score definitions.",
   "properties": {
     "blinded_diagnostics_sha256": {
       "title": "Blinded Diagnostics Sha256",
@@ -44,7 +45,7 @@
         "$ref": "#/$defs/FailedConstructAction"
       },
       "propertyNames": {
-        "$ref": "#/$defs/CompositeDomain"
+        "$ref": "#/$defs/ScoringConstruct"
       },
       "title": "Dispositions",
       "type": "object"
@@ -54,28 +55,26 @@
       "title": "Effect Estimates Available When Decided",
       "type": "boolean"
     },
-    "failed_domains": {
+    "factual_inaccuracy_result_withheld": {
+      "title": "Factual Inaccuracy Result Withheld",
+      "type": "boolean"
+    },
+    "failed_constructs": {
       "items": {
-        "$ref": "#/$defs/CompositeDomain"
+        "$ref": "#/$defs/ScoringConstruct"
       },
-      "title": "Failed Domains",
+      "title": "Failed Constructs",
       "type": "array"
     },
     "manifest_sha256": {
       "title": "Manifest Sha256",
       "type": "string"
     },
-    "rationale": {
-      "minLength": 1,
-      "title": "Rationale",
-      "type": "string"
+    "presentation_result_withheld": {
+      "title": "Presentation Result Withheld",
+      "type": "boolean"
     },
-    "researcher_id": {
-      "minLength": 1,
-      "title": "Researcher Id",
-      "type": "string"
-    },
-    "resulting_weights": {
+    "presentation_weights": {
       "additionalProperties": {
         "anyOf": [
           {
@@ -88,15 +87,43 @@
         ]
       },
       "propertyNames": {
-        "$ref": "#/$defs/CompositeDomain"
+        "$ref": "#/$defs/ScoringConstruct"
       },
-      "title": "Resulting Weights",
+      "title": "Presentation Weights",
       "type": "object"
     },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "researcher_id": {
+      "minLength": 1,
+      "title": "Researcher Id",
+      "type": "string"
+    },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
+    },
+    "selective_weights": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "type": "string"
+          }
+        ]
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/ScoringConstruct"
+      },
+      "title": "Selective Weights",
+      "type": "object"
     },
     "treatment_labels_available_when_decided": {
       "default": false,
@@ -112,10 +139,13 @@
     "schema_version",
     "validation_report_sha256",
     "blinded_diagnostics_sha256",
-    "failed_domains",
+    "failed_constructs",
     "dispositions",
-    "resulting_weights",
+    "selective_weights",
+    "presentation_weights",
     "confirmatory_inference_withheld",
+    "presentation_result_withheld",
+    "factual_inaccuracy_result_withheld",
     "researcher_id",
     "rationale",
     "decided_at",

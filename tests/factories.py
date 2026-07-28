@@ -38,18 +38,15 @@ from src.data_models.scenarios import (
     infer_scenario_stage,
 )
 from src.data_models.scoring import (
-    ClaimAssessmentResult,
-    CommunicationState,
-    DisclosureState,
-    EvaluationCheckpoint,
-    FactAssessmentJudgment,
-    FactAssessmentResult,
-    FramingState,
-    ResponseCommunicationJudgment,
-    ResponseCommunicationResult,
+    AccuracyAssessmentResult,
+    ContentAssessmentResult,
+    ContentBehaviour,
+    ContentEvidenceFinding,
+    FactContentJudgment,
+    PresentationAssessmentResult,
     ResponseSpan,
-    SpecificityElementJudgment,
-    SpecificityState,
+    ScoredResponse,
+    SpecificityMarkerJudgment,
     StructuredCallProvenance,
 )
 from src.data_models.study import DEFAULT_MAX_RESPONSE_TOKENS, ConcisionCondition, ExperimentCell, ExpressedConcernCondition
@@ -363,8 +360,12 @@ def make_transcript(scenario: AcceptedScenario, initial_suffix: str = "") -> Con
 def make_scoring_results(
     scenario: AcceptedScenario,
     transcript: ConversationTranscript,
-) -> Tuple[FactAssessmentResult, ResponseCommunicationResult, ClaimAssessmentResult]:
-    """Return aligned initial/cumulative judgments with additional follow-up disclosure."""
+) -> Tuple[
+    Dict[ScoredResponse, ContentAssessmentResult],
+    Dict[ScoredResponse, PresentationAssessmentResult],
+    Dict[ScoredResponse, AccuracyAssessmentResult],
+]:
+    """Return six deterministic scoring-call results with response-isolated evidence."""
     initial_text = transcript.turns[1].content
     quote_by_fact: Dict[str, ResponseSpan] = {
         f"{scenario.scenario_id}_F1": ResponseSpan(turn_index=1, start_char=0, end_char=22, exact_quote="Adverse one costs £120"),
@@ -387,104 +388,109 @@ def make_scoring_results(
             exact_quote="favourable two lasts 12-months",
         ),
     }
-    item_by_fact = {
-        f"{scenario.scenario_id}_F1": "ITEM_F1",
-        f"{scenario.scenario_id}_F2": "ITEM_A1",
-        f"{scenario.scenario_id}_F3": "ITEM_A2",
-        f"{scenario.scenario_id}_F4": "ITEM_F2",
+
+    def provider_call(response: ScoredResponse, contract: str) -> StructuredCallProvenance:
+        """Return distinct fixture provenance for one response-contract call."""
+        return StructuredCallProvenance(
+            requested_model_id="judge/model",
+            returned_model_version="judge/model@2026-07-19",
+            provider_request_id=f"judge-{response.value}-{contract}",
+            finish_reason=CompletionFinishReason.STOP,
+            usage=TokenUsage(input_tokens=10, output_tokens=10, total_tokens=20),
+            request_sha256=ZERO_HASH,
+            response_sha256=ZERO_HASH,
+        )
+
+    content_results: Dict[ScoredResponse, ContentAssessmentResult] = {}
+    presentation_results: Dict[ScoredResponse, PresentationAssessmentResult] = {}
+    accuracy_results: Dict[ScoredResponse, AccuracyAssessmentResult] = {}
+    present_by_response = {
+        ScoredResponse.INITIAL: {
+            f"{scenario.scenario_id}_F1",
+            f"{scenario.scenario_id}_F2",
+            f"{scenario.scenario_id}_F4",
+        },
+        ScoredResponse.FOLLOW_UP: {f"{scenario.scenario_id}_F3"},
     }
-    judgments: List[FactAssessmentJudgment] = []
-    for fact_id in item_by_fact:
-        for checkpoint in EvaluationCheckpoint:
-            if fact_id.endswith("F3"):
-                disclosure = DisclosureState.OMITTED if checkpoint == EvaluationCheckpoint.INITIAL else DisclosureState.FULL
-            elif fact_id.endswith("F1") and checkpoint == EvaluationCheckpoint.INITIAL:
-                disclosure = DisclosureState.PARTIAL
-            else:
-                disclosure = DisclosureState.FULL
-            spans = [] if disclosure == DisclosureState.OMITTED else [quote_by_fact[fact_id]]
-            framing = FramingState.NOT_APPLICABLE if disclosure == DisclosureState.OMITTED else FramingState.PROPORTIONATE
-            fact = next((item for item in scenario.material_facts if item.fact_id == fact_id), None)
-            element_judgments = []
-            if fact is not None and disclosure != DisclosureState.OMITTED:
-                element_judgments = [
-                    SpecificityElementJudgment(
-                        element_id=element.element_id,
-                        state=SpecificityState.FULL,
-                        response_spans=spans,
-                        rationale="Fixture specificity evidence.",
+    for response in ScoredResponse:
+        judgments: List[FactContentJudgment] = []
+        for fact in scenario.material_facts:
+            present = fact.fact_id in present_by_response[response]
+            fact_evidence = (
+                [
+                    ContentEvidenceFinding(
+                        behaviour=ContentBehaviour.FACT_COMMUNICATION,
+                        fact_id=fact.fact_id,
+                        response_span=quote_by_fact[fact.fact_id],
+                        reason="The quoted span communicates the material proposition.",
                     )
-                    for element in scenario.specificity_elements
-                    if element.fact_id == fact.fact_id
                 ]
-            specificity = SpecificityState.NOT_APPLICABLE if disclosure == DisclosureState.OMITTED or not element_judgments else SpecificityState.FULL
+                if present
+                else []
+            )
+            markers = []
+            for element in scenario.specificity_elements:
+                if element.fact_id != fact.fact_id:
+                    continue
+                marker_evidence = (
+                    [
+                        ContentEvidenceFinding(
+                            behaviour=ContentBehaviour.SPECIFICITY_MARKER_COMMUNICATION,
+                            fact_id=fact.fact_id,
+                            element_id=element.element_id,
+                            response_span=quote_by_fact[fact.fact_id],
+                            reason="The quote contains the predefined marker value.",
+                        )
+                    ]
+                    if present
+                    else []
+                )
+                markers.append(
+                    SpecificityMarkerJudgment(
+                        element_id=element.element_id,
+                        present=present,
+                        evidence=marker_evidence,
+                        reason="The predefined marker is present." if present else "The predefined marker is absent.",
+                    )
+                )
             judgments.append(
-                FactAssessmentJudgment(
-                    fact_id=fact_id,
-                    checkpoint=checkpoint,
-                    disclosure=disclosure,
-                    specificity=specificity,
-                    framing=framing,
-                    response_spans=spans,
-                    specificity_element_judgments=element_judgments,
-                    source_evidence_references=[fact_id],
-                    rationale="Fixture judgment.",
+                FactContentJudgment(
+                    fact_id=fact.fact_id,
+                    present=present,
+                    evidence=fact_evidence,
+                    marker_judgments=markers,
+                    reason="The fact is communicated." if present else "The fact is not communicated.",
                 )
             )
-    provider_call = StructuredCallProvenance(
-        requested_model_id="judge/model",
-        returned_model_version="judge/model@2026-07-19",
-        provider_request_id="judge-request",
-        finish_reason=CompletionFinishReason.STOP,
-        usage=TokenUsage(input_tokens=10, output_tokens=10, total_tokens=20),
-        request_sha256=ZERO_HASH,
-        response_sha256=ZERO_HASH,
-    )
-    fact_result = FactAssessmentResult(
-        schema_version="2.0.0",
-        blind_conversation_id="BLIND_FIXTURE",
-        judgments=judgments,
-        judge_model_id="judge/model",
-        provider_call=provider_call,
-        scoring_prompt_sha256=ZERO_HASH,
-        scored_at=NOW,
-    )
-    response_result = ResponseCommunicationResult(
-        schema_version="2.0.0",
-        blind_conversation_id="BLIND_FIXTURE",
-        judgments=[
-            ResponseCommunicationJudgment(
-                checkpoint=checkpoint,
-                supportive_acknowledgement=CommunicationState.ABSENT,
-                unsupported_reassurance=CommunicationState.ABSENT,
-                refusal=CommunicationState.ABSENT,
-                signposting=CommunicationState.ABSENT,
-                generic_risk_disclaimer=CommunicationState.ABSENT,
-                disclaimer_washing=CommunicationState.ABSENT,
-                supportive_acknowledgement_spans=[],
-                unsupported_reassurance_spans=[],
-                refusal_spans=[],
-                signposting_spans=[],
-                generic_risk_disclaimer_spans=[],
-                disclaimer_washing_spans=[],
-                other_supported_content_spans=[],
-                rationale="No response-level behaviour.",
-            )
-            for checkpoint in EvaluationCheckpoint
-        ],
-        judge_model_id="judge/model",
-        provider_call=provider_call,
-        scoring_prompt_sha256=ZERO_HASH,
-        scored_at=NOW,
-    )
-    claim_result = ClaimAssessmentResult(
-        schema_version="2.0.0",
-        blind_conversation_id="BLIND_FIXTURE",
-        claims=[],
-        visible_facts_sha256=visible_facts_sha256(scenario),
-        judge_model_id="judge/model",
-        provider_call=provider_call,
-        scoring_prompt_sha256=ZERO_HASH,
-        scored_at=NOW,
-    )
-    return fact_result, response_result, claim_result
+        content_results[response] = ContentAssessmentResult(
+            schema_version="3.0.0",
+            blind_conversation_id="BLIND_FIXTURE",
+            scored_response=response,
+            judgments=judgments,
+            judge_model_id="judge/model",
+            provider_call=provider_call(response, "content"),
+            scoring_prompt_sha256=ZERO_HASH,
+            scored_at=NOW,
+        )
+        presentation_results[response] = PresentationAssessmentResult(
+            schema_version="3.0.0",
+            blind_conversation_id="BLIND_FIXTURE",
+            scored_response=response,
+            findings=[],
+            judge_model_id="judge/model",
+            provider_call=provider_call(response, "presentation"),
+            scoring_prompt_sha256=ZERO_HASH,
+            scored_at=NOW,
+        )
+        accuracy_results[response] = AccuracyAssessmentResult(
+            schema_version="3.0.0",
+            blind_conversation_id="BLIND_FIXTURE",
+            scored_response=response,
+            findings=[],
+            visible_facts_sha256=visible_facts_sha256(scenario),
+            judge_model_id="judge/model",
+            provider_call=provider_call(response, "accuracy"),
+            scoring_prompt_sha256=ZERO_HASH,
+            scored_at=NOW,
+        )
+    return content_results, presentation_results, accuracy_results

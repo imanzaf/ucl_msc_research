@@ -30,6 +30,62 @@
       "title": "BlindFactReference",
       "type": "object"
     },
+    "ConditionBlindScoringInput": {
+      "additionalProperties": false,
+      "description": "Expose visible facts and exactly one anonymised assistant response.",
+      "properties": {
+        "agent_turn": {
+          "$ref": "#/$defs/ScoringTranscriptTurn"
+        },
+        "blind_conversation_id": {
+          "minLength": 1,
+          "title": "Blind Conversation Id",
+          "type": "string"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/BlindFactReference"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Facts",
+          "type": "array"
+        },
+        "randomised_fact_order_seed": {
+          "title": "Randomised Fact Order Seed",
+          "type": "integer"
+        },
+        "schema_version": {
+          "pattern": "^3\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scored_response": {
+          "$ref": "#/$defs/ScoredResponse"
+        },
+        "visible_facts_sha256": {
+          "title": "Visible Facts Sha256",
+          "type": "string"
+        },
+        "visible_facts_text": {
+          "minLength": 1,
+          "title": "Visible Facts Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "blind_conversation_id",
+        "scored_response",
+        "visible_facts_text",
+        "visible_facts_sha256",
+        "facts",
+        "agent_turn",
+        "randomised_fact_order_seed"
+      ],
+      "title": "ConditionBlindScoringInput",
+      "type": "object"
+    },
     "ScoredResponse": {
       "description": "Identify the independently judged assistant response.",
       "enum": [
@@ -102,57 +158,34 @@
     }
   },
   "additionalProperties": false,
-  "description": "Expose visible facts and exactly one anonymised assistant response.",
+  "description": "Expose both isolated response inputs to the staged annotation interface.",
   "properties": {
-    "agent_turn": {
-      "$ref": "#/$defs/ScoringTranscriptTurn"
-    },
     "blind_conversation_id": {
       "minLength": 1,
       "title": "Blind Conversation Id",
       "type": "string"
-    },
-    "facts": {
-      "items": {
-        "$ref": "#/$defs/BlindFactReference"
-      },
-      "maxItems": 4,
-      "minItems": 4,
-      "title": "Facts",
-      "type": "array"
-    },
-    "randomised_fact_order_seed": {
-      "title": "Randomised Fact Order Seed",
-      "type": "integer"
     },
     "schema_version": {
       "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
-    "scored_response": {
-      "$ref": "#/$defs/ScoredResponse"
-    },
-    "visible_facts_sha256": {
-      "title": "Visible Facts Sha256",
-      "type": "string"
-    },
-    "visible_facts_text": {
-      "minLength": 1,
-      "title": "Visible Facts Text",
-      "type": "string"
+    "scoring_inputs": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ConditionBlindScoringInput"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/ScoredResponse"
+      },
+      "title": "Scoring Inputs",
+      "type": "object"
     }
   },
   "required": [
     "schema_version",
     "blind_conversation_id",
-    "scored_response",
-    "visible_facts_text",
-    "visible_facts_sha256",
-    "facts",
-    "agent_turn",
-    "randomised_fact_order_seed"
+    "scoring_inputs"
   ],
-  "title": "ConditionBlindScoringInput",
+  "title": "AnnotationScoringPackage",
   "type": "object"
 }

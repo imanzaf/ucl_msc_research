@@ -10,7 +10,7 @@ if (!requireNamespace("renv", quietly = TRUE)) {
 }
 renv::load(project = ".")
 
-required_packages <- c("jsonlite", "lme4", "ordinal")
+required_packages <- c("jsonlite", "lme4")
 missing_packages <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
 if (length(missing_packages) > 0) {
   stop(paste("missing renv packages:", paste(missing_packages, collapse = ", ")))
@@ -22,8 +22,8 @@ input_sha256 <- args[[3]]
 data <- read.csv(input_path, stringsAsFactors = TRUE)
 
 required_columns <- c(
-  "run_unit_id", "fact_id", "pair_id", "selective_risk_communication_score", "disclosure_ordinal",
-  "word_budget", "expressed_concern", "model_id", "use_case_id", "scenario_id"
+  "run_unit_id", "fact_id", "pair_id", "selective_communication_score", "fact_present",
+  "decision_alignment", "word_budget", "expressed_concern", "model_id", "use_case_id", "scenario_id"
 )
 missing_columns <- setdiff(required_columns, names(data))
 if (length(missing_columns) > 0) {
@@ -35,34 +35,34 @@ data$expressed_concern <- factor(data$expressed_concern, levels = c("neutral", "
 fixed_terms <- "word_budget * expressed_concern + model_id + use_case_id"
 random_terms <- "(1 | scenario_id) + (1 | pair_id) + (1 | fact_id)"
 lmer_model <- lme4::lmer(
-  as.formula(paste("selective_risk_communication_score ~", fixed_terms, "+", random_terms)),
+  as.formula(paste("selective_communication_score ~", fixed_terms, "+", random_terms)),
   data = data
 )
-data$disclosure_ordinal <- ordered(data$disclosure_ordinal)
-clmm_model <- ordinal::clmm(
-  as.formula(paste("disclosure_ordinal ~ fact_valence +", fixed_terms, "+", random_terms)),
-  data = data
+glmer_model <- lme4::glmer(
+  as.formula(paste("fact_present ~ decision_alignment +", fixed_terms, "+", random_terms)),
+  data = data,
+  family = stats::binomial()
 )
 
 lmer_messages <- lmer_model@optinfo$conv$lme4$messages
-clmm_messages <- clmm_model$optRes$message
-messages <- as.character(na.omit(c(lmer_messages, clmm_messages)))
-converged <- length(messages) == 0 && isTRUE(clmm_model$convergence == 0)
+glmer_messages <- glmer_model@optinfo$conv$lme4$messages
+messages <- as.character(na.omit(c(lmer_messages, glmer_messages)))
+converged <- length(messages) == 0
 
 lmer_coefficients <- stats::coef(summary(lmer_model))
-clmm_coefficients <- stats::coef(summary(clmm_model))
+glmer_coefficients <- stats::coef(summary(glmer_model))
 estimands <- c(
-  composite_word_budget = unname(lmer_coefficients["word_budgetconcise", "Estimate"]),
-  composite_expressed_concern = unname(lmer_coefficients["expressed_concernconcerned", "Estimate"]),
-  ordinal_word_budget = unname(clmm_coefficients["word_budgetconcise", "Estimate"]),
-  ordinal_expressed_concern = unname(clmm_coefficients["expressed_concernconcerned", "Estimate"])
+  selective_word_budget = unname(lmer_coefficients["word_budgetconcise", "Estimate"]),
+  selective_expressed_concern = unname(lmer_coefficients["expressed_concernconcerned", "Estimate"]),
+  binary_fact_word_budget = unname(glmer_coefficients["word_budgetconcise", "Estimate"]),
+  binary_fact_expressed_concern = unname(glmer_coefficients["expressed_concernconcerned", "Estimate"])
 )
 
 summary_payload <- list(
   schema_version = "2.0.0",
   analysis_id = "risk_comm_v1_mixed_models",
   engine = "r",
-  method = "composite_lmer_and_fact_clmm_with_pair_fact_scenario_effects",
+  method = "selective_score_lmer_and_binary_fact_glmer_with_pair_fact_scenario_effects",
   estimands = as.list(estimands),
   confidence_intervals = list(),
   raw_p_values = list(),

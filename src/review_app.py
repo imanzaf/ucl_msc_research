@@ -6,16 +6,24 @@ import json
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
 from src.data_models.annotations import ConversationAnnotation
 from src.data_models.common import artifact_sha256, sha256_bytes, validate_model_self_hash
 from src.data_models.manifests import AnnotationSampleManifest
 from src.data_models.scenario_review import ResearcherFactReview, ResearcherScenarioReview, ReviewDecision, ReviewPass
 from src.data_models.scenarios import CandidateScenario, DecisionOption, FactPolarity, alternative_seed_option
-from src.data_models.scoring import ConditionBlindScoringInput, EvaluationCheckpoint, ResponseSpan
+from src.data_models.scoring import (
+    AccuracyFinding,
+    AnnotationScoringPackage,
+    ConditionBlindScoringInput,
+    FactContentJudgment,
+    PresentationFinding,
+    ResponseSpan,
+    ScoredResponse,
+)
 from src.scenarios.acceptance import validate_candidate_scenario_hash
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
 from src.scenarios.researcher_edits import apply_researcher_fact_reviews, specificity_elements_from_fact_reviews
@@ -29,8 +37,6 @@ class ReviewPage(str, Enum):
     SCENARIO_INITIAL = "Scenario review"
     CONVERSATION_INITIAL = "Conversation annotation"
 
-
-ModelT = TypeVar("ModelT", bound=BaseModel)
 
 SCENARIO_REVIEW_GUIDANCE = (
     "The customer task is realistic, natural, consequential, and within the assistant’s authority.",
@@ -128,9 +134,9 @@ class ReviewStore:
             validate_candidate_scenario_hash(candidate)
         return candidates
 
-    def list_scoring_inputs(self) -> List[ConditionBlindScoringInput]:
-        """Load condition-blind conversation scoring inputs."""
-        return [read_model_json(path, ConditionBlindScoringInput) for path in sorted(self.scoring_input_root.glob("*.json"))]
+    def list_scoring_inputs(self) -> List[AnnotationScoringPackage]:
+        """Load paired response-isolated annotation packages."""
+        return [read_model_json(path, AnnotationScoringPackage) for path in sorted(self.scoring_input_root.glob("*.json"))]
 
     def scenario_reviews(self) -> List[ResearcherScenarioReview]:
         """Load all persisted scenario review passes."""
@@ -149,12 +155,12 @@ class ReviewStore:
             raise ValueError(f"unknown candidate scenario: {scenario_id}")
         return candidate
 
-    def _scoring_input(self, blind_conversation_id: str) -> ConditionBlindScoringInput:
-        """Resolve one condition-blind scoring input by its opaque ID."""
+    def _scoring_package(self, blind_conversation_id: str) -> AnnotationScoringPackage:
+        """Resolve one paired annotation package by its opaque ID."""
         for path in self.scoring_input_root.rglob("*.json"):
-            scoring_input = read_model_json(path, ConditionBlindScoringInput)
-            if scoring_input.blind_conversation_id == blind_conversation_id:
-                return scoring_input
+            package = read_model_json(path, AnnotationScoringPackage)
+            if package.blind_conversation_id == blind_conversation_id:
+                return package
         raise ValueError(f"unknown blind conversation: {blind_conversation_id}")
 
     def _annotation_sample(self) -> Optional[AnnotationSampleManifest]:
@@ -194,10 +200,10 @@ class ReviewStore:
     def save_conversation_annotation(self, annotation: ConversationAnnotation) -> None:
         """Validate blinded content/workflow linkage and append one annotation while locked."""
         sample = self._annotation_sample()
-        scoring_input = self._scoring_input(annotation.blind_conversation_id)
-        if annotation.scoring_input_sha256 != artifact_sha256(scoring_input):
-            raise ValueError("annotation does not bind the selected scoring input")
-        _validate_annotation_content(annotation, scoring_input)
+        package = self._scoring_package(annotation.blind_conversation_id)
+        if annotation.scoring_input_sha256 != artifact_sha256(package.scoring_inputs):
+            raise ValueError("annotation does not bind both isolated scoring inputs")
+        _validate_annotation_content(annotation, package)
         if annotation.submitted_at > datetime.now(timezone.utc) + timedelta(minutes=5):
             raise ValueError("annotation timestamp cannot be in the future")
 
@@ -217,66 +223,64 @@ class ReviewStore:
         self.save_scenario_review(review)
 
 
-def _validate_blind_span(span: ResponseSpan, checkpoint: EvaluationCheckpoint, scoring_input: ConditionBlindScoringInput) -> None:
-    """Validate one annotation span against the condition-blind assistant text."""
-    turn_by_index: Dict[int, str] = {turn.turn_index: turn.content for turn in scoring_input.agent_turns}
-    if checkpoint == EvaluationCheckpoint.INITIAL and span.turn_index != 1:
-        raise ValueError("initial annotation spans may cite only assistant turn 1")
-    if checkpoint == EvaluationCheckpoint.CUMULATIVE and span.turn_index not in {1, 3}:
-        raise ValueError("cumulative annotation spans may cite only assistant turns 1 and 3")
-    content = turn_by_index.get(span.turn_index)
-    if content is None or span.end_char > len(content) or content[span.start_char : span.end_char] != span.exact_quote:
-        raise ValueError("annotation span does not match the exact blind-input response text")
+def _validate_blind_span(
+    span: ResponseSpan,
+    scoring_input: ConditionBlindScoringInput,
+) -> None:
+    """Validate one exact span against one response-isolated input."""
+    turn = scoring_input.agent_turn
+    if span.turn_index != turn.turn_index:
+        raise ValueError("annotation evidence cites the other assistant response")
+    if span.end_char > len(turn.content) or turn.content[span.start_char : span.end_char] != span.exact_quote:
+        raise ValueError("annotation span does not match the exact response text")
 
 
-def _validate_annotation_content(annotation: ConversationAnnotation, scoring_input: ConditionBlindScoringInput) -> None:
-    """Validate fact IDs, per-fact evidence, checkpoints, quotes, and visible-evidence boundaries."""
+def _validate_response_annotation(
+    content_judgments: List[FactContentJudgment],
+    presentation_findings: List[PresentationFinding],
+    accuracy_findings: List[AccuracyFinding],
+    scoring_input: ConditionBlindScoringInput,
+) -> None:
+    """Validate one response's three human scoring contracts."""
     fact_by_id = {fact.fact_id: fact for fact in scoring_input.facts}
-    expected_fact_keys = {(fact_id, checkpoint) for fact_id in fact_by_id for checkpoint in EvaluationCheckpoint}
-    observed_fact_keys = {(judgment.fact_id, judgment.checkpoint) for judgment in annotation.fact_judgments}
-    if observed_fact_keys != expected_fact_keys:
-        raise ValueError("annotation must contain both checkpoints for every blind fact")
-    for judgment in annotation.fact_judgments:
+    if {judgment.fact_id for judgment in content_judgments} != set(fact_by_id):
+        raise ValueError("response annotation must decide all four supplied facts")
+    judgment_by_fact = {judgment.fact_id: judgment for judgment in content_judgments}
+    for judgment in content_judgments:
         fact = fact_by_id[judgment.fact_id]
-        permitted_references = {
-            fact.fact_id,
-            *{element.element_id for element in fact.specificity_elements},
-        }
-        if not set(judgment.source_evidence_references).issubset(permitted_references):
-            raise ValueError("annotation fact judgment cites evidence belonging to another fact")
-        for span in [*judgment.response_spans, *judgment.framing_spans]:
-            _validate_blind_span(span, judgment.checkpoint, scoring_input)
         expected_element_ids = {element.element_id for element in fact.specificity_elements}
-        observed_element_ids = {item.element_id for item in judgment.specificity_element_judgments}
-        if judgment.disclosure.value != "omitted" and observed_element_ids != expected_element_ids:
-            raise ValueError("annotation must decide every typed specificity element for a present fact")
-        for element_judgment in judgment.specificity_element_judgments:
-            if element_judgment.element_id not in expected_element_ids:
-                raise ValueError("annotation specificity judgment belongs to another fact")
-            for span in element_judgment.response_spans:
-                _validate_blind_span(span, judgment.checkpoint, scoring_input)
-    if {judgment.checkpoint for judgment in annotation.response_judgments} != set(EvaluationCheckpoint):
-        raise ValueError("annotation requires one response judgment at each checkpoint")
-    for response_judgment in annotation.response_judgments:
-        for field_name in [
-            "supportive_acknowledgement_spans",
-            "unsupported_reassurance_spans",
-            "refusal_spans",
-            "signposting_spans",
-            "generic_risk_disclaimer_spans",
-            "disclaimer_washing_spans",
-        ]:
-            for span in getattr(response_judgment, field_name):
-                _validate_blind_span(span, response_judgment.checkpoint, scoring_input)
+        if {item.element_id for item in judgment.marker_judgments} != expected_element_ids:
+            raise ValueError("response annotation must decide every predefined marker")
+        for finding in judgment.evidence:
+            _validate_blind_span(finding.response_span, scoring_input)
+        for marker in judgment.marker_judgments:
+            for finding in marker.evidence:
+                _validate_blind_span(finding.response_span, scoring_input)
+    for finding in presentation_findings:
+        if finding.fact_id not in fact_by_id:
+            raise ValueError("presentation finding references an unknown fact")
+        if not judgment_by_fact[finding.fact_id].present:
+            raise ValueError("presentation finding cannot target a fact annotated absent")
+        _validate_blind_span(finding.response_span, scoring_input)
     visible_source_ids = {fact.fact_id for fact in scoring_input.facts}
-    claim_ids: Set[str] = set()
-    for claim in annotation.claim_judgments:
-        if claim.claim_id in claim_ids:
-            raise ValueError("annotation claim ids must be unique")
-        claim_ids.add(claim.claim_id)
-        if not set(claim.visible_evidence_references).issubset(visible_source_ids):
-            raise ValueError("annotation claim cites evidence outside the evaluated model's visible facts")
-        _validate_blind_span(claim.claim_span, claim.checkpoint, scoring_input)
+    for finding in accuracy_findings:
+        if not set(finding.visible_evidence_references).issubset(visible_source_ids):
+            raise ValueError("accuracy finding cites evidence outside the visible facts")
+        _validate_blind_span(finding.response_span, scoring_input)
+
+
+def _validate_annotation_content(
+    annotation: ConversationAnnotation,
+    package: AnnotationScoringPackage,
+) -> None:
+    """Validate all six human contracts against their isolated responses."""
+    for response in ScoredResponse:
+        _validate_response_annotation(
+            annotation.content_judgments[response],
+            annotation.presentation_findings[response],
+            annotation.accuracy_findings[response],
+            package.scoring_inputs[response],
+        )
 
 
 def _record_payload_from_text(raw_json: str) -> Dict[str, Any]:
@@ -513,35 +517,187 @@ def _render_scenario_workspace(st: Any, store: ReviewStore, scenario: CandidateS
 
 
 def _render_scoring_input(st: Any, scoring_input: ConditionBlindScoringInput) -> None:
-    """Display only condition-blind evidence, randomised facts, and agent responses."""
-    st.subheader(scoring_input.blind_conversation_id)
+    """Display one isolated response and the full marker-aware visible fact set."""
+    st.subheader(f"{scoring_input.scored_response.value.replace('_', ' ').title()} response")
     st.markdown(scoring_input.visible_facts_text)
     st.json({"facts": [fact.model_dump(mode="json") for fact in scoring_input.facts]})
-    for turn in scoring_input.agent_turns:
-        st.markdown(f"**Agent turn {turn.turn_index}**")
-        st.write(turn.content)
+    st.markdown(f"**Agent turn {scoring_input.agent_turn.turn_index}**")
+    st.write(scoring_input.agent_turn.content)
 
 
-def _submit_json_record(
+def _empty_response_annotation_payload(
+    scoring_input: ConditionBlindScoringInput,
+) -> Dict[str, Any]:
+    """Return a complete binary-negative response template for human editing."""
+    return {
+        "content_judgments": [
+            {
+                "fact_id": fact.fact_id,
+                "present": False,
+                "evidence": [],
+                "marker_judgments": [
+                    {
+                        "element_id": element.element_id,
+                        "present": False,
+                        "evidence": [],
+                        "reason": "Marker is not present in this response.",
+                    }
+                    for element in fact.specificity_elements
+                ],
+                "reason": "Fact is not present in this response.",
+            }
+            for fact in scoring_input.facts
+        ],
+        "presentation_findings": [],
+        "accuracy_findings": [],
+    }
+
+
+def _parse_response_annotation_payload(
+    raw_json: str,
+    scoring_input: ConditionBlindScoringInput,
+) -> Dict[str, Any]:
+    """Parse and validate one response's three annotation contracts."""
+    payload = _record_payload_from_text(raw_json)
+    if set(payload) != {
+        "content_judgments",
+        "presentation_findings",
+        "accuracy_findings",
+    }:
+        raise ValueError("response JSON requires content_judgments, presentation_findings, and accuracy_findings")
+    content = [FactContentJudgment.model_validate(item) for item in payload["content_judgments"]]
+    presentation = [PresentationFinding.model_validate(item) for item in payload["presentation_findings"]]
+    accuracy = [AccuracyFinding.model_validate(item) for item in payload["accuracy_findings"]]
+    _validate_response_annotation(
+        content,
+        presentation,
+        accuracy,
+        scoring_input,
+    )
+    return {
+        "content_judgments": [item.model_dump(mode="json") for item in content],
+        "presentation_findings": [item.model_dump(mode="json") for item in presentation],
+        "accuracy_findings": [item.model_dump(mode="json") for item in accuracy],
+    }
+
+
+def _render_conversation_annotation(
     st: Any,
-    key: str,
-    model_type: Type[ModelT],
-    save_callback: Callable[[ModelT], None],
-    bound_fields: Dict[str, Any],
-    label: str = "Schema-valid record JSON",
+    store: ReviewStore,
+    package: AnnotationScoringPackage,
+    now: datetime,
 ) -> None:
-    """Bind trusted workflow fields, validate strict JSON, and save atomically."""
-    raw_json = st.text_area(label, height=320, key=f"{key}_payload")
-    if st.button("Validate and save", key=f"{key}_submit"):
-        try:
-            payload = _record_payload_from_text(raw_json)
-            payload.update(bound_fields)
-            record = model_type.model_validate(payload)
-            save_callback(record)
-        except (ValueError, ValidationError, json.JSONDecodeError) as error:
-            st.error(str(error))
-        else:
-            st.success("Saved atomically.")
+    """Enforce initial lock before revealing and annotating the follow-up response."""
+    state_key = f"locked_initial_annotation::{package.blind_conversation_id}"
+    initial_input = package.scoring_inputs[ScoredResponse.INITIAL]
+    follow_up_input = package.scoring_inputs[ScoredResponse.FOLLOW_UP]
+    if state_key not in st.session_state:
+        st.info(
+            "Complete and lock the initial-response annotation. The follow-up response " "will remain hidden until the initial annotation validates."
+        )
+        _render_scoring_input(st, initial_input)
+        researcher_id = st.text_input(
+            "Researcher ID",
+            value="imanzafar",
+            key=f"{state_key}::researcher",
+        )
+        rubric_sha256 = st.text_input(
+            "Frozen rubric SHA-256",
+            value="0" * 64,
+            key=f"{state_key}::rubric",
+        )
+        raw_initial = st.text_area(
+            "Initial response annotation JSON",
+            value=json.dumps(
+                _empty_response_annotation_payload(initial_input),
+                ensure_ascii=False,
+                indent=2,
+            ),
+            height=520,
+            key=f"{state_key}::payload",
+        )
+        if st.button(
+            "Validate and lock initial response",
+            type="primary",
+            key=f"{state_key}::lock",
+        ):
+            try:
+                initial_payload = _parse_response_annotation_payload(
+                    raw_initial,
+                    initial_input,
+                )
+                if not researcher_id.strip():
+                    raise ValueError("Researcher ID is required.")
+                if len(rubric_sha256) != 64:
+                    raise ValueError("Rubric SHA-256 must contain 64 hexadecimal characters.")
+                int(rubric_sha256, 16)
+            except (ValueError, ValidationError, json.JSONDecodeError) as error:
+                st.error(str(error))
+            else:
+                st.session_state[state_key] = {
+                    "payload": initial_payload,
+                    "researcher_id": researcher_id.strip(),
+                    "rubric_sha256": rubric_sha256.lower(),
+                }
+                st.rerun()
+        return
+
+    locked = st.session_state[state_key]
+    st.success("Initial-response annotation is validated and locked.")
+    with st.expander("Locked initial annotation"):
+        st.json(locked["payload"])
+    _render_scoring_input(st, follow_up_input)
+    raw_follow_up = st.text_area(
+        "Follow-up response annotation JSON",
+        value=json.dumps(
+            _empty_response_annotation_payload(follow_up_input),
+            ensure_ascii=False,
+            indent=2,
+        ),
+        height=520,
+        key=f"{state_key}::follow_up_payload",
+    )
+    if not st.button(
+        "Validate follow-up and save complete annotation",
+        type="primary",
+        key=f"{state_key}::save",
+    ):
+        return
+    try:
+        follow_up_payload = _parse_response_annotation_payload(
+            raw_follow_up,
+            follow_up_input,
+        )
+        annotation = ConversationAnnotation(
+            schema_version="3.0.0",
+            annotation_id=("ANNOTATION_" + package.blind_conversation_id.removeprefix("BLIND_")),
+            anonymised_item_id=package.blind_conversation_id,
+            blind_conversation_id=package.blind_conversation_id,
+            annotation_pass=ReviewPass.INITIAL,
+            content_judgments={
+                ScoredResponse.INITIAL: locked["payload"]["content_judgments"],
+                ScoredResponse.FOLLOW_UP: follow_up_payload["content_judgments"],
+            },
+            presentation_findings={
+                ScoredResponse.INITIAL: locked["payload"]["presentation_findings"],
+                ScoredResponse.FOLLOW_UP: follow_up_payload["presentation_findings"],
+            },
+            accuracy_findings={
+                ScoredResponse.INITIAL: locked["payload"]["accuracy_findings"],
+                ScoredResponse.FOLLOW_UP: follow_up_payload["accuracy_findings"],
+            },
+            scoring_input_sha256=artifact_sha256(package.scoring_inputs),
+            rubric_sha256=locked["rubric_sha256"],
+            researcher_id=locked["researcher_id"],
+            submitted_at=now,
+        )
+        store.save_conversation_annotation(annotation)
+    except (ValueError, ValidationError, json.JSONDecodeError) as error:
+        st.error(str(error))
+    else:
+        del st.session_state[state_key]
+        st.toast("Complete six-contract annotation saved.")
+        st.rerun()
 
 
 def run_streamlit_app(store: ReviewStore) -> None:
@@ -569,30 +725,21 @@ def run_streamlit_app(store: ReviewStore) -> None:
         scenario = st.sidebar.selectbox("Scenario", pending, format_func=lambda item: item.scenario_id)
         _render_scenario_workspace(st, store, scenario, now)
         return
-    scoring_inputs = store.list_scoring_inputs()
-    if not scoring_inputs:
+    scoring_packages = store.list_scoring_inputs()
+    if not scoring_packages:
         st.info("No condition-blind scoring inputs are available.")
         return
     if page == ReviewPage.CONVERSATION_INITIAL:
         annotated_ids = {
             annotation.blind_conversation_id for annotation in store.conversation_annotations() if annotation.annotation_pass == ReviewPass.INITIAL
         }
-        pending_inputs = [item for item in scoring_inputs if item.blind_conversation_id not in annotated_ids]
-        if not pending_inputs:
-            st.info("All sampled conversations have an initial annotation.")
+        pending_packages = [item for item in scoring_packages if item.blind_conversation_id not in annotated_ids]
+        if not pending_packages:
+            st.info("All sampled conversations have a complete six-contract annotation.")
             return
-        scoring_input = st.selectbox("Conversation", pending_inputs, format_func=lambda item: item.blind_conversation_id)
-        _render_scoring_input(st, scoring_input)
-        _submit_json_record(
-            st,
-            "conversation_initial",
-            ConversationAnnotation,
-            store.save_conversation_annotation,
-            {
-                "schema_version": "2.0.0",
-                "blind_conversation_id": scoring_input.blind_conversation_id,
-                "annotation_pass": ReviewPass.INITIAL,
-                "scoring_input_sha256": artifact_sha256(scoring_input),
-                "submitted_at": now,
-            },
+        package = st.selectbox(
+            "Conversation",
+            pending_packages,
+            format_func=lambda item: item.blind_conversation_id,
         )
+        _render_conversation_annotation(st, store, package, now)

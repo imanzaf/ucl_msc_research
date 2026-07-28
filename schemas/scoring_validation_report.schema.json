@@ -1,20 +1,8 @@
 {
   "$defs": {
-    "CompositeDomain": {
-      "description": "Identify one domain in the frozen confirmatory composite.",
-      "enum": [
-        "coverage",
-        "specificity",
-        "framing",
-        "salience",
-        "integrity"
-      ],
-      "title": "CompositeDomain",
-      "type": "string"
-    },
-    "DomainValidationDiagnostics": {
+    "ConstructValidationDiagnostics": {
       "additionalProperties": false,
-      "description": "Persist complete blinded validation diagnostics for one composite domain.",
+      "description": "Persist complete blinded validation diagnostics for one scoring construct.",
       "properties": {
         "agreement": {
           "anyOf": [
@@ -63,6 +51,23 @@
           "title": "Invalid Output Count",
           "type": "integer"
         },
+        "maximum_absolute_error": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum Absolute Error"
+        },
         "precision": {
           "anyOf": [
             {
@@ -105,23 +110,6 @@
           ],
           "title": "Recall"
         },
-        "salience_absolute_error": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Salience Absolute Error"
-        },
         "sample_size": {
           "exclusiveMinimum": 0,
           "title": "Sample Size",
@@ -157,12 +145,25 @@
         "uncertainty_interval",
         "gate_passed"
       ],
-      "title": "DomainValidationDiagnostics",
+      "title": "ConstructValidationDiagnostics",
       "type": "object"
+    },
+    "ScoringConstruct": {
+      "description": "Identify one independently validated score component.",
+      "enum": [
+        "coverage",
+        "specificity",
+        "framing",
+        "ordering",
+        "emphasis",
+        "accuracy"
+      ],
+      "title": "ScoringConstruct",
+      "type": "string"
     }
   },
   "additionalProperties": false,
-  "description": "Persist complete domain diagnostics while treatment labels remain unavailable.",
+  "description": "Persist complete construct diagnostics while treatment labels remain unavailable.",
   "properties": {
     "annotation_count_per_conversation": {
       "default": 1,
@@ -171,25 +172,25 @@
       "title": "Annotation Count Per Conversation",
       "type": "integer"
     },
-    "domain_diagnostics": {
+    "construct_diagnostics": {
       "additionalProperties": {
-        "$ref": "#/$defs/DomainValidationDiagnostics"
+        "$ref": "#/$defs/ConstructValidationDiagnostics"
       },
       "propertyNames": {
-        "$ref": "#/$defs/CompositeDomain"
+        "$ref": "#/$defs/ScoringConstruct"
       },
-      "title": "Domain Diagnostics",
+      "title": "Construct Diagnostics",
       "type": "object"
     },
-    "domain_gate_manifest_sha256": {
-      "title": "Domain Gate Manifest Sha256",
+    "construct_gate_manifest_sha256": {
+      "title": "Construct Gate Manifest Sha256",
       "type": "string"
     },
-    "failed_domains": {
+    "failed_constructs": {
       "items": {
-        "$ref": "#/$defs/CompositeDomain"
+        "$ref": "#/$defs/ScoringConstruct"
       },
-      "title": "Failed Domains",
+      "title": "Failed Constructs",
       "type": "array"
     },
     "generated_at": {
@@ -202,11 +203,11 @@
       "title": "Invalid Output Count",
       "type": "integer"
     },
-    "passed_domains": {
+    "passed_constructs": {
       "items": {
-        "$ref": "#/$defs/CompositeDomain"
+        "$ref": "#/$defs/ScoringConstruct"
       },
-      "title": "Passed Domains",
+      "title": "Passed Constructs",
       "type": "array"
     },
     "report_sha256": {
@@ -219,7 +220,7 @@
       "type": "integer"
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -231,11 +232,11 @@
   "required": [
     "schema_version",
     "sample_size",
-    "domain_diagnostics",
-    "passed_domains",
-    "failed_domains",
+    "construct_diagnostics",
+    "passed_constructs",
+    "failed_constructs",
     "invalid_output_count",
-    "domain_gate_manifest_sha256",
+    "construct_gate_manifest_sha256",
     "validation_sample_manifest_sha256",
     "generated_at",
     "report_sha256"

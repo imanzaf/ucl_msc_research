@@ -1,0 +1,79 @@
+{
+  "additionalProperties": false,
+  "description": "Authenticate redesigned scoring output before the main contract freeze.",
+  "properties": {
+    "expected_conversation_count": {
+      "default": 40,
+      "maximum": 40,
+      "minimum": 40,
+      "title": "Expected Conversation Count",
+      "type": "integer"
+    },
+    "experiment_name": {
+      "pattern": "^c1_llama_2x2_v2$",
+      "title": "Experiment Name",
+      "type": "string"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "output_validation_passed": {
+      "title": "Output Validation Passed",
+      "type": "boolean"
+    },
+    "report_sha256": {
+      "title": "Report Sha256",
+      "type": "string"
+    },
+    "response_isolation_valid": {
+      "title": "Response Isolation Valid",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "pattern": "^3\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scoring_contract_sha256": {
+      "title": "Scoring Contract Sha256",
+      "type": "string"
+    },
+    "source_bundles_sha256": {
+      "title": "Source Bundles Sha256",
+      "type": "string"
+    },
+    "source_calls_sha256": {
+      "title": "Source Calls Sha256",
+      "type": "string"
+    },
+    "successful_provider_call_count": {
+      "maximum": 240,
+      "minimum": 240,
+      "title": "Successful Provider Call Count",
+      "type": "integer"
+    },
+    "validated_conversation_count": {
+      "maximum": 40,
+      "minimum": 40,
+      "title": "Validated Conversation Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "experiment_name",
+    "scoring_contract_sha256",
+    "validated_conversation_count",
+    "successful_provider_call_count",
+    "response_isolation_valid",
+    "output_validation_passed",
+    "source_bundles_sha256",
+    "source_calls_sha256",
+    "generated_at",
+    "report_sha256"
+  ],
+  "title": "C1ScoringDiagnosticReport",
+  "type": "object"
+}

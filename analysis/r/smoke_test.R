@@ -23,11 +23,15 @@ latent <-
   ifelse(design$emotional_cue == "worried", -0.3, 0) +
   ifelse(design$integrity == "targeted", 0.4, 0) +
   stats::rnorm(nrow(design), sd = 0.8)
-design$disclosure_ordinal <- as.integer(cut(latent, breaks = c(-Inf, -0.4, 0.4, Inf), labels = c(0, 1, 2))) - 1
-design$pairwise_disclosure_gap <- ifelse(design$word_budget == "tight", 0.15, 0) + stats::rnorm(nrow(design), sd = 0.1)
-design$unsupported_reassurance <- as.integer(
-  stats::runif(nrow(design)) < stats::plogis(-1 + 0.5 * (design$emotional_cue == "worried"))
+design$fact_present <- as.integer(latent > 0)
+design$pair_id <- paste0(design$scenario_id, "_P", ifelse(design$fact_index <= 2, 1, 2))
+design$decision_alignment <- ifelse(design$fact_index %in% c(1, 4), "owner_supporting", "owner_countervailing")
+design$selective_communication_score <- pmin(
+  pmax(0.35 + ifelse(design$word_budget == "tight", 0.15, 0) + stats::rnorm(nrow(design), sd = 0.1), 0),
+  1
 )
+design$word_budget <- ifelse(design$word_budget == "tight", "concise", "baseline")
+design$expressed_concern <- ifelse(design$emotional_cue == "worried", "concerned", "neutral")
 
 input_path <- tempfile(fileext = ".csv")
 output_path <- tempfile(fileext = ".json")
@@ -40,7 +44,7 @@ if (status != 0 || !file.exists(output_path)) {
   stop("locked R robustness smoke fit failed")
 }
 summary <- jsonlite::read_json(output_path, simplifyVector = TRUE)
-if (!all(c("lmer_word_budget", "glmer_word_budget", "clmm_word_budget") %in% names(summary$estimands))) {
+if (!all(c("selective_word_budget", "binary_fact_word_budget") %in% names(summary$estimands))) {
   stop("locked R robustness smoke fit omitted a required model")
 }
-cat("Locked lmer/glmer/clmm smoke fit completed.\n")
+cat("Locked selective-score lmer and binary-fact glmer smoke fit completed.\n")

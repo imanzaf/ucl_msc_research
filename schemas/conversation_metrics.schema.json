@@ -1,83 +1,19 @@
 {
   "$defs": {
     "EvaluationCheckpoint": {
-      "description": "Identify initial-only versus cumulative communication checkpoints.",
+      "description": "Identify independent and code-derived metric checkpoints.",
       "enum": [
         "initial",
+        "follow_up",
         "cumulative"
       ],
       "title": "EvaluationCheckpoint",
       "type": "string"
-    },
-    "FirstMentionedEvidence": {
-      "description": "Identify whether the first sourced content is directional material evidence or other supported content.",
-      "enum": [
-        "owner_supporting",
-        "owner_countervailing",
-        "neutral"
-      ],
-      "title": "FirstMentionedEvidence",
-      "type": "string"
     }
   },
   "additionalProperties": false,
-  "description": "Store the frozen composite, domains, pair gaps, and descriptive diagnostics.",
+  "description": "Store the three separate scores and minimal diagnostics.",
   "properties": {
-    "acknowledgement_share": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Acknowledgement Share"
-    },
-    "alternative_option_benefit_coverage": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Alternative Option Benefit Coverage"
-    },
-    "alternative_option_downside_coverage": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Alternative Option Downside Coverage"
-    },
-    "assigned_word_limit": {
-      "anyOf": [
-        {
-          "exclusiveMinimum": 0,
-          "type": "integer"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Assigned Word Limit"
-    },
     "budget_compliant": {
       "anyOf": [
         {
@@ -93,42 +29,6 @@
     "checkpoint": {
       "$ref": "#/$defs/EvaluationCheckpoint"
     },
-    "conditional_owner_countervailing_minimisation_rate": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Conditional Owner Countervailing Minimisation Rate"
-    },
-    "conditional_specificity_retention": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Conditional Specificity Retention"
-    },
     "coverage_asymmetry": {
       "anyOf": [
         {
@@ -142,48 +42,6 @@
         }
       ],
       "title": "Coverage Asymmetry"
-    },
-    "coverage_pair_signed_gaps": {
-      "additionalProperties": {
-        "anyOf": [
-          {
-            "type": "number"
-          },
-          {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "type": "string"
-          }
-        ]
-      },
-      "title": "Coverage Pair Signed Gaps",
-      "type": "object"
-    },
-    "coverage_per_100_words": {
-      "anyOf": [
-        {
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Coverage Per 100 Words"
-    },
-    "coverage_reverse_gap": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Coverage Reverse Gap"
     },
     "coverage_signed_gap": {
       "anyOf": [
@@ -199,7 +57,7 @@
       ],
       "title": "Coverage Signed Gap"
     },
-    "disclaimer_share": {
+    "emphasis_asymmetry": {
       "anyOf": [
         {
           "maximum": 1.0,
@@ -211,50 +69,7 @@
           "type": "string"
         }
       ],
-      "title": "Disclaimer Share"
-    },
-    "disclaimer_washing_distortion": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Disclaimer Washing Distortion"
-    },
-    "emphasis_pair_signed_gaps": {
-      "additionalProperties": {
-        "anyOf": [
-          {
-            "type": "number"
-          },
-          {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "type": "string"
-          }
-        ]
-      },
-      "title": "Emphasis Pair Signed Gaps",
-      "type": "object"
-    },
-    "emphasis_reverse_gap": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Emphasis Reverse Gap"
+      "title": "Emphasis Asymmetry"
     },
     "emphasis_signed_gap": {
       "anyOf": [
@@ -270,7 +85,7 @@
       ],
       "title": "Emphasis Signed Gap"
     },
-    "factual_integrity_failure": {
+    "factual_inaccuracy_score": {
       "anyOf": [
         {
           "maximum": 1.0,
@@ -282,43 +97,13 @@
           "type": "string"
         }
       ],
-      "title": "Factual Integrity Failure"
+      "title": "Factual Inaccuracy Score"
     },
-    "false_claim_count": {
-      "minimum": 0,
-      "title": "False Claim Count",
-      "type": "integer"
-    },
-    "first_evidence_mentioned": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/FirstMentionedEvidence"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
-    },
-    "framing_reassurance_distortion": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Framing Reassurance Distortion"
-    },
-    "generic_risk_disclaimer": {
-      "title": "Generic Risk Disclaimer",
+    "false_claim_present": {
+      "title": "False Claim Present",
       "type": "boolean"
     },
-    "material_coverage": {
+    "material_fact_coverage": {
       "anyOf": [
         {
           "maximum": 1.0,
@@ -330,9 +115,9 @@
           "type": "string"
         }
       ],
-      "title": "Material Coverage"
+      "title": "Material Fact Coverage"
     },
-    "neutral_share": {
+    "ordering_asymmetry": {
       "anyOf": [
         {
           "maximum": 1.0,
@@ -344,36 +129,7 @@
           "type": "string"
         }
       ],
-      "title": "Neutral Share"
-    },
-    "ordering_pair_signed_gaps": {
-      "additionalProperties": {
-        "anyOf": [
-          {
-            "type": "number"
-          },
-          {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "type": "string"
-          }
-        ]
-      },
-      "title": "Ordering Pair Signed Gaps",
-      "type": "object"
-    },
-    "ordering_reverse_gap": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Ordering Reverse Gap"
+      "title": "Ordering Asymmetry"
     },
     "ordering_signed_gap": {
       "anyOf": [
@@ -403,7 +159,7 @@
       ],
       "title": "Owner Countervailing Coverage"
     },
-    "owner_countervailing_minimisation": {
+    "owner_favouring_framing_rate": {
       "anyOf": [
         {
           "maximum": 1.0,
@@ -415,81 +171,7 @@
           "type": "string"
         }
       ],
-      "title": "Owner Countervailing Minimisation"
-    },
-    "owner_countervailing_salience_share": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Owner Countervailing Salience Share"
-    },
-    "owner_countervailing_share": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Owner Countervailing Share"
-    },
-    "owner_option_benefit_coverage": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Owner Option Benefit Coverage"
-    },
-    "owner_option_downside_coverage": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Owner Option Downside Coverage"
-    },
-    "owner_supporting_amplification": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Owner Supporting Amplification"
+      "title": "Owner Favouring Framing Rate"
     },
     "owner_supporting_coverage": {
       "anyOf": [
@@ -505,25 +187,7 @@
       ],
       "title": "Owner Supporting Coverage"
     },
-    "owner_supporting_salience_share": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Owner Supporting Salience Share"
-    },
-    "owner_supporting_share": {
+    "presentation_style_score": {
       "anyOf": [
         {
           "maximum": 1.0,
@@ -535,88 +199,38 @@
           "type": "string"
         }
       ],
-      "title": "Owner Supporting Share"
-    },
-    "pairwise_disclosure_gap": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Pairwise Disclosure Gap"
-    },
-    "prompt_factor_isolation_valid": {
-      "title": "Prompt Factor Isolation Valid",
-      "type": "boolean"
-    },
-    "realised_assigned_ratio": {
-      "anyOf": [
-        {
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Realised Assigned Ratio"
-    },
-    "realised_material_fact_ratio": {
-      "anyOf": [
-        {
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Realised Material Fact Ratio"
-    },
-    "refusal": {
-      "title": "Refusal",
-      "type": "boolean"
+      "title": "Presentation Style Score"
     },
     "response_word_count": {
       "minimum": 0,
       "title": "Response Word Count",
       "type": "integer"
     },
+    "reverse_framing_rate": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Reverse Framing Rate"
+    },
     "run_unit_id": {
       "pattern": "^RUN_[A-F0-9]{16}$",
       "title": "Run Unit Id",
       "type": "string"
     },
-    "salience_asymmetry": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Salience Asymmetry"
-    },
     "schema_version": {
-      "pattern": "^3\\.0\\.0$",
+      "pattern": "^4\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
-    "selective_risk_communication_score": {
+    "selective_communication_score": {
       "anyOf": [
         {
           "maximum": 1.0,
@@ -628,11 +242,7 @@
           "type": "string"
         }
       ],
-      "title": "Selective Risk Communication Score"
-    },
-    "signposting": {
-      "title": "Signposting",
-      "type": "boolean"
+      "title": "Selective Communication Score"
     },
     "specificity_asymmetry": {
       "anyOf": [
@@ -648,35 +258,6 @@
       ],
       "title": "Specificity Asymmetry"
     },
-    "specificity_pair_signed_gaps": {
-      "additionalProperties": {
-        "anyOf": [
-          {
-            "type": "number"
-          },
-          {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "type": "string"
-          }
-        ]
-      },
-      "title": "Specificity Pair Signed Gaps",
-      "type": "object"
-    },
-    "specificity_reverse_gap": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Specificity Reverse Gap"
-    },
     "specificity_signed_gap": {
       "anyOf": [
         {
@@ -691,114 +272,34 @@
       ],
       "title": "Specificity Signed Gap"
     },
-    "spontaneous_additional_communication": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": -1.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Spontaneous Additional Communication"
-    },
-    "standalone_unsupported_reassurance": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-          "type": "string"
-        }
-      ],
-      "title": "Standalone Unsupported Reassurance"
-    },
-    "supportive_acknowledgement": {
-      "title": "Supportive Acknowledgement",
+    "unsupported_claim_present": {
+      "title": "Unsupported Claim Present",
       "type": "boolean"
-    },
-    "unsupported_claim_count": {
-      "minimum": 0,
-      "title": "Unsupported Claim Count",
-      "type": "integer"
-    },
-    "unsupported_reassurance": {
-      "title": "Unsupported Reassurance",
-      "type": "boolean"
-    },
-    "unused_budget": {
-      "anyOf": [
-        {
-          "type": "integer"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Unused Budget"
     }
   },
   "required": [
     "schema_version",
     "run_unit_id",
     "checkpoint",
-    "selective_risk_communication_score",
+    "selective_communication_score",
+    "presentation_style_score",
+    "factual_inaccuracy_score",
     "coverage_asymmetry",
     "specificity_asymmetry",
-    "framing_reassurance_distortion",
-    "salience_asymmetry",
-    "factual_integrity_failure",
-    "coverage_pair_signed_gaps",
+    "owner_favouring_framing_rate",
+    "ordering_asymmetry",
+    "emphasis_asymmetry",
     "coverage_signed_gap",
-    "coverage_reverse_gap",
-    "specificity_pair_signed_gaps",
     "specificity_signed_gap",
-    "specificity_reverse_gap",
-    "ordering_pair_signed_gaps",
     "ordering_signed_gap",
-    "ordering_reverse_gap",
-    "emphasis_pair_signed_gaps",
     "emphasis_signed_gap",
-    "emphasis_reverse_gap",
-    "owner_countervailing_minimisation",
-    "owner_supporting_amplification",
-    "standalone_unsupported_reassurance",
-    "disclaimer_washing_distortion",
-    "pairwise_disclosure_gap",
+    "reverse_framing_rate",
     "owner_supporting_coverage",
     "owner_countervailing_coverage",
-    "owner_option_benefit_coverage",
-    "alternative_option_benefit_coverage",
-    "owner_option_downside_coverage",
-    "alternative_option_downside_coverage",
-    "material_coverage",
-    "supportive_acknowledgement",
-    "unsupported_reassurance",
-    "refusal",
-    "signposting",
-    "generic_risk_disclaimer",
-    "false_claim_count",
-    "unsupported_claim_count",
-    "response_word_count",
-    "realised_material_fact_ratio",
-    "coverage_per_100_words",
-    "acknowledgement_share",
-    "owner_supporting_share",
-    "owner_countervailing_share",
-    "neutral_share",
-    "disclaimer_share",
-    "prompt_factor_isolation_valid"
+    "material_fact_coverage",
+    "false_claim_present",
+    "unsupported_claim_present",
+    "response_word_count"
   ],
   "title": "ConversationMetrics",
   "type": "object"

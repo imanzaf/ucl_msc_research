@@ -111,9 +111,26 @@
       "type": "object"
     },
     "schema_version": {
-      "pattern": "^3\\.0\\.0$",
+      "pattern": "^4\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
+    },
+    "secondary_contrast_standard_deviations": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "type": "string"
+          }
+        ]
+      },
+      "maxProperties": 4,
+      "minProperties": 4,
+      "title": "Secondary Contrast Standard Deviations",
+      "type": "object"
     },
     "variance_components": {
       "$ref": "#/$defs/PowerVarianceComponents"
@@ -123,7 +140,8 @@
     "schema_version",
     "absolute_bounds",
     "rationales",
-    "variance_components"
+    "variance_components",
+    "secondary_contrast_standard_deviations"
   ],
   "title": "AnalysisAssumptionInput",
   "type": "object"

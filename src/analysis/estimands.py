@@ -1,4 +1,4 @@
-"""Calculate the two confirmatory scenario-paired composite contrasts."""
+"""Calculate paired contrasts for the primary and prespecified secondary outcomes."""
 
 from __future__ import annotations
 
@@ -9,13 +9,15 @@ import pandas as pd
 from src.data_models.scoring import AnalysisInputRow, EvaluationCheckpoint
 
 CONFIRMATORY_NAMES = {"H1", "H2"}
+PRIMARY_OUTCOME = "selective_communication_score"
+SECONDARY_SCORE_OUTCOMES = ("presentation_style_score", "factual_inaccuracy_score")
 
 
 def rows_to_frame(
     rows: Iterable[AnalysisInputRow],
     checkpoint: EvaluationCheckpoint = EvaluationCheckpoint.INITIAL,
 ) -> pd.DataFrame:
-    """Flatten validated rows for one checkpoint into the locked analysis frame."""
+    """Flatten validated rows for one checkpoint into the analysis frame."""
     records: List[Dict[str, object]] = []
     for row in rows:
         if row.metrics.checkpoint != checkpoint:
@@ -29,32 +31,26 @@ def rows_to_frame(
                 "model_id": row.model_id,
                 "word_budget": row.word_budget.value,
                 "expressed_concern": row.expressed_concern.value,
-                "selective_risk_communication_score": float(metrics.selective_risk_communication_score),
+                "selective_communication_score": float(metrics.selective_communication_score),
+                "presentation_style_score": float(metrics.presentation_style_score),
+                "factual_inaccuracy_score": float(metrics.factual_inaccuracy_score),
                 "coverage_asymmetry": float(metrics.coverage_asymmetry),
                 "specificity_asymmetry": float(metrics.specificity_asymmetry),
-                "framing_reassurance_distortion": float(metrics.framing_reassurance_distortion),
-                "salience_asymmetry": float(metrics.salience_asymmetry),
-                "factual_integrity_failure": float(metrics.factual_integrity_failure),
-                "pairwise_disclosure_gap": float(metrics.pairwise_disclosure_gap),
+                "owner_favouring_framing_rate": float(metrics.owner_favouring_framing_rate),
+                "ordering_asymmetry": float(metrics.ordering_asymmetry),
+                "emphasis_asymmetry": float(metrics.emphasis_asymmetry),
                 "coverage_signed_gap": float(metrics.coverage_signed_gap),
-                "coverage_reverse_gap": float(metrics.coverage_reverse_gap),
                 "specificity_signed_gap": float(metrics.specificity_signed_gap),
-                "specificity_reverse_gap": float(metrics.specificity_reverse_gap),
                 "ordering_signed_gap": float(metrics.ordering_signed_gap),
-                "ordering_reverse_gap": float(metrics.ordering_reverse_gap),
                 "emphasis_signed_gap": float(metrics.emphasis_signed_gap),
-                "emphasis_reverse_gap": float(metrics.emphasis_reverse_gap),
+                "reverse_framing_rate": float(metrics.reverse_framing_rate),
                 "owner_supporting_coverage": float(metrics.owner_supporting_coverage),
                 "owner_countervailing_coverage": float(metrics.owner_countervailing_coverage),
-                "owner_option_benefit_coverage": float(metrics.owner_option_benefit_coverage),
-                "alternative_option_benefit_coverage": float(metrics.alternative_option_benefit_coverage),
-                "owner_option_downside_coverage": float(metrics.owner_option_downside_coverage),
-                "alternative_option_downside_coverage": float(metrics.alternative_option_downside_coverage),
-                "unsupported_reassurance": float(metrics.unsupported_reassurance),
-                "budget_compliant": metrics.budget_compliant,
-                "refusal": metrics.refusal,
-                "material_coverage": float(metrics.material_coverage),
+                "material_fact_coverage": float(metrics.material_fact_coverage),
+                "false_claim_present": metrics.false_claim_present,
+                "unsupported_claim_present": metrics.unsupported_claim_present,
                 "response_word_count": metrics.response_word_count,
+                "budget_compliant": metrics.budget_compliant,
             }
         )
     frame = pd.DataFrame.from_records(records)
@@ -71,7 +67,7 @@ def _paired_factor_difference(
     low: str,
     group_columns: List[str],
 ) -> float:
-    """Calculate a within-group high-minus-low factor contrast and average groups."""
+    """Calculate a within-group high-minus-low contrast and average groups."""
     means = frame.groupby([*group_columns, factor], observed=True)[outcome].mean().unstack(factor)
     if high not in means.columns or low not in means.columns:
         raise ValueError(f"paired contrast requires {factor} levels {high} and {low}")
@@ -81,55 +77,61 @@ def _paired_factor_difference(
     return float(differences.mean())
 
 
-def estimate_confirmatory_contrasts(frame: pd.DataFrame) -> Dict[str, float]:
-    """Estimate H1 concision-instruction and H2 expressed-concern effects."""
+def estimate_outcome_contrasts(frame: pd.DataFrame, outcome: str) -> Dict[str, float]:
+    """Estimate paired H1/H2 contrasts for one named outcome."""
     required = {
         "scenario_id",
         "model_id",
         "word_budget",
         "expressed_concern",
-        "selective_risk_communication_score",
+        outcome,
     }
     missing = required - set(frame.columns)
     if missing:
         raise ValueError("analysis frame lacks required columns: " + ", ".join(sorted(missing)))
     base = ["scenario_id", "model_id"]
-    h1 = _paired_factor_difference(
-        frame,
-        "selective_risk_communication_score",
-        "word_budget",
-        "concise",
-        "baseline",
-        [*base, "expressed_concern"],
-    )
-    h2 = _paired_factor_difference(
-        frame,
-        "selective_risk_communication_score",
-        "expressed_concern",
-        "concerned",
-        "neutral",
-        [*base, "word_budget"],
-    )
-    return {"H1": h1, "H2": h2}
+    return {
+        "H1": _paired_factor_difference(
+            frame,
+            outcome,
+            "word_budget",
+            "concise",
+            "baseline",
+            [*base, "expressed_concern"],
+        ),
+        "H2": _paired_factor_difference(
+            frame,
+            outcome,
+            "expressed_concern",
+            "concerned",
+            "neutral",
+            [*base, "word_budget"],
+        ),
+    }
 
 
-def estimate_outcome_contrasts(frame: pd.DataFrame, outcome: str) -> Dict[str, float]:
-    """Estimate the same paired H1/H2 contrasts for a prespecified secondary outcome."""
-    if outcome not in frame:
-        raise ValueError(f"analysis frame lacks secondary outcome: {outcome}")
-    transformed = frame.copy()
-    transformed["selective_risk_communication_score"] = transformed[outcome]
-    return estimate_confirmatory_contrasts(transformed)
+def estimate_confirmatory_contrasts(frame: pd.DataFrame) -> Dict[str, float]:
+    """Estimate H1 concision and H2 expressed-concern effects on the primary score."""
+    return estimate_outcome_contrasts(frame, PRIMARY_OUTCOME)
 
 
-def scenario_level_contrasts(frame: pd.DataFrame) -> pd.DataFrame:
+def scenario_level_contrasts(
+    frame: pd.DataFrame,
+    outcome: str = PRIMARY_OUTCOME,
+) -> pd.DataFrame:
     """Return one complete two-estimand contrast vector per scenario."""
     records: List[Dict[str, object]] = []
     for scenario_id, scenario_frame in frame.groupby("scenario_id", observed=True):
         use_case_ids = scenario_frame["use_case_id"].unique()
         if len(use_case_ids) != 1:
             raise ValueError("one scenario cannot span multiple use cases")
-        records.append({"scenario_id": scenario_id, "use_case_id": use_case_ids[0], **estimate_confirmatory_contrasts(scenario_frame)})
+        records.append(
+            {
+                "scenario_id": scenario_id,
+                "use_case_id": use_case_ids[0],
+                **estimate_outcome_contrasts(scenario_frame, outcome),
+            }
+        )
     result = pd.DataFrame.from_records(records)
     if len(result) != 20 or result["use_case_id"].nunique() != 10:
         raise ValueError("scenario-level contrasts require all 20 scenarios across ten use cases")

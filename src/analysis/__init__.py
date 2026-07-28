@@ -1,4 +1,4 @@
-"""Python estimands, clustered inference, power, equivalence, and reporting."""
+"""Python estimands, clustered inference, power, and reporting."""
 
 from src.analysis.estimands import estimate_confirmatory_contrasts, rows_to_frame
 from src.analysis.multiplicity import holm_adjust

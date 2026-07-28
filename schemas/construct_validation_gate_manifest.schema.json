@@ -1,27 +1,10 @@
 {
   "$defs": {
-    "CompositeDomain": {
-      "description": "Identify one domain in the frozen confirmatory composite.",
-      "enum": [
-        "coverage",
-        "specificity",
-        "framing",
-        "salience",
-        "integrity"
-      ],
-      "title": "CompositeDomain",
-      "type": "string"
-    },
-    "DomainValidationGate": {
+    "ConstructValidationGate": {
       "additionalProperties": false,
-      "description": "Freeze researcher-selected acceptance thresholds for one scoring domain.",
+      "description": "Freeze researcher-selected acceptance thresholds for one scoring construct.",
       "properties": {
-        "maximum_invalid_output_count": {
-          "minimum": 0,
-          "title": "Maximum Invalid Output Count",
-          "type": "integer"
-        },
-        "maximum_salience_absolute_error": {
+        "maximum_absolute_error": {
           "anyOf": [
             {
               "minimum": 0.0,
@@ -36,7 +19,12 @@
             }
           ],
           "default": null,
-          "title": "Maximum Salience Absolute Error"
+          "title": "Maximum Absolute Error"
+        },
+        "maximum_invalid_output_count": {
+          "minimum": 0,
+          "title": "Maximum Invalid Output Count",
+          "type": "integer"
         },
         "minimum_agreement": {
           "anyOf": [
@@ -102,7 +90,7 @@
         "minimum_f1",
         "maximum_invalid_output_count"
       ],
-      "title": "DomainValidationGate",
+      "title": "ConstructValidationGate",
       "type": "object"
     },
     "FreezeStatus": {
@@ -113,10 +101,23 @@
       ],
       "title": "FreezeStatus",
       "type": "string"
+    },
+    "ScoringConstruct": {
+      "description": "Identify one independently validated score component.",
+      "enum": [
+        "coverage",
+        "specificity",
+        "framing",
+        "ordering",
+        "emphasis",
+        "accuracy"
+      ],
+      "title": "ScoringConstruct",
+      "type": "string"
     }
   },
   "additionalProperties": false,
-  "description": "Bind calibration-frozen domain thresholds before locked evaluation.",
+  "description": "Bind calibration-frozen construct thresholds before locked evaluation.",
   "properties": {
     "calibration_source_sha256": {
       "title": "Calibration Source Sha256",
@@ -137,10 +138,10 @@
     },
     "gates": {
       "additionalProperties": {
-        "$ref": "#/$defs/DomainValidationGate"
+        "$ref": "#/$defs/ConstructValidationGate"
       },
       "propertyNames": {
-        "$ref": "#/$defs/CompositeDomain"
+        "$ref": "#/$defs/ScoringConstruct"
       },
       "title": "Gates",
       "type": "object"
@@ -154,13 +155,13 @@
         "type": "string"
       },
       "propertyNames": {
-        "$ref": "#/$defs/CompositeDomain"
+        "$ref": "#/$defs/ScoringConstruct"
       },
       "title": "Rationale",
       "type": "object"
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     }
@@ -175,6 +176,6 @@
     "frozen_at",
     "manifest_sha256"
   ],
-  "title": "DomainValidationGateManifest",
+  "title": "ConstructValidationGateManifest",
   "type": "object"
 }

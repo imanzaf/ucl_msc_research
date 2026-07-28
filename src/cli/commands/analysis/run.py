@@ -1,4 +1,4 @@
-"""Run gated Python inference, sensitivities, equivalence, R robustness, and assets."""
+"""Run gated primary and secondary analyses for the three separate scores."""
 
 from __future__ import annotations
 
@@ -7,27 +7,18 @@ import subprocess
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import pandas as pd
 
 from src.analysis.bootstrap import stratified_scenario_bootstrap
-from src.analysis.composite import apply_validation_disposition
-from src.analysis.equivalence import cluster_bootstrap_equivalence
-from src.analysis.estimands import CONFIRMATORY_NAMES, rows_to_frame
+from src.analysis.estimands import CONFIRMATORY_NAMES, PRIMARY_OUTCOME, SECONDARY_SCORE_OUTCOMES, rows_to_frame
+from src.analysis.outcomes import apply_validation_disposition
 from src.analysis.provenance import analysis_code_sha256
 from src.analysis.r_models import run_r_robustness_models
-from src.analysis.sensitivities import estimate_sensitivities_with_messages
 from src.analysis.sign_flip import confirmatory_sign_flip_tests
 from src.data_models.common import artifact_sha256, file_sha256, validate_model_self_hash
-from src.data_models.manifests import (
-    AnnotationSampleManifest,
-    ExperimentManifest,
-    FreezeStatus,
-    PreregistrationManifest,
-    ProtocolDeviationManifest,
-    SmallestEffectManifest,
-)
+from src.data_models.manifests import AnnotationSampleManifest, ExperimentManifest, FreezeStatus, PreregistrationManifest, ProtocolDeviationManifest
 from src.data_models.scenarios import ScenarioStage
 from src.data_models.scoring import (
     AnalysisEngine,
@@ -39,31 +30,29 @@ from src.data_models.scoring import (
     ScoringValidationReport,
     ValidationDispositionManifest,
 )
-from src.experiments.assets import generate_paper_assets
+from src.experiments.assets import CONFIRMATORY_ANALYSIS_ID, SECONDARY_ANALYSIS_ID, generate_paper_assets
 from src.experiments.layout import validate_experiment_path
 from src.paths import REPO_ROOT
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse frozen analysis inputs, gate records, and output paths."""
+    """Parse frozen inputs and separate primary/secondary output paths."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--analysis-input", type=Path, required=True)
     parser.add_argument("--fact-analysis-input", type=Path, required=True)
     parser.add_argument("--human-reference-analysis-input", type=Path, required=True)
-    parser.add_argument("--manual-domain-analysis-input", type=Path)
+    parser.add_argument("--manual-analysis-input", type=Path)
     parser.add_argument("--missingness-report", type=Path, required=True)
     parser.add_argument("--experiment-manifest", type=Path, required=True)
     parser.add_argument("--preregistration-manifest", type=Path, required=True)
     parser.add_argument("--annotation-sample-manifest", type=Path, required=True)
     parser.add_argument("--scoring-validation-report", type=Path, required=True)
     parser.add_argument("--validation-disposition-manifest", type=Path, required=True)
-    parser.add_argument("--smallest-effect-manifest", type=Path, required=True)
     parser.add_argument("--analysis-plan", type=Path, required=True)
     parser.add_argument("--protocol-deviations", type=Path, required=True)
-    parser.add_argument("--output-summary", type=Path, required=True)
-    parser.add_argument("--sensitivity-summary", type=Path, required=True)
-    parser.add_argument("--equivalence-summary", type=Path, required=True)
+    parser.add_argument("--confirmatory-summary", type=Path, required=True)
+    parser.add_argument("--secondary-summary", type=Path, required=True)
     parser.add_argument("--r-input-csv", type=Path, required=True)
     parser.add_argument("--r-output-summary", type=Path, required=True)
     parser.add_argument("--assets-dir", type=Path, required=True)
@@ -72,8 +61,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _validate_analysis_rows(rows: List[AnalysisInputRow], missingness: AnalysisMissingnessReport, analysis_input: Path) -> None:
-    """Require two checkpoint rows per completed unit and bind all terminal missingness."""
+def _validate_analysis_rows(
+    rows: List[AnalysisInputRow],
+    missingness: AnalysisMissingnessReport,
+    analysis_input: Path,
+) -> None:
+    """Require three checkpoint rows per completed unit and bind missingness."""
     validate_model_self_hash(missingness, "report_sha256")
     if missingness.analysis_input_sha256 != file_sha256(analysis_input):
         raise ValueError("missingness report does not bind the exact analysis input")
@@ -86,9 +79,10 @@ def _validate_analysis_rows(rows: List[AnalysisInputRow], missingness: AnalysisM
     if len(run_ids) != missingness.completed_run_count:
         raise ValueError("scored run-unit count disagrees with the missingness report")
     if any({row.metrics.checkpoint for row in rows if row.run_unit_id == run_id} != set(EvaluationCheckpoint) for run_id in run_ids):
-        raise ValueError("every analysis run unit requires initial and cumulative checkpoints")
-    if {row.scenario_id for row in rows} != {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 3)}:
-        raise ValueError("confirmatory analysis requires analyzable observations from all 20 evaluation scenarios")
+        raise ValueError("every analysis run unit requires initial, follow-up, and cumulative rows")
+    expected_scenarios = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 3)}
+    if {row.scenario_id for row in rows} != expected_scenarios:
+        raise ValueError("confirmatory analysis requires all 20 evaluation scenarios")
 
 
 def _validate_fact_analysis_rows(
@@ -96,22 +90,25 @@ def _validate_fact_analysis_rows(
     missingness: AnalysisMissingnessReport,
     fact_analysis_input: Path,
 ) -> None:
-    """Require four material facts at two checkpoints for every completed conversation."""
+    """Require four binary material-fact rows at every checkpoint."""
     if missingness.fact_analysis_input_sha256 != file_sha256(fact_analysis_input):
-        raise ValueError("missingness report does not bind the exact fact-level analysis input")
-    if len(rows) != missingness.completed_run_count * 8:
-        raise ValueError("fact-level input requires four material facts at both checkpoints per completed conversation")
+        raise ValueError("missingness report does not bind the exact fact-level input")
+    if len(rows) != missingness.completed_run_count * 4 * len(EvaluationCheckpoint):
+        raise ValueError("fact input requires four material facts at all three checkpoints")
     keys = {(row.run_unit_id, row.fact_id, row.checkpoint) for row in rows}
     if len(keys) != len(rows):
-        raise ValueError("fact-level analysis input contains duplicate fact/checkpoint rows")
+        raise ValueError("fact input contains duplicate fact/checkpoint rows")
 
 
-def _validate_manual_domain_rows(rows: List[AnalysisInputRow], automated_rows: List[AnalysisInputRow]) -> None:
-    """Require manual-domain scoring to cover the exact full primary row set once."""
+def _validate_manual_rows(
+    rows: List[AnalysisInputRow],
+    automated_rows: List[AnalysisInputRow],
+) -> None:
+    """Require manual scoring to cover the exact automated row set once."""
     keys = {(row.run_unit_id, row.metrics.checkpoint) for row in rows}
     automated_keys = {(row.run_unit_id, row.metrics.checkpoint) for row in automated_rows}
     if len(keys) != len(rows) or keys != automated_keys:
-        raise ValueError("manual-domain input must cover every automated run/checkpoint exactly once")
+        raise ValueError("manual input must cover every automated run/checkpoint exactly once")
 
 
 def _validate_analysis_gates(
@@ -119,65 +116,65 @@ def _validate_analysis_gates(
     preregistration: PreregistrationManifest,
     annotation_sample: AnnotationSampleManifest,
     scoring_report: ScoringValidationReport,
-    validation_disposition: ValidationDispositionManifest,
-    smallest_effects: SmallestEffectManifest,
+    disposition: ValidationDispositionManifest,
     analysis_plan: Path,
     protocol_deviations: ProtocolDeviationManifest,
 ) -> None:
-    """Refuse inference unless frozen manifests, hashes, commit, and headline gates align."""
+    """Refuse inference unless frozen hashes and blinded validation decisions align."""
     for manifest, hash_field in [
         (experiment, "manifest_sha256"),
         (preregistration, "manifest_sha256"),
         (annotation_sample, "manifest_sha256"),
-        (smallest_effects, "manifest_sha256"),
         (scoring_report, "report_sha256"),
-        (validation_disposition, "manifest_sha256"),
+        (disposition, "manifest_sha256"),
         (protocol_deviations, "manifest_sha256"),
     ]:
         validate_model_self_hash(manifest, hash_field)
-    if experiment.freeze_status != FreezeStatus.FROZEN or smallest_effects.freeze_status != FreezeStatus.FROZEN:
-        raise ValueError("analysis requires frozen experiment and smallest-effect manifests")
+    if experiment.freeze_status != FreezeStatus.FROZEN:
+        raise ValueError("analysis requires a frozen experiment manifest")
     if preregistration.experiment_manifest_sha256 != experiment.manifest_sha256:
-        raise ValueError("preregistration does not bind the supplied experiment manifest")
-    if preregistration.smallest_effects_sha256 != smallest_effects.manifest_sha256:
-        raise ValueError("preregistration does not bind the smallest-effect manifest")
+        raise ValueError("preregistration does not bind the supplied experiment")
     if preregistration.analysis_plan_sha256 != file_sha256(analysis_plan):
-        raise ValueError("preregistration does not bind the supplied analysis plan bytes")
+        raise ValueError("preregistration does not bind the supplied analysis plan")
     if protocol_deviations.preregistration_manifest_sha256 != preregistration.manifest_sha256:
         raise ValueError("protocol-deviation register does not bind the preregistration")
     if protocol_deviations.experiment_manifest_sha256 != experiment.manifest_sha256:
-        raise ValueError("protocol-deviation register does not bind the experiment manifest")
+        raise ValueError("protocol-deviation register does not bind the experiment")
     if annotation_sample.sample_stage != ScenarioStage.EVALUATION:
-        raise ValueError("headline analysis requires the frozen evaluation annotation sample")
+        raise ValueError("analysis requires the frozen evaluation annotation sample")
     if scoring_report.validation_sample_manifest_sha256 != annotation_sample.manifest_sha256:
-        raise ValueError("scoring validation report does not bind the frozen annotation sample")
+        raise ValueError("scoring validation does not bind the annotation sample")
     if annotation_sample.scoring_execution_manifest_sha256 != experiment.scoring_execution_manifest_sha256:
-        raise ValueError("evaluation annotations do not bind the experiment's frozen scoring package")
-    if validation_disposition.validation_report_sha256 != scoring_report.report_sha256:
-        raise ValueError("validation disposition does not bind the blinded validation report")
-    if set(validation_disposition.failed_domains) != set(scoring_report.failed_domains):
-        raise ValueError("validation disposition does not cover the report's failed domains")
-    if validation_disposition.confirmatory_inference_withheld:
-        raise PermissionError("the frozen validation disposition withholds confirmatory composite inference")
-    head_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, check=True, capture_output=True, text=True).stdout.strip()
+        raise ValueError("annotations do not bind the experiment scoring package")
+    if disposition.validation_report_sha256 != scoring_report.report_sha256:
+        raise ValueError("validation disposition does not bind the scoring report")
+    if set(disposition.failed_constructs) != set(scoring_report.failed_constructs):
+        raise ValueError("validation disposition does not cover the failed constructs")
+    if disposition.confirmatory_inference_withheld:
+        raise PermissionError("validation disposition withholds primary selective-communication inference")
+    head_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     if preregistration.analysis_commit != head_commit:
-        raise ValueError("current analysis code commit differs from the preregistered analysis commit")
+        raise ValueError("current analysis commit differs from the preregistered commit")
     if preregistration.analysis_code_sha256 != analysis_code_sha256(REPO_ROOT):
-        raise ValueError("current analysis source bytes differ from the preregistered analysis bundle")
+        raise ValueError("current analysis source differs from the preregistered bundle")
 
 
 def _summary(
     analysis_id: str,
     method: str,
     estimates: Dict[str, float],
-    intervals: Dict[str, List[float]],
+    intervals: Dict[str, Tuple[float, float]],
     raw_p_values: Dict[str, float],
     adjusted_p_values: Dict[str, float],
     source_sha256: str,
-    converged: bool = True,
-    convergence_messages: List[str] | None = None,
 ) -> AnalysisSummary:
-    """Build one strict Python analysis summary."""
+    """Build one strict analysis summary."""
     return AnalysisSummary(
         schema_version="2.0.0",
         analysis_id=analysis_id,
@@ -187,87 +184,193 @@ def _summary(
         confidence_intervals={name: [Decimal(str(value)) for value in interval] for name, interval in intervals.items()},
         raw_p_values={name: Decimal(str(value)) for name, value in raw_p_values.items()},
         adjusted_p_values={name: Decimal(str(value)) for name, value in adjusted_p_values.items()},
-        converged=converged,
-        convergence_messages=convergence_messages or [],
+        converged=True,
+        convergence_messages=[],
         source_data_sha256=source_sha256,
         generated_at=datetime.now(timezone.utc),
     )
 
 
+def _secondary_bootstraps(
+    frames: Dict[EvaluationCheckpoint, pd.DataFrame],
+    disposition: ValidationDispositionManifest,
+    draws: int,
+    seed: int,
+) -> Tuple[Dict[str, float], Dict[str, Tuple[float, float]]]:
+    """Estimate secondary score/checkpoint effects and intervals without p-values."""
+    requests: List[Tuple[EvaluationCheckpoint, str]] = [(EvaluationCheckpoint.INITIAL, outcome) for outcome in SECONDARY_SCORE_OUTCOMES]
+    requests.extend(
+        (checkpoint, outcome)
+        for checkpoint in (
+            EvaluationCheckpoint.FOLLOW_UP,
+            EvaluationCheckpoint.CUMULATIVE,
+        )
+        for outcome in (
+            PRIMARY_OUTCOME,
+            *SECONDARY_SCORE_OUTCOMES,
+        )
+    )
+    estimates: Dict[str, float] = {}
+    intervals: Dict[str, Tuple[float, float]] = {}
+    request_index = 0
+    for checkpoint, outcome in requests:
+        if outcome == "presentation_style_score" and disposition.presentation_result_withheld:
+            continue
+        if outcome == "factual_inaccuracy_score" and disposition.factual_inaccuracy_result_withheld:
+            continue
+        points, bounds, _ = stratified_scenario_bootstrap(
+            frames[checkpoint],
+            outcome=outcome,
+            draws=draws,
+            seed=seed + request_index,
+        )
+        request_index += 1
+        for hypothesis in sorted(CONFIRMATORY_NAMES):
+            name = f"{checkpoint.value}:{outcome}:{hypothesis}"
+            estimates[name] = points[hypothesis]
+            intervals[name] = bounds[hypothesis]
+    return estimates, intervals
+
+
 def main() -> None:
-    """Enforce all gates, run locked analyses, and write stable paper assets."""
+    """Run the sole primary tests and interval-only secondary analyses."""
     args = parse_args()
     if args.draws != 10_000:
-        raise ValueError("the confirmatory bootstrap is frozen at exactly 10,000 draws")
-    result_paths = [
+        raise ValueError("scenario bootstrap is frozen at exactly 10,000 draws")
+    for result_path in [
         args.analysis_input,
         args.fact_analysis_input,
         args.human_reference_analysis_input,
         args.missingness_report,
         args.scoring_validation_report,
         args.validation_disposition_manifest,
-        args.output_summary,
-        args.sensitivity_summary,
-        args.equivalence_summary,
+        args.confirmatory_summary,
+        args.secondary_summary,
         args.r_input_csv,
         args.r_output_summary,
-    ]
-    for result_path in result_paths:
+    ]:
         validate_experiment_path(result_path, REPO_ROOT, "results_tree")
     validate_experiment_path(args.assets_dir, REPO_ROOT, "assets_dir")
+
     experiment = read_model_json(args.experiment_manifest, ExperimentManifest)
-    preregistration = read_model_json(args.preregistration_manifest, PreregistrationManifest)
-    annotation_sample = read_model_json(args.annotation_sample_manifest, AnnotationSampleManifest)
-    scoring_report = read_model_json(args.scoring_validation_report, ScoringValidationReport)
-    validation_disposition = read_model_json(args.validation_disposition_manifest, ValidationDispositionManifest)
-    smallest_effects = read_model_json(args.smallest_effect_manifest, SmallestEffectManifest)
-    protocol_deviations = read_model_json(args.protocol_deviations, ProtocolDeviationManifest)
-    missingness = read_model_json(args.missingness_report, AnalysisMissingnessReport)
+    preregistration = read_model_json(
+        args.preregistration_manifest,
+        PreregistrationManifest,
+    )
+    annotation_sample = read_model_json(
+        args.annotation_sample_manifest,
+        AnnotationSampleManifest,
+    )
+    scoring_report = read_model_json(
+        args.scoring_validation_report,
+        ScoringValidationReport,
+    )
+    disposition = read_model_json(
+        args.validation_disposition_manifest,
+        ValidationDispositionManifest,
+    )
+    protocol_deviations = read_model_json(
+        args.protocol_deviations,
+        ProtocolDeviationManifest,
+    )
+    missingness = read_model_json(
+        args.missingness_report,
+        AnalysisMissingnessReport,
+    )
     _validate_analysis_gates(
         experiment,
         preregistration,
         annotation_sample,
         scoring_report,
-        validation_disposition,
-        smallest_effects,
+        disposition,
         args.analysis_plan,
         protocol_deviations,
     )
+
     rows = read_model_jsonl(args.analysis_input, AnalysisInputRow)
     _validate_analysis_rows(rows, missingness, args.analysis_input)
     fact_rows = read_model_jsonl(args.fact_analysis_input, FactAnalysisInputRow)
     _validate_fact_analysis_rows(fact_rows, missingness, args.fact_analysis_input)
-    source_sha256 = file_sha256(args.analysis_input)
-    frame = rows_to_frame(rows)
-    manual_frame: pd.DataFrame | None = None
-    manual_cumulative_frame: pd.DataFrame | None = None
-    manual_source_sha256: str | None = None
-    if args.manual_domain_analysis_input is not None:
-        validate_experiment_path(args.manual_domain_analysis_input, REPO_ROOT, "results_tree")
-        manual_rows = read_model_jsonl(args.manual_domain_analysis_input, AnalysisInputRow)
-        _validate_manual_domain_rows(manual_rows, rows)
-        manual_frame = rows_to_frame(manual_rows)
-        manual_cumulative_frame = rows_to_frame(manual_rows, EvaluationCheckpoint.CUMULATIVE)
-        manual_source_sha256 = file_sha256(args.manual_domain_analysis_input)
-    frame = apply_validation_disposition(frame, validation_disposition, manual_frame)
-    cumulative_frame = apply_validation_disposition(
-        rows_to_frame(rows, EvaluationCheckpoint.CUMULATIVE),
-        validation_disposition,
-        manual_cumulative_frame,
+    manual_frames: Dict[EvaluationCheckpoint, pd.DataFrame | None] = {checkpoint: None for checkpoint in EvaluationCheckpoint}
+    manual_source_sha256 = None
+    if args.manual_analysis_input is not None:
+        validate_experiment_path(
+            args.manual_analysis_input,
+            REPO_ROOT,
+            "results_tree",
+        )
+        manual_rows = read_model_jsonl(
+            args.manual_analysis_input,
+            AnalysisInputRow,
+        )
+        _validate_manual_rows(manual_rows, rows)
+        manual_frames = {checkpoint: rows_to_frame(manual_rows, checkpoint) for checkpoint in EvaluationCheckpoint}
+        manual_source_sha256 = file_sha256(args.manual_analysis_input)
+
+    frames = {
+        checkpoint: apply_validation_disposition(
+            rows_to_frame(rows, checkpoint),
+            disposition,
+            manual_frames[checkpoint],
+        )
+        for checkpoint in EvaluationCheckpoint
+    }
+    human_rows = read_model_jsonl(
+        args.human_reference_analysis_input,
+        AnalysisInputRow,
     )
-    initial_score_by_run = frame.set_index("run_unit_id")["selective_risk_communication_score"]
-    spontaneous_change_frame = cumulative_frame.copy()
-    spontaneous_change_frame["selective_risk_communication_score"] = spontaneous_change_frame[
-        "selective_risk_communication_score"
-    ] - spontaneous_change_frame["run_unit_id"].map(initial_score_by_run)
-    human_rows = read_model_jsonl(args.human_reference_analysis_input, AnalysisInputRow)
     human_keys = {(row.run_unit_id, row.metrics.checkpoint) for row in human_rows}
-    if len(human_keys) != len(human_rows) or len(human_rows) != len(annotation_sample.conversation_ids) * 2:
-        raise ValueError("human-reference analysis input must contain both checkpoints for the frozen annotation sample")
+    if len(human_keys) != len(human_rows) or len(human_rows) != len(annotation_sample.conversation_ids) * len(EvaluationCheckpoint):
+        raise ValueError("human reference must contain all three checkpoints for the frozen sample")
     if not {row.run_unit_id for row in human_rows}.issubset({row.run_unit_id for row in rows}):
-        raise ValueError("human-reference analysis input contains a run outside the automated analysis input")
-    rows_to_frame(human_rows)
-    fact_records = [
+        raise ValueError("human reference contains a run outside the automated input")
+
+    source_sha256 = artifact_sha256(
+        {
+            "automated_analysis_input": file_sha256(args.analysis_input),
+            "manual_analysis_input": manual_source_sha256,
+            "validation_disposition": disposition.manifest_sha256,
+        }
+    )
+    confirmatory_estimates, confirmatory_intervals, _ = stratified_scenario_bootstrap(
+        frames[EvaluationCheckpoint.INITIAL],
+        outcome=PRIMARY_OUTCOME,
+        draws=args.draws,
+        seed=args.seed,
+    )
+    p_values, adjusted = confirmatory_sign_flip_tests(
+        frames[EvaluationCheckpoint.INITIAL],
+        permutations=100_000,
+        seed=args.seed,
+    )
+    confirmatory = _summary(
+        CONFIRMATORY_ANALYSIS_ID,
+        "initial_selective_scenario_paired_sign_flip_100000_holm_and_bootstrap_10000",
+        confirmatory_estimates,
+        confirmatory_intervals,
+        p_values,
+        adjusted,
+        source_sha256,
+    )
+    secondary_estimates, secondary_intervals = _secondary_bootstraps(
+        frames,
+        disposition,
+        args.draws,
+        args.seed + 100,
+    )
+    secondary = _summary(
+        SECONDARY_ANALYSIS_ID,
+        "paired_effects_with_scenario_bootstrap_10000_no_confirmatory_p_values",
+        secondary_estimates,
+        secondary_intervals,
+        {},
+        {},
+        source_sha256,
+    )
+    write_model_json_atomic(args.confirmatory_summary, confirmatory)
+    write_model_json_atomic(args.secondary_summary, secondary)
+
+    initial_fact_records = [
         {
             "run_unit_id": row.run_unit_id,
             "scenario_id": row.scenario_id,
@@ -280,69 +383,20 @@ def main() -> None:
             "model_id": row.model_id,
             "word_budget": row.word_budget,
             "expressed_concern": row.expressed_concern,
-            "disclosure_ordinal": row.disclosure_ordinal,
+            "fact_present": int(row.fact_present),
         }
         for row in fact_rows
         if row.checkpoint == EvaluationCheckpoint.INITIAL
     ]
-    fact_frame = pd.DataFrame.from_records(fact_records)
-    source_sha256 = artifact_sha256(
-        {
-            "automated_analysis_input": source_sha256,
-            "manual_domain_analysis_input": manual_source_sha256,
-            "validation_disposition": validation_disposition.manifest_sha256,
-        }
+    fact_frame = pd.DataFrame.from_records(initial_fact_records)
+    conversation_scores = frames[EvaluationCheckpoint.INITIAL][["run_unit_id", PRIMARY_OUTCOME]]
+    r_frame = fact_frame.merge(
+        conversation_scores,
+        on="run_unit_id",
+        how="left",
+        validate="many_to_one",
     )
-    estimates, intervals, _draws = stratified_scenario_bootstrap(frame, draws=args.draws, seed=args.seed)
-    if set(estimates) != CONFIRMATORY_NAMES:
-        raise ValueError("confirmatory bootstrap did not return both preregistered estimands")
-    p_values, adjusted = confirmatory_sign_flip_tests(frame, permutations=100_000, seed=args.seed)
-    confirmatory = _summary(
-        "risk_comm_v1_confirmatory",
-        "scenario_paired_sign_flip_100000_holm_with_stratified_scenario_bootstrap_10000",
-        estimates,
-        {name: list(interval) for name, interval in intervals.items()},
-        p_values,
-        adjusted,
-        source_sha256,
-    )
-    sensitivity_estimates, sensitivity_messages = estimate_sensitivities_with_messages(
-        frame,
-        cumulative_frame,
-        spontaneous_change_frame,
-    )
-    sensitivity = _summary(
-        "risk_comm_v1_sensitivities",
-        "prespecified_domain_directional_cumulative_template_model_and_leave_one_out_results",
-        sensitivity_estimates,
-        {},
-        {},
-        {},
-        source_sha256,
-        converged=not sensitivity_messages,
-        convergence_messages=sensitivity_messages,
-    )
-    equivalence_flags: Dict[str, float] = {}
-    equivalence_intervals: Dict[str, List[float]] = {}
-    for name, bound in smallest_effects.absolute_bounds.items():
-        result = cluster_bootstrap_equivalence(frame, name, -float(bound), float(bound), draws=args.draws, seed=args.seed)
-        equivalence_flags[name] = float(result.equivalent)
-        equivalence_intervals[name] = [result.lower_interval, result.upper_interval]
-    equivalence = _summary(
-        "risk_comm_v1_equivalence",
-        "use_case_stratified_scenario_cluster_bootstrap_90_percent_equivalence",
-        equivalence_flags,
-        equivalence_intervals,
-        {},
-        {},
-        source_sha256,
-    )
-    write_model_json_atomic(args.output_summary, confirmatory)
-    write_model_json_atomic(args.sensitivity_summary, sensitivity)
-    write_model_json_atomic(args.equivalence_summary, equivalence)
     args.r_input_csv.parent.mkdir(parents=True, exist_ok=True)
-    conversation_metrics = frame[["run_unit_id", "selective_risk_communication_score"]]
-    r_frame = fact_frame.merge(conversation_metrics, on="run_unit_id", how="left", validate="many_to_one")
     r_frame.to_csv(args.r_input_csv, index=False)
     run_r_robustness_models(
         args.r_input_csv,
@@ -351,8 +405,15 @@ def main() -> None:
         REPO_ROOT / "analysis/r/run_mixed_models.R",
         REPO_ROOT / "analysis/r",
     )
-    generate_paper_assets(args.assets_dir, estimates, intervals, adjusted)
-    print(f"Wrote gated Python/R summaries and stable paper assets under {args.assets_dir.parent}")
+    generate_paper_assets(
+        args.assets_dir,
+        confirmatory_estimates,
+        confirmatory_intervals,
+        adjusted,
+        secondary_estimates,
+        secondary_intervals,
+    )
+    print("Wrote the selective-communication confirmatory panel and interval-only secondary panel")
 
 
 if __name__ == "__main__":

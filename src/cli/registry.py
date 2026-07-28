@@ -60,16 +60,20 @@ COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
     "scoring": {
         "build-manifest": Command("src.cli.commands.scoring.build_manifest", "Build the scoring execution manifest."),
         "run-c1": Command("src.cli.commands.scoring.run_c1", "Score the one-model C1 2×2 diagnostic."),
+        "validate-c1": Command(
+            "src.cli.commands.scoring.validate_c1",
+            "Validate redesigned C1 outputs before scoring freeze.",
+        ),
         "run": Command("src.cli.commands.scoring.run", "Score experiment outputs."),
         "resolve-manual": Command("src.cli.commands.scoring.resolve_manual", "Resolve records routed to manual scoring."),
         "validate": Command("src.cli.commands.scoring.validate", "Build the scoring validation report."),
         "freeze-validation-gates": Command(
             "src.cli.commands.scoring.freeze_validation_gates",
-            "Freeze calibration-derived domain validation gates.",
+            "Freeze calibration-derived construct validation gates.",
         ),
         "record-validation-disposition": Command(
             "src.cli.commands.scoring.record_validation_disposition",
-            "Record blinded failed-domain contingencies.",
+            "Record blinded failed-construct contingencies.",
         ),
         "sample-annotations": Command("src.cli.commands.scoring.sample_annotations", "Build the annotation sample."),
         "build-human-reference": Command("src.cli.commands.scoring.build_human_reference", "Build human-reference analysis inputs."),

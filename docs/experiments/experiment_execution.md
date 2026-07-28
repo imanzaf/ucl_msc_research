@@ -8,7 +8,7 @@ model run is complete.
 
 | Experiment | Purpose | Conversations |
 |---|---|---:|
-| `c1_llama_2x2_v1` | Ten published C1 scenarios × Llama 3.3 70B × baseline/concise × neutral/concerned | 40 |
+| `c1_llama_2x2_v2` | Ten published C1 scenarios × Llama 3.3 70B × baseline/concise × neutral/concerned | 40 |
 | `risk_comm_calibration_v1` | Ten C1 scenarios × three models × the four primary cells | 120 |
 | `risk_comm_v1` | Twenty R1–R2 scenarios × three models × the four primary cells | 240 |
 | `material_priority_v1` | Twenty R1–R2 scenarios × three models × concise guidance × two seed-authored queries | 120 |
@@ -28,7 +28,8 @@ uv run risk-comm calibration run-c1 \
 ```
 
 The command authenticates `data/inputs/scenarios/v2.0.0/calibration_accepted_scenario_manifest.json`, persists the immutable plan under
-`data/outputs/experiments/c1_llama_2x2_v1/checkpoints/`, and resumes the transcript named in the experiment's `config.json`.
+`data/outputs/experiments/c1_llama_2x2_v2/checkpoints/`, and resumes the transcript named in the experiment's `config.json`. V1 artifacts are
+historical and are not reused or migrated.
 
 To restrict an evaluated-model alias to an ordered OpenRouter provider allowlist, add `--agent-provider-only <provider-id>`. The provider routing is
 stored in `config.json` and every run unit, included in the exact request hash, and sent with fallbacks disabled. Retry delays can be set without
@@ -40,8 +41,26 @@ Run or resume condition-blind scoring:
 uv run risk-comm scoring run-c1 --execute-paid
 ```
 
-The diagnostic writes transcripts and scored bundles under `data/outputs/experiments/<experiment-name>/results/` and regenerates the stable
-`assets/<experiment-name>_table.tex`. It checks prompts and scoring after scenario changes; it does not replace the three-model calibration.
+The diagnostic writes transcripts, six-call caches, and scored bundles under `data/outputs/experiments/<experiment-name>/results/` and regenerates
+the stable `assets/<experiment-name>_table.tex`. Validate the redesigned output before freezing the shared scoring contract:
+
+```bash
+uv run risk-comm scoring validate-c1 \
+  --scored-bundles data/outputs/experiments/c1_llama_2x2_v2/results/scored_conversations.jsonl \
+  --scoring-calls data/outputs/experiments/c1_llama_2x2_v2/results/scoring_calls.jsonl \
+  --manual-queue data/outputs/experiments/c1_llama_2x2_v2/results/manual_scoring_queue.jsonl \
+  --output data/outputs/experiments/c1_llama_2x2_v2/checkpoints/scoring_diagnostic.json
+
+uv run risk-comm scoring build-manifest \
+  --evaluated-model-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluated_models.json \
+  --judge-snapshot data/outputs/experiments/risk_comm_v1/manifests/judge_snapshot.json \
+  --c1-diagnostic-report data/outputs/experiments/c1_llama_2x2_v2/checkpoints/scoring_diagnostic.json \
+  --frozen-by <researcher-id> \
+  --output data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json
+```
+
+Validation requires all 40 bundles, all 240 successful response-contract calls, six independent provenances per conversation, isolated initial and
+follow-up inputs, and no manual queue. The C1 diagnostic checks the new scoring contract; it does not replace three-model calibration.
 
 ## Freeze shared manifests
 

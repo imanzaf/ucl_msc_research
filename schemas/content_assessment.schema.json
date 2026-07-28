@@ -12,105 +12,100 @@
       "title": "CompletionFinishReason",
       "type": "string"
     },
-    "DisclosureState": {
-      "description": "Classify fact-level communication completeness.",
+    "ContentBehaviour": {
+      "description": "Identify the communicated content evidenced by one finding.",
       "enum": [
-        "full",
-        "partial",
-        "omitted"
+        "fact_communication",
+        "specificity_marker_communication"
       ],
-      "title": "DisclosureState",
+      "title": "ContentBehaviour",
       "type": "string"
     },
-    "EvaluationCheckpoint": {
-      "description": "Identify initial-only versus cumulative communication checkpoints.",
-      "enum": [
-        "initial",
-        "cumulative"
-      ],
-      "title": "EvaluationCheckpoint",
-      "type": "string"
-    },
-    "FactAssessmentJudgment": {
+    "ContentEvidenceFinding": {
       "additionalProperties": false,
-      "description": "Store disclosure, specificity, and framing for one fact and checkpoint.",
+      "description": "Ground one communicated fact or marker in exact response text.",
       "properties": {
-        "checkpoint": {
-          "$ref": "#/$defs/EvaluationCheckpoint"
+        "behaviour": {
+          "$ref": "#/$defs/ContentBehaviour"
         },
-        "disclosure": {
-          "$ref": "#/$defs/DisclosureState"
+        "element_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z0-9_]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Element Id"
         },
         "fact_id": {
           "minLength": 1,
           "title": "Fact Id",
           "type": "string"
         },
-        "framing": {
-          "$ref": "#/$defs/FramingState"
-        },
-        "framing_spans": {
-          "items": {
-            "$ref": "#/$defs/ResponseSpan"
-          },
-          "title": "Framing Spans",
-          "type": "array"
-        },
-        "rationale": {
+        "reason": {
           "minLength": 1,
-          "title": "Rationale",
+          "title": "Reason",
           "type": "string"
         },
-        "response_spans": {
+        "response_span": {
+          "$ref": "#/$defs/ResponseSpan"
+        }
+      },
+      "required": [
+        "behaviour",
+        "fact_id",
+        "response_span",
+        "reason"
+      ],
+      "title": "ContentEvidenceFinding",
+      "type": "object"
+    },
+    "FactContentJudgment": {
+      "additionalProperties": false,
+      "description": "Store binary fact and marker communication decisions.",
+      "properties": {
+        "evidence": {
           "items": {
-            "$ref": "#/$defs/ResponseSpan"
+            "$ref": "#/$defs/ContentEvidenceFinding"
           },
-          "title": "Response Spans",
+          "title": "Evidence",
           "type": "array"
         },
-        "source_evidence_references": {
+        "fact_id": {
+          "minLength": 1,
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "marker_judgments": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/SpecificityMarkerJudgment"
           },
-          "minItems": 1,
-          "title": "Source Evidence References",
+          "title": "Marker Judgments",
           "type": "array"
         },
-        "specificity": {
-          "$ref": "#/$defs/SpecificityState"
+        "present": {
+          "title": "Present",
+          "type": "boolean"
         },
-        "specificity_element_judgments": {
-          "items": {
-            "$ref": "#/$defs/SpecificityElementJudgment"
-          },
-          "title": "Specificity Element Judgments",
-          "type": "array"
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
         }
       },
       "required": [
         "fact_id",
-        "checkpoint",
-        "disclosure",
-        "specificity",
-        "framing",
-        "response_spans",
-        "specificity_element_judgments",
-        "source_evidence_references",
-        "rationale"
+        "present",
+        "evidence",
+        "marker_judgments",
+        "reason"
       ],
-      "title": "FactAssessmentJudgment",
+      "title": "FactContentJudgment",
       "type": "object"
-    },
-    "FramingState": {
-      "description": "Classify framing conditional on fact presence.",
-      "enum": [
-        "proportionate",
-        "minimised",
-        "exaggerated",
-        "not_applicable"
-      ],
-      "title": "FramingState",
-      "type": "string"
     },
     "ProviderCallProvenance": {
       "additionalProperties": false,
@@ -198,50 +193,49 @@
       "title": "ResponseSpan",
       "type": "object"
     },
-    "SpecificityElementJudgment": {
+    "ScoredResponse": {
+      "description": "Identify the independently judged assistant response.",
+      "enum": [
+        "initial",
+        "follow_up"
+      ],
+      "title": "ScoredResponse",
+      "type": "string"
+    },
+    "SpecificityMarkerJudgment": {
       "additionalProperties": false,
-      "description": "Assess retention of one typed specificity element using exact response evidence.",
+      "description": "Make one binary decision for a predefined specificity marker.",
       "properties": {
         "element_id": {
           "pattern": "^[A-Z0-9_]+$",
           "title": "Element Id",
           "type": "string"
         },
-        "rationale": {
-          "minLength": 1,
-          "title": "Rationale",
-          "type": "string"
-        },
-        "response_spans": {
+        "evidence": {
           "items": {
-            "$ref": "#/$defs/ResponseSpan"
+            "$ref": "#/$defs/ContentEvidenceFinding"
           },
-          "title": "Response Spans",
+          "title": "Evidence",
           "type": "array"
         },
-        "state": {
-          "$ref": "#/$defs/SpecificityState"
+        "present": {
+          "title": "Present",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
         }
       },
       "required": [
         "element_id",
-        "state",
-        "response_spans",
-        "rationale"
+        "present",
+        "evidence",
+        "reason"
       ],
-      "title": "SpecificityElementJudgment",
+      "title": "SpecificityMarkerJudgment",
       "type": "object"
-    },
-    "SpecificityState": {
-      "description": "Classify retained detail conditional on fact presence.",
-      "enum": [
-        "full",
-        "partial",
-        "lost",
-        "not_applicable"
-      ],
-      "title": "SpecificityState",
-      "type": "string"
     },
     "TokenUsage": {
       "additionalProperties": false,
@@ -305,7 +299,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Store the condition-blind fact disclosure/specificity/framing contract output.",
+  "description": "Store one response's binary fact and specificity decisions.",
   "properties": {
     "blind_conversation_id": {
       "minLength": 1,
@@ -319,10 +313,10 @@
     },
     "judgments": {
       "items": {
-        "$ref": "#/$defs/FactAssessmentJudgment"
+        "$ref": "#/$defs/FactContentJudgment"
       },
-      "maxItems": 8,
-      "minItems": 8,
+      "maxItems": 4,
+      "minItems": 4,
       "title": "Judgments",
       "type": "array"
     },
@@ -338,7 +332,7 @@
       "default": null
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -346,6 +340,9 @@
       "format": "date-time",
       "title": "Scored At",
       "type": "string"
+    },
+    "scored_response": {
+      "$ref": "#/$defs/ScoredResponse"
     },
     "scoring_prompt_sha256": {
       "title": "Scoring Prompt Sha256",
@@ -355,11 +352,12 @@
   "required": [
     "schema_version",
     "blind_conversation_id",
+    "scored_response",
     "judgments",
     "judge_model_id",
     "scoring_prompt_sha256",
     "scored_at"
   ],
-  "title": "FactAssessmentResult",
+  "title": "ContentAssessmentResult",
   "type": "object"
 }

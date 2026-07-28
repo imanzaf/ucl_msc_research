@@ -1,5 +1,14 @@
 {
   "$defs": {
+    "ScoredResponse": {
+      "description": "Identify the independently judged assistant response.",
+      "enum": [
+        "initial",
+        "follow_up"
+      ],
+      "title": "ScoredResponse",
+      "type": "string"
+    },
     "ScoringAttemptStatus": {
       "description": "Identify whether one identical scoring-package attempt succeeded or failed.",
       "enum": [
@@ -8,10 +17,20 @@
       ],
       "title": "ScoringAttemptStatus",
       "type": "string"
+    },
+    "ScoringContract": {
+      "description": "Identify one independent scoring contract.",
+      "enum": [
+        "content",
+        "presentation",
+        "accuracy"
+      ],
+      "title": "ScoringContract",
+      "type": "string"
     }
   },
   "additionalProperties": false,
-  "description": "Record one condition-blind three-contract attempt with immutable request bytes.",
+  "description": "Record one independently retryable scoring-contract call.",
   "properties": {
     "attempt_id": {
       "pattern": "^SCOREATTEMPT_[A-F0-9]{16}$",
@@ -32,6 +51,9 @@
       "format": "date-time",
       "title": "Completed At",
       "type": "string"
+    },
+    "contract": {
+      "$ref": "#/$defs/ScoringContract"
     },
     "error_message": {
       "anyOf": [
@@ -69,9 +91,12 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
+    },
+    "scored_response": {
+      "$ref": "#/$defs/ScoredResponse"
     },
     "scoring_output_sha256": {
       "anyOf": [
@@ -99,6 +124,8 @@
     "attempt_id",
     "run_unit_id",
     "blind_conversation_id",
+    "scored_response",
+    "contract",
     "attempt_number",
     "request_sha256",
     "status",

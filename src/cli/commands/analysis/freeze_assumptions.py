@@ -32,10 +32,11 @@ def main() -> None:
     }
     smallest = SmallestEffectManifest.model_validate({**smallest_payload, "manifest_sha256": artifact_sha256(smallest_payload)})
     power_payload = {
-        "schema_version": "3.0.0",
+        "schema_version": "4.0.0",
         "freeze_status": FreezeStatus.FROZEN,
         "smallest_effect_manifest_sha256": smallest.manifest_sha256,
         "variance_components": assumptions.variance_components,
+        "secondary_contrast_standard_deviations": assumptions.secondary_contrast_standard_deviations,
         "calibration_source_sha256": file_sha256(args.calibration_source),
         "frozen_at": frozen_at,
         "frozen_by": args.frozen_by,

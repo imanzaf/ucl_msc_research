@@ -8,7 +8,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Dict
 
-from src.analysis.power import VarianceComponents, simulate_holm_corrected_power
+from src.analysis.power import VarianceComponents, expected_secondary_interval_half_widths, simulate_holm_corrected_power
 from src.data_models.common import artifact_sha256, validate_model_self_hash
 from src.data_models.manifests import FreezeStatus, PowerAssumptionManifest, PowerSimulationReport, PowerVarianceComponents, SmallestEffectManifest
 from src.storage import read_model_json, write_model_json_atomic
@@ -63,8 +63,11 @@ def main() -> None:
         "high_model_heterogeneity": _simulate(effects, assumptions, args.simulations, args.alpha, args.seed + 100, model_multiplier=1.5),
         "high_scoring_error": _simulate(effects, assumptions, args.simulations, args.alpha, args.seed + 200, scoring_multiplier=1.5),
     }
+    secondary_precision = expected_secondary_interval_half_widths(
+        {name: float(value) for name, value in assumptions.secondary_contrast_standard_deviations.items()}
+    )
     payload = {
-        "schema_version": "2.0.0",
+        "schema_version": "3.0.0",
         "power_assumption_manifest_sha256": assumptions.manifest_sha256,
         "smallest_effect_manifest_sha256": smallest.manifest_sha256,
         "simulations": args.simulations,
@@ -74,6 +77,7 @@ def main() -> None:
         "sensitivity_power": {
             sensitivity: {name: Decimal(str(value)) for name, value in values.items()} for sensitivity, values in sensitivities.items()
         },
+        "secondary_expected_95_interval_half_widths": {name: Decimal(str(value)) for name, value in secondary_precision.items()},
         "generated_at": datetime.now(timezone.utc),
     }
     report = PowerSimulationReport.model_validate({**payload, "report_sha256": artifact_sha256(payload)})

@@ -13,9 +13,10 @@ from src.data_models.common import artifact_sha256, file_sha256, sha256_bytes, v
 from src.data_models.experiments import ConversationTranscript, RunOutcomeStatus
 from src.data_models.manifests import AcceptedScenarioManifest, AnnotationSampleManifest, FreezeStatus, ScoringExecutionManifest
 from src.data_models.scenarios import AcceptedScenario, ScenarioStage
+from src.data_models.scoring import AnnotationScoringPackage
 from src.experiments.io import load_all_accepted_scenarios
 from src.experiments.scenario_runner import validate_calibration_run_plan, validate_complete_run_plan
-from src.experiments.scoring_pipeline import build_condition_blind_input
+from src.experiments.scoring_pipeline import build_condition_blind_inputs
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic
 
 
@@ -132,9 +133,22 @@ def main() -> None:
     for transcript in selected:
         run_unit_id = transcript.run_unit.run_unit_id
         fact_seed = int(sha256_bytes(f"{scoring_manifest.fact_order_seed}:{run_unit_id}".encode("utf-8"))[:16], 16)
-        scoring_input = build_condition_blind_input(transcript, scenarios[transcript.run_unit.scenario_id], fact_seed)
-        write_model_json_atomic(args.scoring_input_root / f"{scoring_input.blind_conversation_id}.json", scoring_input)
-        blind_ids.append(scoring_input.blind_conversation_id)
+        scoring_inputs = build_condition_blind_inputs(
+            transcript,
+            scenarios[transcript.run_unit.scenario_id],
+            fact_seed,
+        )
+        blind_id = next(iter(scoring_inputs.values())).blind_conversation_id
+        package = AnnotationScoringPackage(
+            schema_version="3.0.0",
+            blind_conversation_id=blind_id,
+            scoring_inputs=scoring_inputs,
+        )
+        write_model_json_atomic(
+            args.scoring_input_root / f"{blind_id}.json",
+            package,
+        )
+        blind_ids.append(blind_id)
     payload = {
         "schema_version": "2.0.0",
         "sample_id": f"risk_comm_{stage.value}_annotation_v1",

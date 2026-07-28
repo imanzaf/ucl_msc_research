@@ -13,12 +13,14 @@ from src.data_models.scenarios import DecisionOption, FactPolarity, decision_ali
 from src.data_models.scoring import (
     AnalysisInputRow,
     AnalysisMissingnessReport,
+    ContentAssessmentResult,
     ConversationMetrics,
-    DisclosureState,
+    EvaluationCheckpoint,
     FactAnalysisInputRow,
     ManualScoringResolution,
     MissingRunRecord,
     ScoredConversationBundle,
+    ScoredResponse,
 )
 from src.data_models.study import EXPERIMENT_DIMENSIONS, ExperimentName
 from src.experiments.io import load_accepted_evaluation_scenarios
@@ -26,6 +28,7 @@ from src.experiments.layout import validate_experiment_path
 from src.experiments.scenario_runner import validate_complete_run_plan, validate_exploratory_run_plan
 from src.paths import REPO_ROOT
 from src.prompts.scoring_contracts import scoring_contract_sha256
+from src.scoring.metrics import content_judgments_at_checkpoint
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic, write_models_jsonl_atomic
 
 
@@ -117,7 +120,7 @@ def build_analysis_rows(
         for metric in sorted(metrics, key=lambda item: item.checkpoint.value):
             rows.append(
                 AnalysisInputRow(
-                    schema_version="3.0.0",
+                    schema_version="4.0.0",
                     run_unit_id=run_unit_id,
                     scenario_id=run_unit.scenario_id,
                     use_case_id=run_unit.use_case_id,
@@ -156,46 +159,53 @@ def build_fact_analysis_rows(
     manual_resolutions: List[ManualScoringResolution],
     fact_metadata_by_scenario: Dict[str, Dict[str, Tuple[DecisionOption, FactPolarity, str]]],
 ) -> List[FactAnalysisInputRow]:
-    """Join material-fact judgments to immutable conditions for ordinal R robustness."""
-    result_by_id = {bundle.run_unit_id: bundle.fact_result for bundle in bundles}
-    result_by_id.update({resolution.run_unit_id: resolution.fact_result for resolution in manual_resolutions})
+    """Join binary material-fact decisions to immutable experimental conditions."""
+    result_by_id: Dict[str, Dict[ScoredResponse, ContentAssessmentResult]] = {bundle.run_unit_id: bundle.content_results for bundle in bundles}
+    result_by_id.update({resolution.run_unit_id: resolution.content_results for resolution in manual_resolutions})
     hash_by_id = {bundle.run_unit_id: bundle.bundle_sha256 for bundle in bundles}
     hash_by_id.update({resolution.run_unit_id: resolution.resolution_sha256 for resolution in manual_resolutions})
     transcript_by_id = {
         transcript.run_unit.run_unit_id: transcript for transcript in transcripts if transcript.outcome_status == RunOutcomeStatus.COMPLETED
     }
-    disclosure_ordinal = {DisclosureState.OMITTED: 0, DisclosureState.PARTIAL: 1, DisclosureState.FULL: 2}
     rows: List[FactAnalysisInputRow] = []
     for run_unit_id in sorted(result_by_id):
         transcript = transcript_by_id[run_unit_id]
         run_unit = transcript.run_unit
         metadata_by_fact = fact_metadata_by_scenario[run_unit.scenario_id]
-        for judgment in result_by_id[run_unit_id].judgments:
-            if judgment.fact_id not in metadata_by_fact:
-                continue
-            fact_option, fact_polarity, pair_id = metadata_by_fact[judgment.fact_id]
-            rows.append(
-                FactAnalysisInputRow(
-                    schema_version="3.0.0",
-                    run_unit_id=run_unit_id,
-                    scenario_id=run_unit.scenario_id,
-                    use_case_id=run_unit.use_case_id,
-                    fact_id=judgment.fact_id,
-                    pair_id=pair_id,
-                    fact_option=fact_option,
-                    fact_polarity=fact_polarity,
-                    decision_alignment=decision_alignment(fact_option, fact_polarity),
-                    checkpoint=judgment.checkpoint,
-                    disclosure_ordinal=disclosure_ordinal[judgment.disclosure],
-                    model_id=run_unit.model_id,
-                    word_budget=run_unit.cell.concision,
-                    expressed_concern=run_unit.cell.expressed_concern,
-                    transcript_sha256=transcript.transcript_sha256,
-                    scoring_result_sha256=hash_by_id[run_unit_id],
-                )
+        for checkpoint in EvaluationCheckpoint:
+            judgments = content_judgments_at_checkpoint(
+                result_by_id[run_unit_id],
+                checkpoint,
             )
-    if len(rows) != len(transcript_by_id) * 4 * 2:
-        raise ValueError("fact-level analysis requires four material facts at both checkpoints per completed conversation")
+            for fact_id, judgment in judgments.items():
+                if fact_id not in metadata_by_fact:
+                    continue
+                fact_option, fact_polarity, pair_id = metadata_by_fact[fact_id]
+                rows.append(
+                    FactAnalysisInputRow(
+                        schema_version="4.0.0",
+                        run_unit_id=run_unit_id,
+                        scenario_id=run_unit.scenario_id,
+                        use_case_id=run_unit.use_case_id,
+                        fact_id=fact_id,
+                        pair_id=pair_id,
+                        fact_option=fact_option,
+                        fact_polarity=fact_polarity,
+                        decision_alignment=decision_alignment(
+                            fact_option,
+                            fact_polarity,
+                        ),
+                        checkpoint=checkpoint,
+                        fact_present=judgment.present,
+                        model_id=run_unit.model_id,
+                        word_budget=run_unit.cell.concision,
+                        expressed_concern=run_unit.cell.expressed_concern,
+                        transcript_sha256=transcript.transcript_sha256,
+                        scoring_result_sha256=hash_by_id[run_unit_id],
+                    )
+                )
+    if len(rows) != len(transcript_by_id) * 4 * len(EvaluationCheckpoint):
+        raise ValueError("fact-level analysis requires four material facts at all three checkpoints per completed conversation")
     return rows
 
 
@@ -257,7 +267,7 @@ def main() -> None:
     )
     write_models_jsonl_atomic(args.fact_analysis_output, fact_rows)
     payload = {
-        "schema_version": "2.0.0",
+        "schema_version": "3.0.0",
         "expected_run_count": expected_count,
         "completed_run_count": len({row.run_unit_id for row in rows}),
         "failed_run_count": len(missing_runs),

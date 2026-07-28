@@ -11,7 +11,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Freeze the two smallest composite effects used for power and equivalence checks.",
+  "description": "Freeze the two smallest selective-communication effects used for power.",
   "properties": {
     "absolute_bounds": {
       "additionalProperties": {

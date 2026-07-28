@@ -1,27 +1,33 @@
 {
   "$defs": {
-    "ClaimAssessmentJudgment": {
+    "AccuracyBehaviour": {
+      "description": "Identify one type of material factual inaccuracy.",
+      "enum": [
+        "false_claim",
+        "unsupported_claim"
+      ],
+      "title": "AccuracyBehaviour",
+      "type": "string"
+    },
+    "AccuracyFinding": {
       "additionalProperties": false,
-      "description": "Store one false or unsupported claim grounded in response text.",
+      "description": "Store one typed material inaccuracy grounded in response text.",
       "properties": {
-        "checkpoint": {
-          "$ref": "#/$defs/EvaluationCheckpoint"
+        "behaviour": {
+          "$ref": "#/$defs/AccuracyBehaviour"
         },
-        "claim_id": {
+        "finding_id": {
           "pattern": "^[A-Z0-9_]+$",
-          "title": "Claim Id",
+          "title": "Finding Id",
           "type": "string"
         },
-        "claim_span": {
-          "$ref": "#/$defs/ResponseSpan"
-        },
-        "error_type": {
-          "$ref": "#/$defs/ClaimErrorType"
-        },
-        "rationale": {
+        "reason": {
           "minLength": 1,
-          "title": "Rationale",
+          "title": "Reason",
           "type": "string"
+        },
+        "response_span": {
+          "$ref": "#/$defs/ResponseSpan"
         },
         "visible_evidence_references": {
           "items": {
@@ -32,24 +38,14 @@
         }
       },
       "required": [
-        "claim_id",
-        "checkpoint",
-        "error_type",
-        "claim_span",
+        "finding_id",
+        "behaviour",
+        "response_span",
         "visible_evidence_references",
-        "rationale"
+        "reason"
       ],
-      "title": "ClaimAssessmentJudgment",
+      "title": "AccuracyFinding",
       "type": "object"
-    },
-    "ClaimErrorType": {
-      "description": "Classify claims not licensed by visible evidence.",
-      "enum": [
-        "false",
-        "unsupported"
-      ],
-      "title": "ClaimErrorType",
-      "type": "string"
     },
     "CompletionFinishReason": {
       "description": "Normalise provider completion termination without discarding unknown values.",
@@ -61,15 +57,6 @@
         "unknown"
       ],
       "title": "CompletionFinishReason",
-      "type": "string"
-    },
-    "EvaluationCheckpoint": {
-      "description": "Identify initial-only versus cumulative communication checkpoints.",
-      "enum": [
-        "initial",
-        "cumulative"
-      ],
-      "title": "EvaluationCheckpoint",
       "type": "string"
     },
     "ProviderCallProvenance": {
@@ -158,6 +145,15 @@
       "title": "ResponseSpan",
       "type": "object"
     },
+    "ScoredResponse": {
+      "description": "Identify the independently judged assistant response.",
+      "enum": [
+        "initial",
+        "follow_up"
+      ],
+      "title": "ScoredResponse",
+      "type": "string"
+    },
     "TokenUsage": {
       "additionalProperties": false,
       "description": "Store provider-reported token usage and billed cost for one response.",
@@ -220,18 +216,18 @@
     }
   },
   "additionalProperties": false,
-  "description": "Store the visible-facts-only claim-assessment contract output.",
+  "description": "Store one response's visible-facts-only factual findings.",
   "properties": {
     "blind_conversation_id": {
       "minLength": 1,
       "title": "Blind Conversation Id",
       "type": "string"
     },
-    "claims": {
+    "findings": {
       "items": {
-        "$ref": "#/$defs/ClaimAssessmentJudgment"
+        "$ref": "#/$defs/AccuracyFinding"
       },
-      "title": "Claims",
+      "title": "Findings",
       "type": "array"
     },
     "judge_model_id": {
@@ -251,7 +247,7 @@
       "default": null
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -259,6 +255,9 @@
       "format": "date-time",
       "title": "Scored At",
       "type": "string"
+    },
+    "scored_response": {
+      "$ref": "#/$defs/ScoredResponse"
     },
     "scoring_prompt_sha256": {
       "title": "Scoring Prompt Sha256",
@@ -272,12 +271,13 @@
   "required": [
     "schema_version",
     "blind_conversation_id",
-    "claims",
+    "scored_response",
+    "findings",
     "visible_facts_sha256",
     "judge_model_id",
     "scoring_prompt_sha256",
     "scored_at"
   ],
-  "title": "ClaimAssessmentResult",
+  "title": "AccuracyAssessmentResult",
   "type": "object"
 }

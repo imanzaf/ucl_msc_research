@@ -1,4 +1,4 @@
-"""Exercise the complete offline plan, transcript, scoring, and analysis boundaries."""
+"""Exercise offline run-plan, six-call scoring, and analysis boundaries."""
 
 from __future__ import annotations
 
@@ -9,12 +9,11 @@ from src.analysis.estimands import rows_to_frame
 from src.cli.commands.analysis.build_inputs import build_analysis_rows
 from src.data_models.experiments import RetryPolicy
 from src.data_models.scoring import (
+    AccuracyAssessmentResult,
     AnalysisInputRow,
-    ClaimAssessmentResult,
-    ConditionBlindScoringInput,
+    ContentAssessmentResult,
     EvaluationCheckpoint,
-    FactAssessmentResult,
-    ResponseCommunicationResult,
+    PresentationAssessmentResult,
 )
 from src.data_models.study import ExperimentName
 from src.experiments.scenario_runner import build_brevity_locus_run_plan, build_material_priority_run_plan, build_run_plan, execute_run_unit
@@ -24,16 +23,19 @@ from tests.factories import make_accepted_scenario, make_models, make_scoring_re
 
 
 def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
-    """Build every run matrix and simulate one natural-follow-up conversation through scoring."""
+    """Build every matrix and score one conversation with six local fixture calls."""
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     created_at = datetime(2026, 7, 22, tzinfo=timezone.utc)
     models = make_models()
-    primary_plan = build_run_plan(scenarios, models, 7, created_at)
-    material_plan = build_material_priority_run_plan(scenarios, models, 7, created_at)
-    brevity_plan = build_brevity_locus_run_plan(scenarios, models, 7, created_at)
-    assert len(primary_plan) == 240
+    assert len(build_run_plan(scenarios, models, 7, created_at)) == 240
+    material_plan = build_material_priority_run_plan(
+        scenarios,
+        models,
+        7,
+        created_at,
+    )
     assert len(material_plan) == 120
-    assert len(brevity_plan) == 60
+    assert len(build_brevity_locus_run_plan(scenarios, models, 7, created_at)) == 60
 
     class OfflineFailureProvider:
         """Simulate terminal provider failures without network access."""
@@ -46,10 +48,17 @@ def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
             max_tokens: int,
             seed: int,
         ) -> ProviderTextResponse:
-            """Fail every request to exercise a complete typed missingness ledger."""
+            """Fail every request to exercise typed missingness."""
             raise TimeoutError("offline simulated provider failure")
 
-    failed_material = [execute_run_unit(unit, OfflineFailureProvider(), RetryPolicy(max_retries=0, backoff_seconds=[])) for unit in material_plan]
+    failed_material = [
+        execute_run_unit(
+            unit,
+            OfflineFailureProvider(),
+            RetryPolicy(max_retries=0, backoff_seconds=[]),
+        )
+        for unit in material_plan
+    ]
     analysis_rows, missing = build_analysis_rows(
         failed_material,
         [],
@@ -64,38 +73,35 @@ def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
 
     scenario = scenarios[0]
     transcript = make_transcript(scenario)
-    fact_result, response_result, claim_result = make_scoring_results(scenario, transcript)
+    content, presentation, accuracy = make_scoring_results(scenario, transcript)
 
     class OfflineScoringBackend:
         """Return deterministic fixture judgments without external calls."""
 
-        def assess_facts(self, scoring_input: ConditionBlindScoringInput) -> FactAssessmentResult:
-            """Return fact judgments bound to the generated blind identifier."""
-            return fact_result.model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
+        def assess_content(self, scoring_input: object) -> ContentAssessmentResult:
+            """Return content bound to the isolated blind identifier."""
+            return content[scoring_input.scored_response].model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
 
-        def assess_response(self, scoring_input: ConditionBlindScoringInput) -> ResponseCommunicationResult:
-            """Return response judgments bound to the generated blind identifier."""
-            return response_result.model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
+        def assess_presentation(
+            self,
+            scoring_input: object,
+        ) -> PresentationAssessmentResult:
+            """Return presentation findings for the selected response."""
+            return presentation[scoring_input.scored_response].model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
 
-        def assess_claims(self, scoring_input: ConditionBlindScoringInput) -> ClaimAssessmentResult:
-            """Return claim judgments bound to the generated blind identifier and source."""
-            return claim_result.model_copy(
-                update={
-                    "blind_conversation_id": scoring_input.blind_conversation_id,
-                    "visible_facts_sha256": scoring_input.visible_facts_sha256,
-                }
-            )
+        def assess_accuracy(self, scoring_input: object) -> AccuracyAssessmentResult:
+            """Return accuracy findings for the selected response."""
+            return accuracy[scoring_input.scored_response].model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
 
-    _scoring_input, _facts, _response, _claims, metrics = score_conversation(
+    _inputs, _content, _presentation, _accuracy, metrics = score_conversation(
         transcript,
         scenario,
         OfflineScoringBackend(),
         fact_order_seed=7,
-        prompt_factor_isolation_valid=True,
     )
     rows = [
         AnalysisInputRow(
-            schema_version="3.0.0",
+            schema_version="4.0.0",
             run_unit_id=transcript.run_unit.run_unit_id,
             scenario_id=scenario.scenario_id,
             use_case_id=scenario.use_case_id,
@@ -110,5 +116,6 @@ def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
     ]
     initial = rows_to_frame(rows)
     assert len(initial) == 1
-    assert 0 <= initial.iloc[0]["selective_risk_communication_score"] <= 1
+    assert 0 <= initial.iloc[0]["selective_communication_score"] <= 1
+    assert len(rows_to_frame(rows, EvaluationCheckpoint.FOLLOW_UP)) == 1
     assert len(rows_to_frame(rows, EvaluationCheckpoint.CUMULATIVE)) == 1

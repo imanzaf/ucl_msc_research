@@ -32,7 +32,7 @@ from src.settings.api_settings import OpenRouterCredentialRole, get_api_settings
 from src.settings.model_settings import get_model_settings
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic, write_models_jsonl_atomic
 
-DEFAULT_EXPERIMENT_NAME = "c1_llama_2x2_v1"
+DEFAULT_EXPERIMENT_NAME = "c1_llama_2x2_v2"
 DEFAULT_AGENT_MODEL_ID = "meta-llama/llama-3.3-70b-instruct"
 DEFAULT_SCORING_MODEL_ID = "google/gemini-3.1-flash-lite"
 MODEL_CATALOG_PATH = REPO_ROOT / "src/settings/models.json"
