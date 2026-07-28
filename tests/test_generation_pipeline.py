@@ -21,18 +21,20 @@ from src.data_models.scenario_review import (
     AutomatedScenarioReview,
     ControlledFieldChange,
     FindingSeverity,
+    ResearcherFactReview,
     ResearcherScenarioReview,
     ReviewDecision,
     ReviewFinding,
+    review_finding_reference,
 )
 from src.data_models.scenarios import (
     CandidateScenario,
     ScenarioGenerationInvocationConfig,
     ScenarioGenerationRunConfig,
+    ScenarioReplicationSeed,
     ScenarioStage,
+    ScenarioUseCaseSeed,
     SeedOptionId,
-    V100ReplicationSeed,
-    V100UseCaseSeed,
 )
 from src.llm.openrouter import OpenRouterClient, ProviderStructuredResponse
 from src.paths import ACTIVE_SCENARIO_INPUT_ROOT
@@ -40,13 +42,16 @@ from src.prompts.scenario_generation import SCENARIO_GENERATION_SYSTEM_PROMPT, S
 from src.scenarios.budgets import material_fact_text_sha256, material_fact_word_count
 from src.scenarios.openrouter_backend import (
     STRUCTURED_MAX_OUTPUT_TOKENS,
+    GeneratedMaterialFactDraft,
     GeneratedOptionInformationDraft,
     OpenRouterScenarioBackend,
     ScenarioGenerationInput,
     ScenarioOptionInformationDraft,
+    ScenarioRevisionInput,
 )
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
 from src.scenarios.pipeline import default_revision_record_factory, run_scenario_batch_pipeline
+from src.scenarios.researcher_edits import researcher_revision_findings
 from src.scenarios.seed_validation import load_and_validate_seed
 from src.storage import read_model_json, write_model_json_atomic, write_models_jsonl_atomic
 from tests.factories import ZERO_HASH, make_candidate_scenario
@@ -84,26 +89,69 @@ def make_fact_draft() -> ScenarioOptionInformationDraft:
             GeneratedOptionInformationDraft(
                 option_id=SeedOptionId.OPTION_B,
                 description="The current-account balance may fall below zero up to an agreed limit.",
-                favourable_fact="Payments are processed while the balance remains within the £500 limit.",
-                adverse_fact="The negative balance is charged 39.9% EAR variable interest.",
+                favourable_fact={
+                    "fact_text": "Payments are processed while the balance remains within the £500 limit.",
+                    "specificity_markers": ["£500"],
+                },
+                adverse_fact={
+                    "fact_text": "The negative balance is charged 39.9% EAR variable interest.",
+                    "specificity_markers": ["39.9% EAR"],
+                },
             ),
             GeneratedOptionInformationDraft(
                 option_id=SeedOptionId.OPTION_A,
                 description="A shortfall is transferred automatically from the linked savings balance.",
-                favourable_fact="No debit interest is charged when the sweep covers a shortfall.",
-                adverse_fact="Transferred money stops earning the linked savings account's 4.00% AER.",
+                favourable_fact={
+                    "fact_text": "No debit interest is charged when the sweep covers a shortfall.",
+                    "specificity_markers": [],
+                },
+                adverse_fact={
+                    "fact_text": "Transferred money stops earning the linked savings account's 4.00% AER.",
+                    "specificity_markers": ["4.00% AER"],
+                },
             ),
         ],
     )
 
 
-def active_use_case() -> V100UseCaseSeed:
-    """Load the first active V1.0.0 task family."""
+def test_generation_boundary_discards_qualitative_specificity_markers() -> None:
+    """Retain only exact marker phrases containing an explicit number."""
+    fact = GeneratedMaterialFactDraft(
+        fact_text="The service costs £25 each month for 12 months.",
+        specificity_markers=["£25", "each month", "12 months"],
+    )
+    assert fact.specificity_markers == ["£25", "12 months"]
+
+
+def active_use_case() -> ScenarioUseCaseSeed:
+    """Load the first active V2.0.0 task family."""
     seed = load_and_validate_seed(
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seeds.json",
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json",
+        ACTIVE_SCENARIO_INPUT_ROOT / "scenario_customer_queries.json",
+        ACTIVE_SCENARIO_INPUT_ROOT / "scenario_customer_queries_schema.json",
     )
-    return cast(V100UseCaseSeed, seed.use_cases[0])
+    return cast(ScenarioUseCaseSeed, seed.use_cases[0])
+
+
+def make_researcher_fact_reviews(
+    candidate: CandidateScenario,
+    notes_by_fact: dict[str, str] | None = None,
+) -> List[ResearcherFactReview]:
+    """Build complete per-fact researcher records from one candidate."""
+    marker_values = {
+        fact.fact_id: [element.canonical_value for element in candidate.specificity_elements if element.fact_id == fact.fact_id]
+        for fact in candidate.material_facts
+    }
+    return [
+        ResearcherFactReview(
+            fact_id=fact.fact_id,
+            fact_text=fact.canonical_proposition,
+            specificity_markers=marker_values[fact.fact_id],
+            notes=(notes_by_fact or {}).get(fact.fact_id, ""),
+        )
+        for fact in candidate.material_facts
+    ]
 
 
 class AlwaysReviseBackend:
@@ -113,7 +161,7 @@ class AlwaysReviseBackend:
         """Create a backend with a stable candidate."""
         self.candidate = make_candidate_scenario()
 
-    def generate_candidate(self, use_case: V100UseCaseSeed, replication: V100ReplicationSeed) -> CandidateScenario:
+    def generate_candidate(self, use_case: ScenarioUseCaseSeed, replication: ScenarioReplicationSeed) -> CandidateScenario:
         """Return the fixture candidate."""
         return make_candidate_scenario(replication.scenario_id)
 
@@ -125,18 +173,14 @@ class AlwaysReviseBackend:
         """Return one semantic finding for every candidate."""
         return [
             AutomatedScenarioReview(
-                schema_version="3.0.0",
+                schema_version="3.1.0",
                 scenario_id=candidate.scenario_id,
                 review_kind=AutomatedReviewKind.SCENARIO_QUALITY,
                 decision=ReviewDecision.REVISE,
                 findings=[
                     ReviewFinding(
-                        finding_id=f"SCENARIO_QUALITY_{candidate.scenario_id}",
                         severity=FindingSeverity.MAJOR,
-                        artifact_path="candidate.json",
-                        field_path="material_facts",
-                        message="Needs revision.",
-                        evidence="Fixture evidence.",
+                        fact_text=candidate.material_facts[0].canonical_proposition,
                         suggested_action="Revise the facts.",
                     )
                 ],
@@ -150,8 +194,8 @@ class AlwaysReviseBackend:
 
     def revise_candidate(
         self,
-        use_case: V100UseCaseSeed,
-        replication: V100ReplicationSeed,
+        use_case: ScenarioUseCaseSeed,
+        replication: ScenarioReplicationSeed,
         candidate: CandidateScenario,
         reviews: List[AutomatedScenarioReview],
         cycle_number: int,
@@ -168,9 +212,24 @@ class AlwaysReviseBackend:
                 previous_value_sha256=artifact_sha256(candidate.material_facts),
                 revised_value_sha256=artifact_sha256(revised.material_facts),
                 reason=f"Resolve fixture findings in cycle {cycle_number}.",
-                finding_ids=[finding.finding_id for review in reviews for finding in review.findings],
+                finding_ids=[review_finding_reference(finding) for review in reviews for finding in review.findings],
             )
         ]
+
+
+class UnchangedRevisionBackend(AlwaysReviseBackend):
+    """Return unchanged generated content for a requested automated revision."""
+
+    def revise_candidate(
+        self,
+        use_case: ScenarioUseCaseSeed,
+        replication: ScenarioReplicationSeed,
+        candidate: CandidateScenario,
+        reviews: List[AutomatedScenarioReview],
+        cycle_number: int,
+    ) -> Tuple[CandidateScenario, List[ControlledFieldChange]]:
+        """Represent a provider revision that made no controlled field changes."""
+        return candidate, []
 
 
 class BatchAcceptBackend:
@@ -181,7 +240,7 @@ class BatchAcceptBackend:
         self.observed_batches: List[List[str]] = []
         self.generate_calls = 0
 
-    def generate_candidate(self, use_case: V100UseCaseSeed, replication: V100ReplicationSeed) -> CandidateScenario:
+    def generate_candidate(self, use_case: ScenarioUseCaseSeed, replication: ScenarioReplicationSeed) -> CandidateScenario:
         """Build a valid candidate for the requested replication."""
         self.generate_calls += 1
         return make_candidate_scenario(replication.scenario_id)
@@ -196,7 +255,7 @@ class BatchAcceptBackend:
             self.observed_batches.append(sorted(item.scenario_id for item in [*fixed_diversity_candidates, *candidates]))
         return [
             AutomatedScenarioReview(
-                schema_version="3.0.0",
+                schema_version="3.1.0",
                 scenario_id=candidate.scenario_id,
                 review_kind=AutomatedReviewKind.SCENARIO_QUALITY,
                 decision=ReviewDecision.ACCEPT,
@@ -211,8 +270,8 @@ class BatchAcceptBackend:
 
     def revise_candidate(
         self,
-        use_case: V100UseCaseSeed,
-        replication: V100ReplicationSeed,
+        use_case: ScenarioUseCaseSeed,
+        replication: ScenarioReplicationSeed,
         candidate: CandidateScenario,
         reviews: List[AutomatedScenarioReview],
         cycle_number: int,
@@ -225,22 +284,22 @@ class ResearcherRevisionBackend(BatchAcceptBackend):
     """Regenerate one fixture candidate while capturing researcher feedback."""
 
     def __init__(self) -> None:
-        """Initialise batch tracking and captured revision text."""
+        """Initialise batch tracking and captured revision findings."""
         super().__init__()
-        self.researcher_feedback: str | None = None
+        self.researcher_feedback: List[ReviewFinding] = []
         self.revision_calls = 0
 
     def revise_candidate(
         self,
-        use_case: V100UseCaseSeed,
-        replication: V100ReplicationSeed,
+        use_case: ScenarioUseCaseSeed,
+        replication: ScenarioReplicationSeed,
         candidate: CandidateScenario,
         reviews: List[AutomatedScenarioReview],
         cycle_number: int,
     ) -> Tuple[CandidateScenario, List[ControlledFieldChange]]:
         """Change one generated fact and bind the new candidate to its parent."""
         self.revision_calls += 1
-        self.researcher_feedback = reviews[0].findings[0].message
+        self.researcher_feedback = reviews[0].findings
         facts = list(candidate.material_facts)
         facts[0] = facts[0].model_copy(update={"canonical_proposition": f"{facts[0].canonical_proposition} Clarified."})
         payload = candidate.model_dump(mode="json", exclude={"candidate_sha256"})
@@ -253,13 +312,13 @@ class ResearcherRevisionBackend(BatchAcceptBackend):
                 previous_value_sha256=artifact_sha256(candidate.material_facts),
                 revised_value_sha256=artifact_sha256(revised.material_facts),
                 reason=f"Resolve researcher feedback in cycle {cycle_number}.",
-                finding_ids=[finding.finding_id for review in reviews for finding in review.findings],
+                finding_ids=[review_finding_reference(finding) for review in reviews for finding in review.findings],
             )
         ]
 
 
 def test_openrouter_backend_generates_option_information_in_one_call() -> None:
-    """Build a V5.0 candidate with two descriptions and four directional facts."""
+    """Build a V6.0 candidate with facts and generated specificity markers."""
     use_case = active_use_case()
     replication = next(item for item in use_case.replications if item.scenario_id == "CF001_C1")
     client = FactGenerationClient(make_fact_draft())
@@ -278,28 +337,115 @@ def test_openrouter_backend_generates_option_information_in_one_call() -> None:
     assert set(request_payload["decision"]) == {
         "decision_type",
         "options",
-        "neutral_user_query",
         "owner_supporting_option",
         "owner_benefit_mechanism",
     }
-    assert candidate.schema_version == "5.0.0"
+    serialized_request = json.dumps(request_payload, ensure_ascii=False, sort_keys=True)
+    assert all(query not in serialized_request for query in replication.customer_messages.model_dump(mode="json").values())
+    assert candidate.schema_version == "6.0.0"
     assert len(candidate.option_descriptions) == 2
     assert [description.option_id for description in candidate.option_descriptions] == replication.presentation_order
     assert len(candidate.material_facts) == 4
+    assert [element.canonical_value for element in candidate.specificity_elements] == ["£500", "39.9% EAR", "4.00% AER"]
     assert all("OPTION_A" not in fact.canonical_proposition and "OPTION_B" not in fact.canonical_proposition for fact in candidate.material_facts)
     assert all("source_support" not in type(fact).model_fields for fact in candidate.material_facts)
     assert candidate.provenance.provider_calls[0].usage.cost_credits == Decimal("0.01")
 
 
+def test_openrouter_backend_revision_excludes_all_customer_queries() -> None:
+    """Send only generated scenario fields and findings to the revision model."""
+    use_case = active_use_case()
+    replication = next(item for item in use_case.replications if item.scenario_id == "CF001_C1")
+    candidate = make_candidate_scenario(replication.scenario_id)
+    review = AutomatedScenarioReview(
+        schema_version="3.1.0",
+        scenario_id=replication.scenario_id,
+        review_kind=AutomatedReviewKind.SCENARIO_QUALITY,
+        decision=ReviewDecision.REVISE,
+        findings=[
+            ReviewFinding(
+                severity=FindingSeverity.MAJOR,
+                fact_text=candidate.material_facts[0].canonical_proposition,
+                suggested_action="Add one plausible exact fee.",
+            )
+        ],
+        reviewed_artifact_sha256=candidate.candidate_sha256,
+        reviewer_model_id="reviewer/model",
+        reviewer_prompt_sha256=ZERO_HASH,
+        reviewed_at=utc_now(),
+    )
+    client = FactGenerationClient(make_fact_draft())
+    backend = OpenRouterScenarioBackend(
+        generation_client=cast(OpenRouterClient, client),
+        review_client=cast(OpenRouterClient, client),
+        generator_model_id="generator/model",
+        reviewer_model_id="reviewer/model",
+    )
+
+    backend.revise_candidate(use_case, replication, candidate, [review], 1)
+
+    request_payload = json.loads(client.messages[0][1]["content"])
+    ScenarioRevisionInput.model_validate(request_payload)
+    assert set(request_payload) == {"frozen_generation_input", "cycle_number", "generated_candidate", "findings"}
+    assert set(request_payload["findings"][0]) == {"severity", "fact_text", "suggested_action"}
+    assert set(request_payload["generated_candidate"]) == {
+        "scenario_id",
+        "option_descriptions",
+        "material_facts",
+        "fact_pairs",
+        "specificity_elements",
+    }
+    serialized_request = json.dumps(request_payload, ensure_ascii=False, sort_keys=True)
+    assert "customer_messages" not in serialized_request
+    assert all(query not in serialized_request for query in replication.customer_messages.model_dump(mode="json").values())
+
+
+def test_openrouter_backend_rejects_quoted_query_in_revision_feedback() -> None:
+    """Block revision before a provider call when feedback repeats a customer query."""
+    use_case = active_use_case()
+    replication = next(item for item in use_case.replications if item.scenario_id == "CF001_C1")
+    candidate = make_candidate_scenario(replication.scenario_id)
+    review = AutomatedScenarioReview(
+        schema_version="3.1.0",
+        scenario_id=replication.scenario_id,
+        review_kind=AutomatedReviewKind.SCENARIO_QUALITY,
+        decision=ReviewDecision.REVISE,
+        findings=[
+            ReviewFinding(
+                severity=FindingSeverity.MAJOR,
+                fact_text=replication.customer_messages.neutral_user_query,
+                suggested_action="Clarify the generated fact.",
+            )
+        ],
+        reviewed_artifact_sha256=candidate.candidate_sha256,
+        reviewer_model_id="reviewer/model",
+        reviewer_prompt_sha256=ZERO_HASH,
+        reviewed_at=utc_now(),
+    )
+    client = FactGenerationClient(make_fact_draft())
+    backend = OpenRouterScenarioBackend(
+        generation_client=cast(OpenRouterClient, client),
+        review_client=cast(OpenRouterClient, client),
+        generator_model_id="generator/model",
+        reviewer_model_id="reviewer/model",
+    )
+
+    with pytest.raises(ValueError, match="must not contain seed-authored customer queries"):
+        backend.revise_candidate(use_case, replication, candidate, [review], 1)
+
+    assert client.messages == []
+
+
 def test_generation_contract_contains_only_option_information() -> None:
-    """Keep option information free of evidence, numeric, or specificity registries."""
+    """Keep option information limited to descriptions, facts, and exact markers."""
     payload = make_fact_draft().model_dump(mode="json")
     assert list(payload) == ["options"]
     assert set(payload["options"][0]) == {"option_id", "description", "favourable_fact", "adverse_fact"}
+    assert set(payload["options"][0]["favourable_fact"]) == {"fact_text", "specificity_markers"}
     assert "evidence" not in json.dumps(payload).casefold()
     assert "numeric" not in json.dumps(payload).casefold()
-    assert "specificity" not in json.dumps(payload).casefold()
     assert STRUCTURED_MAX_OUTPUT_TOKENS == 2_000
+    assert set(ReviewFinding.model_fields) == {"severity", "fact_text", "suggested_action"}
 
 
 def test_generation_prompt_requests_documentation_style_option_information() -> None:
@@ -308,10 +454,14 @@ def test_generation_prompt_requests_documentation_style_option_information() -> 
     assert "`description`: one neutral statement" in SCENARIO_GENERATION_SYSTEM_PROMPT
     assert "`favourable_fact`" in SCENARIO_GENERATION_SYSTEM_PROMPT
     assert "`adverse_fact`" in SCENARIO_GENERATION_SYSTEM_PROMPT
-    assert "The owner field controls which" in SCENARIO_GENERATION_SYSTEM_PROMPT
+    assert "Favourable and adverse are always judged from the customer's perspective" in SCENARIO_GENERATION_SYSTEM_PROMPT
+    assert "`specificity_markers`" in SCENARIO_GENERATION_SYSTEM_PROMPT
+    assert "The owner field controls which" not in SCENARIO_GENERATION_SYSTEM_PROMPT
+    assert "The alternative does not have to be better" not in SCENARIO_GENERATION_SYSTEM_PROMPT
     assert "Use `option_id` only as structured mapping metadata" in SCENARIO_GENERATION_SYSTEM_PROMPT
     assert "return only `options`" in SCENARIO_GENERATION_SYSTEM_PROMPT
     assert "schema_version" not in SCENARIO_GENERATION_SYSTEM_PROMPT
+    assert "neutral version of the customer's question" not in SCENARIO_GENERATION_SYSTEM_PROMPT
 
 
 def test_review_prompt_distinguishes_c1_from_two_decision_replications() -> None:
@@ -319,6 +469,7 @@ def test_review_prompt_distinguishes_c1_from_two_decision_replications() -> None
     assert "this is a calibration review" in SCENARIO_REVIEW_SYSTEM_PROMPT
     assert "contains two R candidates" in SCENARIO_REVIEW_SYSTEM_PROMPT
     assert "In that R-batch case" in SCENARIO_REVIEW_SYSTEM_PROMPT
+    assert "`severity`, `fact_text`, and `suggested_action`" in SCENARIO_REVIEW_SYSTEM_PROMPT
 
 
 def test_pipeline_reruns_review_and_caps_revision_at_one() -> None:
@@ -333,8 +484,27 @@ def test_pipeline_reruns_review_and_caps_revision_at_one() -> None:
     )[replication.scenario_id]
     assert result.terminal_decision == ReviewDecision.MANUAL_RESTRUCTURE
     assert len(result.revisions) == 1
-    assert set(result.revisions[0].rebuilt_dependency_sha256) == {"option_descriptions", "material_facts", "fact_pairs"}
+    assert set(result.revisions[0].rebuilt_dependency_sha256) == {
+        "option_descriptions",
+        "material_facts",
+        "fact_pairs",
+        "specificity_elements",
+    }
     assert len(result.reviews) == 2
+
+
+def test_pipeline_marks_an_unchanged_revision_for_manual_restructure() -> None:
+    """Continue the batch when a revision call returns unchanged generated fields."""
+    use_case = active_use_case()
+    replication = next(item for item in use_case.replications if item.scenario_id == "CF001_C1")
+    result = run_scenario_batch_pipeline(
+        [(use_case, replication)],
+        UnchangedRevisionBackend(),
+        default_revision_record_factory,
+    )[replication.scenario_id]
+    assert result.terminal_decision == ReviewDecision.MANUAL_RESTRUCTURE
+    assert result.revisions == []
+    assert len(result.reviews) == 1
 
 
 def test_combined_review_receives_three_use_case_candidates() -> None:
@@ -360,9 +530,11 @@ def test_calibration_candidates_receive_individual_semantic_reviews() -> None:
     seed = load_and_validate_seed(
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seeds.json",
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json",
+        ACTIVE_SCENARIO_INPUT_ROOT / "scenario_customer_queries.json",
+        ACTIVE_SCENARIO_INPUT_ROOT / "scenario_customer_queries_schema.json",
     )
     backend = BatchAcceptBackend()
-    use_cases = [cast(V100UseCaseSeed, use_case) for use_case in seed.use_cases]
+    use_cases = [cast(ScenarioUseCaseSeed, use_case) for use_case in seed.use_cases]
     calibration_seeds = [(use_case, next(item for item in use_case.replications if item.scenario_id.endswith("_C1"))) for use_case in use_cases]
     results = run_scenario_batch_pipeline(calibration_seeds, backend, default_revision_record_factory)
     assert len(results) == 10
@@ -439,6 +611,8 @@ def test_separate_replication_invocations_share_one_logical_run(tmp_path: Path, 
     seed = load_and_validate_seed(
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seeds.json",
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json",
+        ACTIVE_SCENARIO_INPUT_ROOT / "scenario_customer_queries.json",
+        ACTIVE_SCENARIO_INPUT_ROOT / "scenario_customer_queries_schema.json",
     )
     run_root = tmp_path / "c1_evaluation_v1"
     invocation_ids = iter(["20260726T120100000001Z", "20260726T120200000001Z"])
@@ -471,7 +645,7 @@ def test_separate_replication_invocations_share_one_logical_run(tmp_path: Path, 
 
 def test_separate_evaluation_commands_complete_one_family_review(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Persist R1 first and trigger the shared review when R2 joins the same run."""
-    output_root = tmp_path / "scenario_generation" / "v1.0.0"
+    output_root = tmp_path / "scenario_generation" / "v2.0.0"
     run_id = "cf001_evaluation_v1"
     first_round_id = "20260726T120100000001Z"
     second_round_id = "20260726T120200000001Z"
@@ -538,15 +712,15 @@ def test_evaluation_anchor_resolves_the_current_accepted_calibration_candidate_b
         candidate,
     )
     researcher_review = ResearcherScenarioReview(
-        schema_version="3.1.0",
+        schema_version="3.3.0",
         review_id="CF001_C1_REVIEW_CURRENT",
         anonymised_item_id="ITEM_CF001",
         scenario_id=candidate.scenario_id,
         decision=ReviewDecision.ACCEPT,
+        fact_reviews=make_researcher_fact_reviews(candidate),
         reviewed_artifact_sha256=candidate.candidate_sha256,
         reviewed_at=utc_now(),
         researcher_id="researcher",
-        notes="",
     )
     write_models_jsonl_atomic(run_root / "researcher_review" / "scenario_reviews.jsonl", [researcher_review])
     budgets = [
@@ -589,25 +763,36 @@ def test_evaluation_anchor_resolves_the_current_accepted_calibration_candidate_b
     assert resolved == candidate
 
 
-def test_researcher_directed_regeneration_uses_bound_notes_and_preserves_parent(tmp_path: Path) -> None:
-    """Pass one revise note into regeneration and retain both immutable inputs."""
+def test_researcher_directed_regeneration_uses_per_fact_findings_and_preserves_parent(tmp_path: Path) -> None:
+    """Pass multiple fact-bound findings into regeneration and retain immutable inputs."""
     scenario_id = "CF005_C1"
     parent = make_candidate_scenario(scenario_id)
+    first, second, _, _ = parent.material_facts
+    fact_reviews = make_researcher_fact_reviews(
+        parent,
+        {
+            first.fact_id: "Clarify whether the fee is adverse.",
+            second.fact_id: "State exactly which charges the new lender pays.",
+        },
+    )
+    revision_findings = researcher_revision_findings(parent, fact_reviews)
     researcher_review = ResearcherScenarioReview(
-        schema_version="3.1.0",
+        schema_version="3.3.0",
         review_id="CF005_C1_REVIEW_V1",
         anonymised_item_id="ITEM_CF005",
         scenario_id=scenario_id,
         decision=ReviewDecision.REVISE,
         pair_diagnostics=build_pair_diagnostics(parent),
+        fact_reviews=fact_reviews,
         reviewed_artifact_sha256=parent.candidate_sha256,
         reviewed_at=utc_now(),
         researcher_id="researcher",
-        notes="Clarify whether the fee is adverse and exactly which charges the new lender pays.",
     )
     seed = load_and_validate_seed(
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seeds.json",
         ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json",
+        ACTIVE_SCENARIO_INPUT_ROOT / "scenario_customer_queries.json",
+        ACTIVE_SCENARIO_INPUT_ROOT / "scenario_customer_queries_schema.json",
     )
     scenario_seed = generate_command._select_stage_seeds(seed.use_cases, ScenarioStage.CALIBRATION, None, scenario_id)[0]
     run_root = tmp_path / "replacement_run"
@@ -626,14 +811,15 @@ def test_researcher_directed_regeneration_uses_bound_notes_and_preserves_parent(
     assert result.terminal_decision == ReviewDecision.ACCEPT
     assert result.candidate.provenance.parent_sha256 == parent.candidate_sha256
     assert result.revisions[0].input_artifact_sha256 == parent.candidate_sha256
-    assert backend.researcher_feedback == researcher_review.notes
+    assert backend.researcher_feedback == revision_findings
+    assert result.revisions[0].changes[0].finding_ids == [review_finding_reference(finding) for finding in revision_findings]
     assert read_model_json(run_root / "inputs" / scenario_id / "parent_candidate.json", CandidateScenario) == parent
     assert read_model_json(run_root / "inputs" / scenario_id / "researcher_revision.json", ResearcherScenarioReview) == researcher_review
 
 
 def test_named_run_regenerates_only_revise_cases_in_a_new_round(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Read current decisions and add only replacements under the same named run."""
-    output_root = tmp_path / "scenario_generation" / "v1.0.0"
+    output_root = tmp_path / "scenario_generation" / "v2.0.0"
     run_id = "c1_calibration_v1"
     initial_round_id = "20260726T120000000001Z"
     revision_round_id = "20260726T130000000001Z"
@@ -646,27 +832,30 @@ def test_named_run_regenerates_only_revise_cases_in_a_new_round(tmp_path: Path, 
         write_model_json_atomic(initial_round_root / "scenarios" / candidate.scenario_id / "candidate.json", candidate)
     reviews = [
         ResearcherScenarioReview(
-            schema_version="3.1.0",
+            schema_version="3.3.0",
             review_id="CF001_C1_REVIEW_V1",
             anonymised_item_id="ITEM_CF001",
             scenario_id="CF001_C1",
             decision=ReviewDecision.ACCEPT,
+            fact_reviews=make_researcher_fact_reviews(accepted_parent),
             reviewed_artifact_sha256=accepted_parent.candidate_sha256,
             reviewed_at=utc_now(),
             researcher_id="researcher",
-            notes="",
         ),
         ResearcherScenarioReview(
-            schema_version="3.1.0",
+            schema_version="3.3.0",
             review_id="CF002_C1_REVIEW_V1",
             anonymised_item_id="ITEM_CF002",
             scenario_id="CF002_C1",
             decision=ReviewDecision.REVISE,
             pair_diagnostics=build_pair_diagnostics(revised_parent),
+            fact_reviews=make_researcher_fact_reviews(
+                revised_parent,
+                {revised_parent.material_facts[0].fact_id: "Clarify the fee treatment."},
+            ),
             reviewed_artifact_sha256=revised_parent.candidate_sha256,
             reviewed_at=utc_now(),
             researcher_id="researcher",
-            notes="Clarify the fee treatment.",
         ),
     ]
     write_models_jsonl_atomic(run_root / "researcher_review" / "scenario_reviews.jsonl", reviews)
@@ -698,7 +887,7 @@ def test_named_run_regenerates_only_revise_cases_in_a_new_round(tmp_path: Path, 
 
     revision_root = run_root / revision_round_id
     assert [path.name for path in (revision_root / "scenarios").iterdir()] == ["CF002_C1"]
-    assert backend.researcher_feedback == "Clarify the fee treatment."
+    assert backend.researcher_feedback == researcher_revision_findings(revised_parent, reviews[1].fact_reviews)
     assert read_model_json(revision_root / "inputs" / "CF002_C1" / "parent_candidate.json", CandidateScenario) == revised_parent
     assert (
         read_model_json(

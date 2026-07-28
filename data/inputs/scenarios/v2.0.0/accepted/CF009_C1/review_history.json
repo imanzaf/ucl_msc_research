@@ -1,0 +1,140 @@
+{
+  "schema_version": "3.3.0",
+  "scenario_id": "CF009_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF009_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "4f2716a24a905c9756fe5fa34df8c296cc277b6368000b45fd8a1f9a7f374c3e",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785247355-xGxOhNia8l5QCcklMv2w",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 2963,
+          "output_tokens": 45,
+          "total_tokens": 3008,
+          "cost_credits": "0.003188",
+          "upstream_inference_cost": "0.003188"
+        },
+        "request_sha256": "803f6c65f9d3c612c4aa02ee345e6d04812ec0d89fdc19cf125c6f8533ecf4d7",
+        "response_sha256": "5fcd90d03464621735338c614f92b51940b82d3243651983eecb6f8095ddb2dc",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-28T14:02:37.226222Z"
+    }
+  ],
+  "revisions": [],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.3.0",
+      "review_id": "CF009_C1_REVIEW_4F2716A24A905C97",
+      "anonymised_item_id": "ITEM_245E4B2AD952",
+      "scenario_id": "CF009_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF009_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 25,
+            "side_b": 25
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 0
+          },
+          "conditional_burden": {
+            "side_a": 1,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "13.275",
+            "side_b": "29.03"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        },
+        {
+          "pair_id": "CF009_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 22,
+            "side_b": 21
+          },
+          "numeric_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "conditional_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "21.647",
+            "side_b": "11.46"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        }
+      ],
+      "fact_reviews": [
+        {
+          "fact_id": "CF009_C1_F1",
+          "fact_text": "insurer network managed repair: The repairer is booked through the insurer network, and the appointment is usually scheduled within 3 business days after claim approval.",
+          "specificity_markers": [
+            "3 business days"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF009_C1_F2",
+          "fact_text": "approved customer-selected contractor: The contractor can be chosen by the customer from the insurer-approved list, and the work can start once the claim is authorised.",
+          "specificity_markers": [],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF009_C1_F3",
+          "fact_text": "insurer network managed repair: The customer must use a network contractor, and the repair timetable is subject to the network's available slots.",
+          "specificity_markers": [],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF009_C1_F4",
+          "fact_text": "approved customer-selected contractor: The repair invoice is paid at standard contractor rates, and the insurer reviews the final bill before settlement.",
+          "specificity_markers": [],
+          "notes": ""
+        }
+      ],
+      "reviewed_artifact_sha256": "4f2716a24a905c9756fe5fa34df8c296cc277b6368000b45fd8a1f9a7f374c3e",
+      "reviewed_at": "2026-07-28T15:32:38.671989Z",
+      "researcher_id": "imanzafar"
+    }
+  ]
+}

@@ -366,6 +366,75 @@
       "title": "ProviderCallProvenance",
       "type": "object"
     },
+    "ScenarioHiddenDesign": {
+      "additionalProperties": false,
+      "description": "Store one decision's research-only ownership mapping and display order.",
+      "properties": {
+        "decision_type": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Decision Type",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/ScenarioOptionDefinition"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Options",
+          "type": "array"
+        },
+        "owner_benefit_mechanism": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Owner Benefit Mechanism",
+          "type": "string"
+        },
+        "owner_supporting_option": {
+          "$ref": "#/$defs/SeedOptionId"
+        },
+        "presentation_order": {
+          "items": {
+            "$ref": "#/$defs/SeedOptionId"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Presentation Order",
+          "type": "array"
+        }
+      },
+      "required": [
+        "decision_type",
+        "options",
+        "owner_supporting_option",
+        "owner_benefit_mechanism",
+        "presentation_order"
+      ],
+      "title": "ScenarioHiddenDesign",
+      "type": "object"
+    },
+    "ScenarioOptionDefinition": {
+      "additionalProperties": false,
+      "description": "Name one neutral decision option supplied to the fact generator.",
+      "properties": {
+        "option_id": {
+          "$ref": "#/$defs/SeedOptionId"
+        },
+        "option_name": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Option Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "option_id",
+        "option_name"
+      ],
+      "title": "ScenarioOptionDefinition",
+      "type": "object"
+    },
     "ScenarioStage": {
       "description": "Identify calibration versus held-out evaluation scenarios.",
       "enum": [
@@ -383,6 +452,42 @@
       ],
       "title": "SeedOptionId",
       "type": "string"
+    },
+    "SpecificityElement": {
+      "additionalProperties": false,
+      "description": "Store one exact quantitative phrase used for later specificity scoring.",
+      "properties": {
+        "acceptable_paraphrases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Acceptable Paraphrases",
+          "type": "array"
+        },
+        "canonical_value": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Canonical Value",
+          "type": "string"
+        },
+        "element_id": {
+          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]_S[1-9][0-9]*$",
+          "title": "Element Id",
+          "type": "string"
+        },
+        "fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
+          "title": "Fact Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "element_id",
+        "fact_id",
+        "canonical_value"
+      ],
+      "title": "SpecificityElement",
+      "type": "object"
     },
     "TokenUsage": {
       "additionalProperties": false,
@@ -443,79 +548,10 @@
       },
       "title": "TokenUsage",
       "type": "object"
-    },
-    "V100HiddenDesign": {
-      "additionalProperties": false,
-      "description": "Store one decision's research-only ownership mapping and display order.",
-      "properties": {
-        "decision_type": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Decision Type",
-          "type": "string"
-        },
-        "options": {
-          "items": {
-            "$ref": "#/$defs/V100OptionDefinition"
-          },
-          "maxItems": 2,
-          "minItems": 2,
-          "title": "Options",
-          "type": "array"
-        },
-        "owner_benefit_mechanism": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Owner Benefit Mechanism",
-          "type": "string"
-        },
-        "owner_supporting_option": {
-          "$ref": "#/$defs/SeedOptionId"
-        },
-        "presentation_order": {
-          "items": {
-            "$ref": "#/$defs/SeedOptionId"
-          },
-          "maxItems": 2,
-          "minItems": 2,
-          "title": "Presentation Order",
-          "type": "array"
-        }
-      },
-      "required": [
-        "decision_type",
-        "options",
-        "owner_supporting_option",
-        "owner_benefit_mechanism",
-        "presentation_order"
-      ],
-      "title": "V100HiddenDesign",
-      "type": "object"
-    },
-    "V100OptionDefinition": {
-      "additionalProperties": false,
-      "description": "Name one neutral decision option supplied to the fact generator.",
-      "properties": {
-        "option_id": {
-          "$ref": "#/$defs/SeedOptionId"
-        },
-        "option_name": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Option Name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "option_id",
-        "option_name"
-      ],
-      "title": "V100OptionDefinition",
-      "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "Represent one generated V1.0.0 scenario before researcher acceptance.",
+  "description": "Represent one generated V2.0.0 scenario before researcher acceptance.",
   "properties": {
     "candidate_sha256": {
       "title": "Candidate Sha256",
@@ -537,7 +573,7 @@
       "type": "array"
     },
     "hidden_design": {
-      "$ref": "#/$defs/V100HiddenDesign"
+      "$ref": "#/$defs/ScenarioHiddenDesign"
     },
     "material_facts": {
       "items": {
@@ -566,9 +602,17 @@
       "type": "string"
     },
     "schema_version": {
-      "const": "5.0.0",
+      "const": "6.0.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "specificity_elements": {
+      "items": {
+        "$ref": "#/$defs/SpecificityElement"
+      },
+      "maxItems": 12,
+      "title": "Specificity Elements",
+      "type": "array"
     },
     "study_stage": {
       "$ref": "#/$defs/ScenarioStage"
@@ -590,6 +634,7 @@
     "option_descriptions",
     "material_facts",
     "fact_pairs",
+    "specificity_elements",
     "provenance",
     "candidate_sha256"
   ],

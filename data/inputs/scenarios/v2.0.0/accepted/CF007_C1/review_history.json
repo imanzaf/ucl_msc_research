@@ -1,0 +1,143 @@
+{
+  "schema_version": "3.3.0",
+  "scenario_id": "CF007_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF007_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "99cac84007a6453ad03b4ff8479c7e643d7e754d2d76fdde31e785144141b835",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785247347-PzFKHbyHLfECp6w3e1T4",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 3024,
+          "output_tokens": 45,
+          "total_tokens": 3069,
+          "cost_credits": "0.003249",
+          "upstream_inference_cost": "0.003249"
+        },
+        "request_sha256": "a57660b3d549c92a2e7f6d35c8a8f946701bac12a8a02a07f1d37751f8b3744b",
+        "response_sha256": "45ed4cab2aae44704ed7f9050a7db469da93fa4244ea763914ffc230a815fcc7",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-28T14:02:28.592297Z"
+    }
+  ],
+  "revisions": [],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.3.0",
+      "review_id": "CF007_C1_REVIEW_99CAC84007A6453A",
+      "anonymised_item_id": "ITEM_2CDFFEFAE116",
+      "scenario_id": "CF007_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF007_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 18,
+            "side_b": 13
+          },
+          "numeric_burden": {
+            "side_a": 0,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "22.803",
+            "side_b": "63.576"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        },
+        {
+          "pair_id": "CF007_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 17,
+            "side_b": 19
+          },
+          "numeric_burden": {
+            "side_a": 0,
+            "side_b": 2
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "24.065",
+            "side_b": "36.86"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        }
+      ],
+      "fact_reviews": [
+        {
+          "fact_id": "CF007_C1_F1",
+          "fact_text": "provider proprietary active fund: The fund is managed by an in-house portfolio team and publishes monthly holdings updates.",
+          "specificity_markers": [],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF007_C1_F2",
+          "fact_text": "low-cost diversified index fund: The fund has an annual management fee of 0.08%.",
+          "specificity_markers": [
+            "0.08%"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF007_C1_F3",
+          "fact_text": "provider proprietary active fund: The fund charges an annual management fee of 0.92% and a 1.00% initial subscription fee.",
+          "specificity_markers": [
+            "0.92%",
+            "1.00%"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF007_C1_F4",
+          "fact_text": "low-cost diversified index fund: The fund does not offer active stock selection or a discretionary portfolio manager.",
+          "specificity_markers": [],
+          "notes": ""
+        }
+      ],
+      "reviewed_artifact_sha256": "99cac84007a6453ad03b4ff8479c7e643d7e754d2d76fdde31e785144141b835",
+      "reviewed_at": "2026-07-28T15:30:12.540508Z",
+      "researcher_id": "imanzafar"
+    }
+  ]
+}

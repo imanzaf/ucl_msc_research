@@ -19,7 +19,7 @@ from src.data_models.scenario_review import ResearcherScenarioReview, ReviewDeci
 from src.data_models.scenarios import AcceptedScenario, CandidateScenario, ScenarioStage
 from src.data_models.scoring import ConditionBlindScoringInput, ResponseSpan
 from src.experiments.scoring_pipeline import build_condition_blind_input
-from src.review_app import SCENARIO_REVIEW_GUIDANCE, ReviewStore, build_researcher_scenario_review, build_specificity_elements
+from src.review_app import SCENARIO_REVIEW_GUIDANCE, ReviewStore, build_researcher_fact_reviews, build_researcher_scenario_review
 from src.storage import write_model_json_atomic
 from tests.factories import ZERO_HASH, make_accepted_scenario, make_candidate_scenario, make_scoring_results, make_transcript
 
@@ -68,7 +68,6 @@ def test_scenario_review_persists_diagnostics_and_rejects_a_duplicate(tmp_path: 
         scenario=candidate,
         decision=ReviewDecision.ACCEPT,
         researcher_id="researcher",
-        notes="Single researcher review.",
         reviewed_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
     )
     assert len(review.pair_diagnostics) == 2
@@ -78,7 +77,7 @@ def test_scenario_review_persists_diagnostics_and_rejects_a_duplicate(tmp_path: 
     assert store.scenario_reviews() == [review]
 
 
-def test_point_and_click_scenario_submission_writes_schema_v31_review(tmp_path: Path) -> None:
+def test_point_and_click_scenario_submission_writes_schema_v33_review(tmp_path: Path) -> None:
     """Build and persist one complete scenario review without a reference response."""
     store, _, _ = make_store(tmp_path)
     candidate = store.list_candidates()[0]
@@ -87,16 +86,17 @@ def test_point_and_click_scenario_submission_writes_schema_v31_review(tmp_path: 
         scenario=candidate,
         decision=ReviewDecision.ACCEPT,
         researcher_id=" iman ",
-        notes=" Reviewed in the local app. ",
         reviewed_at=reviewed_at,
         specificity_by_fact=specificity_by_fact(candidate),
     )
     store.save_scenario_submission(review)
 
-    assert review.schema_version == "3.1.0"
+    assert review.schema_version == "3.3.0"
     assert review.researcher_id == "iman"
-    assert review.notes == "Reviewed in the local app."
+    assert len(review.fact_reviews) == 4
+    assert [item.specificity_markers for item in review.fact_reviews] == list(specificity_by_fact(candidate).values())
     assert "labels" not in type(review).model_fields
+    assert "revision_findings" not in type(review).model_fields
     assert store.scenario_reviews() == [review]
 
 
@@ -105,14 +105,21 @@ def test_scenario_submission_persists_a_non_accept_decision_without_extra_artifa
     store, _, _ = make_store(tmp_path)
     candidate = store.list_candidates()[0]
     reviewed_at = datetime.now(timezone.utc)
+    first, _, third, _ = candidate.material_facts
     revised = build_researcher_scenario_review(
-        candidate,
-        ReviewDecision.REVISE,
-        "researcher",
-        "Needs revision.",
-        reviewed_at,
+        scenario=candidate,
+        decision=ReviewDecision.REVISE,
+        researcher_id="researcher",
+        reviewed_at=reviewed_at,
+        notes_by_fact={
+            first.fact_id: "State whether this amount is guaranteed.",
+            third.fact_id: "Clarify which customer segment this applies to.",
+        },
     )
     store.save_scenario_submission(revised)
+    notes_by_id = {fact_review.fact_id: fact_review.notes for fact_review in revised.fact_reviews}
+    assert notes_by_id[first.fact_id] == "State whether this amount is guaranteed."
+    assert notes_by_id[third.fact_id] == "Clarify which customer segment this applies to."
     assert store.scenario_reviews() == [revised]
 
 
@@ -120,6 +127,31 @@ def test_scenario_form_uses_concise_guidance_instead_of_a_checklist() -> None:
     """Keep the review criteria concise and the record free of boolean checklist fields."""
     assert len(SCENARIO_REVIEW_GUIDANCE) == 5
     assert "labels" not in ResearcherScenarioReview.model_fields
+
+
+def test_researcher_fact_notes_are_optional_per_fact_but_required_for_revise() -> None:
+    """Persist complete fact records while requiring one note for a revise decision."""
+    candidate = make_candidate_scenario()
+    first, second, _, _ = candidate.material_facts
+    fact_reviews = build_researcher_fact_reviews(
+        candidate,
+        {},
+        None,
+        {
+            first.fact_id: "  Clarify the applicable period.  ",
+            second.fact_id: " ",
+        },
+    )
+    assert len(fact_reviews) == 4
+    assert fact_reviews[0].notes == "Clarify the applicable period."
+    assert fact_reviews[1].notes == ""
+    with pytest.raises(ValidationError, match="at least one per-fact note"):
+        build_researcher_scenario_review(
+            scenario=candidate,
+            decision=ReviewDecision.REVISE,
+            researcher_id="researcher",
+            reviewed_at=datetime.now(timezone.utc),
+        )
 
 
 def test_review_launch_resolves_candidates_and_reviews_from_one_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -158,11 +190,11 @@ def test_named_run_review_store_resolves_latest_versions_and_allows_re_review(tm
         replacement,
     )
     initial_review = build_researcher_scenario_review(
-        original,
-        ReviewDecision.REVISE,
-        "researcher",
-        "Clarify the fact.",
-        datetime.now(timezone.utc),
+        scenario=original,
+        decision=ReviewDecision.REVISE,
+        researcher_id="researcher",
+        reviewed_at=datetime.now(timezone.utc),
+        notes_by_fact={original.material_facts[0].fact_id: "Clarify the fact."},
     )
     store = ReviewStore(
         run_root,
@@ -175,11 +207,10 @@ def test_named_run_review_store_resolves_latest_versions_and_allows_re_review(tm
 
     assert store.list_candidates() == [replacement]
     replacement_review = build_researcher_scenario_review(
-        replacement,
-        ReviewDecision.ACCEPT,
-        "researcher",
-        "",
-        datetime.now(timezone.utc),
+        scenario=replacement,
+        decision=ReviewDecision.ACCEPT,
+        researcher_id="researcher",
+        reviewed_at=datetime.now(timezone.utc),
     )
     store.save_scenario_review(replacement_review)
 
@@ -187,14 +218,14 @@ def test_named_run_review_store_resolves_latest_versions_and_allows_re_review(tm
     assert store.scenario_reviews() == [initial_review, replacement_review]
 
 
-def test_specificity_markers_are_optional_per_fact() -> None:
-    """Accept an empty or partial marker selection without inventing specificity."""
+def test_specificity_markers_are_editable_and_optional_per_fact() -> None:
+    """Accept empty or partial marker lists without inventing specificity."""
     candidate = make_candidate_scenario()
-    assert build_specificity_elements(candidate, {}) == []
+    cleared = build_researcher_fact_reviews(candidate, {}, {}, {})
+    assert all(not fact_review.specificity_markers for fact_review in cleared)
     first = candidate.material_facts[0]
-    selected = build_specificity_elements(candidate, {first.fact_id: ["£120"]})
-    assert len(selected) == 1
-    assert selected[0].fact_id == first.fact_id
+    selected = build_researcher_fact_reviews(candidate, {}, {first.fact_id: ["£120"]}, {})
+    assert selected[0].specificity_markers == ["£120"]
 
 
 def test_conversation_annotation_is_single_pass_and_resumable(tmp_path: Path) -> None:
@@ -244,15 +275,15 @@ def test_researcher_review_rejects_non_binary_pipeline_decisions(tmp_path: Path)
     candidate = store.list_candidates()[0]
     with pytest.raises(ValidationError, match="only accept or revise"):
         ResearcherScenarioReview(
-            schema_version="3.1.0",
+            schema_version="3.3.0",
             review_id="INVALID_1",
             anonymised_item_id="S-002",
             scenario_id=accepted.scenario_id,
             decision=ReviewDecision.REJECT,
+            fact_reviews=build_researcher_fact_reviews(candidate, {}, None, {}),
             reviewed_artifact_sha256=candidate.candidate_sha256,
             reviewed_at=datetime.now(timezone.utc),
             researcher_id="researcher",
-            notes="",
         )
     assert not store.scenario_reviews_path.exists()
 

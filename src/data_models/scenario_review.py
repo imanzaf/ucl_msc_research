@@ -11,7 +11,6 @@ from pydantic import Field, field_validator, model_validator
 
 from src.data_models.common import ImmutableModel, VersionedImmutableModel, artifact_sha256, validate_sha256
 from src.data_models.experiments import ProviderCallProvenance
-from src.data_models.scenarios import SpecificityElement
 
 MAX_AUTOMATED_REVISION_CYCLES = 1
 
@@ -43,7 +42,7 @@ class ReviewPass(str, Enum):
 
 
 class FindingSeverity(str, Enum):
-    """Classify automated findings by protocol impact."""
+    """Classify review findings by protocol impact."""
 
     BLOCKER = "blocker"
     MAJOR = "major"
@@ -51,21 +50,22 @@ class FindingSeverity(str, Enum):
 
 
 class ReviewFinding(ImmutableModel):
-    """Represent one source-grounded automated review finding."""
+    """Represent one concise generated-text revision instruction."""
 
-    finding_id: str = Field(pattern=r"^[A-Z0-9_]+$")
     severity: FindingSeverity
-    artifact_path: str = Field(min_length=1)
-    field_path: str = Field(min_length=1)
-    message: str = Field(min_length=1)
-    evidence: str = Field(min_length=1)
+    fact_text: str = Field(min_length=1)
     suggested_action: str = Field(min_length=1)
+
+
+def review_finding_reference(finding: ReviewFinding) -> str:
+    """Derive a stable internal audit reference from a complete finding."""
+    return f"FINDING_{artifact_sha256(finding)[:16].upper()}"
 
 
 class AutomatedScenarioReview(VersionedImmutableModel):
     """Store one condition-independent typed automated review."""
 
-    schema_version: str = Field(pattern=r"^3\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.1\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
     review_kind: AutomatedReviewKind
     decision: ReviewDecision
@@ -156,6 +156,7 @@ class RevisionCycleRecord(VersionedImmutableModel):
             "option_descriptions",
             "material_facts",
             "fact_pairs",
+            "specificity_elements",
         }
         if set(self.rebuilt_dependency_sha256) != expected_dependencies:
             raise ValueError("every revision cycle must rebuild and hash all dependent scenario artifacts")
@@ -193,20 +194,53 @@ class PairDiagnostics(ImmutableModel):
         return self
 
 
-class ResearcherScenarioReview(VersionedImmutableModel):
-    """Store the single researcher review used for scenario acceptance."""
+class ResearcherFactReview(ImmutableModel):
+    """Store the editable text, quantitative markers, and notes for one fact."""
 
-    schema_version: str = Field(pattern=r"^3\.1\.0$")
+    fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])_F[1-4]$")
+    fact_text: str = Field(min_length=1, pattern=r"\S")
+    specificity_markers: List[str] = Field(max_length=3)
+    notes: str = Field(default="", max_length=2_000)
+
+    @field_validator("fact_text", "notes")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        """Strip researcher-entered text before it is persisted."""
+        return value.strip()
+
+    @field_validator("specificity_markers")
+    @classmethod
+    def validate_specificity_markers(cls, values: List[str]) -> List[str]:
+        """Require unique, trimmed quantitative phrases."""
+        if len(values) != len(set(values)):
+            raise ValueError("fact specificity markers must be unique")
+        if any(value != value.strip() or not value for value in values):
+            raise ValueError("fact specificity markers must be nonblank and trimmed")
+        if any(not any(character.isdigit() for character in value) for value in values):
+            raise ValueError("fact specificity markers must contain an explicit number")
+        return values
+
+    @model_validator(mode="after")
+    def validate_specificity_against_fact(self) -> "ResearcherFactReview":
+        """Require every marker to be copied exactly from the edited fact."""
+        if any(marker not in self.fact_text for marker in self.specificity_markers):
+            raise ValueError("fact specificity markers must be copied exactly from the edited fact")
+        return self
+
+
+class ResearcherScenarioReview(VersionedImmutableModel):
+    """Store one researcher decision and the complete editable per-fact review."""
+
+    schema_version: str = Field(pattern=r"^3\.3\.0$")
     review_id: str = Field(pattern=r"^[A-Z0-9_]+$")
     anonymised_item_id: str = Field(min_length=1)
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
     decision: ReviewDecision
     pair_diagnostics: List[PairDiagnostics] = Field(default_factory=list, max_length=2)
-    specificity_elements: List[SpecificityElement] = Field(default_factory=list)
+    fact_reviews: List[ResearcherFactReview] = Field(min_length=4, max_length=4)
     reviewed_artifact_sha256: str
     reviewed_at: datetime
     researcher_id: str = Field(min_length=1)
-    notes: str
 
     @field_validator("reviewed_artifact_sha256")
     @classmethod
@@ -216,27 +250,22 @@ class ResearcherScenarioReview(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_researcher_decision(self) -> "ResearcherScenarioReview":
-        """Limit researcher adjudication to accept or revise and validate optional markers."""
+        """Require one complete fact review and notes for every revise decision."""
         if self.decision not in {ReviewDecision.ACCEPT, ReviewDecision.REVISE}:
             raise ValueError("researcher scenario reviews allow only accept or revise")
-        specificity_ids = [element.element_id for element in self.specificity_elements]
-        if len(specificity_ids) != len(set(specificity_ids)):
-            raise ValueError("researcher-selected specificity element identifiers must be unique")
-        if self.decision == ReviewDecision.ACCEPT:
-            expected_fact_ids = {f"{self.scenario_id}_F{index}" for index in range(1, 5)}
-            if not {element.fact_id for element in self.specificity_elements}.issubset(expected_fact_ids):
-                raise ValueError("accepted scenario reviews require specificity elements to refer to material facts")
-            if any(sum(element.fact_id == fact_id for element in self.specificity_elements) > 3 for fact_id in expected_fact_ids):
-                raise ValueError("accepted scenario reviews allow at most three specificity elements per material fact")
-        elif self.specificity_elements:
-            raise ValueError("specificity elements are recorded only when a scenario is accepted")
+        expected_fact_ids = {f"{self.scenario_id}_F{index}" for index in range(1, 5)}
+        fact_ids = [fact_review.fact_id for fact_review in self.fact_reviews]
+        if set(fact_ids) != expected_fact_ids or len(fact_ids) != len(set(fact_ids)):
+            raise ValueError("researcher review requires exactly one editable record for every material fact")
+        if self.decision == ReviewDecision.REVISE and not any(fact_review.notes for fact_review in self.fact_reviews):
+            raise ValueError("revise decisions require at least one per-fact note")
         return self
 
 
 class ScenarioReviewHistory(VersionedImmutableModel):
     """Collect complete automated, revision, and researcher review provenance."""
 
-    schema_version: str = Field(pattern=r"^3\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.3\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
     automated_reviews: List[AutomatedScenarioReview] = Field(min_length=1)
     revisions: List[RevisionCycleRecord] = Field(max_length=MAX_AUTOMATED_REVISION_CYCLES)

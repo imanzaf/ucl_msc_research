@@ -77,6 +77,30 @@
       "title": "PromptMessage",
       "type": "object"
     },
+    "ProviderRouting": {
+      "additionalProperties": false,
+      "description": "Freeze an ordered OpenRouter provider allowlist for evaluated-model calls.",
+      "properties": {
+        "allow_fallbacks": {
+          "default": false,
+          "title": "Allow Fallbacks",
+          "type": "boolean"
+        },
+        "only": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Only",
+          "type": "array"
+        }
+      },
+      "required": [
+        "only"
+      ],
+      "title": "ProviderRouting",
+      "type": "object"
+    },
     "StudyStage": {
       "description": "Identify primary and separately reported exploratory studies.",
       "enum": [
@@ -158,6 +182,17 @@
     "model_snapshot_sha256": {
       "title": "Model Snapshot Sha256",
       "type": "string"
+    },
+    "provider_routing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProviderRouting"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "randomised_position": {
       "maximum": 3,

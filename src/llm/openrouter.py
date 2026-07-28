@@ -14,7 +14,7 @@ from openai.lib._pydantic import to_strict_json_schema
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.data_models.common import VersionedImmutableModel, artifact_sha256, canonical_json_bytes, sha256_bytes, utc_now, validate_sha256
-from src.data_models.experiments import CompletionFinishReason, TokenUsage, provider_request_sha256
+from src.data_models.experiments import CompletionFinishReason, ProviderRouting, TokenUsage, provider_request_sha256
 from src.settings.api_settings import APISettings, OpenRouterCredentialRole
 from src.settings.model_settings import ModelSettings
 from src.storage import atomic_write_bytes, write_model_json_atomic
@@ -159,12 +159,14 @@ class OpenRouterClient:
         cache_dir: Optional[Path] = None,
         paid_calls_disabled: bool = False,
         structured_log_dir: Optional[Path] = None,
+        provider_routing: Optional[ProviderRouting] = None,
     ) -> None:
         """Wrap an OpenAI-compatible client with an optional exact-request cache."""
         self.client = client
         self.cache_dir = cache_dir
         self.paid_calls_disabled = paid_calls_disabled
         self.structured_log_dir = structured_log_dir
+        self.provider_routing = provider_routing
 
     @classmethod
     def from_settings(
@@ -174,6 +176,7 @@ class OpenRouterClient:
         credential_role: OpenRouterCredentialRole,
         cache_dir: Optional[Path] = None,
         structured_log_dir: Optional[Path] = None,
+        provider_routing: Optional[ProviderRouting] = None,
     ) -> "OpenRouterClient":
         """Construct a role-scoped OpenRouter client from Pydantic settings."""
         if api_settings.paid_api_calls_disabled:
@@ -194,6 +197,7 @@ class OpenRouterClient:
             cache_dir=cache_dir,
             paid_calls_disabled=api_settings.paid_api_calls_disabled,
             structured_log_dir=structured_log_dir,
+            provider_routing=provider_routing,
         )
 
     def complete_text(
@@ -207,16 +211,21 @@ class OpenRouterClient:
         """Complete one exact text request, reusing a matching local cache record."""
         if self.paid_calls_disabled:
             raise PermissionError("external paid API calls are disabled")
-        request_hash = provider_request_sha256(messages, model_id, temperature, max_tokens, seed)
+        request_hash = provider_request_sha256(messages, model_id, temperature, max_tokens, seed, self.provider_routing)
         cached = self.read_cached_text_response(request_hash)
         if cached is not None:
             return cached
+        request_arguments: Dict[str, Any] = {
+            "model": model_id,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "seed": seed,
+        }
+        if self.provider_routing is not None:
+            request_arguments["extra_body"] = {"provider": self.provider_routing.model_dump(mode="json")}
         response = self.client.chat.completions.create(
-            model=model_id,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            seed=seed,
+            **request_arguments,
         )
         payload = response.model_dump(mode="json") if hasattr(response, "model_dump") else cast(Dict[str, Any], response)
         choices = payload.get("choices", [])

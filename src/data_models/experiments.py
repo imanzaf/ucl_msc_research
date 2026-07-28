@@ -19,19 +19,50 @@ EVALUATED_MODEL_COUNT = PRIMARY_DIMENSIONS.evaluated_model_count
 CELL_COUNT = PRIMARY_DIMENSIONS.cell_count
 EXPECTED_CONVERSATION_COUNT = PRIMARY_DIMENSIONS.conversation_count
 EXPECTED_AGENT_RESPONSE_COUNT = PRIMARY_DIMENSIONS.response_count
+MAX_PROVIDER_SEED = 2_147_483_647
 
 
-def provider_request_sha256(messages: List[Dict[str, str]], model_id: str, temperature: float, max_tokens: int, seed: int) -> str:
+def provider_compatible_seed(seed: int) -> int:
+    """Map a deterministic hash-derived seed into the positive signed-int32 range."""
+    return (seed % MAX_PROVIDER_SEED) or 1
+
+
+class ProviderRouting(ImmutableModel):
+    """Freeze an ordered OpenRouter provider allowlist for evaluated-model calls."""
+
+    only: List[str] = Field(min_length=1)
+    allow_fallbacks: bool = Field(default=False)
+
+    @field_validator("only")
+    @classmethod
+    def validate_provider_ids(cls, value: List[str]) -> List[str]:
+        """Require nonblank, unique provider IDs while retaining their routing order."""
+        if any(not provider_id.strip() for provider_id in value):
+            raise ValueError("provider routing IDs cannot be blank")
+        if len(value) != len(set(value)):
+            raise ValueError("provider routing IDs must be unique")
+        return value
+
+
+def provider_request_sha256(
+    messages: List[Dict[str, str]],
+    model_id: str,
+    temperature: float,
+    max_tokens: int,
+    seed: int,
+    provider_routing: Optional[ProviderRouting] = None,
+) -> str:
     """Hash every exact field sent for one text completion request."""
-    return artifact_sha256(
-        {
-            "model": model_id,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "seed": seed,
-        }
-    )
+    payload: Dict[str, object] = {
+        "model": model_id,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "seed": seed,
+    }
+    if provider_routing is not None:
+        payload["provider"] = provider_routing.model_dump(mode="json")
+    return artifact_sha256(payload)
 
 
 class MessageRole(str, Enum):
@@ -163,6 +194,7 @@ class RunUnit(VersionedImmutableModel):
     model_id: str = Field(min_length=1)
     expected_model_version: str = Field(min_length=1)
     model_snapshot_sha256: str
+    provider_routing: Optional[ProviderRouting] = Field(default=None, exclude_if=lambda value: value is None)
     cell: ExperimentCell
     assigned_word_limit: Optional[int] = Field(default=None, ge=80, le=240)
     global_randomisation_seed: int
@@ -334,7 +366,8 @@ class ConversationTranscript(VersionedImmutableModel):
             self.run_unit.model_id,
             0.0,
             max_tokens,
-            self.run_unit.block_randomisation_seed,
+            provider_compatible_seed(self.run_unit.block_randomisation_seed),
+            self.run_unit.provider_routing,
         )
         if self.initial_attempts and initial_request_hashes != {expected_initial_request}:
             raise ValueError("initial provider attempts do not bind the frozen run-unit request")
@@ -362,7 +395,8 @@ class ConversationTranscript(VersionedImmutableModel):
                 self.run_unit.model_id,
                 0.0,
                 max_tokens,
-                self.run_unit.block_randomisation_seed,
+                provider_compatible_seed(self.run_unit.block_randomisation_seed),
+                self.run_unit.provider_routing,
             )
             if follow_up_request_hashes != {expected_follow_up_request}:
                 raise ValueError("follow-up provider attempts do not bind the frozen conversation request")

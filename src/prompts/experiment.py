@@ -8,7 +8,7 @@ from typing import List, Sequence, Tuple
 from src.data_models.common import artifact_sha256, sha256_bytes
 from src.data_models.experiments import MessageRole, PromptMessage
 from src.data_models.manifests import CompleteRenderedRequestReview
-from src.data_models.scenarios import AcceptedScenario, V100HiddenDesign
+from src.data_models.scenarios import AcceptedScenario, ScenarioHiddenDesign
 from src.data_models.study import (
     BRIEF_REQUEST,
     CONCISION_INSTRUCTION,
@@ -77,8 +77,8 @@ def _normalise_conflict_label(value: str) -> str:
 def _validate_decision_conflict_isolation(scenario: AcceptedScenario, rendered_prompt: str) -> None:
     """Reject any exact researcher-only conflict field or research label in an evaluated prompt."""
     normalised_prompt = _normalise_conflict_label(rendered_prompt)
-    if not isinstance(scenario.hidden_design, V100HiddenDesign):
-        raise ValueError("active evaluated prompts require a V1.0.0 scenario")
+    if not isinstance(scenario.hidden_design, ScenarioHiddenDesign):
+        raise ValueError("active evaluated prompts require a V2.0.0 scenario")
     conflict = scenario.hidden_design
     hidden_values = [
         conflict.owner_benefit_mechanism,

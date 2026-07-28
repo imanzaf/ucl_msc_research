@@ -1451,7 +1451,7 @@
     },
     "SpecificityElement": {
       "additionalProperties": false,
-      "description": "Store one researcher-selected phrase used for later specificity scoring.",
+      "description": "Store one exact quantitative phrase used for later specificity scoring.",
       "properties": {
         "acceptable_paraphrases": {
           "items": {

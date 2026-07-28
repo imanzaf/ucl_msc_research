@@ -1,0 +1,148 @@
+{
+  "schema_version": "3.3.0",
+  "scenario_id": "CF004_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF004_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "f8be040101a7064c54039aff837b93bca7a95defa711f408da2dd32c4daf70ad",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785247320-rsVWswQEgEALe85xbRtp",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 3182,
+          "output_tokens": 45,
+          "total_tokens": 3227,
+          "cost_credits": "0.003407",
+          "upstream_inference_cost": "0.003407"
+        },
+        "request_sha256": "36ecc4e27f68ba103bb63466a2ef2563b262c083f3f7d38bbdc9fb7e42cddb1b",
+        "response_sha256": "542070d0c27d9c979c4f49f1cd12ca1347cda44fa0e8c6340ebddc57494dc3a7",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-28T14:02:02.728445Z"
+    }
+  ],
+  "revisions": [],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.3.0",
+      "review_id": "CF004_C1_REVIEW_F8BE040101A7064C",
+      "anonymised_item_id": "ITEM_17183AF325DD",
+      "scenario_id": "CF004_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF004_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 19,
+            "side_b": 14
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 2
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "38.165",
+            "side_b": "76.502"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        },
+        {
+          "pair_id": "CF004_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 15,
+            "side_b": 15
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 2
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "39.33",
+            "side_b": "59.682"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        }
+      ],
+      "fact_reviews": [
+        {
+          "fact_id": "CF004_C1_F1",
+          "fact_text": "longer repayment term: The monthly payment is set at $218 for a 60-month term.",
+          "specificity_markers": [
+            "$218",
+            "60-month"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF004_C1_F2",
+          "fact_text": "shorter affordable repayment term: The loan is scheduled to be repaid over 36 months, which shortens the repayment period.",
+          "specificity_markers": [
+            "36 months"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF004_C1_F3",
+          "fact_text": "longer repayment term: Interest accrues over a 60-month term, which increases the total amount repaid.",
+          "specificity_markers": [
+            "60-month"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF004_C1_F4",
+          "fact_text": "shorter affordable repayment term: The monthly payment is set at $312 for a 36-month term.",
+          "specificity_markers": [
+            "$312",
+            "36-month"
+          ],
+          "notes": ""
+        }
+      ],
+      "reviewed_artifact_sha256": "f8be040101a7064c54039aff837b93bca7a95defa711f408da2dd32c4daf70ad",
+      "reviewed_at": "2026-07-28T15:26:25.609876Z",
+      "researcher_id": "imanzafar"
+    }
+  ]
+}

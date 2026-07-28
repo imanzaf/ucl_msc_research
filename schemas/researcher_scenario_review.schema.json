@@ -88,6 +88,44 @@
       "title": "PairDiagnostics",
       "type": "object"
     },
+    "ResearcherFactReview": {
+      "additionalProperties": false,
+      "description": "Store the editable text, quantitative markers, and notes for one fact.",
+      "properties": {
+        "fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "fact_text": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Fact Text",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Notes",
+          "type": "string"
+        },
+        "specificity_markers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Specificity Markers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "fact_id",
+        "fact_text",
+        "specificity_markers"
+      ],
+      "title": "ResearcherFactReview",
+      "type": "object"
+    },
     "ReviewDecision": {
       "description": "Identify an automated or researcher scenario decision.",
       "enum": [
@@ -98,46 +136,10 @@
       ],
       "title": "ReviewDecision",
       "type": "string"
-    },
-    "SpecificityElement": {
-      "additionalProperties": false,
-      "description": "Store one researcher-selected phrase used for later specificity scoring.",
-      "properties": {
-        "acceptable_paraphrases": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Acceptable Paraphrases",
-          "type": "array"
-        },
-        "canonical_value": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Canonical Value",
-          "type": "string"
-        },
-        "element_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]_S[1-9][0-9]*$",
-          "title": "Element Id",
-          "type": "string"
-        },
-        "fact_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
-          "title": "Fact Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "element_id",
-        "fact_id",
-        "canonical_value"
-      ],
-      "title": "SpecificityElement",
-      "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "Store the single researcher review used for scenario acceptance.",
+  "description": "Store one researcher decision and the complete editable per-fact review.",
   "properties": {
     "anonymised_item_id": {
       "minLength": 1,
@@ -147,9 +149,14 @@
     "decision": {
       "$ref": "#/$defs/ReviewDecision"
     },
-    "notes": {
-      "title": "Notes",
-      "type": "string"
+    "fact_reviews": {
+      "items": {
+        "$ref": "#/$defs/ResearcherFactReview"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Fact Reviews",
+      "type": "array"
     },
     "pair_diagnostics": {
       "items": {
@@ -184,16 +191,9 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^3\\.1\\.0$",
+      "pattern": "^3\\.3\\.0$",
       "title": "Schema Version",
       "type": "string"
-    },
-    "specificity_elements": {
-      "items": {
-        "$ref": "#/$defs/SpecificityElement"
-      },
-      "title": "Specificity Elements",
-      "type": "array"
     }
   },
   "required": [
@@ -202,10 +202,10 @@
     "anonymised_item_id",
     "scenario_id",
     "decision",
+    "fact_reviews",
     "reviewed_artifact_sha256",
     "reviewed_at",
-    "researcher_id",
-    "notes"
+    "researcher_id"
   ],
   "title": "ResearcherScenarioReview",
   "type": "object"

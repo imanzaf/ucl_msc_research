@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 from pydantic import Field, field_validator, model_validator
 
 from src.data_models.common import ImmutableModel, VersionedImmutableModel, artifact_sha256, sha256_bytes, validate_sha256
-from src.data_models.experiments import CompletionFinishReason, RetryPolicy
+from src.data_models.experiments import CompletionFinishReason, ProviderRouting, RetryPolicy
 from src.data_models.scenarios import ScenarioStage
 from src.data_models.study import (
     AMPLE_WORD_LIMIT,
@@ -20,7 +20,13 @@ from src.data_models.study import (
     ExperimentName,
     ExpressedConcernCondition,
 )
-from src.paths import ACTIVE_SCENARIO_SEED_SCHEMA_SHA256, ACTIVE_SCENARIO_SEED_SHA256, ACTIVE_SCENARIO_SET_ID
+from src.paths import (
+    ACTIVE_SCENARIO_QUERY_SCHEMA_SHA256,
+    ACTIVE_SCENARIO_QUERY_SHA256,
+    ACTIVE_SCENARIO_SEED_SCHEMA_SHA256,
+    ACTIVE_SCENARIO_SEED_SHA256,
+    ACTIVE_SCENARIO_SET_ID,
+)
 from src.scenarios.word_count import count_words
 
 
@@ -480,6 +486,7 @@ class C1EvaluationConfig(VersionedImmutableModel):
     evaluated_model: EvaluatedModelSnapshot
     prompt_package_sha256: str
     scoring_execution_manifest_sha256: str
+    provider_routing: Optional[ProviderRouting] = None
     scenario_count: int = Field(default=10, ge=10, le=10)
     evaluated_model_count: int = Field(default=1, ge=1, le=1)
     cell_count: int = Field(default=4, ge=4, le=4)
@@ -567,23 +574,25 @@ class ScenarioManifestScope(str, Enum):
 class AcceptedScenarioSetId(str, Enum):
     """Identify the active accepted scenario family."""
 
-    V1_0_0 = ACTIVE_SCENARIO_SET_ID
+    V2_0_0 = ACTIVE_SCENARIO_SET_ID
 
 
 class AcceptedScenarioManifest(VersionedImmutableModel):
     """Publish the accepted-only scenario set with seed provenance."""
 
-    schema_version: str = Field(pattern=r"^2\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
     scenario_set_id: AcceptedScenarioSetId
     manifest_scope: ScenarioManifestScope
     seed_sha256: str
     seed_schema_sha256: str
+    query_sha256: str
+    query_schema_sha256: str
     entries: List[AcceptedScenarioEntry]
     published_at: datetime
     published_by: str = Field(min_length=1)
     manifest_sha256: str
 
-    @field_validator("seed_sha256", "seed_schema_sha256", "manifest_sha256")
+    @field_validator("seed_sha256", "seed_schema_sha256", "query_sha256", "query_schema_sha256", "manifest_sha256")
     @classmethod
     def validate_hashes(cls, value: str) -> str:
         """Validate scenario-set source and manifest hashes."""
@@ -592,8 +601,14 @@ class AcceptedScenarioManifest(VersionedImmutableModel):
     @model_validator(mode="after")
     def validate_complete_scenario_set(self) -> "AcceptedScenarioManifest":
         """Require exactly C1, R1, and R2 for every one of the ten use cases."""
-        if self.seed_sha256 != ACTIVE_SCENARIO_SEED_SHA256 or self.seed_schema_sha256 != ACTIVE_SCENARIO_SEED_SCHEMA_SHA256:
-            raise ValueError("accepted-scenario manifest must bind the approved immutable V1.0.0 seed and schema")
+        approved_hashes = (
+            ACTIVE_SCENARIO_SEED_SHA256,
+            ACTIVE_SCENARIO_SEED_SCHEMA_SHA256,
+            ACTIVE_SCENARIO_QUERY_SHA256,
+            ACTIVE_SCENARIO_QUERY_SCHEMA_SHA256,
+        )
+        if (self.seed_sha256, self.seed_schema_sha256, self.query_sha256, self.query_schema_sha256) != approved_hashes:
+            raise ValueError("accepted-scenario manifest must bind all approved immutable V2.0.0 scenario inputs")
         calibration_ids = {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
         evaluation_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 3)}
         expected_ids = calibration_ids if self.manifest_scope == ScenarioManifestScope.CALIBRATION else calibration_ids | evaluation_ids

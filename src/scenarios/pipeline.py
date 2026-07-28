@@ -15,13 +15,13 @@ from src.data_models.scenario_review import (
     RevisionCycleRecord,
     required_automated_review_kinds,
 )
-from src.data_models.scenarios import CandidateScenario, V100ReplicationSeed, V100UseCaseSeed
+from src.data_models.scenarios import CandidateScenario, ScenarioReplicationSeed, ScenarioUseCaseSeed
 
 
 class ScenarioPipelineBackend(Protocol):
     """Define model-backed generation and review operations without hard-coding a provider."""
 
-    def generate_candidate(self, use_case: V100UseCaseSeed, replication: V100ReplicationSeed) -> CandidateScenario:
+    def generate_candidate(self, use_case: ScenarioUseCaseSeed, replication: ScenarioReplicationSeed) -> CandidateScenario:
         """Generate option descriptions and four product-documentation facts in one call."""
         ...
 
@@ -35,8 +35,8 @@ class ScenarioPipelineBackend(Protocol):
 
     def revise_candidate(
         self,
-        use_case: V100UseCaseSeed,
-        replication: V100ReplicationSeed,
+        use_case: ScenarioUseCaseSeed,
+        replication: ScenarioReplicationSeed,
         candidate: CandidateScenario,
         reviews: List[AutomatedScenarioReview],
         cycle_number: int,
@@ -117,7 +117,7 @@ def _terminal_review_decision(reviews: List[AutomatedScenarioReview]) -> ReviewD
 
 
 def run_scenario_batch_pipeline(
-    scenario_seeds: List[Tuple[V100UseCaseSeed, V100ReplicationSeed]],
+    scenario_seeds: List[Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed]],
     backend: ScenarioPipelineBackend,
     revision_record_factory: Callable[
         [
@@ -208,7 +208,8 @@ def run_scenario_batch_pipeline(
                 cycle_number,
             )
             if not changes:
-                raise ValueError("revision backend returned no controlled field changes")
+                forced_decisions[scenario_id] = ReviewDecision.MANUAL_RESTRUCTURE
+                continue
             candidates[scenario_id] = revised_candidate
             revision_counts[scenario_id] = cycle_number
             rebuilt[scenario_id] = (
@@ -266,6 +267,7 @@ def default_revision_record_factory(
             "option_descriptions": artifact_sha256(revised_candidate.option_descriptions),
             "material_facts": artifact_sha256(revised_candidate.material_facts),
             "fact_pairs": artifact_sha256(revised_candidate.fact_pairs),
+            "specificity_elements": artifact_sha256(revised_candidate.specificity_elements),
         },
         rerun_review_sha256={review.review_kind: artifact_sha256(review) for review in reviews},
         completed_at=utc_now(),

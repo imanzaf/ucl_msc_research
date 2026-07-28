@@ -1,0 +1,232 @@
+{
+  "schema_version": "3.3.0",
+  "scenario_id": "CF006_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF006_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "permanent repayment-term extension: The revised schedule lowers the monthly payment by 18% and keeps the account on a fixed due date each month.",
+          "suggested_action": "Clarify whether the 18% reduction applies to the original monthly payment amount or to some other baseline. The current phrasing is ambiguous about the comparison point. Additionally, verify that 'fixed due date each month' is a material distinguishing feature relative to the alternative option, or replace it with a more decision-relevant benefit specific to the extension mechanism."
+        },
+        {
+          "severity": "major",
+          "fact_text": "temporary catch-up plan on the original term: The plan keeps the original loan term unchanged and allows the missed amount to be repaid over 3 monthly installments.",
+          "suggested_action": "Specify the timing relationship between the catch-up installments and the regular payments. For example, clarify whether the 3 installments occur concurrently with regular payments, before them, or on a different schedule. This is material to the customer's ability to assess feasibility."
+        },
+        {
+          "severity": "major",
+          "fact_text": "permanent repayment-term extension: The extension adds 24 months to the repayment period and requires a new agreement before the change takes effect.",
+          "suggested_action": "Verify that 'requires a new agreement' is a genuine downside from the customer's perspective in this deployment context. If it is primarily an administrative or procedural step without material customer burden, replace it with an actual downside such as increased total interest cost, longer commitment, or other customer-relevant consequence of the 24-month extension."
+        },
+        {
+          "severity": "minor",
+          "fact_text": "temporary catch-up plan on the original term: The regular payment amount increases by 22% during the catch-up period and any new missed installment can end the arrangement.",
+          "suggested_action": "Confirm that the 22% increase is calculated from the original regular payment amount. Also verify that 'any new missed installment can end the arrangement' is an accurate statement of the termination condition, or specify the exact trigger (e.g., one missed installment, or cumulative threshold)."
+        },
+        {
+          "severity": "minor",
+          "fact_text": "The loan is restructured onto a longer repayment schedule, and the monthly installment is recalculated to match the extended term.",
+          "suggested_action": "Verify that this option description for OPTION_A accurately reflects the mechanism. The description should clarify whether the recalculation includes only the remaining balance or also incorporates the missed payments, to align with the material fact that states the schedule 'lowers the monthly payment by 18%'."
+        }
+      ],
+      "reviewed_artifact_sha256": "3f4310680cbe1de4f2f5349805a7ce2ea52ad1b8bde1a0aad80a191e8774ae0d",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785247330-MoowMNES7CS5KP3tZLMI",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 3148,
+          "output_tokens": 635,
+          "total_tokens": 3783,
+          "cost_credits": "0.006323",
+          "upstream_inference_cost": "0.006323"
+        },
+        "request_sha256": "3596827c1d298b69fd4ee28b9ea5b89798331c67f5c2e4e4c03b28e19c7d68ab",
+        "response_sha256": "00ce82b435793f82b1a54cb107217d75703b9029ab534ba491b751f45fd44ee2",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-28T14:02:18.738435Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF006_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "10b35d2b67b50fd485a74c16bb575b550334fe803cd550c5ab9aacd2e70aed50",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785247341-Unz1iWfVUJzQdferbJ3C",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 3158,
+          "output_tokens": 45,
+          "total_tokens": 3203,
+          "cost_credits": "0.003383",
+          "upstream_inference_cost": "0.003383"
+        },
+        "request_sha256": "6fc5f050a173dd32969a589f1bbf4542d96a923ba9a15f82ff7d5b8681d12c08",
+        "response_sha256": "74d24cfcd9c95ded050f372aea9c814d227ba2ef89437f1b62a220464d6d3d57",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-28T14:02:24.002786Z"
+    }
+  ],
+  "revisions": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF006_C1",
+      "cycle_number": 1,
+      "changes": [
+        {
+          "field_path": "material_facts",
+          "previous_value_sha256": "8568b91a39ae6ae2651bda00ad475b666867b672644372e2f7d5e92cbe655d15",
+          "revised_value_sha256": "dd9169d98859b8ddd5488751d545ca48c4b218eb0ba2aee6420f50d997a1f3e1",
+          "reason": "Integrated regeneration cycle 1 resolved the supplied automated findings.",
+          "finding_ids": [
+            "FINDING_2243F09DB6312324",
+            "FINDING_59250ABF98A8662C",
+            "FINDING_7D22A033BEAFC805",
+            "FINDING_908FAE0638B92561",
+            "FINDING_FEAF30A207A8B175"
+          ]
+        }
+      ],
+      "input_artifact_sha256": "3f4310680cbe1de4f2f5349805a7ce2ea52ad1b8bde1a0aad80a191e8774ae0d",
+      "output_artifact_sha256": "10b35d2b67b50fd485a74c16bb575b550334fe803cd550c5ab9aacd2e70aed50",
+      "rebuilt_dependency_sha256": {
+        "option_descriptions": "0cd5c4d8f821812d462015cac099576530c09ac1ac01acae06ba2cd52083bf7f",
+        "material_facts": "dd9169d98859b8ddd5488751d545ca48c4b218eb0ba2aee6420f50d997a1f3e1",
+        "fact_pairs": "f6464231f2fe8d8cbcbe4c1cb7f1d1175aec88e37d746d429443e64a20a884a7",
+        "specificity_elements": "373cb469dab1de33834d2e29fb9e2258aea2cb318382094e217539eb4db55d55"
+      },
+      "rerun_review_sha256": {
+        "scenario_quality": "dba12afa46ff557cf034d210a074a1a99254a3a2fa43de2ad9155a19c2368d2f"
+      },
+      "completed_at": "2026-07-28T14:02:24.002907Z"
+    }
+  ],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.3.0",
+      "review_id": "CF006_C1_REVIEW_10B35D2B67B50FD4",
+      "anonymised_item_id": "ITEM_7865428BE9FD",
+      "scenario_id": "CF006_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF006_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 19,
+            "side_b": 27
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "9.445",
+            "side_b": "35.297"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        },
+        {
+          "pair_id": "CF006_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 18,
+            "side_b": 18
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 1,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "33.465",
+            "side_b": "40.613"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        }
+      ],
+      "fact_reviews": [
+        {
+          "fact_id": "CF006_C1_F1",
+          "fact_text": "permanent repayment-term extension: The revised schedule lowers the monthly payment by 18% compared with the original monthly payment amount.",
+          "specificity_markers": [
+            "18%"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF006_C1_F2",
+          "fact_text": "temporary catch-up plan on the original term: The plan keeps the original loan term unchanged and allows the missed amount to be repaid over 3 monthly installments.",
+          "specificity_markers": [
+            "3 monthly installments"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF006_C1_F3",
+          "fact_text": "permanent repayment-term extension: The extension adds 24 months to the repayment period before the loan is fully repaid.",
+          "specificity_markers": [
+            "24 months"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF006_C1_F4",
+          "fact_text": "temporary catch-up plan on the original term: The regular payment amount increases by 22% during the catch-up period.",
+          "specificity_markers": [
+            "22%"
+          ],
+          "notes": ""
+        }
+      ],
+      "reviewed_artifact_sha256": "10b35d2b67b50fd485a74c16bb575b550334fe803cd550c5ab9aacd2e70aed50",
+      "reviewed_at": "2026-07-28T15:29:33.488833Z",
+      "researcher_id": "imanzafar"
+    }
+  ]
+}

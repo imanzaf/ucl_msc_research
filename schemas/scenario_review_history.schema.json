@@ -60,7 +60,7 @@
           "type": "string"
         },
         "schema_version": {
-          "pattern": "^3\\.0\\.0$",
+          "pattern": "^3\\.1\\.0$",
           "title": "Schema Version",
           "type": "string"
         }
@@ -133,7 +133,7 @@
       "type": "object"
     },
     "FindingSeverity": {
-      "description": "Classify automated findings by protocol impact.",
+      "description": "Classify review findings by protocol impact.",
       "enum": [
         "blocker",
         "major",
@@ -281,9 +281,47 @@
       "title": "ProviderCallProvenance",
       "type": "object"
     },
+    "ResearcherFactReview": {
+      "additionalProperties": false,
+      "description": "Store the editable text, quantitative markers, and notes for one fact.",
+      "properties": {
+        "fact_id": {
+          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "fact_text": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Fact Text",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Notes",
+          "type": "string"
+        },
+        "specificity_markers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Specificity Markers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "fact_id",
+        "fact_text",
+        "specificity_markers"
+      ],
+      "title": "ResearcherFactReview",
+      "type": "object"
+    },
     "ResearcherScenarioReview": {
       "additionalProperties": false,
-      "description": "Store the single researcher review used for scenario acceptance.",
+      "description": "Store one researcher decision and the complete editable per-fact review.",
       "properties": {
         "anonymised_item_id": {
           "minLength": 1,
@@ -293,9 +331,14 @@
         "decision": {
           "$ref": "#/$defs/ReviewDecision"
         },
-        "notes": {
-          "title": "Notes",
-          "type": "string"
+        "fact_reviews": {
+          "items": {
+            "$ref": "#/$defs/ResearcherFactReview"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Fact Reviews",
+          "type": "array"
         },
         "pair_diagnostics": {
           "items": {
@@ -330,16 +373,9 @@
           "type": "string"
         },
         "schema_version": {
-          "pattern": "^3\\.1\\.0$",
+          "pattern": "^3\\.3\\.0$",
           "title": "Schema Version",
           "type": "string"
-        },
-        "specificity_elements": {
-          "items": {
-            "$ref": "#/$defs/SpecificityElement"
-          },
-          "title": "Specificity Elements",
-          "type": "array"
         }
       },
       "required": [
@@ -348,10 +384,10 @@
         "anonymised_item_id",
         "scenario_id",
         "decision",
+        "fact_reviews",
         "reviewed_artifact_sha256",
         "reviewed_at",
-        "researcher_id",
-        "notes"
+        "researcher_id"
       ],
       "title": "ResearcherScenarioReview",
       "type": "object"
@@ -369,31 +405,11 @@
     },
     "ReviewFinding": {
       "additionalProperties": false,
-      "description": "Represent one source-grounded automated review finding.",
+      "description": "Represent one concise generated-text revision instruction.",
       "properties": {
-        "artifact_path": {
+        "fact_text": {
           "minLength": 1,
-          "title": "Artifact Path",
-          "type": "string"
-        },
-        "evidence": {
-          "minLength": 1,
-          "title": "Evidence",
-          "type": "string"
-        },
-        "field_path": {
-          "minLength": 1,
-          "title": "Field Path",
-          "type": "string"
-        },
-        "finding_id": {
-          "pattern": "^[A-Z0-9_]+$",
-          "title": "Finding Id",
-          "type": "string"
-        },
-        "message": {
-          "minLength": 1,
-          "title": "Message",
+          "title": "Fact Text",
           "type": "string"
         },
         "severity": {
@@ -406,12 +422,8 @@
         }
       },
       "required": [
-        "finding_id",
         "severity",
-        "artifact_path",
-        "field_path",
-        "message",
-        "evidence",
+        "fact_text",
         "suggested_action"
       ],
       "title": "ReviewFinding",
@@ -488,42 +500,6 @@
         "completed_at"
       ],
       "title": "RevisionCycleRecord",
-      "type": "object"
-    },
-    "SpecificityElement": {
-      "additionalProperties": false,
-      "description": "Store one researcher-selected phrase used for later specificity scoring.",
-      "properties": {
-        "acceptable_paraphrases": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Acceptable Paraphrases",
-          "type": "array"
-        },
-        "canonical_value": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Canonical Value",
-          "type": "string"
-        },
-        "element_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]_S[1-9][0-9]*$",
-          "title": "Element Id",
-          "type": "string"
-        },
-        "fact_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
-          "title": "Fact Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "element_id",
-        "fact_id",
-        "canonical_value"
-      ],
-      "title": "SpecificityElement",
       "type": "object"
     },
     "TokenUsage": {
@@ -620,7 +596,7 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^3\\.0\\.0$",
+      "pattern": "^3\\.3\\.0$",
       "title": "Schema Version",
       "type": "string"
     }

@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from src.cli.commands.scoring.resolve_manual import build_manual_resolution
 from src.data_models.annotations import ConversationAnnotation
 from src.data_models.common import artifact_sha256
-from src.data_models.experiments import ConversationTranscript
+from src.data_models.experiments import MAX_PROVIDER_SEED, ConversationTranscript, provider_compatible_seed
 from src.data_models.scenario_review import ReviewPass
 from src.data_models.scenarios import AcceptedScenario, SpecificityElement
 from src.data_models.scoring import (
@@ -38,7 +38,6 @@ from src.data_models.scoring import (
     SpecificityState,
 )
 from src.experiments.openrouter_scoring import (
-    MAX_PROVIDER_SEED,
     align_response_span_offsets,
     canonicalise_claim_evidence_references,
     canonicalise_fact_source_references,
@@ -46,10 +45,10 @@ from src.experiments.openrouter_scoring import (
     enforce_fact_checkpoint_boundaries,
     enforce_response_checkpoint_boundaries,
     expand_full_specificity_spans,
+    hyphenated_unit_equivalent_exact_quote,
     longest_edge_trimmed_exact_quote,
     normalise_fact_conditional_fields,
     normalise_provisional_span_bounds,
-    provider_compatible_seed,
     split_abbreviated_fact_response_spans,
     subsequence_expanded_exact_quote,
 )
@@ -84,6 +83,12 @@ def test_provisional_span_bounds_derive_from_exact_quote_length() -> None:
     assert normalised["claim_span"]["exact_quote"] == "evidence"
 
 
+def test_hyphenated_duration_quote_is_grounded_in_plural_response_text() -> None:
+    """Ground a judge-rendered attributive duration without inventing response text."""
+    turn_text = "The lower payment applies over 60 months."
+    assert hyphenated_unit_equivalent_exact_quote("60-month ", turn_text, 31) == "60 months"
+
+
 def test_response_span_offsets_align_to_exact_turn_text() -> None:
     """Relocate exact evidence and choose the occurrence nearest the proposed offset."""
     _, _, scoring_input, _, _, _ = aligned_scoring_artifacts(initial_suffix=" repeated evidence then repeated evidence")
@@ -100,6 +105,14 @@ def test_response_span_offsets_align_to_exact_turn_text() -> None:
     assert changed is True
     assert aligned["claim_span"]["start_char"] == expected_start
     assert aligned["claim_span"]["end_char"] == expected_start + len("repeated evidence")
+
+
+def test_quantitative_short_quote_expands_to_exact_bounded_window() -> None:
+    """Ground two abbreviated quantitative anchors only when both occur nearby in order."""
+    exact_quote = "36-month ($312"
+    turn_text = "The 36-month term has a higher monthly payment ($312), but less total interest."
+    assert subsequence_expanded_exact_quote(exact_quote, turn_text, 4) == "36-month term has a higher monthly payment ($312),"
+    assert subsequence_expanded_exact_quote("shorter payment", turn_text, 4) is None
 
 
 def test_response_span_alignment_rejects_absent_quote() -> None:
@@ -269,6 +282,53 @@ def test_full_specificity_span_expands_to_adjacent_reviewed_value() -> None:
     assert changed is True
     assert span["start_char"] == selected_start
     assert span["exact_quote"] == "£120"
+
+
+def test_full_specificity_span_expands_to_between_and_range() -> None:
+    """Expand quoted endpoints to exact adjacent `between X and Y` wording."""
+    _, _, scoring_input, _, _, _ = aligned_scoring_artifacts()
+    first_fact = scoring_input.facts[0]
+    element = SpecificityElement(
+        element_id=f"{first_fact.fact_id}_S1",
+        fact_id=first_fact.fact_id,
+        canonical_value="£1,000 to £250,000",
+    )
+    range_fact = first_fact.model_copy(update={"specificity_elements": [element]})
+    turn_text = "Eligible balances are between £1,000 and £250,000."
+    first_turn = scoring_input.agent_turns[0].model_copy(update={"content": turn_text})
+    range_input = scoring_input.model_copy(
+        update={
+            "facts": [range_fact, *scoring_input.facts[1:]],
+            "agent_turns": [first_turn, scoring_input.agent_turns[1]],
+        }
+    )
+    quote = "£1,000 and £250,000"
+    quote_start = turn_text.index(quote)
+    payload = {
+        "judgments": [
+            {
+                "fact_id": range_fact.fact_id,
+                "specificity_element_judgments": [
+                    {
+                        "element_id": element.element_id,
+                        "state": "full",
+                        "response_spans": [
+                            {
+                                "turn_index": 1,
+                                "start_char": quote_start,
+                                "end_char": quote_start + len(quote),
+                                "exact_quote": quote,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+    expanded, changed = expand_full_specificity_spans(payload, range_input)
+    span = expanded["judgments"][0]["specificity_element_judgments"][0]["response_spans"][0]
+    assert changed is True
+    assert span["exact_quote"] == "between £1,000 and £250,000"
 
 
 def test_initial_checkpoint_drops_follow_up_only_evidence() -> None:
@@ -859,6 +919,18 @@ def test_full_specificity_accepts_hyphenated_singular_unit_equivalence() -> None
         canonical_value="36 months",
     )
     quote = "The 36-month fixed term has a stated rate."
+    span = ResponseSpan(turn_index=1, start_char=0, end_char=len(quote), exact_quote=quote)
+    assert _full_specificity_value_is_supported(element, [span])
+
+
+def test_full_specificity_accepts_between_and_range_equivalence() -> None:
+    """Treat `between X and Y` as the same reviewed range as `X to Y`."""
+    element = SpecificityElement(
+        element_id="CF002_C1_F2_S3",
+        fact_id="CF002_C1_F2",
+        canonical_value="£1,000 to £250,000",
+    )
+    quote = "balances between £1,000 and £250,000"
     span = ResponseSpan(turn_index=1, start_char=0, end_char=len(quote), exact_quote=quote)
     assert _full_specificity_value_is_supported(element, [span])
 

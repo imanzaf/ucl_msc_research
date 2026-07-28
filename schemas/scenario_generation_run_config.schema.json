@@ -8,8 +8,16 @@
       "type": "string"
     },
     "generation_protocol_version": {
-      "const": "v1.0.0",
+      "const": "v1.0.5",
       "title": "Generation Protocol Version",
+      "type": "string"
+    },
+    "query_schema_sha256": {
+      "title": "Query Schema Sha256",
+      "type": "string"
+    },
+    "query_sha256": {
+      "title": "Query Sha256",
       "type": "string"
     },
     "run_id": {
@@ -18,12 +26,12 @@
       "type": "string"
     },
     "scenario_set_id": {
-      "const": "customer_facing_risk_communication_v1.0.0",
+      "const": "customer_facing_risk_communication_v2.0.0",
       "title": "Scenario Set Id",
       "type": "string"
     },
     "schema_version": {
-      "const": "1.0.0",
+      "const": "2.0.0",
       "title": "Schema Version",
       "type": "string"
     },
@@ -36,7 +44,7 @@
       "type": "string"
     },
     "seed_version": {
-      "const": "v1.0.0",
+      "const": "v2.0.0",
       "title": "Seed Version",
       "type": "string"
     }
@@ -49,6 +57,8 @@
     "scenario_set_id",
     "seed_sha256",
     "seed_schema_sha256",
+    "query_sha256",
+    "query_schema_sha256",
     "created_at"
   ],
   "title": "ScenarioGenerationRunConfig",

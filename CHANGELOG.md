@@ -22,6 +22,8 @@ All notable changes to the active research implementation are recorded here. The
 
 ### Changed
 
+- Activated generation protocol V1.0.5 and candidate/accepted schema 6.0.0. Generation now returns exact quantitative specificity markers with
+  each fact, and researcher review persists editable fact text, marker lists, and per-fact notes through acceptance or regeneration.
 - Replaced reusable cue prefixes and cue-template assignment with direct seed-authored condition queries in prompt compilation, review manifests,
   factor-isolation validation, analysis inputs, and power assumptions.
 - Reduced the hidden decision mechanism to `owner_supporting_option` and `owner_benefit_mechanism`; the other option is now an alternative with no

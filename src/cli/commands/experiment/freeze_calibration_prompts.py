@@ -36,7 +36,7 @@ def main() -> None:
     expected_manifest = ACTIVE_SCENARIO_INPUT_ROOT / "calibration_accepted_scenario_manifest.json"
     expected_output = ACTIVE_SCENARIO_CHECKPOINT_ROOT / "calibration_prompt_review.json"
     if args.accepted_root.resolve() != ACTIVE_SCENARIO_ACCEPTED_ROOT.resolve():
-        raise ValueError("calibration prompt review must use the active V1.0.0 accepted root")
+        raise ValueError("calibration prompt review must use the active V2.0.0 accepted root")
     if args.calibration_scenario_manifest.resolve() != expected_manifest.resolve():
         raise ValueError("calibration prompt review must use the fixed calibration accepted-set manifest")
     if args.output.resolve() != expected_output.resolve():

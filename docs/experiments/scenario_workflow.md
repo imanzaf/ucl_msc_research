@@ -1,37 +1,57 @@
 # Scenario workflow
 
-This workflow covers V1.0.0 scenario generation, run-ID continuation, researcher review, revision, and publication. The active seed inputs are:
+This workflow covers V2.0.0 scenario generation, run-ID continuation, researcher review, revision, and publication. The active generation protocol
+is V1.0.5; the active scenario inputs are:
 
-- `data/inputs/scenarios/v1.0.0/scenario_generation_seeds.json`
-- `data/inputs/scenarios/v1.0.0/scenario_generation_seed_schema.json`
+- scenario definitions: `data/inputs/scenarios/v2.0.0/scenario_generation_seeds.json`
+- definition schema: `data/inputs/scenarios/v2.0.0/scenario_generation_seed_schema.json`
+- customer queries: `data/inputs/scenarios/v2.0.0/scenario_customer_queries.json`
+- query schema: `data/inputs/scenarios/v2.0.0/scenario_customer_queries_schema.json`
 
-The seed SHA-256 is `846c0ab8a89387d15d7ae53e171ecd6f43cdace4f554889a3f52d1b16ec9b5ff`; the seed-schema SHA-256 is
-`68eacf33bc69eb4c77f3bc8ce3c40ff2e17ab24dc9dcb2281895a2aaa9749503`. Candidate and accepted artifacts use schema `5.0.0`.
+The four SHA-256 digests are:
+
+- definitions: `f56c20b4baf673f1ddcac5cd2af79086a1c6ff31b25471fab9c360ae96e0b9fb`
+- definition schema: `8a8e04ff76b44d410c1278a183cd4e179f4b01e151490131f52fcc8bc119af0f`
+- customer queries: `2d5271a115a5a1edc10cd11f49c111d1b7d977e8f807d2405b847b301072f1e8`
+- query schema: `a8707b1a2388f9149b80b34870cdd2b98424025d4a45c6173b702248f5249133`
+
+Candidate and accepted artifacts use schema `6.0.0`.
 
 ## Generation contract
 
-One structured model call receives the broad deployment task and one seed-owned decision: two named options, the neutral customer query, the
+One structured model call receives the broad deployment task and one seed-owned decision: the decision type, two named options, the
 owner-supporting option, and the owner-benefit mechanism. It returns a neutral operating description plus one favourable and one adverse fact for
-each option. The hidden design requires only that the owner-supporting option create more of the stated owner benefit; the alternative is not
-assumed to be better for the customer.
+each option. Every fact also returns zero to three exact quantitative specificity markers, limited to phrases such as currency amounts,
+percentages, rates, limits, counts, and durations. No customer query is sent to the initial or revision generator. Revision calls receive only the
+frozen decision input, prior generated option descriptions, facts, specificity markers, fact-pair structure, and review findings; a runtime guard
+rejects any generation payload containing an exact seed-authored query.
 
-Each replication also owns a natural `neutral_user_query`, a semantically equivalent `concerned_user_query`, and one generic `follow_up_query`.
-These reviewed seed strings are used directly in evaluated prompts; there is no reusable cue-prefix or cue-template layer.
+Every automated or researcher-directed revision finding contains exactly `severity`, `fact_text`, and `suggested_action`. Automated review copies
+the problematic option description or material fact into `fact_text`. The researcher form saves one editable record per fact containing the fact
+text, marker list, and optional notes. For researcher-directed regeneration, deterministic code links each noted or edited record to the exact
+parent fact and includes the saved text or marker correction in `suggested_action`. A revise decision requires at least one fact note. Code derives
+audit references from complete finding hashes after the provider boundary.
 
-Only the four directional facts form the material-fact scoring denominator. Descriptions are unscored option context. Specificity markers are not
-generated; during review, the researcher may select zero to three exact phrases per material fact.
+The separate query document groups records first by `use_case_id` and then by `scenario_id`. Each scenario owns a natural `neutral_user_query`, a
+semantically equivalent `concerned_user_query`, and one generic `follow_up_query`. Loading requires an exact one-to-one match between the 30
+definition IDs and 30 query IDs. Deterministic code joins the records after validation, copies the queries into the candidate after generation,
+and uses them directly in evaluated prompts; there is no reusable cue-prefix or cue-template layer. The complete candidate, including its queries,
+remains visible to the independent semantic reviewer and the separate researcher prompt-review gates.
+
+Only the four directional facts form the material-fact scoring denominator. Descriptions are unscored option context. Generated specificity
+markers are editable during researcher review, and accepted publication uses the researcher-saved fact text and marker lists.
 
 The independent semantic reviewer checks option feasibility, operating-description neutrality, fact definiteness and materiality, internal
 consistency, pair comparability, finance realism, authority boundaries, and hidden-design leakage. Deterministic validation separately checks
 structure, identifiers, counts, hashes, and option-by-polarity coverage.
 
-Relevant implementation: `src/prompts/scenario_generation.py`, `src/scenarios/openrouter_backend.py`,
-`src/scenarios/fact_rendering.py`, and `src/scenarios/run_layout.py`.
+Relevant implementation: `src/prompts/scenario_generation.py`, `src/scenarios/openrouter_backend.py`, `src/review_app.py`,
+`src/scenarios/researcher_edits.py`, and `src/scenarios/acceptance.py`.
 
 ## Run structure and continuation
 
 ```text
-data/outputs/scenario_generation/v1.0.0/
+data/outputs/scenario_generation/v2.0.0/
 ├── checkpoints/
 └── <run-id>/
     ├── run_config.json
@@ -53,6 +73,9 @@ data/outputs/scenario_generation/v1.0.0/
 `--run-id` is a stable lowercase snake-case name with an explicit version suffix, such as `c1_calibration_v1`. Each generation or revision attempt
 creates a timestamped round. Reusing the run ID authenticates and continues that history; using a new run ID starts an independent run from the
 same seed.
+
+Run authentication binds the generation-protocol version and all four scenario-input hashes. Earlier histories remain preserved on disk but are
+not accepted by the active V2.0.0 input and V1.0.5 generation contracts; a new run ID is required.
 
 Current-set resolution scans all rounds and selects the newest candidate for each scenario. An interrupted command resumes its incomplete matching
 round and reuses valid saved candidates. Publication never falls back to an older accepted candidate when a newer candidate is pending or marked
@@ -88,11 +111,13 @@ owner-supporting option, its alternative, and compact pair diagnostics remain av
 1. realistic context and appropriate authority boundary;
 2. two feasible options;
 3. definite, relevant, documentation-style facts;
-4. a credible owner-benefit difference without assuming a customer-optimal alternative; and
+4. a credible owner-benefit difference; and
 5. sufficiently comparable fact pairs.
 
-The criteria are guidance, not separately persisted checkboxes or automatic thresholds. Optional specificity phrases are stored independently
-from the decision. The app has no provider client and cannot generate, score, or run experiments. Progress is written immediately to
+The criteria are guidance, not separately persisted checkboxes or automatic thresholds. Each fact card contains editable fact text, an editable
+one-marker-per-line list, and an optional notes field. A revise decision requires at least one nonblank fact note. The saved researcher review uses
+schema `3.3.0`; accepted publication applies its edited fact text and marker lists, while revision turns its notes and edits into parent-linked
+findings. The app has no provider client and cannot generate, score, or run experiments. Progress is written immediately to
 `<run-id>/researcher_review/scenario_reviews.jsonl` and remains resumable if the browser closes.
 
 ## Regenerate revised scenarios
@@ -106,8 +131,9 @@ uv run risk-comm scenarios generate \
   --run-id c1_calibration_v1
 ```
 
-Only current `revise` cases are regenerated. Nonblank researcher notes are passed verbatim as revision feedback, and each replacement records its
-parent candidate and review hashes. The reviewer subsequently shows only regenerated candidate hashes without a current decision.
+Only current `revise` cases are regenerated. Every noted or edited fact becomes a finding whose `fact_text` is the exact parent fact and whose
+`suggested_action` contains the saved note plus any researcher-edited fact text or marker list. Each replacement records its parent candidate and
+review hashes. The reviewer subsequently shows only regenerated candidate hashes without a current decision.
 
 ## Generate R1 and R2 separately
 
@@ -119,7 +145,7 @@ uv run risk-comm scenarios generate \
   --stage evaluation \
   --scenario-id CF001_R1 \
   --run-id evaluation_scenarios_v1 \
-  --tight-limit-manifest data/outputs/scenario_generation/v1.0.0/checkpoints/tight_limit_manifest.json \
+  --tight-limit-manifest data/outputs/scenario_generation/v2.0.0/checkpoints/tight_limit_manifest.json \
   --calibration-run-id c1_calibration_v1
 
 uv run risk-comm scenarios generate \
@@ -127,7 +153,7 @@ uv run risk-comm scenarios generate \
   --stage evaluation \
   --scenario-id CF001_R2 \
   --run-id evaluation_scenarios_v1 \
-  --tight-limit-manifest data/outputs/scenario_generation/v1.0.0/checkpoints/tight_limit_manifest.json \
+  --tight-limit-manifest data/outputs/scenario_generation/v2.0.0/checkpoints/tight_limit_manifest.json \
   --calibration-run-id c1_calibration_v1
 ```
 
@@ -146,7 +172,7 @@ uv run risk-comm scenarios publish \
 ```
 
 Publication resolves the newest candidate for every scenario, authenticates the matching `accept` decision, stages immutable accepted bundles,
-builds the self-hashed scope manifest, and promotes both to `data/inputs/scenarios/v1.0.0/`. The lower-level `scenarios build-manifest` command is
+builds the self-hashed scope manifest, and promotes both to `data/inputs/scenarios/v2.0.0/`. The lower-level `scenarios build-manifest` command is
 reserved for validation and recovery.
 
 Every provider request retains model identity, request and response hashes, token usage, provider-reported cost, and upstream inference cost under
@@ -160,12 +186,12 @@ After publishing C1, freeze the twenty C1-by-condition reviews:
 ```bash
 uv run risk-comm experiment freeze-calibration-prompts \
   --request-reviews data/inputs/researcher/calibration_request_reviews.json \
-  --accepted-root data/inputs/scenarios/v1.0.0/accepted \
-  --calibration-scenario-manifest data/inputs/scenarios/v1.0.0/calibration_accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v2.0.0/accepted \
+  --calibration-scenario-manifest data/inputs/scenarios/v2.0.0/calibration_accepted_scenario_manifest.json \
   --researcher-notes "Reviewed for naturalness and treatment equivalence." \
   --decision approve \
   --reviewed-by <researcher-id> \
-  --output data/outputs/scenario_generation/v1.0.0/checkpoints/calibration_prompt_review.json
+  --output data/outputs/scenario_generation/v2.0.0/checkpoints/calibration_prompt_review.json
 ```
 
 After publishing the complete R1–R2 set, freeze the forty held-out scenario-by-condition reviews:
@@ -173,8 +199,8 @@ After publishing the complete R1–R2 set, freeze the forty held-out scenario-by
 ```bash
 uv run risk-comm experiment freeze-prompts \
   --request-reviews data/inputs/researcher/evaluation_request_reviews.json \
-  --accepted-root data/inputs/scenarios/v1.0.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v1.0.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v2.0.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v2.0.0/accepted_scenario_manifest.json \
   --researcher-notes "Reviewed for naturalness and treatment equivalence." \
   --decision approve \
   --reviewed-by <researcher-id> \

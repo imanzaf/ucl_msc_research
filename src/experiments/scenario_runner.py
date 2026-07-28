@@ -18,11 +18,13 @@ from src.data_models.experiments import (
     MessageRole,
     PromptMessage,
     ProviderAttempt,
+    ProviderRouting,
     RetryPolicy,
     RunOutcomeStatus,
     RunUnit,
     TokenUsage,
     TranscriptTurn,
+    provider_compatible_seed,
     provider_request_sha256,
 )
 from src.data_models.manifests import C1EvaluationConfig, EvaluatedModelSnapshot, WordBudgetManifest
@@ -78,6 +80,7 @@ def _build_run_unit(
     block_randomisation_seed: int,
     randomised_position: int,
     created_at: datetime,
+    provider_routing: Optional[ProviderRouting] = None,
 ) -> RunUnit:
     """Build one direct-fact run unit with authenticated prompt and follow-up bytes."""
     initial_messages, follow_up, initial_hash, follow_up_hash = compile_experiment_prompt(
@@ -94,6 +97,7 @@ def _build_run_unit(
         model_id=model.model_id,
         expected_model_version=model.returned_model_version,
         model_snapshot_sha256=artifact_sha256(model),
+        provider_routing=provider_routing,
         cell=cell,
         assigned_word_limit=None,
         global_randomisation_seed=global_randomisation_seed,
@@ -358,6 +362,7 @@ def build_c1_single_model_run_plan(
     model: EvaluatedModelSnapshot,
     randomisation_seed: int,
     created_at: datetime,
+    provider_routing: Optional[ProviderRouting] = None,
 ) -> List[RunUnit]:
     """Build one diagnostic four-cell block for each accepted C1 scenario."""
     if len(scenarios) != 10 or {scenario.scenario_id for scenario in scenarios} != {f"CF{index:03d}_C1" for index in range(1, 11)}:
@@ -378,6 +383,7 @@ def build_c1_single_model_run_plan(
                 block_randomisation_seed=block_randomisation_seed,
                 randomised_position=position,
                 created_at=created_at,
+                provider_routing=provider_routing,
             )
             for position, cell in enumerate(cells)
         ]
@@ -442,6 +448,7 @@ def validate_c1_single_model_plan_against_inputs(
         model=config.evaluated_model,
         randomisation_seed=config.randomisation_seed,
         created_at=config.created_at,
+        provider_routing=config.provider_routing,
     )
     if [unit.model_dump(mode="json") for unit in units] != [unit.model_dump(mode="json") for unit in rebuilt]:
         raise ValueError("single-model C1 plan is not the exact product of its frozen inputs")
@@ -540,7 +547,7 @@ def _call_with_retries(
     max_tokens: int,
 ) -> Tuple[Optional[ProviderTextResponse], List[ProviderAttempt]]:
     """Call a provider under the frozen retry policy and record every attempt."""
-    exact_request_sha256 = provider_request_sha256(messages, run_unit.model_id, 0.0, max_tokens, seed)
+    exact_request_sha256 = provider_request_sha256(messages, run_unit.model_id, 0.0, max_tokens, seed, run_unit.provider_routing)
     attempts: List[ProviderAttempt] = []
     for attempt_index in range(retry_policy.max_retries + 1):
         started_at = utc_now()
@@ -641,12 +648,13 @@ def execute_run_unit(
     """Execute initial and shared follow-up turns for one immutable run unit."""
     initial_messages = _provider_messages(run_unit.initial_request_messages)
     max_tokens = DEFAULT_MAX_RESPONSE_TOKENS
+    provider_seed = provider_compatible_seed(run_unit.block_randomisation_seed)
     initial_response, initial_attempts = _call_with_retries(
         provider=provider,
         run_unit=run_unit,
         messages=initial_messages,
         retry_policy=retry_policy,
-        seed=run_unit.block_randomisation_seed,
+        seed=provider_seed,
         max_tokens=max_tokens,
     )
     if initial_response is None:
@@ -670,7 +678,7 @@ def execute_run_unit(
         run_unit=run_unit,
         messages=follow_up_messages,
         retry_policy=retry_policy,
-        seed=run_unit.block_randomisation_seed,
+        seed=provider_seed,
         max_tokens=max_tokens,
     )
     turns = [

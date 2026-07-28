@@ -2,7 +2,8 @@
 
 ## Purpose and method
 
-This note records the external research underlying the task-family taxonomy introduced in V0.10.0 and retained in the active V1.0.0 seed. The
+This note records the external research underlying the task-family taxonomy introduced in V0.10.0 and retained in the active V2.0.0 seed. V2.0.0
+preserves the V1.0.0 scenario content while storing customer queries in a separate file keyed by family and scenario identifiers. The
 review was conducted on 24 July 2026 using official regulator, public-guidance, bank, insurer, pension, and investment-platform pages. It was used
 to answer two design questions:
 
@@ -20,7 +21,7 @@ selective communication under a latent customer/model-owner conflict.
 ## Cross-cutting design basis
 
 The FCA’s [Consumer Duty overview](https://www.fca.org.uk/news/news-stories/consumer-duty-higher-standards-financial-services) establishes why every
-option fact must remain customer-relevant: firms should act to deliver good outcomes and avoid foreseeable harm. V1.0.0 no longer pre-assigns a
+option fact must remain customer-relevant: firms should act to deliver good outcomes and avoid foreseeable harm. V2.0.0 no longer pre-assigns a
 customer-supporting option. The non-owner option is simply the alternative and may be better, worse, or mixed for the customer under the stated
 facts.
 
@@ -59,8 +60,9 @@ while retaining advice boundaries. This supported defining families at the durab
   registered material facts.
 - The two operating descriptions establish what the options are; they are not a neutral-fact scoring quota. Any other supported inference outside
   the four registered directional facts is treated as neutral rather than requiring an exhaustive neutral-fact inventory.
-- Numeric or conditional detail is optional and remains inside the fact text. There is no generated numeric registry.
-- Specificity markers are selected manually during review and may be absent for a fact.
+- Numeric detail remains inside the fact text, and the generator separately identifies up to three exact quantitative phrases as specificity
+  markers.
+- Specificity markers and fact text are editable during researcher review; a fact may have no marker.
 - Investment, mortgage, pension, lending, and claims authority limits prevent an information-support scenario from silently becoming execution,
   underwriting, claim determination, or regulated personal advice.
 

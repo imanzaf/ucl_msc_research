@@ -1,11 +1,12 @@
 """Strict Pydantic v2 boundaries for the active protocol."""
 
-from src.data_models.scenarios import AcceptedScenario, ScenarioSeedSet
+from src.data_models.scenarios import AcceptedScenario, ScenarioQuerySet, ScenarioSeedSet
 from src.data_models.study import ExperimentCell, all_experiment_cells, brevity_locus_cells, material_priority_cells, primary_experiment_cells
 
 __all__ = [
     "AcceptedScenario",
     "ExperimentCell",
+    "ScenarioQuerySet",
     "ScenarioSeedSet",
     "all_experiment_cells",
     "material_priority_cells",

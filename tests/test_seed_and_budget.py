@@ -31,36 +31,72 @@ from src.data_models.manifests import (
     PromptReviewManifest,
     ScenarioManifestScope,
 )
-from src.data_models.scenarios import SeedOptionId, V100HiddenDesign
+from src.data_models.scenarios import LoadedScenarioSeedSet, ScenarioHiddenDesign, SeedOptionId
 from src.data_models.study import PROMPT_PACKAGE_VERSION, ExpressedConcernCondition
 from src.llm.openrouter import OpenRouterClient, ProviderTextResponse
 from src.prompts.experiment import render_reviewed_user_request, validate_complete_request_reviews
 from src.scenarios.budgets import build_ample_pilot_summary, calculate_tight_word_limit, require_ample_pilot_gate, validate_evaluation_headroom
-from src.scenarios.seed_validation import EXPECTED_SCHEMA_SHA256, EXPECTED_SEED_SHA256, load_and_validate_seed, validate_seed_hashes
+from src.scenarios.seed_validation import (
+    EXPECTED_QUERY_SCHEMA_SHA256,
+    EXPECTED_QUERY_SHA256,
+    EXPECTED_SCHEMA_SHA256,
+    EXPECTED_SEED_SHA256,
+    load_and_validate_seed,
+    validate_seed_hashes,
+)
 from src.scenarios.word_count import count_words, tokenize_words
 from tests.factories import ZERO_HASH, make_accepted_scenario
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SEED_ROOT = REPO_ROOT / "data/inputs/scenarios/v1.0.0"
+SEED_ROOT = REPO_ROOT / "data/inputs/scenarios/v2.0.0"
+
+
+def load_active_seed() -> LoadedScenarioSeedSet:
+    """Load the active joined scenario definitions and customer queries."""
+    return load_and_validate_seed(
+        SEED_ROOT / "scenario_generation_seeds.json",
+        SEED_ROOT / "scenario_generation_seed_schema.json",
+        SEED_ROOT / "scenario_customer_queries.json",
+        SEED_ROOT / "scenario_customer_queries_schema.json",
+    )
 
 
 def test_active_seed_has_approved_bytes_and_exact_structure() -> None:
-    """Authenticate the only runtime-supported V1.0.0 seed."""
-    hashes = validate_seed_hashes(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
-    seed = load_and_validate_seed(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
-    assert hashes == {"seed_sha256": EXPECTED_SEED_SHA256, "schema_sha256": EXPECTED_SCHEMA_SHA256}
+    """Authenticate the only runtime-supported V2.0.0 scenario inputs."""
+    hashes = validate_seed_hashes(
+        SEED_ROOT / "scenario_generation_seeds.json",
+        SEED_ROOT / "scenario_generation_seed_schema.json",
+        SEED_ROOT / "scenario_customer_queries.json",
+        SEED_ROOT / "scenario_customer_queries_schema.json",
+    )
+    seed = load_active_seed()
+    assert hashes == {
+        "seed_sha256": EXPECTED_SEED_SHA256,
+        "schema_sha256": EXPECTED_SCHEMA_SHA256,
+        "query_sha256": EXPECTED_QUERY_SHA256,
+        "query_schema_sha256": EXPECTED_QUERY_SCHEMA_SHA256,
+    }
     assert len(seed.use_cases) == 10
     assert sum(len(use_case.replications) for use_case in seed.use_cases) == 30
     assert all(len({replication.decision_type for replication in use_case.replications}) == 3 for use_case in seed.use_cases)
 
 
-def test_exported_seed_schema_matches_the_active_runtime_boundary() -> None:
-    """Require both exported seed schemas to accept only the V1.0.0 structure."""
+def test_exported_seed_schemas_match_the_separate_v2_boundaries() -> None:
+    """Require exported schemas to enforce separate definition and query documents."""
     exported_schema = json.loads((REPO_ROOT / "schemas/scenario_seed_set.schema.json").read_text(encoding="utf-8"))
+    exported_query_schema = json.loads((REPO_ROOT / "schemas/scenario_query_set.schema.json").read_text(encoding="utf-8"))
     active_schema = json.loads((SEED_ROOT / "scenario_generation_seed_schema.json").read_text(encoding="utf-8"))
+    active_query_schema = json.loads((SEED_ROOT / "scenario_customer_queries_schema.json").read_text(encoding="utf-8"))
     active_payload = json.loads((SEED_ROOT / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
+    query_payload = json.loads((SEED_ROOT / "scenario_customer_queries.json").read_text(encoding="utf-8"))
     validator = Draft202012Validator(exported_schema)
     assert not list(validator.iter_errors(active_payload))
+    assert not list(Draft202012Validator(exported_query_schema).iter_errors(query_payload))
+    assert not list(Draft202012Validator(active_query_schema).iter_errors(query_payload))
+    assert all("customer_messages" not in replication for family in active_payload["use_cases"] for replication in family["replications"])
+    assert all(
+        set(scenario) == {"scenario_id", "customer_messages"} for family in query_payload["scenario_families"] for scenario in family["scenarios"]
+    )
     blank_design_payload = json.loads(json.dumps(active_payload))
     blank_design_payload["use_cases"][0]["replications"][0]["owner_benefit_mechanism"] = "   "
     assert list(validator.iter_errors(blank_design_payload))
@@ -69,29 +105,50 @@ def test_exported_seed_schema_matches_the_active_runtime_boundary() -> None:
     assert list(validator.iter_errors(active_payload))
 
 
+def test_v2_split_preserves_every_v1_scenario_field_and_query() -> None:
+    """Prove V2 changes only version identifiers and customer-query placement."""
+    v1_payload = json.loads((REPO_ROOT / "data/inputs/scenarios/v1.0.0/scenario_generation_seeds.json").read_text(encoding="utf-8"))
+    v2_payload = json.loads((SEED_ROOT / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
+    query_payload = json.loads((SEED_ROOT / "scenario_customer_queries.json").read_text(encoding="utf-8"))
+    query_by_scenario_id = {
+        scenario["scenario_id"]: scenario["customer_messages"] for family in query_payload["scenario_families"] for scenario in family["scenarios"]
+    }
+    reconstructed = json.loads(json.dumps(v2_payload))
+    reconstructed["schema_version"] = v1_payload["schema_version"]
+    reconstructed["scenario_set_id"] = v1_payload["scenario_set_id"]
+    for use_case in reconstructed["use_cases"]:
+        for replication in use_case["replications"]:
+            replication["customer_messages"] = query_by_scenario_id[replication["scenario_id"]]
+    assert reconstructed == v1_payload
+
+
 def test_hidden_design_requires_one_owner_option_and_distinct_option_names() -> None:
     """Require distinct option names and one valid owner-supporting option."""
-    seed = load_and_validate_seed(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
+    seed = load_active_seed()
     payload = seed.use_cases[0].replications[0].model_dump(mode="json", exclude={"scenario_id", "customer_messages"})
-    assert V100HiddenDesign.model_validate(payload).owner_supporting_option == SeedOptionId.OPTION_B
+    assert ScenarioHiddenDesign.model_validate(payload).owner_supporting_option == SeedOptionId.OPTION_B
     payload["options"][1]["option_name"] = payload["options"][0]["option_name"]
     with pytest.raises(ValidationError, match="option names must be distinct"):
-        V100HiddenDesign.model_validate(payload)
+        ScenarioHiddenDesign.model_validate(payload)
 
 
 def test_seed_tampering_is_rejected_before_use(tmp_path: Path) -> None:
     """Reject any changed byte in the active immutable seed."""
     root = SEED_ROOT
-    version_root = tmp_path / "v1.0.0"
+    version_root = tmp_path / "v2.0.0"
     version_root.mkdir()
     payload = json.loads((root / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
     payload["use_cases"][0]["word_budget"] = 100
     seed_path = version_root / "scenario_generation_seeds.json"
     schema_path = version_root / "scenario_generation_seed_schema.json"
+    query_path = version_root / "scenario_customer_queries.json"
+    query_schema_path = version_root / "scenario_customer_queries_schema.json"
     seed_path.write_text(json.dumps(payload), encoding="utf-8")
     schema_path.write_bytes((root / "scenario_generation_seed_schema.json").read_bytes())
+    query_path.write_bytes((root / "scenario_customer_queries.json").read_bytes())
+    query_schema_path.write_bytes((root / "scenario_customer_queries_schema.json").read_bytes())
     with pytest.raises(ValueError, match="seed bytes differ"):
-        load_and_validate_seed(seed_path, schema_path)
+        load_and_validate_seed(seed_path, schema_path, query_path, query_schema_path)
 
 
 @pytest.mark.parametrize(
@@ -253,7 +310,7 @@ def test_calibration_prompt_review_breaks_the_pre_r_generation_cycle() -> None:
 
 def test_prompt_review_freezes_all_40_seed_authored_requests() -> None:
     """Require one neutral/concerned pair per scenario and one shared generic follow-up."""
-    active_seed = load_and_validate_seed(SEED_ROOT / "scenario_generation_seeds.json", SEED_ROOT / "scenario_generation_seed_schema.json")
+    active_seed = load_active_seed()
     replications = [replication for use_case in active_seed.use_cases for replication in use_case.replications]
     assert len({replication.customer_messages.follow_up_query for replication in replications}) == 1
     assert all(replication.customer_messages.neutral_user_query != replication.customer_messages.concerned_user_query for replication in replications)
@@ -434,14 +491,16 @@ def test_successful_ample_pilot_attempt_recovers_only_from_matching_cache() -> N
 
 
 def test_accepted_manifest_rejects_unapproved_seed_hashes_before_publication() -> None:
-    """Prevent a self-hashed accepted set from blessing altered V1.0.0 seed bytes."""
-    with pytest.raises(ValidationError, match="approved immutable V1.0.0 seed"):
+    """Prevent a self-hashed accepted set from blessing altered V2.0.0 input bytes."""
+    with pytest.raises(ValidationError, match="approved immutable V2.0.0 scenario inputs"):
         AcceptedScenarioManifest(
-            schema_version="2.0.0",
-            scenario_set_id="customer_facing_risk_communication_v1.0.0",
+            schema_version="3.0.0",
+            scenario_set_id="customer_facing_risk_communication_v2.0.0",
             manifest_scope=ScenarioManifestScope.COMPLETE,
             seed_sha256=ZERO_HASH,
             seed_schema_sha256=ZERO_HASH,
+            query_sha256=ZERO_HASH,
+            query_schema_sha256=ZERO_HASH,
             entries=[],
             published_at=datetime(2026, 7, 23, tzinfo=timezone.utc),
             published_by="researcher",

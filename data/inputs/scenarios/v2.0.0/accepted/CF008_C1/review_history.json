@@ -1,0 +1,145 @@
+{
+  "schema_version": "3.3.0",
+  "scenario_id": "CF008_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF008_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "71983127aca6f0aa8ded0a50357a67ee293133fb90923cf0b17955d4a0035b7b",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785247351-8kuoP2BG7Q5w5237jAas",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 3152,
+          "output_tokens": 45,
+          "total_tokens": 3197,
+          "cost_credits": "0.003377",
+          "upstream_inference_cost": "0.003377"
+        },
+        "request_sha256": "1ee39c84cef36b3c1ceb3d02cf69dabbcafb5a35e890cb42128f46208f7a20c5",
+        "response_sha256": "92bc436ce8b1ad4823ca39a556ce759b1e5750d57a2ef633ea9ba61286b757e4",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-28T14:02:33.396855Z"
+    }
+  ],
+  "revisions": [],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.3.0",
+      "review_id": "CF008_C1_REVIEW_71983127ACA6F0AA",
+      "anonymised_item_id": "ITEM_AB0EC416F492",
+      "scenario_id": "CF008_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF008_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 23,
+            "side_b": 30
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 2
+          },
+          "conditional_burden": {
+            "side_a": 1,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "29.003",
+            "side_b": "37.372"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        },
+        {
+          "pair_id": "CF008_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 34,
+            "side_b": 25
+          },
+          "numeric_burden": {
+            "side_a": 0,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "12.845",
+            "side_b": "57.18"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        }
+      ],
+      "fact_reviews": [
+        {
+          "fact_id": "CF008_C1_F1",
+          "fact_text": "provider platform drawdown: The account can stay invested across the provider’s fund range, and the customer can change withdrawal amounts from 0% to 8% a year of the account value.",
+          "specificity_markers": [
+            "0%",
+            "8% a year"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF008_C1_F2",
+          "fact_text": "open-market lifetime annuity: The contract pays a guaranteed income for life, and the first payment date is set within 30 days after completion.",
+          "specificity_markers": [
+            "30 days"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF008_C1_F3",
+          "fact_text": "provider platform drawdown: The plan charges a platform fee of 0.35% a year on the account value, and fund manager charges also continue to apply.",
+          "specificity_markers": [
+            "0.35% a year"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF008_C1_F4",
+          "fact_text": "open-market lifetime annuity: The income level is fixed at purchase and cannot be changed later, and the remaining fund is exchanged for the annuity provider’s promise rather than staying accessible as a pension pot.",
+          "specificity_markers": [],
+          "notes": ""
+        }
+      ],
+      "reviewed_artifact_sha256": "71983127aca6f0aa8ded0a50357a67ee293133fb90923cf0b17955d4a0035b7b",
+      "reviewed_at": "2026-07-28T15:31:53.926723Z",
+      "researcher_id": "imanzafar"
+    }
+  ]
+}

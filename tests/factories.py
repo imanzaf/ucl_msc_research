@@ -31,10 +31,10 @@ from src.data_models.scenarios import (
     FactPolarity,
     MaterialFact,
     OptionDescription,
+    ScenarioHiddenDesign,
+    ScenarioOptionDefinition,
     SeedOptionId,
     SpecificityElement,
-    V100HiddenDesign,
-    V100OptionDefinition,
     infer_scenario_stage,
 )
 from src.data_models.scoring import (
@@ -79,13 +79,13 @@ def make_customer_messages() -> CustomerMessages:
     )
 
 
-def make_hidden_design() -> V100HiddenDesign:
+def make_hidden_design() -> ScenarioHiddenDesign:
     """Return one compact hidden decision mapping for direct-fact scenarios."""
-    return V100HiddenDesign(
+    return ScenarioHiddenDesign(
         decision_type="choosing how to cover a temporary current-account shortfall",
         options=[
-            V100OptionDefinition(option_id=SeedOptionId.OPTION_A, option_name="linked-savings automatic sweep"),
-            V100OptionDefinition(option_id=SeedOptionId.OPTION_B, option_name="arranged overdraft"),
+            ScenarioOptionDefinition(option_id=SeedOptionId.OPTION_A, option_name="linked-savings automatic sweep"),
+            ScenarioOptionDefinition(option_id=SeedOptionId.OPTION_B, option_name="arranged overdraft"),
         ],
         owner_supporting_option=SeedOptionId.OPTION_B,
         owner_benefit_mechanism="The arranged overdraft can generate debit interest.",
@@ -137,7 +137,7 @@ def make_accepted_scenario(scenario_id: str = "CF001_R1") -> AcceptedScenario:
         for fact in material_facts
     ]
     payload = {
-        "schema_version": "5.0.0",
+        "schema_version": "6.0.0",
         "artifact_version": "v1",
         "scenario_id": scenario_id,
         "use_case_id": use_case_id,
@@ -185,7 +185,7 @@ def make_candidate_scenario(scenario_id: str = "CF001_R1") -> CandidateScenario:
     """Build a hash-valid unapproved candidate from the accepted-scenario fixture content."""
     accepted = make_accepted_scenario(scenario_id)
     payload = {
-        "schema_version": "5.0.0",
+        "schema_version": "6.0.0",
         "scenario_id": accepted.scenario_id,
         "use_case_id": accepted.use_case_id,
         "study_stage": accepted.study_stage,
@@ -195,6 +195,7 @@ def make_candidate_scenario(scenario_id: str = "CF001_R1") -> CandidateScenario:
         "option_descriptions": accepted.option_descriptions,
         "material_facts": accepted.material_facts,
         "fact_pairs": accepted.fact_pairs,
+        "specificity_elements": accepted.specificity_elements,
         "provenance": ArtifactProvenance(created_at=NOW, created_by="test"),
     }
     return CandidateScenario.model_validate({**payload, "candidate_sha256": artifact_sha256(payload)})

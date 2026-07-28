@@ -43,6 +43,7 @@ from src.data_models.scenarios import (
     CandidateScenario,
     ScenarioGenerationInvocationConfig,
     ScenarioGenerationRunConfig,
+    ScenarioQuerySet,
     ScenarioSeedSet,
 )
 from src.data_models.scoring import (
@@ -115,6 +116,7 @@ SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
     "scenario_generation_run_config": ScenarioGenerationRunConfig,
     "scenario_acceptance_record": ScenarioAcceptanceRecord,
     "scenario_pipeline_disposition": ScenarioPipelineDisposition,
+    "scenario_query_set": ScenarioQuerySet,
     "scenario_review_history": ScenarioReviewHistory,
     "scenario_seed_set": ScenarioSeedSet,
     "scoring_validation_report": ScoringValidationReport,
@@ -140,6 +142,8 @@ def main() -> None:
         path.write_text(payload, encoding="utf-8")
         if model is ScenarioSeedSet:
             (ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json").write_text(payload, encoding="utf-8")
+        if model is ScenarioQuerySet:
+            (ACTIVE_SCENARIO_INPUT_ROOT / "scenario_customer_queries_schema.json").write_text(payload, encoding="utf-8")
     print(f"Exported {len(SCHEMA_MODELS)} schemas to {output_root}")
 
 

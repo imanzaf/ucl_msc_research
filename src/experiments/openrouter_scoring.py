@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Tuple, TypeVar
 from pydantic import BaseModel, Field, model_validator
 
 from src.data_models.common import VersionedImmutableModel, sha256_bytes, utc_now
-from src.data_models.experiments import TokenUsage
+from src.data_models.experiments import TokenUsage, provider_compatible_seed
 from src.data_models.manifests import EvaluatedModelSnapshot
 from src.data_models.scoring import (
     ClaimAssessmentJudgment,
@@ -32,12 +32,6 @@ from src.settings.api_settings import OpenRouterCredentialRole, get_api_settings
 from src.settings.model_settings import get_model_settings
 
 StructuredT = TypeVar("StructuredT", bound=BaseModel)
-MAX_PROVIDER_SEED = 2_147_483_647
-
-
-def provider_compatible_seed(seed: int) -> int:
-    """Map a deterministic hash-derived seed into the positive signed-int32 range."""
-    return (seed % MAX_PROVIDER_SEED) or 1
 
 
 def normalise_provisional_span_bounds(value: Any) -> Any:
@@ -75,7 +69,8 @@ def subsequence_expanded_exact_quote(exact_quote: str, turn_text: str, proposed_
 
     quote_matches = list(re.finditer(r"\S+", exact_quote))
     quote_tokens = [normalise_token(match.group()) for match in quote_matches]
-    if len(quote_tokens) < 4 or any(not token for token in quote_tokens):
+    quantitative_short_quote = 2 <= len(quote_tokens) <= 3 and all(re.search(r"\d", token) is not None for token in quote_tokens)
+    if (len(quote_tokens) < 4 and not quantitative_short_quote) or any(not token for token in quote_tokens):
         return None
     turn_matches = list(re.finditer(r"\S+", turn_text))
     turn_tokens = [normalise_token(match.group()) for match in turn_matches]
@@ -98,7 +93,8 @@ def subsequence_expanded_exact_quote(exact_quote: str, turn_text: str, proposed_
             continue
         start_char = turn_matches[matched_indices[0]].start()
         end_char = turn_matches[matched_indices[-1]].end()
-        if end_char - start_char <= len(exact_quote) * 2:
+        maximum_window_length = max(len(exact_quote) * 2, 80) if quantitative_short_quote else len(exact_quote) * 2
+        if end_char - start_char <= maximum_window_length:
             candidates.append((start_char, end_char))
     if not candidates:
         return None
@@ -111,6 +107,19 @@ def subsequence_expanded_exact_quote(exact_quote: str, turn_text: str, proposed_
         ),
     )
     return turn_text[start_char:end_char]
+
+
+def hyphenated_unit_equivalent_exact_quote(exact_quote: str, turn_text: str, proposed_start: int) -> str | None:
+    """Ground a hyphenated numeric duration in an exact singular/plural response phrase."""
+    match = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*-\s*(month|year|day|week|hour)s?\s*", exact_quote, flags=re.IGNORECASE)
+    if match is None:
+        return None
+    value, unit = match.groups()
+    candidates = [
+        (candidate.start(), candidate.group())
+        for candidate in re.finditer(rf"(?<!\w){re.escape(value)}(?:-|\s+){re.escape(unit)}s?(?!\w)", turn_text, flags=re.IGNORECASE)
+    ]
+    return min(candidates, key=lambda candidate: (abs(candidate[0] - proposed_start), candidate[0]))[1] if candidates else None
 
 
 def align_response_span_offsets(value: Any, scoring_input: ConditionBlindScoringInput) -> Tuple[Any, bool]:
@@ -147,7 +156,12 @@ def align_response_span_offsets(value: Any, scoring_input: ConditionBlindScoring
             if not occurrences:
                 trimmed_quote = longest_edge_trimmed_exact_quote(exact_quote, turn_text)
                 expanded_quote = subsequence_expanded_exact_quote(exact_quote, turn_text, proposed_start) if trimmed_quote is None else None
-                repaired_quote = trimmed_quote or expanded_quote
+                unit_equivalent_quote = (
+                    hyphenated_unit_equivalent_exact_quote(exact_quote, turn_text, proposed_start)
+                    if trimmed_quote is None and expanded_quote is None
+                    else None
+                )
+                repaired_quote = trimmed_quote or expanded_quote or unit_equivalent_quote
                 if repaired_quote is None:
                     raise ValueError(f"response exact_quote is absent from assistant turn {turn_index}")
                 exact_quote = repaired_quote
@@ -362,6 +376,14 @@ def expand_full_specificity_spans(
                         gap = max(match.start() - current_end, current_start - match.end(), 0)
                         if gap <= 1:
                             candidates.append((match.start(), match.end(), turn_text[match.start() : match.end()]))
+                    range_bounds = re.split(r"\s+to\s+", accepted_value, maxsplit=1, flags=re.IGNORECASE)
+                    if len(range_bounds) == 2 and all(range_bounds):
+                        lower, upper = range_bounds
+                        range_pattern = rf"(?<!\w)between\s+{re.escape(lower)}\s+and\s+{re.escape(upper)}(?!\w)"
+                        for match in re.finditer(range_pattern, turn_text, flags=re.IGNORECASE):
+                            gap = max(match.start() - current_end, current_start - match.end(), 0)
+                            if gap <= 1:
+                                candidates.append((match.start(), match.end(), turn_text[match.start() : match.end()]))
                 if not candidates:
                     expanded_spans.append(span)
                     continue

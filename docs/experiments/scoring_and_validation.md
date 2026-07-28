@@ -31,8 +31,8 @@ Run condition-blind scoring for a completed experiment:
 uv run risk-comm scoring run \
   --backend src.experiments.openrouter_scoring:create_openrouter_scoring_backend \
   --transcripts data/outputs/experiments/<experiment-name>/results/<YYYYMMDDTHHMMSS>_results.jsonl \
-  --accepted-root data/inputs/scenarios/v1.0.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v1.0.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v2.0.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v2.0.0/accepted_scenario_manifest.json \
   --experiment-manifest data/outputs/experiments/<experiment-name>/manifests/experiment_manifest.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
   --results-dir data/outputs/experiments/<experiment-name>/results \
@@ -52,8 +52,8 @@ Create the evaluation sample:
 uv run risk-comm scoring sample-annotations \
   --stage evaluation \
   --transcripts data/outputs/experiments/risk_comm_v1/results/<YYYYMMDDTHHMMSS>_results.jsonl \
-  --accepted-root data/inputs/scenarios/v1.0.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v1.0.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v2.0.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v2.0.0/accepted_scenario_manifest.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
   --scoring-input-root data/outputs/experiments/risk_comm_v1/checkpoints/blind_inputs \
   --output-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluation_annotation_sample.json

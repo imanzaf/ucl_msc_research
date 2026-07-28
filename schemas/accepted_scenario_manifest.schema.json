@@ -44,7 +44,7 @@
     "AcceptedScenarioSetId": {
       "description": "Identify the active accepted scenario family.",
       "enum": [
-        "customer_facing_risk_communication_v1.0.0"
+        "customer_facing_risk_communication_v2.0.0"
       ],
       "title": "AcceptedScenarioSetId",
       "type": "string"
@@ -95,11 +95,19 @@
       "title": "Published By",
       "type": "string"
     },
+    "query_schema_sha256": {
+      "title": "Query Schema Sha256",
+      "type": "string"
+    },
+    "query_sha256": {
+      "title": "Query Sha256",
+      "type": "string"
+    },
     "scenario_set_id": {
       "$ref": "#/$defs/AcceptedScenarioSetId"
     },
     "schema_version": {
-      "pattern": "^2\\.0\\.0$",
+      "pattern": "^3\\.0\\.0$",
       "title": "Schema Version",
       "type": "string"
     },
@@ -118,6 +126,8 @@
     "manifest_scope",
     "seed_sha256",
     "seed_schema_sha256",
+    "query_sha256",
+    "query_schema_sha256",
     "entries",
     "published_at",
     "published_by",

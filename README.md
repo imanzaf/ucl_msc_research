@@ -3,8 +3,10 @@
 This repository contains the dissertation and reproducible experiments for a controlled study of selective financial-risk communication under
 concise-response guidance and user-expressed concern.
 
-The canonical methodology is [RESEARCH_PLAN.md](docs/research-plan/RESEARCH_PLAN.md). The active scenario seed is V1.0.0 and generated/accepted
-scenario artifacts use schema 5.0.0.
+The canonical methodology is [RESEARCH_PLAN.md](docs/research-plan/RESEARCH_PLAN.md). The active scenario seed is V2.0.0 and generated/accepted
+scenario artifacts use schema 6.0.0. Scenario definitions and customer queries are stored in separate, schema-validated JSON files joined by
+family and scenario IDs. Generation protocol V1.0.5 excludes all customer queries from initial and revision model calls and generates exact
+quantitative specificity markers with each fact. The local reviewer saves editable fact text, marker lists, and an optional note for every fact.
 
 ## Study at a glance
 
@@ -24,7 +26,7 @@ cumulative scoring after a fixed natural follow-up is secondary.
 | `brevity_locus_v1` | 20 scenarios × 3 models × neutral query with user-requested brevity | 60 |
 
 Experiment artifacts live under `data/outputs/experiments/<experiment-name>/`. Scenario-generation histories live under
-`data/outputs/scenario_generation/v1.0.0/<run-id>/<round-id>/`; the run ID identifies one resumable logical run and timestamped rounds preserve each
+`data/outputs/scenario_generation/v2.0.0/<run-id>/<round-id>/`; the run ID identifies one resumable logical run and timestamped rounds preserve each
 generation or revision attempt.
 
 ## Workflows

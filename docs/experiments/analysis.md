@@ -12,8 +12,8 @@ uv run risk-comm analysis build-inputs \
   --scored-bundles data/outputs/experiments/risk_comm_v1/results/scored_conversations.jsonl \
   --manual-resolutions data/outputs/experiments/risk_comm_v1/results/manual_scoring_resolutions.jsonl \
   --experiment-manifest data/outputs/experiments/risk_comm_v1/manifests/experiment_manifest.json \
-  --accepted-root data/inputs/scenarios/v1.0.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v1.0.0/accepted_scenario_manifest.json \
+  --accepted-root data/inputs/scenarios/v2.0.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v2.0.0/accepted_scenario_manifest.json \
   --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
   --output data/outputs/experiments/risk_comm_v1/results/analysis_input.jsonl \
   --fact-analysis-output data/outputs/experiments/risk_comm_v1/results/fact_analysis_input.jsonl \

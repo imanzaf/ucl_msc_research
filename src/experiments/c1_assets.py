@@ -9,8 +9,6 @@ from typing import Dict, List
 from src.data_models.experiments import ConversationTranscript, RunOutcomeStatus
 from src.data_models.scoring import EvaluationCheckpoint, ScoredConversationBundle
 
-C1_TABLE_FILENAME = "c1_llama_2x2_v1_table.tex"
-
 
 def _latex_escape(value: str) -> str:
     """Escape underscores in short generated LaTeX labels."""
@@ -21,6 +19,7 @@ def generate_c1_paper_assets(
     transcripts: List[ConversationTranscript],
     bundles: List[ScoredConversationBundle],
     assets_dir: Path,
+    experiment_name: str,
 ) -> Path:
     """Write a stable completion-and-score table for the four C1 cells."""
     transcript_by_id = {transcript.run_unit.run_unit_id: transcript for transcript in transcripts}
@@ -39,7 +38,7 @@ def generate_c1_paper_assets(
         mean_score = f"{sum(scores, Decimal('0')) / Decimal(len(scores)):.4f}" if scores else "--"
         rows.append(f"{_latex_escape(cell_id)} & {completed} & {len(cell_transcripts)} & {mean_score} \\\\")
     assets_dir.mkdir(parents=True, exist_ok=True)
-    output = assets_dir / C1_TABLE_FILENAME
+    output = assets_dir / f"{experiment_name}_table.tex"
     output.write_text(
         "\n".join(
             [

@@ -11,7 +11,7 @@ import pytest
 from pydantic import Field
 
 from src.data_models.common import VersionedImmutableModel
-from src.data_models.experiments import provider_request_sha256
+from src.data_models.experiments import ProviderRouting, provider_request_sha256
 from src.data_models.manifests import FreezeStatus
 from src.experiments.model_catalog import load_model_catalog, resolve_evaluated_model_ids
 from src.llm.openrouter import OpenRouterClient, _strip_schema_defaults
@@ -134,6 +134,32 @@ def test_text_requests_cache_by_exact_bytes_and_do_not_repeat_provider_call(tmp_
     assert first.cost_credits == Decimal("0.0123")
     assert first.upstream_inference_cost == Decimal("0.01")
     assert provider_request_sha256(messages, "provider/model", 0.0, 500, 7) != provider_request_sha256(messages, "provider/model", 0.0, 501, 7)
+
+
+def test_text_request_authenticates_and_sends_provider_routing() -> None:
+    """Bind an evaluated request to the exact provider allowlist sent to OpenRouter."""
+    fake = FakeClient([response("A complete response.")])
+    routing = ProviderRouting(only=["deepinfra"], allow_fallbacks=False)
+    messages = [{"role": "user", "content": "Exact request."}]
+    OpenRouterClient(fake, provider_routing=routing).complete_text(
+        "provider/model",
+        messages,
+        temperature=0.0,
+        max_tokens=500,
+        seed=7,
+    )
+
+    assert fake.completions.calls[0]["extra_body"] == {
+        "provider": {"only": ["deepinfra"], "allow_fallbacks": False},
+    }
+    assert provider_request_sha256(messages, "provider/model", 0.0, 500, 7) != provider_request_sha256(
+        messages,
+        "provider/model",
+        0.0,
+        500,
+        7,
+        routing,
+    )
 
 
 def test_structured_request_uses_strict_json_schema() -> None:

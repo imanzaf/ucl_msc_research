@@ -1,0 +1,150 @@
+{
+  "schema_version": "3.3.0",
+  "scenario_id": "CF010_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF010_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "d1fc9390aad011768c37e67e2813eabb18a4577755a1f3cfd0c0bb50e34d9900",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785247360-tFge7MOmjyWkjIl2a3VK",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 3361,
+          "output_tokens": 45,
+          "total_tokens": 3406,
+          "cost_credits": "0.003586",
+          "upstream_inference_cost": "0.003586"
+        },
+        "request_sha256": "d14162ec6fa447205a3a57a3230c480cd67e74256a6e9e92a8a6c33b2373e8f4",
+        "response_sha256": "d36760aff23558c090565befe305d9a1c16366bc75ed7c0aedf9accdc015453b",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-28T14:02:42.005925Z"
+    }
+  ],
+  "revisions": [],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.3.0",
+      "review_id": "CF010_C1_REVIEW_D1FC9390AAD01176",
+      "anonymised_item_id": "ITEM_BF294895DC01",
+      "scenario_id": "CF010_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF010_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 22,
+            "side_b": 33
+          },
+          "numeric_burden": {
+            "side_a": 2,
+            "side_b": 3
+          },
+          "conditional_burden": {
+            "side_a": 1,
+            "side_b": 2
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "20.349",
+            "side_b": "38.765"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        },
+        {
+          "pair_id": "CF010_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 27,
+            "side_b": 23
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 3
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "readability": {
+            "side_a": "17.666",
+            "side_b": "36.463"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        }
+      ],
+      "fact_reviews": [
+        {
+          "fact_id": "CF010_C1_F1",
+          "fact_text": "provider international bank transfer: Transfers in major currencies are processed with a quoted online fee of $15 and can arrive the same business day when sent before 3:00 p.m. local time.",
+          "specificity_markers": [
+            "$15",
+            "3:00 p.m. local time"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF010_C1_F2",
+          "fact_text": "specialist foreign-exchange transfer: Transfers over $500 include no separate transfer fee, and the exchange rate is locked for 24 hours after booking.",
+          "specificity_markers": [
+            "$500",
+            "24 hours"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF010_C1_F3",
+          "fact_text": "provider international bank transfer: The transfer uses an exchange margin of 2.8% over the provider's reference rate, and the receiving bank may charge an additional intermediary fee.",
+          "specificity_markers": [
+            "2.8%"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF010_C1_F4",
+          "fact_text": "specialist foreign-exchange transfer: The service applies a $25 fee to transfers under $500, and payout completion can take up to 2 business days.",
+          "specificity_markers": [
+            "$25",
+            "$500",
+            "2 business days"
+          ],
+          "notes": ""
+        }
+      ],
+      "reviewed_artifact_sha256": "d1fc9390aad011768c37e67e2813eabb18a4577755a1f3cfd0c0bb50e34d9900",
+      "reviewed_at": "2026-07-28T15:33:58.656561Z",
+      "researcher_id": "imanzafar"
+    }
+  ]
+}

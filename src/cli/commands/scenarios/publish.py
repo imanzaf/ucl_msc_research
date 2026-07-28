@@ -19,10 +19,12 @@ from src.data_models.scenario_review import (
     ScenarioAcceptanceRecord,
     ScenarioReviewHistory,
 )
-from src.data_models.scenarios import AcceptedScenario, CandidateScenario, ScenarioGenerationRunConfig, ScenarioSeedSet, V100HiddenDesign
+from src.data_models.scenarios import AcceptedScenario, CandidateScenario, LoadedScenarioSeedSet, ScenarioGenerationRunConfig, ScenarioHiddenDesign
 from src.paths import (
     ACTIVE_SCENARIO_ACCEPTED_ROOT,
     ACTIVE_SCENARIO_INPUT_ROOT,
+    ACTIVE_SCENARIO_QUERY_SCHEMA_SHA256,
+    ACTIVE_SCENARIO_QUERY_SHA256,
     ACTIVE_SCENARIO_SEED_SCHEMA_SHA256,
     ACTIVE_SCENARIO_SEED_SHA256,
     scenario_generation_run_root,
@@ -33,16 +35,16 @@ from src.scenarios.seed_validation import load_and_validate_seed
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic
 
 
-def validate_candidate_seed_ownership(candidate: CandidateScenario, seed: ScenarioSeedSet) -> None:
+def validate_candidate_seed_ownership(candidate: CandidateScenario, seed: LoadedScenarioSeedSet) -> None:
     """Require candidate identity and researcher-owned fields to match the approved seed."""
     use_case = next((item for item in seed.use_cases if item.use_case_id == candidate.use_case_id), None)
     if use_case is None or candidate.scenario_id not in {replication.scenario_id for replication in use_case.replications}:
-        raise ValueError("candidate scenario id is not present in its V1.0.0 task-family seed")
+        raise ValueError("candidate scenario id is not present in its V2.0.0 task-family seed")
     replication = next(replication for replication in use_case.replications if replication.scenario_id == candidate.scenario_id)
     seed_owned_fields = {
         "deployment_context": use_case.deployment_context,
         "customer_messages": replication.customer_messages,
-        "hidden_design": V100HiddenDesign(
+        "hidden_design": ScenarioHiddenDesign(
             decision_type=replication.decision_type,
             options=replication.options,
             owner_supporting_option=replication.owner_supporting_option,
@@ -51,7 +53,7 @@ def validate_candidate_seed_ownership(candidate: CandidateScenario, seed: Scenar
         ),
     }
     if any(getattr(candidate, field_name) != value for field_name, value in seed_owned_fields.items()):
-        raise ValueError("candidate seed-owned metadata differs from the approved V1.0.0 seed")
+        raise ValueError("candidate seed-owned metadata differs from the approved V2.0.0 seed")
 
 
 def _build_current_accepted_bundles(
@@ -69,11 +71,15 @@ def _build_current_accepted_bundles(
         run_config.run_id != run_id
         or run_config.seed_sha256 != ACTIVE_SCENARIO_SEED_SHA256
         or run_config.seed_schema_sha256 != ACTIVE_SCENARIO_SEED_SCHEMA_SHA256
+        or run_config.query_sha256 != ACTIVE_SCENARIO_QUERY_SHA256
+        or run_config.query_schema_sha256 != ACTIVE_SCENARIO_QUERY_SCHEMA_SHA256
     ):
-        raise ValueError("scenario publication run does not bind the active V1.0.0 seed")
+        raise ValueError("scenario publication run does not bind the active V2.0.0 scenario inputs")
     seed = load_and_validate_seed(
         seed_path=ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seeds.json",
         schema_path=ACTIVE_SCENARIO_INPUT_ROOT / "scenario_generation_seed_schema.json",
+        query_path=ACTIVE_SCENARIO_INPUT_ROOT / "scenario_customer_queries.json",
+        query_schema_path=ACTIVE_SCENARIO_INPUT_ROOT / "scenario_customer_queries_schema.json",
     )
     current = current_scenario_artifacts(run_root)
     reviews_by_hash = reviews_by_artifact_hash(run_root)
@@ -86,7 +92,7 @@ def _build_current_accepted_bundles(
             raise ValueError(f"current candidate does not have an exact researcher accept decision: {scenario_id}")
         validate_candidate_seed_ownership(artifact.candidate, seed)
         history = ScenarioReviewHistory(
-            schema_version="3.0.0",
+            schema_version="3.3.0",
             scenario_id=scenario_id,
             automated_reviews=read_model_jsonl(artifact.automated_reviews_path, AutomatedScenarioReview),
             revisions=read_model_jsonl(artifact.revision_cycles_path, RevisionCycleRecord),

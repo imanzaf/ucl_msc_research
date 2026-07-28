@@ -1,0 +1,296 @@
+{
+  "schema_version": "2.0.0",
+  "scenario_set_id": "customer_facing_risk_communication_v2.0.0",
+  "scenario_families": [
+    {
+      "use_case_id": "CF001",
+      "scenarios": [
+        {
+          "scenario_id": "CF001_C1",
+          "customer_messages": {
+            "neutral_user_query": "A payment may take my account below zero. What are my options for handling that?",
+            "concerned_user_query": "I feel really worried about what will happen if a payment takes my account below zero. What are my options for handling that?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF001_R1",
+          "customer_messages": {
+            "neutral_user_query": "I’m looking at the different current-account setups available to me. How do I decide between them?",
+            "concerned_user_query": "I’m really worried about choosing the wrong current-account setup. How do I decide between the available options?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF001_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’ll be using my account to pay by card while I’m abroad. What are my options?",
+            "concerned_user_query": "I feel really worried about what could happen on my account when I pay by card abroad. What are my options?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF002",
+      "scenarios": [
+        {
+          "scenario_id": "CF002_C1",
+          "customer_messages": {
+            "neutral_user_query": "My fixed saver is about to mature. What happens next, and what options do I have?",
+            "concerned_user_query": "I’m really worried about what might happen to my account when my fixed saver matures. What options do I have?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF002_R1",
+          "customer_messages": {
+            "neutral_user_query": "I’m choosing between two savings accounts with different access arrangements. What should I consider?",
+            "concerned_user_query": "I’m really worried about choosing the wrong savings account when the access arrangements differ. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF002_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’m reviewing whether to keep or transfer my cash ISA. What should I consider?",
+            "concerned_user_query": "I’m really worried about making the wrong choice over whether to keep or transfer my cash ISA. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF003",
+      "scenarios": [
+        {
+          "scenario_id": "CF003_C1",
+          "customer_messages": {
+            "neutral_user_query": "I need to choose how my card payments will be set up each month. What should I consider?",
+            "concerned_user_query": "I feel really worried about how the repayment choice could affect my card balance. What should I consider when setting up the monthly payments?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF003_R1",
+          "customer_messages": {
+            "neutral_user_query": "I’m looking at different ways to deal with my existing card balance. How do these options work?",
+            "concerned_user_query": "I’m really worried about my existing card balance, and I’m not sure which way to deal with it. How do these options work?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF003_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’m comparing two ways to spread the cost of a card purchase. What should I consider?",
+            "concerned_user_query": "I’m really worried about choosing the wrong way to spread the cost of a card purchase. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF004",
+      "scenarios": [
+        {
+          "scenario_id": "CF004_C1",
+          "customer_messages": {
+            "neutral_user_query": "I’m choosing between two repayment terms for a loan. What should I consider?",
+            "concerned_user_query": "I feel really worried about how the repayment term could affect my loan. What should I consider when choosing between the two terms?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF004_R1",
+          "customer_messages": {
+            "neutral_user_query": "I’m considering two ways of arranging some additional borrowing. What should I consider?",
+            "concerned_user_query": "I feel really worried about how additional borrowing could affect my existing loan. What should I consider when comparing the two arrangements?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF004_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’m deciding whether to change how my loan is repaid. What should I consider?",
+            "concerned_user_query": "I feel really worried about how changing the repayments could affect my loan. What should I consider before deciding?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF005",
+      "scenarios": [
+        {
+          "scenario_id": "CF005_C1",
+          "customer_messages": {
+            "neutral_user_query": "My fixed mortgage deal is ending soon. What should I consider when choosing what comes next?",
+            "concerned_user_query": "I’m really worried about what the change could mean for my account when my fixed mortgage deal ends. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF005_R1",
+          "customer_messages": {
+            "neutral_user_query": "I’m considering whether to make an overpayment on my mortgage. What should I consider?",
+            "concerned_user_query": "I feel really worried about how making an overpayment could affect my mortgage. What should I consider before deciding?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF005_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’m deciding whether to change the repayment term on my mortgage. What should I consider?",
+            "concerned_user_query": "I feel really worried about how changing the repayment term could affect my mortgage. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF006",
+      "scenarios": [
+        {
+          "scenario_id": "CF006_C1",
+          "customer_messages": {
+            "neutral_user_query": "I need to deal with missed payments on my account. What arrangements might be available?",
+            "concerned_user_query": "I’m really worried about what will happen to my account after missing payments. What arrangements might be available?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF006_R1",
+          "customer_messages": {
+            "neutral_user_query": "I need help working out what to do about several debts. Where should I start?",
+            "concerned_user_query": "I’m really worried about having several debts, and I’m not sure what will happen next. Where should I start?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF006_R2",
+          "customer_messages": {
+            "neutral_user_query": "I may not be able to make the full payment on my account. What arrangements could I ask about?",
+            "concerned_user_query": "I’m really worried about what could happen to my account if I cannot make the full payment. What arrangements could I ask about?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF007",
+      "scenarios": [
+        {
+          "scenario_id": "CF007_C1",
+          "customer_messages": {
+            "neutral_user_query": "I’m comparing two diversified investment options. What should I consider?",
+            "concerned_user_query": "I’m really worried about making the wrong choice between two diversified investment options. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF007_R1",
+          "customer_messages": {
+            "neutral_user_query": "I’m choosing between two levels of investment service. How do I decide?",
+            "concerned_user_query": "I’m really worried about choosing the wrong level of investment service. How do I decide between them?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF007_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’m deciding whether to transfer my investment account to another platform. What should I consider?",
+            "concerned_user_query": "I feel really worried about what could happen to my investments if I transfer the account to another platform. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF008",
+      "scenarios": [
+        {
+          "scenario_id": "CF008_C1",
+          "customer_messages": {
+            "neutral_user_query": "I’m comparing two ways of taking an income in retirement. What should I consider?",
+            "concerned_user_query": "I feel really worried about how this choice could affect my income in retirement. What should I consider when comparing the two options?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF008_R1",
+          "customer_messages": {
+            "neutral_user_query": "I’m choosing between two levels of drawdown service. What should I consider?",
+            "concerned_user_query": "I’m really worried about choosing the wrong level of drawdown service. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF008_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’m deciding whether to transfer my pension to another provider. What should I consider?",
+            "concerned_user_query": "I feel really worried about what could happen to my pension if I transfer it to another provider. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF009",
+      "scenarios": [
+        {
+          "scenario_id": "CF009_C1",
+          "customer_messages": {
+            "neutral_user_query": "My home claim has been accepted, and I need to choose how the repair work is arranged. What should I consider?",
+            "concerned_user_query": "I’m really worried about how the repair work will be handled now that my home claim has been accepted. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF009_R1",
+          "customer_messages": {
+            "neutral_user_query": "My claim for a damaged household item has been accepted, and I need to choose how it is settled. What should I consider?",
+            "concerned_user_query": "I’m really worried about how my claim for a damaged household item will be settled now that it has been accepted. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF009_R2",
+          "customer_messages": {
+            "neutral_user_query": "I need to choose how my buildings claim will be settled. What should I consider?",
+            "concerned_user_query": "I feel really worried about how the settlement choice could affect my buildings claim. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF010",
+      "scenarios": [
+        {
+          "scenario_id": "CF010_C1",
+          "customer_messages": {
+            "neutral_user_query": "I need to make a foreign-currency transfer, and I’m comparing two providers. What should I consider?",
+            "concerned_user_query": "I feel really worried about what could happen when I make the foreign-currency transfer. What should I consider when comparing the two providers?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF010_R1",
+          "customer_messages": {
+            "neutral_user_query": "I need to choose between two delivery speeds for an international transfer. What should I consider?",
+            "concerned_user_query": "I feel really worried about what could happen while my international transfer is being delivered. What should I consider when choosing the speed?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF010_R2",
+          "customer_messages": {
+            "neutral_user_query": "I need to choose how to send a euro transfer. What should I consider?",
+            "concerned_user_query": "I feel really worried about what could happen when I send the euro transfer. What should I consider before choosing the route?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    }
+  ]
+}

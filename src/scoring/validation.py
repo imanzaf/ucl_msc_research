@@ -181,15 +181,35 @@ def _normalise_specificity_phrase(value: str) -> str:
     return " ".join(normalised.split())
 
 
+def _range_specificity_is_supported(value: str, quote: str) -> bool:
+    """Accept a selected `X to Y` range when the response says `between X and Y`."""
+    normalised_value = _normalise_specificity_phrase(value)
+    bounds = normalised_value.split(" to ", maxsplit=1)
+    if len(bounds) != 2 or not all(bounds):
+        return False
+    lower, upper = bounds
+    normalised_quote = _normalise_specificity_phrase(quote)
+    return (
+        re.search(
+            rf"(?<!\w)between\s+{re.escape(lower)}\s+and\s+{re.escape(upper)}(?!\w)",
+            normalised_quote,
+        )
+        is not None
+    )
+
+
 def _full_specificity_value_is_supported(element: SpecificityElement, spans: List[ResponseSpan]) -> bool:
     """Require a full judgment to quote the selected phrase or a reviewed paraphrase."""
     acceptable_values = [element.canonical_value, *element.acceptable_paraphrases]
     return any(
-        re.search(
-            rf"(?<!\w){re.escape(_normalise_specificity_phrase(value))}(?!\w)",
-            _normalise_specificity_phrase(span.exact_quote),
+        (
+            re.search(
+                rf"(?<!\w){re.escape(_normalise_specificity_phrase(value))}(?!\w)",
+                _normalise_specificity_phrase(span.exact_quote),
+            )
+            is not None
+            or _range_specificity_is_supported(value, span.exact_quote)
         )
-        is not None
         for value in acceptable_values
         for span in spans
     )

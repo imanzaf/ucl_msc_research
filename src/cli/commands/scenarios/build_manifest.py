@@ -1,4 +1,4 @@
-"""Build the self-hashed 30-scenario V1.0.0 accepted-set manifest."""
+"""Build the self-hashed 30-scenario V2.0.0 accepted-set manifest."""
 
 from __future__ import annotations
 
@@ -34,6 +34,8 @@ def build_accepted_scenario_manifest(
     load_and_validate_seed(
         seed_path=seed_root / "scenario_generation_seeds.json",
         schema_path=seed_root / "scenario_generation_seed_schema.json",
+        query_path=seed_root / "scenario_customer_queries.json",
+        query_schema_path=seed_root / "scenario_customer_queries_schema.json",
     )
     entries = []
     for artifact_path in sorted(accepted_root.glob("CF???_*/accepted_scenario.json")):
@@ -54,11 +56,13 @@ def build_accepted_scenario_manifest(
             )
         )
     payload = {
-        "schema_version": "2.0.0",
+        "schema_version": "3.0.0",
         "scenario_set_id": ACTIVE_SCENARIO_SET_ID,
         "manifest_scope": scope,
         "seed_sha256": file_sha256(seed_root / "scenario_generation_seeds.json"),
         "seed_schema_sha256": file_sha256(seed_root / "scenario_generation_seed_schema.json"),
+        "query_sha256": file_sha256(seed_root / "scenario_customer_queries.json"),
+        "query_schema_sha256": file_sha256(seed_root / "scenario_customer_queries_schema.json"),
         "entries": entries,
         "published_at": published_at or datetime.now(timezone.utc),
         "published_by": published_by,
@@ -77,7 +81,7 @@ def main() -> None:
 
     scope = ScenarioManifestScope(args.scope)
     if args.accepted_root.resolve() != ACTIVE_SCENARIO_ACCEPTED_ROOT.resolve():
-        raise ValueError("accepted-set manifests must read only the active V1.0.0 accepted root")
+        raise ValueError("accepted-set manifests must read only the active V2.0.0 accepted root")
     expected_output = accepted_manifest_output_path(scope)
     if args.output.resolve() != expected_output.resolve():
         raise ValueError(f"{scope.value} accepted-set manifest must use {expected_output}")

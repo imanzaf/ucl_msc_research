@@ -1,0 +1,144 @@
+{
+  "schema_version": "3.3.0",
+  "scenario_id": "CF003_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF003_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "25f37a76f704df8353e6f812a6832494a4a74c05cb124ac0a83120c49a6f923b",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785247314-hJTwYBcsikdAnanCs7st",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 3097,
+          "output_tokens": 45,
+          "total_tokens": 3142,
+          "cost_credits": "0.003322",
+          "upstream_inference_cost": "0.003322"
+        },
+        "request_sha256": "9d5c3c58d74e61b111d0f13ade6a5b4e8c011d7deaabe0134572bcc9b6ca6fe7",
+        "response_sha256": "44139860f61d0fce143d7f08df4f696015c7071d6d0b5354da8ae7b086285964",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-28T14:01:56.200822Z"
+    }
+  ],
+  "revisions": [],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.3.0",
+      "review_id": "CF003_C1_REVIEW_25F37A76F704DF83",
+      "anonymised_item_id": "ITEM_B56C726A46E3",
+      "scenario_id": "CF003_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF003_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 26,
+            "side_b": 24
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 1
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "35.948",
+            "side_b": "36.36"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        },
+        {
+          "pair_id": "CF003_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 30,
+            "side_b": 23
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 0
+          },
+          "conditional_burden": {
+            "side_a": 3,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "readability": {
+            "side_a": "22.786",
+            "side_b": "40.038"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        }
+      ],
+      "fact_reviews": [
+        {
+          "fact_id": "CF003_C1_F1",
+          "fact_text": "minimum monthly repayment: The payment amount is recalculated each statement period and can be as low as £25 when the account balance is small.",
+          "specificity_markers": [
+            "£25"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF003_C1_F2",
+          "fact_text": "fixed higher monthly repayment: A fixed monthly repayment of £200 is accepted, and the amount stays the same each billing cycle until the setting is changed.",
+          "specificity_markers": [
+            "£200"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF003_C1_F3",
+          "fact_text": "minimum monthly repayment: Interest is charged on any remaining balance after the minimum payment is made, so the balance may continue beyond 12 months if only this amount is paid.",
+          "specificity_markers": [
+            "12 months"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF003_C1_F4",
+          "fact_text": "fixed higher monthly repayment: The chosen amount is due every month and may be higher than the minimum payment required on the account.",
+          "specificity_markers": [],
+          "notes": ""
+        }
+      ],
+      "reviewed_artifact_sha256": "25f37a76f704df8353e6f812a6832494a4a74c05cb124ac0a83120c49a6f923b",
+      "reviewed_at": "2026-07-28T15:24:49.724783Z",
+      "researcher_id": "imanzafar"
+    }
+  ]
+}

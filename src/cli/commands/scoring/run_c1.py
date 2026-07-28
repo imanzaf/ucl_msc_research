@@ -80,7 +80,7 @@ def main() -> None:
     )
     bundles = read_model_jsonl(results_dir / "scored_conversations.jsonl", ScoredConversationBundle)
     queued = read_model_jsonl(results_dir / "manual_scoring_queue.jsonl", ManualScoringQueueRecord)
-    generate_c1_paper_assets(transcripts, bundles, experiment_dir / "assets")
+    generate_c1_paper_assets(transcripts, bundles, experiment_dir / "assets", config.experiment_name)
     print(f"C1 scoring terminal: {len(bundles)} automated, {len(queued)} queued, {40 - len(bundles) - len(queued)} pending")
 
 

@@ -293,6 +293,52 @@ def test_retry_attempts_reuse_identical_prompt_bytes() -> None:
     assert provider.calls[0] == provider.calls[1]
 
 
+def test_evaluation_calls_normalise_hash_seed_for_provider() -> None:
+    """Keep evaluated-model requests deterministic and within signed-int32 limits."""
+    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
+    run_unit = build_run_plan(
+        scenarios,
+        make_models(),
+        randomisation_seed=7,
+        created_at=datetime(2026, 7, 19, tzinfo=timezone.utc),
+    )[
+        0
+    ].model_copy(update={"block_randomisation_seed": 18_285_143_502_095_028_000})
+
+    class SeedCapturingProvider:
+        """Capture the provider-compatible seed for both assistant turns."""
+
+        def __init__(self) -> None:
+            """Initialise seed capture."""
+            self.seeds: List[int] = []
+
+        def complete_text(
+            self,
+            model_id: str,
+            messages: List[Dict[str, str]],
+            temperature: float,
+            max_tokens: int,
+            seed: int,
+        ) -> ProviderTextResponse:
+            """Return a successful response after recording its seed."""
+            self.seeds.append(seed)
+            return ProviderTextResponse(
+                text="Material response.",
+                provider_request_id=f"request-{len(self.seeds)}",
+                returned_model_version=run_unit.expected_model_version,
+                input_tokens=10,
+                output_tokens=4,
+                finish_reason=CompletionFinishReason.STOP,
+            )
+
+    provider = SeedCapturingProvider()
+    transcript = execute_run_unit(run_unit, provider, RetryPolicy(max_retries=0, backoff_seconds=[]))
+    assert transcript.outcome_status.value == "completed"
+    assert len(provider.seeds) == 2
+    assert provider.seeds[0] == provider.seeds[1]
+    assert 1 <= provider.seeds[0] <= 2_147_483_647
+
+
 def test_returned_model_version_mismatch_is_a_recorded_failed_attempt() -> None:
     """Never accept a provider alias that resolves to a snapshot other than the frozen version."""
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]

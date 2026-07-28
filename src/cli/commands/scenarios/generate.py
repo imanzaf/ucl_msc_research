@@ -14,26 +14,27 @@ from src.data_models.scenario_review import (
     AutomatedReviewKind,
     AutomatedScenarioReview,
     ControlledFieldChange,
-    FindingSeverity,
     ResearcherScenarioReview,
     ReviewDecision,
-    ReviewFinding,
     RevisionCycleRecord,
     ScenarioPipelineDisposition,
     ScenarioPipelineFailureRecord,
+    review_finding_reference,
 )
 from src.data_models.scenarios import (
     CandidateScenario,
     ScenarioGenerationInvocationConfig,
     ScenarioGenerationRunConfig,
+    ScenarioReplicationSeed,
     ScenarioStage,
-    V100ReplicationSeed,
-    V100UseCaseSeed,
+    ScenarioUseCaseSeed,
 )
 from src.paths import (
     ACTIVE_SCENARIO_GENERATION_ROOT,
     ACTIVE_SCENARIO_GENERATION_VERSION,
     ACTIVE_SCENARIO_INPUT_ROOT,
+    ACTIVE_SCENARIO_QUERY_SCHEMA_SHA256,
+    ACTIVE_SCENARIO_QUERY_SHA256,
     ACTIVE_SCENARIO_SEED_SCHEMA_SHA256,
     ACTIVE_SCENARIO_SEED_SHA256,
     ACTIVE_SCENARIO_SEED_VERSION,
@@ -44,11 +45,12 @@ from src.paths import (
 from src.prompts.scenario_generation import SCENARIO_REVIEW_SYSTEM_PROMPT
 from src.scenarios.budgets import material_fact_text_sha256, material_fact_word_count
 from src.scenarios.pipeline import ScenarioPipelineBackend, ScenarioPipelineResult, default_revision_record_factory, run_scenario_batch_pipeline
+from src.scenarios.researcher_edits import researcher_revision_findings
 from src.scenarios.run_resolution import current_researcher_review, current_scenario_artifacts, reviews_by_artifact_hash, scenario_round_roots
 from src.scenarios.seed_validation import load_and_validate_seed
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic, write_models_jsonl_atomic
 
-RESEARCHER_REVISION_CONTRACT_SHA256 = sha256_bytes(b"researcher_directed_scenario_revision_v1")
+RESEARCHER_REVISION_CONTRACT_SHA256 = sha256_bytes(b"researcher_directed_scenario_revision_v3")
 
 
 def _load_backend(specification: str, invocation_root: Path) -> ScenarioPipelineBackend:
@@ -60,11 +62,11 @@ def _load_backend(specification: str, invocation_root: Path) -> ScenarioPipeline
 
 
 def _select_stage_seeds(
-    use_cases: List[V100UseCaseSeed],
+    use_cases: List[ScenarioUseCaseSeed],
     stage: ScenarioStage,
     use_case_id: Optional[str],
     scenario_id: Optional[str],
-) -> List[Tuple[V100UseCaseSeed, V100ReplicationSeed]]:
+) -> List[Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed]]:
     """Select a complete lifecycle batch or one exact scenario without crossing stages."""
     stage_seeds = [
         (use_case, replication)
@@ -99,13 +101,15 @@ def _timestamp_from_round_id(round_id: str) -> datetime:
 def _run_config(run_id: str, created_at: Optional[datetime] = None) -> ScenarioGenerationRunConfig:
     """Build the immutable active-seed identity for one logical run."""
     return ScenarioGenerationRunConfig(
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         run_id=run_id,
         seed_version=ACTIVE_SCENARIO_SEED_VERSION,
         generation_protocol_version=ACTIVE_SCENARIO_GENERATION_VERSION,
         scenario_set_id=ACTIVE_SCENARIO_SET_ID,
         seed_sha256=ACTIVE_SCENARIO_SEED_SHA256,
         seed_schema_sha256=ACTIVE_SCENARIO_SEED_SCHEMA_SHA256,
+        query_sha256=ACTIVE_SCENARIO_QUERY_SHA256,
+        query_schema_sha256=ACTIVE_SCENARIO_QUERY_SCHEMA_SHA256,
         created_at=created_at or utc_now(),
     )
 
@@ -137,7 +141,7 @@ def _create_invocation_root(
     run_root: Path,
     run_id: str,
     stage: ScenarioStage,
-    selected: List[Tuple[V100UseCaseSeed, V100ReplicationSeed]],
+    selected: List[Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed]],
     backend_specification: str,
 ) -> Path:
     """Create a timestamped round with an isolated provider-log directory."""
@@ -160,7 +164,7 @@ def _create_invocation_root(
 def _matching_incomplete_round(
     run_root: Path,
     stage: ScenarioStage,
-    selected: List[Tuple[V100UseCaseSeed, V100ReplicationSeed]],
+    selected: List[Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed]],
     backend_specification: str,
 ) -> Optional[Path]:
     """Find the newest matching round whose selected scenario work is incomplete."""
@@ -292,7 +296,7 @@ def _write_pipeline_failure(output_root: Path, scenario_id: str, error: Exceptio
 
 def _generate_candidate_if_missing(
     candidate_root: Path,
-    scenario_seed: Tuple[V100UseCaseSeed, V100ReplicationSeed],
+    scenario_seed: Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed],
     backend: ScenarioPipelineBackend,
 ) -> CandidateScenario:
     """Load an existing candidate or generate and persist it once for safe resume."""
@@ -306,9 +310,9 @@ def _generate_candidate_if_missing(
 
 
 def _family_evaluation_seeds(
-    use_cases: List[V100UseCaseSeed],
+    use_cases: List[ScenarioUseCaseSeed],
     use_case_id: str,
-) -> List[Tuple[V100UseCaseSeed, V100ReplicationSeed]]:
+) -> List[Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed]]:
     """Return every non-C1 replication for one task family in seed order."""
     selected = [
         (use_case, replication)
@@ -324,8 +328,8 @@ def _family_evaluation_seeds(
 
 def _load_run_researcher_revisions(
     run_root: Path,
-    calibration_seeds: List[Tuple[V100UseCaseSeed, V100ReplicationSeed]],
-) -> List[Tuple[Tuple[V100UseCaseSeed, V100ReplicationSeed], CandidateScenario, ResearcherScenarioReview]]:
+    calibration_seeds: List[Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed]],
+) -> List[Tuple[Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed], CandidateScenario, ResearcherScenarioReview]]:
     """Select current hash-bound revise decisions from one named run."""
     current = current_scenario_artifacts(run_root)
     reviews_by_hash = reviews_by_artifact_hash(run_root)
@@ -338,16 +342,16 @@ def _load_run_researcher_revisions(
         review = current_researcher_review(artifact, reviews_by_hash)
         if review is None or review.decision != ReviewDecision.REVISE:
             continue
-        if not review.notes.strip():
-            raise ValueError(f"researcher revise decision requires nonblank notes for {scenario_id}")
+        if not researcher_revision_findings(artifact.candidate, review.fact_reviews):
+            raise ValueError(f"researcher revise decision requires at least one noted or edited fact for {scenario_id}")
         revised_inputs.append((scenario_seed, artifact.candidate, review))
     return revised_inputs
 
 
 def _load_round_researcher_revisions(
     round_root: Path,
-    selected: List[Tuple[V100UseCaseSeed, V100ReplicationSeed]],
-) -> List[Tuple[Tuple[V100UseCaseSeed, V100ReplicationSeed], CandidateScenario, ResearcherScenarioReview]]:
+    selected: List[Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed]],
+) -> List[Tuple[Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed], CandidateScenario, ResearcherScenarioReview]]:
     """Reload immutable researcher-revision inputs when a round resumes."""
     stored = []
     for scenario_seed in selected:
@@ -368,25 +372,19 @@ def _load_round_researcher_revisions(
     return stored
 
 
-def _researcher_revision_feedback(review: ResearcherScenarioReview) -> AutomatedScenarioReview:
-    """Translate a bound researcher note into typed finding-linked revision feedback."""
-    finding_id = f"RESEARCHER_{review.scenario_id}_REVISION"
+def _researcher_revision_feedback(review: ResearcherScenarioReview, parent_candidate: CandidateScenario) -> AutomatedScenarioReview:
+    """Translate bound per-fact researcher edits and notes into revision feedback."""
+    if review.scenario_id != parent_candidate.scenario_id or review.reviewed_artifact_sha256 != parent_candidate.candidate_sha256:
+        raise ValueError("researcher revision findings do not bind the supplied parent candidate")
+    findings = researcher_revision_findings(parent_candidate, review.fact_reviews)
+    if not findings:
+        raise ValueError("researcher revise decision requires at least one noted or edited fact")
     return AutomatedScenarioReview(
-        schema_version="3.0.0",
+        schema_version="3.1.0",
         scenario_id=review.scenario_id,
         review_kind=AutomatedReviewKind.SCENARIO_QUALITY,
         decision=ReviewDecision.REVISE,
-        findings=[
-            ReviewFinding(
-                finding_id=finding_id,
-                severity=FindingSeverity.MAJOR,
-                artifact_path="candidate.json",
-                field_path="option_descriptions,material_facts,fact_pairs",
-                message=review.notes,
-                evidence=review.notes,
-                suggested_action=f"Regenerate the option information to resolve the researcher note: {review.notes}",
-            )
-        ],
+        findings=findings,
         reviewed_artifact_sha256=review.reviewed_artifact_sha256,
         reviewer_model_id=f"manual:{review.researcher_id}",
         reviewer_prompt_sha256=RESEARCHER_REVISION_CONTRACT_SHA256,
@@ -397,17 +395,17 @@ def _researcher_revision_feedback(review: ResearcherScenarioReview) -> Automated
 def _researcher_revision_changes(
     parent_candidate: CandidateScenario,
     revised_candidate: CandidateScenario,
-    finding_id: str,
+    finding_ids: List[str],
 ) -> List[ControlledFieldChange]:
     """Rebuild deterministic field-change records for a researcher-directed regeneration."""
-    generated_fields = ("option_descriptions", "material_facts", "fact_pairs")
+    generated_fields = ("option_descriptions", "material_facts", "fact_pairs", "specificity_elements")
     changes = [
         ControlledFieldChange(
             field_path=field_name,
             previous_value_sha256=artifact_sha256(getattr(parent_candidate, field_name)),
             revised_value_sha256=artifact_sha256(getattr(revised_candidate, field_name)),
             reason="Researcher-directed regeneration resolved the saved scenario-review note.",
-            finding_ids=[finding_id],
+            finding_ids=finding_ids,
         )
         for field_name in generated_fields
         if getattr(parent_candidate, field_name) != getattr(revised_candidate, field_name)
@@ -420,7 +418,7 @@ def _researcher_revision_changes(
 def _run_researcher_directed_revision(
     run_root: Path,
     candidate_root: Path,
-    scenario_seed: Tuple[V100UseCaseSeed, V100ReplicationSeed],
+    scenario_seed: Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed],
     parent_candidate: CandidateScenario,
     researcher_review: ResearcherScenarioReview,
     backend: ScenarioPipelineBackend,
@@ -442,7 +440,7 @@ def _run_researcher_directed_revision(
     existing = _read_completed_result(candidate_root, scenario_id, sha256_bytes(SCENARIO_REVIEW_SYSTEM_PROMPT.encode("utf-8")))
     if existing is not None:
         return existing
-    feedback = _researcher_revision_feedback(researcher_review)
+    feedback = _researcher_revision_feedback(researcher_review, parent_candidate)
     candidate_path = candidate_root / scenario_id / "candidate.json"
     if candidate_path.exists():
         revised_candidate = read_model_json(candidate_path, CandidateScenario)
@@ -465,8 +463,8 @@ def _run_researcher_directed_revision(
         or reviews[0].reviewed_artifact_sha256 != revised_candidate.candidate_sha256
     ):
         raise ValueError("researcher-directed regeneration returned an invalid semantic review")
-    finding_id = feedback.findings[0].finding_id
-    changes = _researcher_revision_changes(parent_candidate, revised_candidate, finding_id)
+    finding_ids = [review_finding_reference(finding) for finding in feedback.findings]
+    changes = _researcher_revision_changes(parent_candidate, revised_candidate, finding_ids)
     revision = default_revision_record_factory(parent_candidate, revised_candidate, changes, reviews, 1)
     terminal_decision = ReviewDecision.MANUAL_RESTRUCTURE if reviews[0].decision == ReviewDecision.REVISE else reviews[0].decision
     return ScenarioPipelineResult(
@@ -492,11 +490,13 @@ def main() -> None:
     stage = ScenarioStage(args.stage)
     expected_output_root = ACTIVE_SCENARIO_GENERATION_ROOT.resolve()
     if args.output_root.resolve() != expected_output_root:
-        raise ValueError("scenario generation output must remain under the active V1.0.0 seed-version root")
+        raise ValueError("scenario generation output must remain under the active V2.0.0 seed-version root")
     seed_root = ACTIVE_SCENARIO_INPUT_ROOT
     seed = load_and_validate_seed(
         seed_path=seed_root / "scenario_generation_seeds.json",
         schema_path=seed_root / "scenario_generation_seed_schema.json",
+        query_path=seed_root / "scenario_customer_queries.json",
+        query_schema_path=seed_root / "scenario_customer_queries_schema.json",
     )
     selected = _select_stage_seeds(seed.use_cases, stage, args.use_case_id, args.scenario_id)
     run_id, run_root = _prepare_run_root(args.run_id)

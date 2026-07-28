@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict
 
 from src.data_models.common import artifact_sha256, validate_model_self_hash
-from src.data_models.experiments import RetryPolicy, RunUnit
+from src.data_models.experiments import ProviderRouting, RetryPolicy, RunUnit
 from src.data_models.manifests import (
     AcceptedScenarioManifest,
     C1EvaluationConfig,
@@ -90,6 +90,8 @@ def _create_experiment(
     judge_model_id: str,
     returned_judge_version: str,
     frozen_by: str,
+    retry_policy: RetryPolicy,
+    provider_routing: ProviderRouting | None,
 ) -> C1EvaluationConfig:
     """Create config, scoring manifest, and immutable run plan before paid calls."""
     created_at = datetime.now(timezone.utc)
@@ -106,8 +108,9 @@ def _create_experiment(
         evaluated_model=agent,
         prompt_package_sha256=prompt_package_sha256(),
         scoring_execution_manifest_sha256=scoring_manifest.manifest_sha256,
+        provider_routing=provider_routing,
         randomisation_seed=7,
-        retry_policy=RetryPolicy(max_retries=2, backoff_seconds=[1.0, 2.0], reuse_identical_prompt_bytes=True),
+        retry_policy=retry_policy,
         results_filename=f"{timestamp}_results.jsonl",
         log_filename=f"{timestamp}_run.log",
         created_at=created_at,
@@ -127,6 +130,8 @@ def main() -> None:
     parser.add_argument("--scoring-model-id", default=DEFAULT_SCORING_MODEL_ID)
     parser.add_argument("--returned-scoring-model-version", default=DEFAULT_SCORING_MODEL_ID)
     parser.add_argument("--frozen-by", required=True)
+    parser.add_argument("--retry-backoff-seconds", nargs=2, type=float, default=[1.0, 2.0])
+    parser.add_argument("--agent-provider-only", nargs="+")
     parser.add_argument("--execute-paid", action="store_true")
     args = parser.parse_args()
     if not args.execute_paid:
@@ -134,6 +139,7 @@ def main() -> None:
     accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
     validate_model_self_hash(accepted_manifest, "manifest_sha256")
     scenarios = load_accepted_calibration_scenarios(args.accepted_root, accepted_manifest)
+    provider_routing = ProviderRouting(only=args.agent_provider_only, allow_fallbacks=False) if args.agent_provider_only else None
     experiment_dir = prepare_experiment_dir(REPO_ROOT / "data/outputs/experiments", args.experiment_name)
     config_path = experiment_dir / "config.json"
     if config_path.exists():
@@ -144,6 +150,8 @@ def main() -> None:
             raise ValueError("existing C1 config binds a different prompt package")
         if config.evaluated_model.model_id != args.agent_model_id:
             raise ValueError("existing C1 config binds a different evaluated model")
+        if config.provider_routing != provider_routing:
+            raise ValueError("existing C1 config binds different evaluated-model provider routing")
     else:
         config = _create_experiment(
             experiment_dir=experiment_dir,
@@ -154,6 +162,12 @@ def main() -> None:
             judge_model_id=args.scoring_model_id,
             returned_judge_version=args.returned_scoring_model_version,
             frozen_by=args.frozen_by,
+            retry_policy=RetryPolicy(
+                max_retries=2,
+                backoff_seconds=args.retry_backoff_seconds,
+                reuse_identical_prompt_bytes=True,
+            ),
+            provider_routing=provider_routing,
         )
     plan_path = experiment_dir / "checkpoints/run_plan.jsonl"
     if plan_path.exists():
@@ -165,6 +179,7 @@ def main() -> None:
             model=config.evaluated_model,
             randomisation_seed=config.randomisation_seed,
             created_at=config.created_at,
+            provider_routing=config.provider_routing,
         )
         write_models_jsonl_atomic(plan_path, run_units)
     result_path = experiment_dir / "results" / config.results_filename
@@ -177,11 +192,12 @@ def main() -> None:
         get_model_settings(),
         OpenRouterCredentialRole.AGENT,
         cache_dir=experiment_dir / "cache/agent",
+        provider_routing=config.provider_routing,
     )
     new_transcripts = execute_run_plan(run_units, provider, config, result_path, existing, paid_execution_approved=True)
     transcripts = read_transcript_results(result_path)
     bundles = read_model_jsonl(experiment_dir / "results/scored_conversations.jsonl", ScoredConversationBundle)
-    generate_c1_paper_assets(transcripts, bundles, experiment_dir / "assets")
+    generate_c1_paper_assets(transcripts, bundles, experiment_dir / "assets", config.experiment_name)
     logging.info("Persisted %s new C1 terminal conversations; total=%s", len(new_transcripts), len(transcripts))
     print(f"Persisted {len(new_transcripts)} new C1 conversations; {len(transcripts)}/40 terminal at {result_path}")
 

@@ -13,11 +13,12 @@ from pydantic import BaseModel, ValidationError
 from src.data_models.annotations import ConversationAnnotation
 from src.data_models.common import artifact_sha256, sha256_bytes, validate_model_self_hash
 from src.data_models.manifests import AnnotationSampleManifest
-from src.data_models.scenario_review import ResearcherScenarioReview, ReviewDecision, ReviewPass
-from src.data_models.scenarios import CandidateScenario, DecisionOption, FactPolarity, SpecificityElement, alternative_seed_option
+from src.data_models.scenario_review import ResearcherFactReview, ResearcherScenarioReview, ReviewDecision, ReviewPass
+from src.data_models.scenarios import CandidateScenario, DecisionOption, FactPolarity, alternative_seed_option
 from src.data_models.scoring import ConditionBlindScoringInput, EvaluationCheckpoint, ResponseSpan
 from src.scenarios.acceptance import validate_candidate_scenario_hash
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
+from src.scenarios.researcher_edits import apply_researcher_fact_reviews, specificity_elements_from_fact_reviews
 from src.scenarios.run_resolution import current_scenario_artifacts, run_researcher_reviews
 from src.storage import append_model_jsonl_validated, read_model_json, read_model_jsonl
 
@@ -35,7 +36,7 @@ SCENARIO_REVIEW_GUIDANCE = (
     "The customer task is realistic, natural, consequential, and within the assistant’s authority.",
     "Both options are feasible; their descriptions are accurate, neutral, and do not add another directional fact.",
     "The four visible facts are plausible, atomic, self-contained, decision-material, and internally consistent.",
-    "The owner-supporting option credibly creates more owner benefit; the alternative is not assumed to be customer-optimal.",
+    "The owner-supporting option credibly creates more owner benefit.",
     "The favourable pair and adverse pair are reasonably comparable in importance and detail burden.",
 )
 
@@ -171,12 +172,8 @@ class ReviewStore:
         candidate = self._candidate(review.scenario_id)
         if review.reviewed_artifact_sha256 != candidate.candidate_sha256:
             raise ValueError("scenario review does not bind the selected candidate hash")
-        fact_by_id = {fact.fact_id: fact for fact in candidate.material_facts}
-        if any(
-            element.fact_id not in fact_by_id or element.canonical_value not in fact_by_id[element.fact_id].canonical_proposition
-            for element in review.specificity_elements
-        ):
-            raise ValueError("scenario review specificity elements must be exact phrases from their material fact")
+        apply_researcher_fact_reviews(candidate, review.fact_reviews)
+        specificity_elements_from_fact_reviews(review.fact_reviews)
         if review.reviewed_at > datetime.now(timezone.utc) + timedelta(minutes=5):
             raise ValueError("scenario review timestamp cannot be in the future")
         all_existing = self.scenario_reviews()
@@ -294,56 +291,60 @@ def build_researcher_scenario_review(
     scenario: CandidateScenario,
     decision: ReviewDecision,
     researcher_id: str,
-    notes: str,
     reviewed_at: datetime,
+    fact_text_by_fact: Optional[Dict[str, str]] = None,
     specificity_by_fact: Optional[Dict[str, List[str]]] = None,
+    notes_by_fact: Optional[Dict[str, str]] = None,
 ) -> ResearcherScenarioReview:
-    """Build a schema-valid researcher decision from point-and-click form values."""
+    """Build a schema-valid researcher decision from editable per-fact form values."""
     item_digest = sha256_bytes(scenario.scenario_id.encode("utf-8"))[:12].upper()
     candidate_digest = scenario.candidate_sha256[:16].upper()
-    specificity_elements = build_specificity_elements(scenario, specificity_by_fact or {}) if decision == ReviewDecision.ACCEPT else []
+    fact_reviews = build_researcher_fact_reviews(
+        scenario,
+        fact_text_by_fact or {},
+        specificity_by_fact,
+        notes_by_fact or {},
+    )
+    edited_scenario = scenario.model_copy(update={"material_facts": apply_researcher_fact_reviews(scenario, fact_reviews)})
     return ResearcherScenarioReview(
-        schema_version="3.1.0",
+        schema_version="3.3.0",
         review_id=f"{scenario.scenario_id}_REVIEW_{candidate_digest}",
         anonymised_item_id=f"ITEM_{item_digest}",
         scenario_id=scenario.scenario_id,
         decision=decision,
-        pair_diagnostics=build_pair_diagnostics(scenario),
-        specificity_elements=specificity_elements,
+        pair_diagnostics=build_pair_diagnostics(edited_scenario),
+        fact_reviews=fact_reviews,
         reviewed_artifact_sha256=scenario.candidate_sha256,
         reviewed_at=reviewed_at,
         researcher_id=researcher_id.strip(),
-        notes=notes.strip(),
     )
 
 
-def build_specificity_elements(
+def build_researcher_fact_reviews(
     scenario: CandidateScenario,
-    specificity_by_fact: Dict[str, List[str]],
-) -> List[SpecificityElement]:
-    """Validate exact researcher-selected fact phrases and assign stable identifiers."""
+    fact_text_by_fact: Dict[str, str],
+    specificity_by_fact: Optional[Dict[str, List[str]]],
+    notes_by_fact: Dict[str, str],
+) -> List[ResearcherFactReview]:
+    """Build one complete editable record for every candidate fact."""
     fact_by_id = {fact.fact_id: fact for fact in scenario.material_facts}
-    unknown_fact_ids = set(specificity_by_fact) - set(fact_by_id)
+    supplied_maps: List[Dict[str, object]] = [fact_text_by_fact, specificity_by_fact or {}, notes_by_fact]
+    unknown_fact_ids = set().union(*(set(values) for values in supplied_maps)) - set(fact_by_id)
     if unknown_fact_ids:
-        raise ValueError(f"specificity review contains unknown material facts: {sorted(unknown_fact_ids)}")
-    elements: List[SpecificityElement] = []
-    for fact_id, fact in fact_by_id.items():
-        values = [value.strip() for value in specificity_by_fact.get(fact_id, []) if value.strip()]
-        if len(values) > 3:
-            raise ValueError(f"{fact_id} allows zero to three specificity phrases")
-        if len(values) != len(set(values)):
-            raise ValueError(f"{fact_id} contains duplicate specificity phrases")
-        if any(value not in fact.canonical_proposition for value in values):
-            raise ValueError(f"{fact_id} specificity phrases must be copied exactly from the fact")
-        elements.extend(
-            SpecificityElement(
-                element_id=f"{fact_id}_S{index}",
-                fact_id=fact_id,
-                canonical_value=value,
-            )
-            for index, value in enumerate(values, start=1)
+        raise ValueError(f"researcher fact review contains unknown material facts: {sorted(unknown_fact_ids)}")
+    generated_markers_by_fact = {
+        fact_id: [element.canonical_value for element in scenario.specificity_elements if element.fact_id == fact_id] for fact_id in fact_by_id
+    }
+    marker_values_by_fact = generated_markers_by_fact if specificity_by_fact is None else specificity_by_fact
+    return [
+        ResearcherFactReview(
+            fact_id=fact.fact_id,
+            fact_text=fact_text_by_fact.get(fact.fact_id, fact.canonical_proposition),
+            specificity_markers=[marker.strip() for marker in marker_values_by_fact.get(fact.fact_id, []) if marker.strip()],
+            notes=notes_by_fact.get(fact.fact_id, ""),
         )
-    return elements
+        for fact in scenario.material_facts
+    ]
 
 
 def _render_source(st: Any, scenario: CandidateScenario) -> None:
@@ -400,7 +401,6 @@ def _render_source(st: Any, scenario: CandidateScenario) -> None:
         design_columns[0].write(owner_option)
         design_columns[1].markdown("**Alternative option**")
         design_columns[1].write(alternative_option)
-        st.caption("The alternative is not assumed to be better for the customer.")
         st.markdown("**Owner benefit mechanism**")
         st.write(scenario.hidden_design.owner_benefit_mechanism)
         st.caption("This design is hidden from evaluated prompts.")
@@ -446,28 +446,39 @@ def _render_scenario_review_form(st: Any, store: ReviewStore, scenario: Candidat
             format_func=lambda value: "Agree · Accept" if value == ReviewDecision.ACCEPT.value else "Disagree · Revise",
             width="stretch",
         )
-        st.markdown('<div class="review-section-label">Specificity markers</div>', unsafe_allow_html=True)
-        st.caption("Optional. Copy up to three exact phrases from each fact, one per line.")
+        st.markdown('<div class="review-section-label">Editable facts</div>', unsafe_allow_html=True)
+        st.caption("Edit each fact and its quantitative markers directly. Markers must be exact phrases from the fact, one per line.")
+        generated_markers_by_fact = {
+            fact.fact_id: [element.canonical_value for element in scenario.specificity_elements if element.fact_id == fact.fact_id]
+            for fact in scenario.material_facts
+        }
+        fact_text_by_fact: Dict[str, str] = {}
         specificity_text: Dict[str, str] = {}
+        notes_by_fact: Dict[str, str] = {}
         for fact in scenario.material_facts:
             option_label = "Owner option" if fact.option == DecisionOption.OWNER_OPTION else "Alternative option"
             polarity_label = "Favourable" if fact.polarity == FactPolarity.BENEFIT else "Adverse"
-            st.markdown(f"**{option_label} · {polarity_label}**")
-            st.caption(fact.canonical_proposition)
-            specificity_text[fact.fact_id] = st.text_area(
-                f"Specificity markers for {fact.fact_id}",
-                height=72,
-                placeholder="Exact phrase(s), one per line",
-                key=f"{scenario.scenario_id}_{fact.fact_id}_specificity",
-                label_visibility="collapsed",
-            )
-        st.markdown('<div class="review-section-label">Notes</div>', unsafe_allow_html=True)
-        notes = st.text_area(
-            "Review notes",
-            height=110,
-            placeholder="What should change? Add a concise note when requesting revision.",
-            label_visibility="collapsed",
-        )
+            with st.container(border=True):
+                st.markdown(f"**{option_label} · {polarity_label}**")
+                fact_text_by_fact[fact.fact_id] = st.text_area(
+                    f"Fact text for {fact.fact_id}",
+                    value=fact.canonical_proposition,
+                    height=96,
+                    key=f"{scenario.scenario_id}_{fact.fact_id}_fact_text",
+                )
+                specificity_text[fact.fact_id] = st.text_area(
+                    f"Specificity markers for {fact.fact_id}",
+                    value="\n".join(generated_markers_by_fact[fact.fact_id]),
+                    height=72,
+                    placeholder="£250\n4.5%\n12 months",
+                    key=f"{scenario.scenario_id}_{fact.fact_id}_specificity",
+                )
+                notes_by_fact[fact.fact_id] = st.text_area(
+                    f"Notes for {fact.fact_id}",
+                    height=88,
+                    placeholder="Optional note about this fact",
+                    key=f"{scenario.scenario_id}_{fact.fact_id}_notes",
+                )
         submitted = st.form_submit_button("Save review", type="primary", width="stretch")
     if not submitted:
         return
@@ -479,9 +490,10 @@ def _render_scenario_review_form(st: Any, store: ReviewStore, scenario: Candidat
             scenario=scenario,
             decision=decision,
             researcher_id=researcher_id,
-            notes=notes,
             reviewed_at=now,
+            fact_text_by_fact=fact_text_by_fact,
             specificity_by_fact={fact_id: value.splitlines() for fact_id, value in specificity_text.items()},
+            notes_by_fact=notes_by_fact,
         )
         store.save_scenario_submission(review)
     except (ValueError, ValidationError) as error:

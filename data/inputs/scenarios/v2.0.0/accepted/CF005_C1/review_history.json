@@ -1,0 +1,142 @@
+{
+  "schema_version": "3.3.0",
+  "scenario_id": "CF005_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF005_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "8e66856721bc22bb14346a282f8653a0f708a5bd1e2805136cbd234ace1e7883",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785247326-Tf3tSqXbBwtgN0OTZ1kz",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 2975,
+          "output_tokens": 45,
+          "total_tokens": 3020,
+          "cost_credits": "0.0032",
+          "upstream_inference_cost": "0.0032"
+        },
+        "request_sha256": "2f9c40753c586ef75beccc3705428600faed8f05beea23e0914521e5cc61140e",
+        "response_sha256": "f9354f71521d277c7ef6fd887664ddf522b7246b9929efbdfb684925aaed407f",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-28T14:02:07.936182Z"
+    }
+  ],
+  "revisions": [],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.3.0",
+      "review_id": "CF005_C1_REVIEW_8E66856721BC22BB",
+      "anonymised_item_id": "ITEM_E5E000A874A7",
+      "scenario_id": "CF005_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF005_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 15,
+            "side_b": 19
+          },
+          "numeric_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "16.77",
+            "side_b": "21.565"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        },
+        {
+          "pair_id": "CF005_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 17,
+            "side_b": 16
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 1,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "35.309",
+            "side_b": "-0.15"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": [],
+          "blinded_materiality_ratings": {
+            "side_a": 4,
+            "side_b": 4
+          }
+        }
+      ],
+      "fact_reviews": [
+        {
+          "fact_id": "CF005_C1_F1",
+          "fact_text": "current-lender product transfer: The product has no legal conveyancing requirement and can be completed without a full property revaluation.",
+          "specificity_markers": [],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF005_C1_F2",
+          "fact_text": "external remortgage offer: The product includes a free standard valuation and no lender arrangement fee.",
+          "specificity_markers": [],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF005_C1_F3",
+          "fact_text": "current-lender product transfer: The product applies only to existing balance holders and carries a £250 product fee.",
+          "specificity_markers": [
+            "£250"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF005_C1_F4",
+          "fact_text": "external remortgage offer: The product charges a £995 completion fee and requires a full affordability assessment.",
+          "specificity_markers": [
+            "£995"
+          ],
+          "notes": ""
+        }
+      ],
+      "reviewed_artifact_sha256": "8e66856721bc22bb14346a282f8653a0f708a5bd1e2805136cbd234ace1e7883",
+      "reviewed_at": "2026-07-28T15:28:46.040998Z",
+      "researcher_id": "imanzafar"
+    }
+  ]
+}
