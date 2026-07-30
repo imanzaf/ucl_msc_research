@@ -52,20 +52,20 @@ Only direct score components, signed gaps, reverse framing, three coverage summa
 
 ## Versioned C1 diagnostic
 
-The redesigned diagnostic is `c1_llama_2x2_v2`. Historical V1 output remains historical and is not migrated.
+The redesigned scoring diagnostic is `c1_llama_2x2_v8`. It hash-binds and copies the 40 completed Llama evaluated-model transcripts from
+`c1_llama_2x2_v3`; V1–V3 remain historical and are not overwritten.
 
 ```bash
-uv run risk-comm calibration run-c1 \
+uv run risk-comm scoring run-c1 \
+  --source-experiment-name c1_llama_2x2_v3 \
   --frozen-by <researcher-id> \
   --execute-paid
 
-uv run risk-comm scoring run-c1 --execute-paid
-
 uv run risk-comm scoring validate-c1 \
-  --scored-bundles data/outputs/experiments/c1_llama_2x2_v2/results/scored_conversations.jsonl \
-  --scoring-calls data/outputs/experiments/c1_llama_2x2_v2/results/scoring_calls.jsonl \
-  --manual-queue data/outputs/experiments/c1_llama_2x2_v2/results/manual_scoring_queue.jsonl \
-  --output data/outputs/experiments/c1_llama_2x2_v2/checkpoints/scoring_diagnostic.json
+  --scored-bundles data/outputs/experiments/c1_llama_2x2_v8/results/scored_conversations.jsonl \
+  --scoring-calls data/outputs/experiments/c1_llama_2x2_v8/results/scoring_calls.jsonl \
+  --manual-queue data/outputs/experiments/c1_llama_2x2_v8/results/manual_scoring_queue.jsonl \
+  --output data/outputs/experiments/c1_llama_2x2_v8/checkpoints/scoring_diagnostic.json
 ```
 
 The diagnostic passes only with 40 valid bundles, 240 successful response-contract call artifacts, no manual queue, six independent provider provenances per conversation, and redesigned output validation. The resulting report is required when the main scoring contract is frozen:
@@ -74,7 +74,7 @@ The diagnostic passes only with 40 valid bundles, 240 successful response-contra
 uv run risk-comm scoring build-manifest \
   --evaluated-model-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluated_models.json \
   --judge-snapshot data/outputs/experiments/risk_comm_v1/manifests/judge_snapshot.json \
-  --c1-diagnostic-report data/outputs/experiments/c1_llama_2x2_v2/checkpoints/scoring_diagnostic.json \
+  --c1-diagnostic-report data/outputs/experiments/c1_llama_2x2_v8/checkpoints/scoring_diagnostic.json \
   --frozen-by <researcher-id> \
   --output data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json
 ```

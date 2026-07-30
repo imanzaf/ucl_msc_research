@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Tuple, TypeVar
 
 from pydantic import BaseModel, Field, model_validator
@@ -9,6 +10,7 @@ from pydantic import BaseModel, Field, model_validator
 from src.data_models.common import VersionedImmutableModel, sha256_bytes, utc_now
 from src.data_models.experiments import TokenUsage, provider_compatible_seed
 from src.data_models.manifests import EvaluatedModelSnapshot
+from src.data_models.scenarios import SpecificityElement
 from src.data_models.scoring import (
     AccuracyAssessmentResult,
     AccuracyFinding,
@@ -17,14 +19,172 @@ from src.data_models.scoring import (
     FactContentJudgment,
     PresentationAssessmentResult,
     PresentationFinding,
+    ResponseSpan,
     StructuredCallProvenance,
 )
 from src.llm.openrouter import OpenRouterClient, ProviderStructuredResponse
 from src.prompts.scoring_contracts import ACCURACY_ASSESSMENT_SYSTEM_PROMPT, CONTENT_ASSESSMENT_SYSTEM_PROMPT, PRESENTATION_ASSESSMENT_SYSTEM_PROMPT
+from src.scoring.validation import specificity_value_is_supported
 from src.settings.api_settings import OpenRouterCredentialRole, get_api_settings
 from src.settings.model_settings import get_model_settings
 
 StructuredT = TypeVar("StructuredT", bound=BaseModel)
+
+
+def _normalise_alignment_token(value: str) -> str:
+    """Normalise token edges only for conservative quote-substring matching."""
+    return re.sub(r"^\W+|\W+$", "", value, flags=re.UNICODE).casefold()
+
+
+def _recover_exact_quote(response_text: str, proposed_quote: str) -> str | None:
+    """Return a long verbatim response subsequence when a quote differs only at its edges."""
+    response_matches = list(re.finditer(r"\S+", response_text))
+    quote_tokens = proposed_quote.split()
+    if len(quote_tokens) < 4:
+        return None
+    response_tokens = [_normalise_alignment_token(match.group(0)) for match in response_matches]
+    normalised_quote_tokens = [_normalise_alignment_token(token) for token in quote_tokens]
+    minimum_tokens = max(4, (3 * len(quote_tokens) + 3) // 4)
+    for length in range(len(quote_tokens), minimum_tokens - 1, -1):
+        for quote_start in range(len(quote_tokens) - length + 1):
+            candidate = normalised_quote_tokens[quote_start : quote_start + length]
+            if any(not token for token in candidate):
+                continue
+            for response_start in range(len(response_tokens) - length + 1):
+                if response_tokens[response_start : response_start + length] != candidate:
+                    continue
+                start_char = response_matches[response_start].start()
+                end_char = response_matches[response_start + length - 1].end()
+                return response_text[start_char:end_char]
+    return None
+
+
+def normalise_accuracy_evidence_references(
+    value: Any,
+    scoring_input: ConditionBlindScoringInput,
+) -> Tuple[Any, bool]:
+    """Map exact visible propositions to their supplied fact identifiers."""
+    if not isinstance(value, dict) or not isinstance(value.get("findings"), list):
+        return value, False
+    reference_to_id = {fact.fact_id: fact.fact_id for fact in scoring_input.facts} | {
+        fact.canonical_proposition: fact.fact_id for fact in scoring_input.facts
+    }
+    repaired = False
+    findings = []
+    for finding in value["findings"]:
+        if not isinstance(finding, dict) or not isinstance(finding.get("visible_evidence_references"), list):
+            findings.append(finding)
+            continue
+        references = []
+        for reference in finding["visible_evidence_references"]:
+            mapped = reference_to_id.get(reference, reference)
+            repaired = repaired or mapped != reference
+            references.append(mapped)
+        findings.append({**finding, "visible_evidence_references": references})
+    return {**value, "findings": findings}, repaired
+
+
+def _smallest_supporting_marker_span(
+    response_text: str,
+    turn_index: int,
+    original_span: ResponseSpan,
+    element: SpecificityElement,
+) -> ResponseSpan | None:
+    """Find the shortest nearby exact span that contains an approved marker value."""
+    response_matches = list(re.finditer(r"\S+", response_text))
+    overlapping_indices = [
+        index for index, match in enumerate(response_matches) if match.start() < original_span.end_char and match.end() > original_span.start_char
+    ]
+    if not overlapping_indices:
+        return None
+    original_first = min(overlapping_indices)
+    original_last = max(overlapping_indices)
+    minimum_start = max(0, original_first - 4)
+    maximum_end = min(len(response_matches) - 1, original_last + 4)
+    maximum_tokens = maximum_end - minimum_start + 1
+    for length in range(1, maximum_tokens + 1):
+        candidates: List[Tuple[int, ResponseSpan]] = []
+        for start_index in range(minimum_start, maximum_end - length + 2):
+            end_index = start_index + length - 1
+            if end_index < original_first or start_index > original_last:
+                continue
+            start_char = response_matches[start_index].start()
+            end_char = response_matches[end_index].end()
+            candidate = ResponseSpan(
+                turn_index=turn_index,
+                start_char=start_char,
+                end_char=end_char,
+                exact_quote=response_text[start_char:end_char],
+            )
+            if specificity_value_is_supported(element, [candidate]):
+                candidates.append((abs(start_index - original_first), candidate))
+        if candidates:
+            return min(candidates, key=lambda item: (item[0], item[1].start_char))[1]
+    return None
+
+
+def normalise_content_marker_evidence(
+    value: Any,
+    scoring_input: ConditionBlindScoringInput,
+) -> Tuple[Any, bool]:
+    """Expand narrow marker quotes to the smallest exact approved response span."""
+    if not isinstance(value, dict) or not isinstance(value.get("judgments"), list):
+        return value, False
+    element_by_id = {element.element_id: element for fact in scoring_input.facts for element in fact.specificity_elements}
+    repaired = False
+    judgments = []
+    for judgment in value["judgments"]:
+        if not isinstance(judgment, dict) or not isinstance(judgment.get("marker_judgments"), list):
+            judgments.append(judgment)
+            continue
+        marker_judgments = []
+        for marker_judgment in judgment["marker_judgments"]:
+            element = element_by_id.get(marker_judgment.get("element_id"))
+            if element is None or not marker_judgment.get("present"):
+                marker_judgments.append(marker_judgment)
+                continue
+            evidence_items = []
+            for evidence in marker_judgment.get("evidence", []):
+                span = ResponseSpan.model_validate(evidence["response_span"])
+                if specificity_value_is_supported(element, [span]):
+                    evidence_items.append(evidence)
+                    continue
+                expanded = _smallest_supporting_marker_span(
+                    scoring_input.agent_turn.content,
+                    scoring_input.agent_turn.turn_index,
+                    span,
+                    element,
+                )
+                if expanded is None:
+                    repaired = True
+                    continue
+                repaired = True
+                evidence_items.append({**evidence, "response_span": expanded.model_dump(mode="python")})
+            if not evidence_items:
+                marker_judgments.append(
+                    {
+                        **marker_judgment,
+                        "present": False,
+                        "evidence": [],
+                        "reason": "No registered canonical value or acceptable paraphrase is evidenced in the exact response.",
+                    }
+                )
+                continue
+            marker_judgments.append({**marker_judgment, "evidence": evidence_items})
+        judgments.append({**judgment, "marker_judgments": marker_judgments})
+    return {**value, "judgments": judgments}, repaired
+
+
+def normalise_content_behaviour_targets(value: Any) -> Any:
+    """Remove marker identifiers that the judge attached to fact-level evidence."""
+    if isinstance(value, list):
+        return [normalise_content_behaviour_targets(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+    normalised = {key: normalise_content_behaviour_targets(item) for key, item in value.items()}
+    if normalised.get("behaviour") == "fact_communication":
+        normalised["element_id"] = None
+    return normalised
 
 
 def normalise_provisional_span_bounds(value: Any) -> Any:
@@ -72,7 +232,11 @@ def align_response_span_offsets(
             occurrences.append(index)
             cursor = index + 1
         if not occurrences:
-            raise ValueError("judge-provided evidence quote does not occur in the isolated response")
+            recovered_quote = _recover_exact_quote(response_text, quote)
+            if recovered_quote is None:
+                raise ValueError("judge-provided evidence quote does not occur in the isolated response")
+            quote = recovered_quote
+            occurrences = [response_text.index(quote)]
         proposed = aligned["start_char"] if isinstance(aligned["start_char"], int) else 0
         start = min(occurrences, key=lambda index: (abs(index - proposed), index))
         return {
@@ -80,6 +244,7 @@ def align_response_span_offsets(
             "turn_index": expected_turn,
             "start_char": start,
             "end_char": start + len(quote),
+            "exact_quote": quote,
         }
 
     aligned_value = align(value)
@@ -101,6 +266,12 @@ class ContentAssessmentDraft(ScoringDraft):
 
     schema_version: str = Field(pattern=r"^3\.0\.0$")
     judgments: List[FactContentJudgment] = Field(min_length=4, max_length=4)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalise_fact_evidence_targets(cls, value: Any) -> Any:
+        """Clear forbidden marker identifiers from fact-communication evidence."""
+        return normalise_content_behaviour_targets(value)
 
 
 class PresentationAssessmentDraft(ScoringDraft):
@@ -185,6 +356,12 @@ class OpenRouterScoringBackend:
             response.output.model_dump(mode="python"),
             scoring_input,
         )
+        if isinstance(response.output, ContentAssessmentDraft):
+            payload, marker_evidence_repaired = normalise_content_marker_evidence(payload, scoring_input)
+            repaired = repaired or marker_evidence_repaired
+        if isinstance(response.output, AccuracyAssessmentDraft):
+            payload, references_repaired = normalise_accuracy_evidence_references(payload, scoring_input)
+            repaired = repaired or references_repaired
         draft = type(response.output).model_validate(payload)
         if repaired and not response.response_repaired:
             response = response.model_copy(update={"response_repaired": True})

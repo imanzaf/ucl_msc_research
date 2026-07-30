@@ -103,7 +103,7 @@ def validate_content_result(
                 if finding.fact_id != fact_id:
                     raise ValueError("specificity evidence must identify its parent fact")
                 validate_response_span(finding.response_span, transcript, scoring_input.scored_response)
-            if marker_judgment.present and not _specificity_value_is_supported(
+            if marker_judgment.present and not specificity_value_is_supported(
                 marker,
                 [finding.response_span for finding in marker_judgment.evidence],
             ):
@@ -211,7 +211,7 @@ def _range_specificity_is_supported(value: str, quote: str) -> bool:
     )
 
 
-def _specificity_value_is_supported(element: SpecificityElement, spans: List[ResponseSpan]) -> bool:
+def specificity_value_is_supported(element: SpecificityElement, spans: List[ResponseSpan]) -> bool:
     """Require a positive marker decision to quote an approved value or paraphrase."""
     acceptable_values = [element.canonical_value, *element.acceptable_paraphrases]
     return any(

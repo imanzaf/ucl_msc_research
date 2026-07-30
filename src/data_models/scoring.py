@@ -671,7 +671,7 @@ class C1ScoringDiagnosticReport(VersionedImmutableModel):
     """Authenticate redesigned scoring output before the main contract freeze."""
 
     schema_version: str = Field(pattern=r"^3\.0\.0$")
-    experiment_name: str = Field(pattern=r"^c1_llama_2x2_v2$")
+    experiment_name: str = Field(pattern=r"^c1_llama_2x2_v[1-9][0-9]*$")
     scoring_contract_sha256: str
     expected_conversation_count: int = Field(default=40, ge=40, le=40)
     validated_conversation_count: int = Field(ge=40, le=40)
@@ -702,6 +702,43 @@ class C1ScoringDiagnosticReport(VersionedImmutableModel):
         expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"report_sha256"}))
         if self.report_sha256 != expected_hash:
             raise ValueError("C1 scoring diagnostic digest does not match canonical content")
+        return self
+
+
+class C1ScoringRerunSourceManifest(VersionedImmutableModel):
+    """Bind a scoring-only C1 version to immutable evaluated-model outputs."""
+
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
+    source_experiment_name: str = Field(pattern=r"^c1_llama_2x2_v[1-9][0-9]*$")
+    target_experiment_name: str = Field(pattern=r"^c1_llama_2x2_v[1-9][0-9]*$")
+    source_config_sha256: str
+    source_run_plan_sha256: str
+    source_transcripts_sha256: str
+    target_scoring_execution_manifest_sha256: str
+    prepared_by: str = Field(min_length=1)
+    prepared_at: datetime
+    manifest_sha256: str
+
+    @field_validator(
+        "source_config_sha256",
+        "source_run_plan_sha256",
+        "source_transcripts_sha256",
+        "target_scoring_execution_manifest_sha256",
+        "manifest_sha256",
+    )
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate every source, target, and self-hash digest."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_source_binding(self) -> "C1ScoringRerunSourceManifest":
+        """Require distinct versions and an exact canonical self-hash."""
+        if self.source_experiment_name == self.target_experiment_name:
+            raise ValueError("C1 scoring-only rerun requires a new experiment version")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"manifest_sha256"}))
+        if self.manifest_sha256 != expected_hash:
+            raise ValueError("C1 scoring-rerun source digest does not match canonical content")
         return self
 
 

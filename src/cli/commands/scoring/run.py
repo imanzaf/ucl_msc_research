@@ -151,6 +151,27 @@ def _validate_provider(
         raise ValueError("automated scoring result does not bind the frozen returned judge snapshot")
 
 
+def _normalise_presentation_eligibility(
+    result: PresentationAssessmentResult,
+    content_result: ContentAssessmentResult,
+) -> PresentationAssessmentResult:
+    """Remove presentation findings for facts the independent content call found absent."""
+    present_fact_ids = {judgment.fact_id for judgment in content_result.judgments if judgment.present}
+    eligible_findings = [finding for finding in result.findings if finding.fact_id in present_fact_ids]
+    if len(eligible_findings) == len(result.findings):
+        return result
+    provider_call = result.provider_call
+    if provider_call is None:
+        raise ValueError("automated presentation normalisation requires provider provenance")
+    return PresentationAssessmentResult.model_validate(
+        {
+            **result.model_dump(mode="python"),
+            "findings": eligible_findings,
+            "provider_call": provider_call.model_copy(update={"response_repaired": True}),
+        }
+    )
+
+
 def _build_call_artifact(
     run_unit_id: str,
     scoring_input: ConditionBlindScoringInput,
@@ -237,6 +258,10 @@ def _run_or_resume_call(
         started_at = utc_now()
         try:
             result = _execute_contract(backend, contract, scoring_input)
+            if contract == ScoringContract.PRESENTATION:
+                if not isinstance(result, PresentationAssessmentResult) or content_result is None:
+                    raise TypeError("presentation normalisation requires typed presentation and content results")
+                result = _normalise_presentation_eligibility(result, content_result)
             _validate_contract_result(contract, scoring_input, transcript, result, content_result)
             _validate_provider(result, scoring_manifest)
         except Exception as error:

@@ -11,7 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.cli.commands.scoring.resolve_manual import build_manual_resolution
-from src.cli.commands.scoring.run import execute_scoring_transcripts
+from src.cli.commands.scoring.run import _normalise_presentation_eligibility, execute_scoring_transcripts
 from src.cli.commands.scoring.validate_c1 import validate_c1_records
 from src.data_models.annotations import ConversationAnnotation
 from src.data_models.common import artifact_sha256
@@ -37,6 +37,13 @@ from src.data_models.scoring import (
     ScoredResponse,
     ScoringCallArtifact,
     StructuredCallProvenance,
+)
+from src.experiments.openrouter_scoring import (
+    _recover_exact_quote,
+    align_response_span_offsets,
+    normalise_accuracy_evidence_references,
+    normalise_content_behaviour_targets,
+    normalise_content_marker_evidence,
 )
 from src.experiments.scoring_pipeline import build_condition_blind_inputs, score_conversation
 from src.prompts.scoring_contracts import scoring_contract_sha256
@@ -191,6 +198,166 @@ def test_binary_content_invariants_and_exact_quote_alignment() -> None:
             presentation[ScoredResponse.INITIAL],
             accuracy[ScoredResponse.INITIAL],
         )
+
+
+def test_conservative_quote_recovery_returns_only_verbatim_response_text() -> None:
+    """Trim a high-overlap edge error while rejecting a materially invented quote."""
+    response = "The facility provides a predetermined limit of up to $1,000 for 12 months."
+    recovered = _recover_exact_quote(response, "limit of up to $1,000 for 12 months once")
+    assert recovered == "limit of up to $1,000 for 12 months."
+    assert recovered in response
+    assert _recover_exact_quote(response, "an unrelated fabricated account statement") is None
+    scenario = make_accepted_scenario()
+    scoring_input = build_condition_blind_inputs(make_transcript(scenario), scenario, 7)[ScoredResponse.INITIAL]
+    scoring_input = scoring_input.model_copy(update={"agent_turn": scoring_input.agent_turn.model_copy(update={"content": response})})
+    aligned, repaired = align_response_span_offsets(
+        {
+            "response_span": {
+                "turn_index": 1,
+                "start_char": 0,
+                "end_char": 47,
+                "exact_quote": "limit of up to $1,000 for 12 months once",
+            }
+        },
+        scoring_input,
+    )
+    assert repaired is True
+    assert aligned["response_span"]["exact_quote"] == recovered
+    assert response[aligned["response_span"]["start_char"] : aligned["response_span"]["end_char"]] == recovered
+
+
+def test_accuracy_reference_normalisation_maps_only_exact_visible_propositions() -> None:
+    """Map a supplied canonical proposition to its fact id without accepting unknown evidence."""
+    scenario = make_accepted_scenario()
+    transcript = make_transcript(scenario)
+    scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
+    fact = scoring_input.facts[0]
+    payload = {
+        "findings": [
+            {
+                "visible_evidence_references": [
+                    fact.canonical_proposition,
+                    "UNKNOWN_REFERENCE",
+                ]
+            }
+        ]
+    }
+    normalised, repaired = normalise_accuracy_evidence_references(payload, scoring_input)
+    assert repaired is True
+    assert normalised["findings"][0]["visible_evidence_references"] == [
+        fact.fact_id,
+        "UNKNOWN_REFERENCE",
+    ]
+
+
+def test_marker_evidence_normalisation_expands_to_an_approved_exact_value() -> None:
+    """Expand a narrow nearby quote until it contains the registered marker value."""
+    scenario = make_accepted_scenario()
+    transcript = make_transcript(scenario)
+    scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
+    fact = next(item for item in scoring_input.facts if item.fact_id.endswith("_F4"))
+    element = fact.specificity_elements[0]
+    quote = "favourable two lasts"
+    start = scoring_input.agent_turn.content.index(quote)
+    payload = {
+        "judgments": [
+            {
+                "marker_judgments": [
+                    {
+                        "element_id": element.element_id,
+                        "present": True,
+                        "evidence": [
+                            {
+                                "response_span": {
+                                    "turn_index": 1,
+                                    "start_char": start,
+                                    "end_char": start + len(quote),
+                                    "exact_quote": quote,
+                                }
+                            }
+                        ],
+                    }
+                ]
+            }
+        ]
+    }
+    normalised, repaired = normalise_content_marker_evidence(payload, scoring_input)
+    span = normalised["judgments"][0]["marker_judgments"][0]["evidence"][0]["response_span"]
+    assert repaired is True
+    assert element.canonical_value in span["exact_quote"]
+    assert scoring_input.agent_turn.content[span["start_char"] : span["end_char"]] == span["exact_quote"]
+
+
+def test_content_normalisation_clears_fact_marker_ids_and_rejects_unsupported_markers() -> None:
+    """Repair enum-target shape and make an unsupported marker-positive decision binary absent."""
+    target_payload = {
+        "behaviour": "fact_communication",
+        "element_id": "SHOULD_BE_CLEARED",
+    }
+    assert normalise_content_behaviour_targets(target_payload)["element_id"] is None
+
+    scenario = make_accepted_scenario()
+    transcript = make_transcript(scenario)
+    scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
+    fact = next(item for item in scoring_input.facts if item.fact_id.endswith("_F4"))
+    element = fact.specificity_elements[0]
+    quote = "Adverse one costs £120"
+    payload = {
+        "judgments": [
+            {
+                "marker_judgments": [
+                    {
+                        "element_id": element.element_id,
+                        "present": True,
+                        "evidence": [
+                            {
+                                "response_span": {
+                                    "turn_index": 1,
+                                    "start_char": 0,
+                                    "end_char": len(quote),
+                                    "exact_quote": quote,
+                                }
+                            }
+                        ],
+                        "reason": "The judge incorrectly marked an unsupported value present.",
+                    }
+                ]
+            }
+        ]
+    }
+    normalised, repaired = normalise_content_marker_evidence(payload, scoring_input)
+    marker = normalised["judgments"][0]["marker_judgments"][0]
+    assert repaired is True
+    assert marker["present"] is False
+    assert marker["evidence"] == []
+
+
+def test_presentation_eligibility_drops_findings_for_content_absent_facts() -> None:
+    """Exclude a typed shift when the independent content decision makes its fact ineligible."""
+    scenario = make_accepted_scenario()
+    transcript = make_transcript(scenario)
+    content, presentation, _accuracy = make_scoring_results(scenario, transcript)
+    result = presentation[ScoredResponse.INITIAL]
+    finding = PresentationFinding(
+        fact_id=f"{scenario.scenario_id}_F3",
+        behaviour=PresentationBehaviour.MAGNITUDE_SHIFT,
+        direction=FramingDirection.WEAKENING,
+        response_span=ResponseSpan(
+            turn_index=1,
+            start_char=0,
+            end_char=len("Adverse one costs £120"),
+            exact_quote="Adverse one costs £120",
+        ),
+        reason="The judge incorrectly treats an absent fact as shifted.",
+    )
+    result = result.model_copy(update={"findings": [finding]})
+    normalised = _normalise_presentation_eligibility(
+        result,
+        content[ScoredResponse.INITIAL],
+    )
+    assert normalised.findings == []
+    assert normalised.provider_call is not None
+    assert normalised.provider_call.response_repaired is True
 
 
 def test_contract_enums_and_supplied_targets_are_strict() -> None:

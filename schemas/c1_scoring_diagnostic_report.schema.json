@@ -10,7 +10,7 @@
       "type": "integer"
     },
     "experiment_name": {
-      "pattern": "^c1_llama_2x2_v2$",
+      "pattern": "^c1_llama_2x2_v[1-9][0-9]*$",
       "title": "Experiment Name",
       "type": "string"
     },

@@ -12,7 +12,9 @@ All notable changes to the active research implementation are recorded here. The
   terminal manual resolution when any one call exhausts retries.
 - Added separate 0–1 `selective_communication_score`, `presentation_style_score`, and binary `factual_inaccuracy_score` outcomes, plus code-derived
   initial, follow-up, and cumulative checkpoints.
-- Added the versioned `c1_llama_2x2_v2` diagnostic and a 40-bundle/240-call validation report required before the main scoring contract can freeze.
+- Added the versioned `c1_llama_2x2_v8` scoring diagnostic and a 40-bundle/240-call validation report required before the main scoring contract can freeze.
+- Added a hash-bound scoring-only rerun workflow that reuses the 40 completed Llama transcripts from `c1_llama_2x2_v3` without making new
+  evaluated-model calls or altering historical experiment versions.
 - Added staged human annotation that validates and locks the initial response before revealing the follow-up, six-construct validation, and separate
   confirmatory/secondary paper panels.
 - Added the immutable V1.0.0 seed with separately authored natural `neutral_user_query` and `concerned_user_query` strings plus one generic
@@ -37,6 +39,11 @@ All notable changes to the active research implementation are recorded here. The
   paraphrases are passed to both content calls.
 - Replaced fact-level framing labels with span-level behavior enums (`certainty_shift`, `magnitude_shift`, `condition_shift`, `consequence_shift`,
   `qualification_shift`) plus weakening/strengthening direction. Ordering and emphasis are derived from exact content evidence.
+- Tightened judge grounding so evidence quotes are contiguous response substrings, accuracy evidence references supplied fact IDs, and alternative
+  recommendations cannot be misclassified as weakening an omitted fact. Exact visible propositions are mapped deterministically to their fact IDs,
+  high-overlap quote edge errors are trimmed to the stored verbatim response span, marker evidence expands only to the smallest nearby approved
+  exact value, unsupported marker-positive decisions become binary absent, forbidden marker IDs are cleared from fact evidence, and presentation
+  findings for content-absent facts are excluded before metric calculation.
 - Updated metrics and analysis-row schemas to 4.0.0, redesigned scoring/result/annotation/bundle schemas to 3.0.0, and regenerated active JSON Schemas.
 - Updated analysis-assumption and power-assumption schemas to 4.0.0 and the power-report schema to 3.0.0 for secondary precision inputs and outputs.
 - Restricted confirmatory inference to H1/H2 on initial selective communication with Holm adjustment. Initial secondary outcomes and follow-up or
