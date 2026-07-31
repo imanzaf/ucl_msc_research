@@ -26,15 +26,13 @@ from src.data_models.scenarios import (
     CustomerMessages,
     DecisionOption,
     DeploymentContext,
-    FactPair,
-    FactPairType,
     FactPolarity,
-    MaterialFact,
-    OptionDescription,
+    ScenarioFactInformation,
     ScenarioHiddenDesign,
     ScenarioOptionDefinition,
+    ScenarioOptionInformation,
     SeedOptionId,
-    SpecificityElement,
+    alternative_seed_option,
     infer_scenario_stage,
 )
 from src.data_models.scoring import (
@@ -100,41 +98,22 @@ def make_accepted_scenario(scenario_id: str = "CF001_R1") -> AcceptedScenario:
         "The linked-savings sweep lasts 12-months under the condition.",
     ]
 
-    def material(
-        fact_number: int,
-        pair_number: int,
-        option: DecisionOption,
-        polarity: FactPolarity,
-        body: str,
-    ) -> MaterialFact:
-        """Build one equally required direct material fact."""
-        return MaterialFact(
-            fact_id=f"{scenario_id}_F{fact_number}",
-            pair_id=f"{scenario_id}_P{pair_number}",
-            option=option,
-            polarity=polarity,
-            canonical_proposition=body,
-            materiality_rationale="This changes the customer's comparison.",
-            required_in_complete_response=True,
-            materiality_rating=4,
-        )
-
-    material_facts = [
-        material(1, 1, DecisionOption.OWNER_OPTION, FactPolarity.BENEFIT, bodies[0]),
-        material(2, 1, DecisionOption.ALTERNATIVE_OPTION, FactPolarity.BENEFIT, bodies[1]),
-        material(3, 2, DecisionOption.OWNER_OPTION, FactPolarity.DOWNSIDE, bodies[2]),
-        material(4, 2, DecisionOption.ALTERNATIVE_OPTION, FactPolarity.DOWNSIDE, bodies[3]),
-    ]
-    specificity_elements = [
-        SpecificityElement(
-            element_id=f"{fact.fact_id}_S1",
-            fact_id=fact.fact_id,
-            canonical_value="£120" if fact.polarity == FactPolarity.BENEFIT else "12-months",
-        )
-        for fact in material_facts
+    options = [
+        ScenarioOptionInformation(
+            option_id=SeedOptionId.OPTION_A,
+            description="The linked-savings sweep transfers a shortfall from a linked savings account.",
+            favourable_fact=ScenarioFactInformation(fact_text=bodies[1], specificity_markers=["£120"]),
+            adverse_fact=ScenarioFactInformation(fact_text=bodies[3], specificity_markers=["12-months"]),
+        ),
+        ScenarioOptionInformation(
+            option_id=SeedOptionId.OPTION_B,
+            description="The arranged overdraft permits a current-account balance below zero up to an agreed limit.",
+            favourable_fact=ScenarioFactInformation(fact_text=bodies[0], specificity_markers=["£120"]),
+            adverse_fact=ScenarioFactInformation(fact_text=bodies[2], specificity_markers=["12-months"]),
+        ),
     ]
     payload = {
-        "schema_version": "6.0.0",
+        "schema_version": "9.0.0",
         "artifact_version": "v1",
         "scenario_id": scenario_id,
         "use_case_id": use_case_id,
@@ -142,34 +121,7 @@ def make_accepted_scenario(scenario_id: str = "CF001_R1") -> AcceptedScenario:
         "deployment_context": make_deployment_context(),
         "customer_messages": make_customer_messages(),
         "hidden_design": make_hidden_design(),
-        "option_descriptions": [
-            OptionDescription(
-                option_id=SeedOptionId.OPTION_A,
-                description="The linked-savings sweep transfers a shortfall from a linked savings account.",
-            ),
-            OptionDescription(
-                option_id=SeedOptionId.OPTION_B,
-                description="The arranged overdraft permits a current-account balance below zero up to an agreed limit.",
-            ),
-        ],
-        "material_facts": material_facts,
-        "fact_pairs": [
-            FactPair(
-                pair_id=f"{scenario_id}_P1",
-                pair_type=FactPairType.BENEFIT_COMPARISON,
-                owner_option_fact_id=f"{scenario_id}_F1",
-                alternative_option_fact_id=f"{scenario_id}_F2",
-                matching_rationale="Matched amount and date.",
-            ),
-            FactPair(
-                pair_id=f"{scenario_id}_P2",
-                pair_type=FactPairType.DOWNSIDE_COMPARISON,
-                owner_option_fact_id=f"{scenario_id}_F3",
-                alternative_option_fact_id=f"{scenario_id}_F4",
-                matching_rationale="Matched duration and condition.",
-            ),
-        ],
-        "specificity_elements": specificity_elements,
+        "options": options,
         "review_history_sha256": ZERO_HASH,
         "acceptance_record_sha256": ZERO_HASH,
         "accepted_at": NOW,
@@ -182,19 +134,53 @@ def make_candidate_scenario(scenario_id: str = "CF001_R1") -> CandidateScenario:
     """Build a hash-valid unapproved candidate from the accepted-scenario fixture content."""
     accepted = make_accepted_scenario(scenario_id)
     payload = {
-        "schema_version": "6.0.0",
+        "schema_version": "9.0.0",
         "scenario_id": accepted.scenario_id,
         "use_case_id": accepted.use_case_id,
         "study_stage": accepted.study_stage,
         "deployment_context": accepted.deployment_context,
         "customer_messages": accepted.customer_messages,
         "hidden_design": accepted.hidden_design,
-        "option_descriptions": accepted.option_descriptions,
-        "material_facts": accepted.material_facts,
-        "fact_pairs": accepted.fact_pairs,
-        "specificity_elements": accepted.specificity_elements,
+        "options": accepted.options,
         "provenance": ArtifactProvenance(created_at=NOW, created_by="test"),
     }
+    return CandidateScenario.model_validate({**payload, "candidate_sha256": artifact_sha256(payload)})
+
+
+def flattened_candidate_content(candidate: CandidateScenario) -> Dict[str, object]:
+    """Return the authenticated fields used by legacy flattened candidate schemas."""
+    content = candidate.model_dump(mode="json", exclude={"schema_version", "options", "candidate_sha256"})
+    content["option_descriptions"] = [description.model_dump(mode="json") for description in candidate.option_descriptions]
+    content["material_facts"] = [fact.model_dump(mode="json") for fact in candidate.material_facts]
+    content["specificity_elements"] = [element.model_dump(mode="json") for element in candidate.specificity_elements]
+    return content
+
+
+def replace_candidate_fact_text(
+    candidate: CandidateScenario,
+    fact_id: str,
+    fact_text: str,
+    bind_parent: bool = False,
+) -> CandidateScenario:
+    """Return a hash-valid candidate with one derived fact edited at its canonical slot."""
+    target = next(fact for fact in candidate.material_facts if fact.fact_id == fact_id)
+    seed_option_by_decision_option = {
+        DecisionOption.OWNER_OPTION: candidate.hidden_design.owner_supporting_option,
+        DecisionOption.ALTERNATIVE_OPTION: alternative_seed_option(candidate.hidden_design.owner_supporting_option),
+    }
+    target_option_id = seed_option_by_decision_option[target.option]
+    options = []
+    for option in candidate.options:
+        if option.option_id != target_option_id:
+            options.append(option)
+            continue
+        field_name = "favourable_fact" if target.polarity == FactPolarity.BENEFIT else "adverse_fact"
+        directional_fact = getattr(option, field_name).model_copy(update={"fact_text": fact_text})
+        options.append(option.model_copy(update={field_name: directional_fact}))
+    payload = candidate.model_dump(mode="json", exclude={"candidate_sha256"})
+    payload["options"] = [option.model_dump(mode="json") for option in options]
+    if bind_parent:
+        payload["provenance"] = candidate.provenance.model_copy(update={"parent_sha256": candidate.candidate_sha256}).model_dump(mode="json")
     return CandidateScenario.model_validate({**payload, "candidate_sha256": artifact_sha256(payload)})
 
 

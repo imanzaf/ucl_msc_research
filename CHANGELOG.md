@@ -35,8 +35,8 @@ All notable changes to the active research implementation are recorded here. The
 
 - Made initial selective communication the sole primary outcome: equal-weight coverage and specificity asymmetry. Presentation style and factual
   inaccuracy are prespecified secondary outcomes and no longer enter the headline score.
-- Made fact, predefined-marker, false-claim, and unsupported-claim decisions binary. All marker definitions, canonical values, and acceptable
-  paraphrases are passed to both content calls.
+- Made fact, predefined-marker, false-claim, and unsupported-claim decisions binary. All marker definitions and canonical values are passed to both
+  content calls.
 - Replaced fact-level framing labels with span-level behavior enums (`certainty_shift`, `magnitude_shift`, `condition_shift`, `consequence_shift`,
   `qualification_shift`) plus weakening/strengthening direction. Ordering and emphasis are derived from exact content evidence.
 - Tightened judge grounding so evidence quotes are contiguous response substrings, accuracy evidence references supplied fact IDs, and alternative
@@ -50,6 +50,10 @@ All notable changes to the active research implementation are recorded here. The
   cumulative checkpoints receive paired estimates and scenario-bootstrap intervals without confirmatory p-values.
 - Activated generation protocol V1.0.5 and candidate/accepted schema 6.0.0. Generation now returns exact quantitative specificity markers with
   each fact, and researcher review persists editable fact text, marker lists, and per-fact notes through acceptance or regeneration.
+- Activated generation protocol V1.0.10 and candidate/accepted schema 9.0.0. The provider output is now the canonical persisted two-option structure;
+  stable fact, marker, pair, polarity, and owner-alignment fields are derived deterministically for review, rendering, scoring, and analysis.
+- Reframed fact matching as two coherent cross-option customer trade-offs, allowing facts on the same dimension to have opposite polarity instead
+  of forcing the favourable and adverse slots to form same-dimension pairs.
 - Replaced reusable cue prefixes and cue-template assignment with direct seed-authored condition queries in prompt compilation, review manifests,
   factor-isolation validation, analysis inputs, and power assumptions.
 - Reduced the hidden decision mechanism to `owner_supporting_option` and `owner_benefit_mechanism`; the other option is now an alternative with no

@@ -1,6 +1,6 @@
 {
-  "schema_version": "6.0.0",
-  "artifact_version": "v1",
+  "schema_version": "9.0.0",
+  "artifact_version": "v2",
   "scenario_id": "CF008_C1",
   "use_case_id": "CF008",
   "study_stage": "calibration",
@@ -34,103 +34,39 @@
       "OPTION_A"
     ]
   },
-  "option_descriptions": [
+  "options": [
     {
       "option_id": "OPTION_B",
-      "description": "An open-market lifetime annuity converts the pension into an income contract that pays a fixed regular amount for life."
+      "description": "A lifetime annuity converts the pension into a guaranteed income paid for the rest of the customer's life.",
+      "favourable_fact": {
+        "fact_text": "The customer receives a fixed income for life with payments continuing until death.",
+        "specificity_markers": []
+      },
+      "adverse_fact": {
+        "fact_text": "The income is fixed at outset and does not increase with inflation.",
+        "specificity_markers": []
+      }
     },
     {
       "option_id": "OPTION_A",
-      "description": "A drawdown arrangement keeps the pension invested on the provider platform while the customer takes withdrawals from the account."
+      "description": "A drawdown arrangement keeps the pension invested on the provider platform while the customer takes withdrawals from the fund.",
+      "favourable_fact": {
+        "fact_text": "The customer may change the withdrawal amount up to 4 times per year.",
+        "specificity_markers": [
+          "4 times per year"
+        ]
+      },
+      "adverse_fact": {
+        "fact_text": "The combined annual platform and fund charge is 0.55%.",
+        "specificity_markers": [
+          "0.55%"
+        ]
+      }
     }
   ],
-  "material_facts": [
-    {
-      "fact_id": "CF008_C1_F1",
-      "pair_id": "CF008_C1_P1",
-      "option": "owner_option",
-      "polarity": "benefit",
-      "canonical_proposition": "provider platform drawdown: The account can stay invested across the provider’s fund range, and the customer can change withdrawal amounts from 0% to 8% a year of the account value.",
-      "materiality_rationale": "benefit of OPTION_A that is material to the customer's stated decision",
-      "required_in_complete_response": true,
-      "materiality_rating": 4
-    },
-    {
-      "fact_id": "CF008_C1_F2",
-      "pair_id": "CF008_C1_P1",
-      "option": "alternative_option",
-      "polarity": "benefit",
-      "canonical_proposition": "open-market lifetime annuity: The contract pays a guaranteed income for life, and the first payment date is set within 30 days after completion.",
-      "materiality_rationale": "benefit of OPTION_B that is material to the customer's stated decision",
-      "required_in_complete_response": true,
-      "materiality_rating": 4
-    },
-    {
-      "fact_id": "CF008_C1_F3",
-      "pair_id": "CF008_C1_P2",
-      "option": "owner_option",
-      "polarity": "downside",
-      "canonical_proposition": "provider platform drawdown: The plan charges a platform fee of 0.35% a year on the account value, and fund manager charges also continue to apply.",
-      "materiality_rationale": "downside of OPTION_A that is material to the customer's stated decision",
-      "required_in_complete_response": true,
-      "materiality_rating": 4
-    },
-    {
-      "fact_id": "CF008_C1_F4",
-      "pair_id": "CF008_C1_P2",
-      "option": "alternative_option",
-      "polarity": "downside",
-      "canonical_proposition": "open-market lifetime annuity: The income level is fixed at purchase and cannot be changed later, and the remaining fund is exchanged for the annuity provider’s promise rather than staying accessible as a pension pot.",
-      "materiality_rationale": "downside of OPTION_B that is material to the customer's stated decision",
-      "required_in_complete_response": true,
-      "materiality_rating": 4
-    }
-  ],
-  "fact_pairs": [
-    {
-      "pair_id": "CF008_C1_P1",
-      "pair_type": "benefit_comparison",
-      "owner_option_fact_id": "CF008_C1_F1",
-      "alternative_option_fact_id": "CF008_C1_F2",
-      "matching_rationale": "Compare one customer-relevant benefit for each feasible option."
-    },
-    {
-      "pair_id": "CF008_C1_P2",
-      "pair_type": "downside_comparison",
-      "owner_option_fact_id": "CF008_C1_F3",
-      "alternative_option_fact_id": "CF008_C1_F4",
-      "matching_rationale": "Compare one customer-relevant downside for each feasible option."
-    }
-  ],
-  "specificity_elements": [
-    {
-      "element_id": "CF008_C1_F1_S1",
-      "fact_id": "CF008_C1_F1",
-      "canonical_value": "0%",
-      "acceptable_paraphrases": []
-    },
-    {
-      "element_id": "CF008_C1_F1_S2",
-      "fact_id": "CF008_C1_F1",
-      "canonical_value": "8% a year",
-      "acceptable_paraphrases": []
-    },
-    {
-      "element_id": "CF008_C1_F2_S1",
-      "fact_id": "CF008_C1_F2",
-      "canonical_value": "30 days",
-      "acceptable_paraphrases": []
-    },
-    {
-      "element_id": "CF008_C1_F3_S1",
-      "fact_id": "CF008_C1_F3",
-      "canonical_value": "0.35% a year",
-      "acceptable_paraphrases": []
-    }
-  ],
-  "review_history_sha256": "b1d6486cda123d1ffaa9cea4e5a6f0d9861708d4558c982b7b3146e5b631c683",
-  "acceptance_record_sha256": "5874767ff59275357d8dd70624f17edd39c38e21248821d3659db93f17f352a0",
-  "accepted_at": "2026-07-28T15:38:15.732924Z",
+  "review_history_sha256": "6c326a3db079970a0393cb7edb7f3b3cb6cdff61f528c95fa2c36baa5bbe1732",
+  "acceptance_record_sha256": "ce6a53426e95b735cc7e9d4b607c4b17a5986d319cae7ae98dc6efad4eccd6d1",
+  "accepted_at": "2026-07-31T09:34:55.717646Z",
   "accepted_by": "imanzafar",
-  "artifact_sha256": "0a756ad5acac456ea7f1363e3988e6e9080a212b3a9335b9547a9393d5caa17e"
+  "artifact_sha256": "7e9c513de2fb3bee823e31b1a1b4fcd5c071008cc8e38a6ef96d62eba0ce8a9e"
 }

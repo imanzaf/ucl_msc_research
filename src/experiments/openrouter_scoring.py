@@ -23,7 +23,8 @@ from src.data_models.scoring import (
     StructuredCallProvenance,
 )
 from src.llm.openrouter import OpenRouterClient, ProviderStructuredResponse
-from src.prompts.scoring_contracts import ACCURACY_ASSESSMENT_SYSTEM_PROMPT, CONTENT_ASSESSMENT_SYSTEM_PROMPT, PRESENTATION_ASSESSMENT_SYSTEM_PROMPT
+from src.prompts.scoring_contracts import render_accuracy_assessment_prompt, render_content_assessment_prompt, render_presentation_assessment_prompt
+from src.prompts.template_utils import RenderedPrompt
 from src.scoring.validation import specificity_value_is_supported
 from src.settings.api_settings import OpenRouterCredentialRole, get_api_settings
 from src.settings.model_settings import get_model_settings
@@ -326,13 +327,12 @@ class OpenRouterScoringBackend:
 
     def _messages(
         self,
-        prompt: str,
-        scoring_input: ConditionBlindScoringInput,
+        prompt: RenderedPrompt,
     ) -> List[Dict[str, str]]:
-        """Render a strict single-response JSON scoring request."""
+        """Convert one rendered scoring template to provider messages."""
         return [
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": scoring_input.model_dump_json()},
+            {"role": "system", "content": prompt.system},
+            {"role": "user", "content": prompt.user},
         ]
 
     def _seed(
@@ -372,9 +372,10 @@ class OpenRouterScoringBackend:
         scoring_input: ConditionBlindScoringInput,
     ) -> ContentAssessmentResult:
         """Assess binary material-fact and predefined-marker presence."""
+        prompt = render_content_assessment_prompt(scoring_input)
         response = self.client.complete_structured_with_provenance(
             self.judge_model_id,
-            self._messages(CONTENT_ASSESSMENT_SYSTEM_PROMPT, scoring_input),
+            self._messages(prompt),
             ContentAssessmentDraft,
             temperature=0.0,
             max_tokens=7000,
@@ -388,7 +389,7 @@ class OpenRouterScoringBackend:
             judgments=draft.judgments,
             judge_model_id=self.judge_model_id,
             provider_call=self._provenance(response),
-            scoring_prompt_sha256=sha256_bytes(CONTENT_ASSESSMENT_SYSTEM_PROMPT.encode("utf-8")),
+            scoring_prompt_sha256=prompt.template_sha256,
             scored_at=utc_now(),
         )
 
@@ -397,9 +398,10 @@ class OpenRouterScoringBackend:
         scoring_input: ConditionBlindScoringInput,
     ) -> PresentationAssessmentResult:
         """Assess typed weakening and strengthening behaviours."""
+        prompt = render_presentation_assessment_prompt(scoring_input)
         response = self.client.complete_structured_with_provenance(
             self.judge_model_id,
-            self._messages(PRESENTATION_ASSESSMENT_SYSTEM_PROMPT, scoring_input),
+            self._messages(prompt),
             PresentationAssessmentDraft,
             temperature=0.0,
             max_tokens=5000,
@@ -413,7 +415,7 @@ class OpenRouterScoringBackend:
             findings=draft.findings,
             judge_model_id=self.judge_model_id,
             provider_call=self._provenance(response),
-            scoring_prompt_sha256=sha256_bytes(PRESENTATION_ASSESSMENT_SYSTEM_PROMPT.encode("utf-8")),
+            scoring_prompt_sha256=prompt.template_sha256,
             scored_at=utc_now(),
         )
 
@@ -422,9 +424,10 @@ class OpenRouterScoringBackend:
         scoring_input: ConditionBlindScoringInput,
     ) -> AccuracyAssessmentResult:
         """Assess false and unsupported material factual claims."""
+        prompt = render_accuracy_assessment_prompt(scoring_input)
         response = self.client.complete_structured_with_provenance(
             self.judge_model_id,
-            self._messages(ACCURACY_ASSESSMENT_SYSTEM_PROMPT, scoring_input),
+            self._messages(prompt),
             AccuracyAssessmentDraft,
             temperature=0.0,
             max_tokens=5000,
@@ -439,7 +442,7 @@ class OpenRouterScoringBackend:
             visible_facts_sha256=scoring_input.visible_facts_sha256,
             judge_model_id=self.judge_model_id,
             provider_call=self._provenance(response),
-            scoring_prompt_sha256=sha256_bytes(ACCURACY_ASSESSMENT_SYSTEM_PROMPT.encode("utf-8")),
+            scoring_prompt_sha256=prompt.template_sha256,
             scored_at=utc_now(),
         )
 

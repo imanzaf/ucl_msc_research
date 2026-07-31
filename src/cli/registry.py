@@ -17,6 +17,15 @@ class Command:
 COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
     "scenarios": {
         "generate": Command("src.cli.commands.scenarios.generate", "Generate and review scenario candidates."),
+        "migrate-option-schema": Command(
+            "src.cli.commands.scenarios.migrate_option_schema",
+            "Migrate a schema-8 run to canonical option records in place.",
+        ),
+        "migrate-accepted-option-schema": Command(
+            "src.cli.commands.scenarios.migrate_accepted_option_schema",
+            "Migrate tracked accepted bundles to canonical option records.",
+        ),
+        "migrate-v8": Command("src.cli.commands.scenarios.migrate_v8", "Migrate approved flattened C1 outputs to the current schema."),
         "publish": Command("src.cli.commands.scenarios.publish", "Publish a run's accepted scenarios and set manifest."),
         "build-manifest": Command("src.cli.commands.scenarios.build_manifest", "Build the accepted-scenario manifest."),
         "freeze-tight-limits": Command("src.cli.commands.scenarios.freeze_tight_limits", "Freeze tight word limits from pilot outputs."),

@@ -1,10 +1,10 @@
 {
   "schema_version": "3.0.0",
   "scenario_id": "CF009_C1",
-  "artifact_version": "v1",
-  "candidate_sha256": "4f2716a24a905c9756fe5fa34df8c296cc277b6368000b45fd8a1f9a7f374c3e",
-  "review_history_sha256": "d352d05d8a9e73607ce709694e54d4c406de0b3c7f35ec90307524bf1cd3abe6",
-  "accepted_at": "2026-07-28T15:38:15.732924Z",
+  "artifact_version": "v2",
+  "candidate_sha256": "8a71310e04bff218ca99a432fd35dc14b7ee89d36a77034f133f51bb59419b12",
+  "review_history_sha256": "4bf77d54d3803279ee14172a496006ff10b53ffd517fa4e3fcc5c8711b6c9916",
+  "accepted_at": "2026-07-31T09:34:55.717646Z",
   "accepted_by": "imanzafar",
-  "record_sha256": "45238836ba2b0534379a1ff1c7800393975533fe999051a26e8254506531e8ab"
+  "record_sha256": "ca4a2c0a99353de10f9cf571dca1acaec5101f7f88e72151c68b896e825291e3"
 }

@@ -1,9 +1,10 @@
-"""Run lifecycle-ordered C1 or C1-anchored R1-R2 scenario generation."""
+"""Run lifecycle-ordered C1 or individually anchored R1/R2 scenario generation."""
 
 from __future__ import annotations
 
 import argparse
 import importlib
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple, cast
@@ -42,7 +43,7 @@ from src.paths import (
     scenario_generation_round_id,
     scenario_generation_run_root,
 )
-from src.prompts.scenario_generation import SCENARIO_REVIEW_SYSTEM_PROMPT
+from src.prompts.scenario_generation import SCENARIO_REVIEW_PROMPT_SHA256
 from src.scenarios.budgets import material_fact_text_sha256, material_fact_word_count
 from src.scenarios.pipeline import ScenarioPipelineBackend, ScenarioPipelineResult, default_revision_record_factory, run_scenario_batch_pipeline
 from src.scenarios.researcher_edits import researcher_revision_findings
@@ -51,6 +52,7 @@ from src.scenarios.seed_validation import load_and_validate_seed
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic, write_models_jsonl_atomic
 
 RESEARCHER_REVISION_CONTRACT_SHA256 = sha256_bytes(b"researcher_directed_scenario_revision_v3")
+RESEARCHER_REVISION_SOURCE_PROTOCOL_VERSIONS = {"v1.0.6", "v1.0.7", "v1.0.8", "v1.0.9", ACTIVE_SCENARIO_GENERATION_VERSION}
 
 
 def _load_backend(specification: str, invocation_root: Path) -> ScenarioPipelineBackend:
@@ -135,6 +137,30 @@ def _prepare_run_root(run_id: str) -> Tuple[str, Path]:
     run_root.mkdir(parents=True, exist_ok=False)
     write_model_json_atomic(run_root / "run_config.json", _run_config(run_id))
     return run_id, run_root
+
+
+def _researcher_revision_source_root(run_id: str) -> Path:
+    """Authenticate an earlier compatible run used only as researcher-revision input."""
+    run_root = scenario_generation_run_root(run_id)
+    config_path = run_root / "run_config.json"
+    if not config_path.is_file():
+        raise FileNotFoundError(f"unknown researcher-review source run: {run_id}")
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    expected_identity = {
+        "schema_version": "2.0.0",
+        "run_id": run_id,
+        "seed_version": ACTIVE_SCENARIO_SEED_VERSION,
+        "scenario_set_id": ACTIVE_SCENARIO_SET_ID,
+        "seed_sha256": ACTIVE_SCENARIO_SEED_SHA256,
+        "seed_schema_sha256": ACTIVE_SCENARIO_SEED_SCHEMA_SHA256,
+        "query_sha256": ACTIVE_SCENARIO_QUERY_SHA256,
+        "query_schema_sha256": ACTIVE_SCENARIO_QUERY_SCHEMA_SHA256,
+    }
+    if any(config.get(field_name) != expected_value for field_name, expected_value in expected_identity.items()):
+        raise ValueError("researcher-review source run does not match the active scenario seed")
+    if config.get("generation_protocol_version") not in RESEARCHER_REVISION_SOURCE_PROTOCOL_VERSIONS:
+        raise ValueError("researcher-review source run uses an incompatible generation protocol")
+    return run_root
 
 
 def _create_invocation_root(
@@ -309,23 +335,6 @@ def _generate_candidate_if_missing(
     return candidate
 
 
-def _family_evaluation_seeds(
-    use_cases: List[ScenarioUseCaseSeed],
-    use_case_id: str,
-) -> List[Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed]]:
-    """Return every non-C1 replication for one task family in seed order."""
-    selected = [
-        (use_case, replication)
-        for use_case in use_cases
-        if use_case.use_case_id == use_case_id
-        for replication in use_case.replications
-        if not replication.scenario_id.endswith("_C1")
-    ]
-    if not selected:
-        raise ValueError(f"unknown use case id: {use_case_id}")
-    return selected
-
-
 def _load_run_researcher_revisions(
     run_root: Path,
     calibration_seeds: List[Tuple[ScenarioUseCaseSeed, ScenarioReplicationSeed]],
@@ -398,7 +407,7 @@ def _researcher_revision_changes(
     finding_ids: List[str],
 ) -> List[ControlledFieldChange]:
     """Rebuild deterministic field-change records for a researcher-directed regeneration."""
-    generated_fields = ("option_descriptions", "material_facts", "fact_pairs", "specificity_elements")
+    generated_fields = ("options",)
     changes = [
         ControlledFieldChange(
             field_path=field_name,
@@ -437,7 +446,7 @@ def _run_researcher_directed_revision(
     write_model_json_atomic(stored_parent_path, parent_candidate)
     write_model_json_atomic(stored_review_path, researcher_review)
 
-    existing = _read_completed_result(candidate_root, scenario_id, sha256_bytes(SCENARIO_REVIEW_SYSTEM_PROMPT.encode("utf-8")))
+    existing = _read_completed_result(candidate_root, scenario_id, SCENARIO_REVIEW_PROMPT_SHA256)
     if existing is not None:
         return existing
     feedback = _researcher_revision_feedback(researcher_review, parent_candidate)
@@ -483,6 +492,10 @@ def main() -> None:
     parser.add_argument("--use-case-id")
     parser.add_argument("--scenario-id", help="Generate one exact scenario within the named run")
     parser.add_argument("--run-id", required=True, help="Create or resume one named logical run, for example c1_calibration_v1")
+    parser.add_argument(
+        "--researcher-review-run-id",
+        help="Earlier compatible C1 run whose current revise decisions seed a new calibration run",
+    )
     parser.add_argument("--tight-limit-manifest", type=Path)
     parser.add_argument("--calibration-run-id", help="Named C1 run used to resolve the current accepted diversity anchor")
     parser.add_argument("--output-root", type=Path, default=ACTIVE_SCENARIO_GENERATION_ROOT)
@@ -500,6 +513,17 @@ def main() -> None:
     )
     selected = _select_stage_seeds(seed.use_cases, stage, args.use_case_id, args.scenario_id)
     run_id, run_root = _prepare_run_root(args.run_id)
+    source_revision_inputs = []
+    if args.researcher_review_run_id is not None:
+        if stage != ScenarioStage.CALIBRATION:
+            raise ValueError("--researcher-review-run-id is only valid for calibration generation")
+        if args.researcher_review_run_id == run_id:
+            raise ValueError("--researcher-review-run-id must differ from --run-id")
+        source_run_root = _researcher_revision_source_root(args.researcher_review_run_id)
+        source_revision_inputs = _load_run_researcher_revisions(source_run_root, selected)
+        if not source_revision_inputs:
+            raise ValueError("researcher-review source run has no current revise decisions for the selected scenarios")
+        selected = [scenario_seed for scenario_seed, _, _ in source_revision_inputs]
     current = current_scenario_artifacts(run_root)
     selected_ids = {replication.scenario_id for _, replication in selected}
     incomplete_round = _matching_incomplete_round(run_root, stage, selected, args.backend)
@@ -508,6 +532,8 @@ def main() -> None:
         stored_revision_inputs = _load_round_researcher_revisions(incomplete_round, selected)
         if stored_revision_inputs:
             revision_inputs = stored_revision_inputs
+    elif not revision_inputs and source_revision_inputs and not any(scenario_id in current for scenario_id in selected_ids):
+        revision_inputs = source_revision_inputs
     if incomplete_round is None and revision_inputs:
         selected = [scenario_seed for scenario_seed, _, _ in revision_inputs]
     elif incomplete_round is None:
@@ -556,7 +582,7 @@ def main() -> None:
         return
     results = {}
     if stage == ScenarioStage.CALIBRATION:
-        expected_reviewer_prompt_sha256 = sha256_bytes(SCENARIO_REVIEW_SYSTEM_PROMPT.encode("utf-8"))
+        expected_reviewer_prompt_sha256 = SCENARIO_REVIEW_PROMPT_SHA256
         for scenario_seed in selected:
             scenario_id = scenario_seed[1].scenario_id
             existing = _read_completed_result(candidate_root, scenario_id, expected_reviewer_prompt_sha256)
@@ -581,57 +607,25 @@ def main() -> None:
         fixed_candidates = [_load_evaluation_anchor(args, selected[0][0].use_case_id)]
         for scenario_seed in selected:
             scenario_id = scenario_seed[1].scenario_id
+            existing = _read_completed_result(candidate_root, scenario_id, SCENARIO_REVIEW_PROMPT_SHA256)
+            if existing is not None:
+                results[scenario_id] = existing
+                continue
+            _archive_superseded_review(candidate_root, scenario_id)
             try:
-                _generate_candidate_if_missing(candidate_root, scenario_seed, backend)
-            except Exception as error:
-                _write_pipeline_failure(candidate_root, scenario_id, error)
-                raise
-        family_seeds = _family_evaluation_seeds(seed.use_cases, selected[0][0].use_case_id)
-        current = current_scenario_artifacts(run_root)
-        if any(replication.scenario_id not in current for _, replication in family_seeds):
-            pending_ids = [replication.scenario_id for _, replication in family_seeds if replication.scenario_id not in current]
-            print(
-                f"Saved {selected[0][1].scenario_id} in run {run_id}, round {round_root.name}; "
-                f"automated family review is pending {', '.join(pending_ids)}. "
-                f"Continue with --run-id {run_id}."
-            )
-            return
-        for _, replication in family_seeds:
-            artifact = current[replication.scenario_id]
-            destination = candidate_root / replication.scenario_id / "candidate.json"
-            if not destination.exists():
-                write_model_json_atomic(destination, artifact.candidate)
-        initial_candidates = {
-            replication.scenario_id: read_model_json(candidate_root / replication.scenario_id / "candidate.json", CandidateScenario)
-            for _, replication in family_seeds
-        }
-        completed = {
-            replication.scenario_id: _read_completed_result(
-                candidate_root,
-                replication.scenario_id,
-                sha256_bytes(SCENARIO_REVIEW_SYSTEM_PROMPT.encode("utf-8")),
-            )
-            for _, replication in family_seeds
-        }
-        if all(result is not None for result in completed.values()):
-            results = {scenario_id: result for scenario_id, result in completed.items() if result is not None}
-        else:
-            for _, replication in family_seeds:
-                _archive_superseded_review(candidate_root, replication.scenario_id)
-            try:
-                results = run_scenario_batch_pipeline(
-                    family_seeds,
+                candidate = _generate_candidate_if_missing(candidate_root, scenario_seed, backend)
+                result = run_scenario_batch_pipeline(
+                    [scenario_seed],
                     backend,
                     default_revision_record_factory,
                     fixed_candidates,
-                    initial_candidates=initial_candidates,
-                )
+                    initial_candidates={scenario_id: candidate},
+                )[scenario_id]
             except Exception as error:
-                for _, replication in family_seeds:
-                    _write_pipeline_failure(candidate_root, replication.scenario_id, error)
+                _write_pipeline_failure(candidate_root, scenario_id, error)
                 raise
-            for result in results.values():
-                _write_pipeline_result(candidate_root, result)
+            _write_pipeline_result(candidate_root, result)
+            results[scenario_id] = result
     decisions = ", ".join(f"{scenario_id}={result.terminal_decision.value}" for scenario_id, result in sorted(results.items()))
     print(f"{stage.value} scenario work completed in run {run_id}, round {round_root.name} ({decisions}); researcher acceptance remains required")
     print(f"Round root: {round_root}")

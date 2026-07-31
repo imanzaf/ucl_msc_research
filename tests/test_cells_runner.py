@@ -39,13 +39,15 @@ def test_all_cells_have_derived_stage_and_deterministic_ids() -> None:
 
 
 def test_direct_fact_renderer_is_deterministic() -> None:
-    """Render the four facts directly with stable bytes and no source packet."""
+    """Render two option headings and four plain facts with stable bytes."""
     first = [make_accepted_scenario(f"CF{index:03d}_R1") for index in range(1, 11)]
     second = [make_accepted_scenario(f"CF{index:03d}_R1") for index in range(1, 11)]
     assert "source_packet" not in AcceptedScenario.model_fields
     assert [render_visible_facts(scenario) for scenario in first] == [render_visible_facts(scenario) for scenario in second]
     assert [visible_facts_sha256(scenario) for scenario in first] == [visible_facts_sha256(scenario) for scenario in second]
-    assert all(render_visible_facts(scenario).count("\n- ") == 3 for scenario in first)
+    assert all(render_visible_facts(scenario).count("\n### ") == 1 for scenario in first)
+    assert all(render_visible_facts(scenario).count("\n- ") == 4 for scenario in first)
+    assert all("### linked-savings automatic sweep" in render_visible_facts(scenario) for scenario in first)
 
 
 def test_scenario_rejects_a_source_packet_in_direct_fact_schema() -> None:

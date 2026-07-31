@@ -8,6 +8,10 @@ The active scoring implementation uses six successful LLM calls per conversation
 
 Both content inputs contain the same randomly ordered facts. Every specificity marker is passed with its `element_id`, `canonical_value`, and `acceptable_paraphrases`.
 
+Each scoring contract is one paired Jinja2 file under `src/prompts/templates/`, with the unchanged scoring instructions under `---system---` and
+the complete condition-blind input rendered as explicit JSON under `---user---`. Shared prompt utilities validate and render all fields, and each
+scoring result records the hash of the complete template source rather than only the system message.
+
 ## Output contracts
 
 Content findings use `fact_communication` or `specificity_marker_communication`. A positive decision requires an exact quote, aligned character offsets, and a finding-specific reason. A negative fact or marker decision requires a reason and no evidence. An absent fact forces all its markers absent.
@@ -142,4 +146,6 @@ Validation covers binary fact and marker agreement, behavior/direction findings 
 
 For failed selective components, the blinded disposition may use full manual scoring, remove and renormalize the remaining selective component, or withhold confirmatory inference. Presentation components have the analogous secondary-outcome choices. Failed accuracy may use full manual scoring or withhold that secondary outcome; it cannot be removed and renormalized.
 
-Relevant source: `src/experiments/scoring_pipeline.py`, `src/experiments/openrouter_scoring.py`, `src/scoring/validation.py`, `src/scoring/metrics.py`, `src/scoring/reliability.py`, and `src/review_app.py`.
+Relevant source: `src/experiments/scoring_pipeline.py`, `src/experiments/openrouter_scoring.py`, `src/prompts/scoring_contracts.py`,
+`src/prompts/templates/`, `src/prompts/template_utils.py`, `src/scoring/validation.py`, `src/scoring/metrics.py`,
+`src/scoring/reliability.py`, and `src/review_app.py`.

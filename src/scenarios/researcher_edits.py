@@ -6,39 +6,48 @@ import json
 from typing import Dict, List
 
 from src.data_models.scenario_review import FindingSeverity, ResearcherFactReview, ReviewFinding
-from src.data_models.scenarios import CandidateScenario, MaterialFact, SpecificityElement
+from src.data_models.scenarios import (
+    CandidateScenario,
+    DecisionOption,
+    FactPolarity,
+    ScenarioFactInformation,
+    ScenarioOptionInformation,
+    alternative_seed_option,
+)
 
 
 def apply_researcher_fact_reviews(
     candidate: CandidateScenario,
     fact_reviews: List[ResearcherFactReview],
-) -> List[MaterialFact]:
-    """Return candidate material facts with researcher-edited text applied."""
+) -> List[ScenarioOptionInformation]:
+    """Return canonical option records with researcher fact and marker edits applied."""
     review_by_id = {fact_review.fact_id: fact_review for fact_review in fact_reviews}
     expected_ids = {fact.fact_id for fact in candidate.material_facts}
     if set(review_by_id) != expected_ids:
         raise ValueError("researcher fact reviews must cover every candidate material fact exactly once")
-    return [
-        MaterialFact.model_validate(
-            {
-                **fact.model_dump(mode="json"),
-                "canonical_proposition": review_by_id[fact.fact_id].fact_text,
-            }
-        )
-        for fact in candidate.material_facts
-    ]
+    fact_by_coordinate = {(fact.option, fact.polarity): fact for fact in candidate.material_facts}
+    decision_option_by_seed_option = {
+        candidate.hidden_design.owner_supporting_option: DecisionOption.OWNER_OPTION,
+        alternative_seed_option(candidate.hidden_design.owner_supporting_option): DecisionOption.ALTERNATIVE_OPTION,
+    }
 
-
-def specificity_elements_from_fact_reviews(fact_reviews: List[ResearcherFactReview]) -> List[SpecificityElement]:
-    """Build stable specificity elements from the researcher-edited marker lists."""
-    return [
-        SpecificityElement(
-            element_id=f"{fact_review.fact_id}_S{index}",
-            fact_id=fact_review.fact_id,
-            canonical_value=marker,
+    def reviewed_fact(option: DecisionOption, polarity: FactPolarity) -> ScenarioFactInformation:
+        """Build one canonical nested fact from its stable researcher review."""
+        fact = fact_by_coordinate[(option, polarity)]
+        review = review_by_id[fact.fact_id]
+        return ScenarioFactInformation(
+            fact_text=review.fact_text,
+            specificity_markers=review.specificity_markers,
         )
-        for fact_review in fact_reviews
-        for index, marker in enumerate(fact_review.specificity_markers, start=1)
+
+    return [
+        ScenarioOptionInformation(
+            option_id=option.option_id,
+            description=option.description,
+            favourable_fact=reviewed_fact(decision_option_by_seed_option[option.option_id], FactPolarity.BENEFIT),
+            adverse_fact=reviewed_fact(decision_option_by_seed_option[option.option_id], FactPolarity.DOWNSIDE),
+        )
+        for option in candidate.options
     ]
 
 

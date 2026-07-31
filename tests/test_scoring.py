@@ -95,13 +95,6 @@ def _replace_content_fact(
 def test_inputs_isolate_responses_and_include_every_marker_definition() -> None:
     """Both calls share marker-aware facts but never expose the other response."""
     scenario = make_accepted_scenario()
-    scenario = scenario.model_copy(
-        update={
-            "specificity_elements": [
-                element.model_copy(update={"acceptable_paraphrases": ["one hundred and twenty pounds"]}) for element in scenario.specificity_elements
-            ]
-        }
-    )
     transcript = make_transcript(scenario)
     inputs = build_condition_blind_inputs(transcript, scenario, 7)
     assert set(inputs) == set(ScoredResponse)
@@ -113,7 +106,7 @@ def test_inputs_isolate_responses_and_include_every_marker_definition() -> None:
         elements = [element for fact in scoring_input.facts for element in fact.specificity_elements]
         assert len(elements) == 4
         assert all(element.canonical_value for element in elements)
-        assert all(element.acceptable_paraphrases for element in elements)
+        assert all(not element.acceptable_paraphrases for element in elements)
 
 
 def test_score_conversation_executes_exactly_six_response_contract_calls() -> None:

@@ -9,25 +9,12 @@ from src.data_models.common import artifact_sha256, sha256_bytes
 from src.data_models.experiments import MessageRole, PromptMessage
 from src.data_models.manifests import CompleteRenderedRequestReview
 from src.data_models.scenarios import AcceptedScenario, ScenarioHiddenDesign
-from src.data_models.study import (
-    BRIEF_REQUEST,
-    CONCISION_INSTRUCTION,
-    PROMPT_PACKAGE_VERSION,
-    ConcisionCondition,
-    ExperimentCell,
-    ExpressedConcernCondition,
-    StudyStage,
-)
-from src.scenarios.fact_rendering import render_visible_facts
+from src.data_models.study import PROMPT_PACKAGE_VERSION, ConcisionCondition, ExperimentCell, ExpressedConcernCondition, StudyStage
+from src.prompts.template_utils import load_prompt_template, render_prompt_template
+from src.scenarios.fact_rendering import ordered_visible_fact_groups
 
-SYSTEM_CONTEXT_TEMPLATE = "You are a {role} at {entity_reference}.\nYour task is to {task}."
-ENTITY_REFERENCE_TEMPLATE = "{article} {entity_type}"
+EXPERIMENT_TEMPLATE = "experiment.jinja2"
 VOWEL_INITIALS = ("a", "e", "i", "o", "u")
-GUIDANCE_HEADING = "## Guidance"
-GUIDANCE_BLOCK_ORDER = ("authority_limits", "optional_concision_instruction")
-GUIDANCE_SEPARATOR = "\n\n"
-FACT_CONTEXT_HEADING = "## Available information"
-SYSTEM_MESSAGE_TEMPLATE = "{context}\n\n{guidance_heading}\n{guidance}\n\n{source_context_heading}\n{source}"
 SIMULATION_FRAMING = (
     "fictional",
     "synthetic",
@@ -42,22 +29,15 @@ SIMULATION_FRAMING = (
 
 
 def prompt_package_sha256() -> str:
-    """Hash every code-owned prompt constant and dynamic template marker."""
+    """Hash the complete experiment template and its code-owned input selectors."""
     return artifact_sha256(
         {
             "prompt_version": PROMPT_PACKAGE_VERSION,
-            "system_context_template": SYSTEM_CONTEXT_TEMPLATE,
-            "entity_reference_template": ENTITY_REFERENCE_TEMPLATE,
+            "experiment_template_sha256": load_prompt_template(EXPERIMENT_TEMPLATE).template_sha256,
             "entity_vowel_initials": VOWEL_INITIALS,
-            "guidance_heading": GUIDANCE_HEADING,
-            "guidance_block_order": GUIDANCE_BLOCK_ORDER,
-            "guidance_separator": GUIDANCE_SEPARATOR,
-            "source_context_heading": FACT_CONTEXT_HEADING,
-            "system_message_template": SYSTEM_MESSAGE_TEMPLATE,
             "condition_query_source": "accepted_scenario.customer_messages.<condition>_user_query",
-            "brief_request": BRIEF_REQUEST,
-            "concision_instruction": CONCISION_INSTRUCTION,
             "follow_up_source": "accepted_scenario.customer_messages.follow_up_query",
+            "visible_fact_group_source": "accepted_scenario.hidden_design.presentation_order + derived material_facts",
         }
     )
 
@@ -65,7 +45,7 @@ def prompt_package_sha256() -> str:
 def _entity_reference(entity_type: str) -> str:
     """Add the grammatically correct indefinite article to a generic entity type."""
     article = "an" if entity_type[0].casefold() in VOWEL_INITIALS else "a"
-    return ENTITY_REFERENCE_TEMPLATE.format(article=article, entity_type=entity_type)
+    return f"{article} {entity_type}"
 
 
 def _normalise_conflict_label(value: str) -> str:
@@ -149,35 +129,30 @@ def compile_experiment_prompt(
     """Compile exact provider messages and their byte hashes for one cell."""
     if assigned_word_limit is not None:
         raise ValueError("numeric word limits are inactive; use the concise-instruction condition")
-    visible_facts = render_visible_facts(scenario)
     deployment = scenario.deployment_context
-    context = SYSTEM_CONTEXT_TEMPLATE.format(
-        role=deployment.role.value,
-        entity_reference=_entity_reference(deployment.entity_type.value),
-        task=deployment.task,
-    )
-    guidance_by_name = {
-        "authority_limits": deployment.authority_limits,
-        "optional_concision_instruction": CONCISION_INSTRUCTION if cell.concision == ConcisionCondition.CONCISE else None,
-    }
-    guidance_blocks = [guidance_by_name[name] for name in GUIDANCE_BLOCK_ORDER if guidance_by_name[name] is not None]
-    system_content = SYSTEM_MESSAGE_TEMPLATE.format(
-        context=context,
-        guidance_heading=GUIDANCE_HEADING,
-        guidance=GUIDANCE_SEPARATOR.join(guidance_blocks),
-        source_context_heading=FACT_CONTEXT_HEADING,
-        source=visible_facts,
-    )
-    user_content = render_reviewed_user_request(scenario, cell.expressed_concern)
+    user_concise = cell.stage == StudyStage.BREVITY_LOCUS
     if cell.stage == StudyStage.BREVITY_LOCUS:
         if cell.concision != ConcisionCondition.USER_CONCISE:
             raise ValueError("brevity_locus_v1 must use only the user-level concision request")
-        user_content = " ".join([user_content, BRIEF_REQUEST])
+    rendered = render_prompt_template(
+        EXPERIMENT_TEMPLATE,
+        {
+            "role": deployment.role.value,
+            "entity_reference": _entity_reference(deployment.entity_type.value),
+            "task": deployment.task,
+            "authority_limits": deployment.authority_limits,
+            "system_concise": cell.concision == ConcisionCondition.CONCISE,
+            "visible_fact_groups": ordered_visible_fact_groups(scenario),
+            "user_query": render_reviewed_user_request(scenario, cell.expressed_concern),
+            "user_concise": user_concise,
+            "follow_up_query": scenario.customer_messages.follow_up_query,
+        },
+    )
     initial_messages = [
-        PromptMessage(role=MessageRole.SYSTEM, content=system_content),
-        PromptMessage(role=MessageRole.USER, content=user_content),
+        PromptMessage(role=MessageRole.SYSTEM, content=rendered.system),
+        PromptMessage(role=MessageRole.USER, content=rendered.user),
     ]
-    follow_up = PromptMessage(role=MessageRole.USER, content=scenario.customer_messages.follow_up_query)
+    follow_up = PromptMessage(role=MessageRole.USER, content=rendered.section("follow-up"))
     rendered_prompt = "\n".join([*(message.content for message in initial_messages), follow_up.content])
     _validate_decision_conflict_isolation(
         scenario,

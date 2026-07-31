@@ -30,7 +30,7 @@ class ScenarioPipelineBackend(Protocol):
         candidates: List[CandidateScenario],
         fixed_diversity_candidates: List[CandidateScenario],
     ) -> List[AutomatedScenarioReview]:
-        """Review one C1 or a complete R1-R2 batch with one semantic contract."""
+        """Review exactly one scenario with the shared semantic contract."""
         ...
 
     def revise_candidate(
@@ -65,12 +65,12 @@ def _validate_review(review: AutomatedScenarioReview, candidate: CandidateScenar
         raise ValueError("automated review does not reference the current candidate hash")
 
 
-def _run_review_batch(
+def _run_single_review(
     backend: ScenarioPipelineBackend,
     candidates: Dict[str, CandidateScenario],
     fixed_candidates: List[CandidateScenario],
 ) -> Dict[str, AutomatedScenarioReview]:
-    """Run one semantic review call and validate complete per-candidate coverage."""
+    """Run one single-candidate semantic review and validate its binding."""
     reviews = backend.review_candidates(list(candidates.values()), fixed_candidates)
     review_by_id = {review.scenario_id: review for review in reviews}
     if len(review_by_id) != len(reviews) or set(review_by_id) != set(candidates):
@@ -86,12 +86,11 @@ def _run_stage_reviews(
     fixed_candidates: List[CandidateScenario],
     is_calibration_batch: bool,
 ) -> Dict[str, AutomatedScenarioReview]:
-    """Review C1 candidates separately or an R1-R2 batch together."""
-    if not is_calibration_batch:
-        return _run_review_batch(backend, candidates, fixed_candidates)
+    """Review every C1, R1, and R2 candidate in a separate model call."""
     reviews: Dict[str, AutomatedScenarioReview] = {}
     for scenario_id, candidate in candidates.items():
-        reviews.update(_run_review_batch(backend, {scenario_id: candidate}, []))
+        review_anchors = [] if is_calibration_batch else fixed_candidates
+        reviews.update(_run_single_review(backend, {scenario_id: candidate}, review_anchors))
     return reviews
 
 
@@ -220,7 +219,7 @@ def run_scenario_batch_pipeline(
             )
         if not rebuilt:
             break
-        review_candidates = candidates if not is_calibration_batch else {scenario_id: candidates[scenario_id] for scenario_id in rebuilt}
+        review_candidates = {scenario_id: candidates[scenario_id] for scenario_id in rebuilt}
         rerun_reviews = _run_stage_reviews(backend, review_candidates, fixed_candidates, is_calibration_batch)
         for scenario_id, review in rerun_reviews.items():
             current_reviews[scenario_id][AutomatedReviewKind.SCENARIO_QUALITY] = review
@@ -264,10 +263,7 @@ def default_revision_record_factory(
         input_artifact_sha256=previous_candidate.candidate_sha256,
         output_artifact_sha256=revised_candidate.candidate_sha256,
         rebuilt_dependency_sha256={
-            "option_descriptions": artifact_sha256(revised_candidate.option_descriptions),
-            "material_facts": artifact_sha256(revised_candidate.material_facts),
-            "fact_pairs": artifact_sha256(revised_candidate.fact_pairs),
-            "specificity_elements": artifact_sha256(revised_candidate.specificity_elements),
+            "options": artifact_sha256(revised_candidate.options),
         },
         rerun_review_sha256={review.review_kind: artifact_sha256(review) for review in reviews},
         completed_at=utc_now(),

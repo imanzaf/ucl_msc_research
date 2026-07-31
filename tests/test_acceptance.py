@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,8 +27,9 @@ from src.data_models.scenario_review import (
 from src.data_models.scenarios import AcceptedScenario, CandidateScenario, ScenarioHiddenDesign, ScenarioUseCaseSeed
 from src.scenarios.acceptance import build_accepted_scenario, publish_accepted_scenario, validate_accepted_bundle
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
+from src.scenarios.schema_migration import migrate_accepted_bundle
 from src.scenarios.seed_validation import load_and_validate_seed
-from src.storage import read_model_json
+from src.storage import read_model_json, write_model_json_atomic
 from tests.factories import ZERO_HASH, make_candidate_scenario
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -151,6 +153,36 @@ def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic
     ]
     reloaded_history = read_model_json(scenario_root / "review_history.json", ScenarioReviewHistory)
     validate_accepted_bundle(accepted, reloaded_history, acceptance_record)
+
+
+def test_schema_seven_accepted_bundle_migrates_without_redundant_fact_metadata(tmp_path: Path) -> None:
+    """Rebuild every dependent bundle hash while converting flattened facts to schema 9."""
+    accepted, history, acceptance_record = make_acceptance_bundle("CF001_C1")
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    previous_payload = accepted.model_dump(mode="json", exclude={"schema_version", "options", "artifact_sha256"})
+    previous_payload["option_descriptions"] = [description.model_dump(mode="json") for description in accepted.option_descriptions]
+    previous_payload["material_facts"] = [fact.model_dump(mode="json") for fact in accepted.material_facts]
+    previous_payload["specificity_elements"] = [element.model_dump(mode="json") for element in accepted.specificity_elements]
+    for fact in previous_payload["material_facts"]:
+        fact["materiality_rationale"] = "The fact is relevant to the customer's choice."
+        fact["required_in_complete_response"] = True
+        fact["materiality_rating"] = 4
+    previous_payload = {"schema_version": "7.0.0", **previous_payload}
+    previous_payload["artifact_sha256"] = artifact_sha256(previous_payload)
+    source_root.mkdir()
+    (source_root / "accepted_scenario.json").write_text(json.dumps(previous_payload), encoding="utf-8")
+    write_model_json_atomic(source_root / "review_history.json", history)
+    write_model_json_atomic(source_root / "acceptance_record.json", acceptance_record)
+
+    migrated = migrate_accepted_bundle(source_root, target_root)
+
+    migrated_history = read_model_json(target_root / "review_history.json", ScenarioReviewHistory)
+    migrated_acceptance = read_model_json(target_root / "acceptance_record.json", ScenarioAcceptanceRecord)
+    validate_accepted_bundle(migrated, migrated_history, migrated_acceptance)
+    assert migrated.schema_version == "9.0.0"
+    assert set(migrated.model_dump(mode="json")) >= {"options"}
+    assert not {"option_descriptions", "material_facts", "specificity_elements"} & set(migrated.model_dump(mode="json"))
 
 
 def test_publish_stages_bundles_and_calibration_manifest_as_one_final_set(

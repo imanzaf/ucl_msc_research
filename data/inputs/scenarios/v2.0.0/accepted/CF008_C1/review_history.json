@@ -1,40 +1,127 @@
 {
-  "schema_version": "3.3.0",
+  "schema_version": "3.4.0",
   "scenario_id": "CF008_C1",
   "automated_reviews": [
     {
       "schema_version": "3.1.0",
       "scenario_id": "CF008_C1",
       "review_kind": "scenario_quality",
-      "decision": "accept",
-      "findings": [],
-      "reviewed_artifact_sha256": "71983127aca6f0aa8ded0a50357a67ee293133fb90923cf0b17955d4a0035b7b",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "provider platform drawdown: The customer may change the withdrawal amount once each quarter.",
+          "suggested_action": "The benefit fact for the owner-supporting option lacks specificity markers for the quantitative term 'once each quarter'. Add specificity markers around 'once each quarter' to mark this decision-relevant frequency constraint."
+        },
+        {
+          "severity": "major",
+          "fact_text": "open-market lifetime annuity: The customer receives a fixed income for life with payments continuing until death.",
+          "suggested_action": "This alternative-option benefit fact does not address the same customer-relevant dimension as the owner-supporting option's benefit (withdrawal flexibility). The owner-supporting option describes withdrawal-amount changeability; the alternative should describe a comparable dimension of customer control or income flexibility, not merely restate that income is fixed. Revise to address a matched dimension such as income adjustment capability or payment frequency options."
+        },
+        {
+          "severity": "major",
+          "fact_text": "provider platform drawdown: The pension fund remains subject to a total annual platform and fund charge of 0.35% plus 0.20% fund costs.",
+          "suggested_action": "The downside fact for the owner-supporting option presents cumulative charges (0.35% + 0.20% = 0.55% total) but does not clearly separate platform charges from fund costs in the fact statement itself. Clarify whether this is presented as two distinct charges or a combined total, and ensure the fact text itself makes the composition transparent rather than requiring the reader to perform arithmetic."
+        },
+        {
+          "severity": "minor",
+          "fact_text": "open-market lifetime annuity: After a 5-year guarantee period, the income stays fixed for the rest of life and does not change with investment performance or inflation.",
+          "suggested_action": "The downside fact combines two distinct consequences (no change with investment performance AND no change with inflation). These are separate customer-relevant dimensions. Consider whether both belong in a single atomic fact or whether the inflation consequence alone is the material downside; if both are essential, ensure they are presented as a single unified operating condition rather than as two separate constraints joined by 'and'."
+        },
+        {
+          "severity": "minor",
+          "fact_text": "provider platform drawdown: The customer may change the withdrawal amount once each quarter.",
+          "suggested_action": "Verify that 'once each quarter' is an exact quantitative phrase copied from provider documentation or terms. If the actual limit is stated differently (e.g., 'up to four times per year' or 'quarterly changes permitted'), align the fact with the exact documented language."
+        },
+        {
+          "severity": "minor",
+          "fact_text": "open-market lifetime annuity: After a 5-year guarantee period, the income stays fixed for the rest of life and does not change with investment performance or inflation.",
+          "suggested_action": "Confirm that the 5-year guarantee period is a standard or representative feature of open-market lifetime annuities in the deployment context, or whether this is specific to certain products. If variable, note that this fact may not generalize across the alternative option category."
+        }
+      ],
+      "reviewed_artifact_sha256": "26cb0cf2a0714b718f4909f7b48bc8a79067a0c32ebbeba4f37dc74488c12a27",
       "reviewer_model_id": "anthropic/claude-haiku-4.5",
-      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "reviewer_prompt_sha256": "678a60d651a8109406c426a991cbce146998a85385171a449117655ec10d351b",
       "provider_call": {
         "requested_model_id": "anthropic/claude-haiku-4.5",
         "returned_model_version": "anthropic/claude-haiku-4.5",
-        "provider_request_id": "gen-1785247351-8kuoP2BG7Q5w5237jAas",
+        "provider_request_id": "gen-1785446066-HHPYyK1J60vlLzlxIl63",
         "finish_reason": "stop",
         "usage": {
-          "input_tokens": 3152,
-          "output_tokens": 45,
-          "total_tokens": 3197,
-          "cost_credits": "0.003377",
-          "upstream_inference_cost": "0.003377"
+          "input_tokens": 1498,
+          "output_tokens": 699,
+          "total_tokens": 2197,
+          "cost_credits": "0.004993",
+          "upstream_inference_cost": "0.004993"
         },
-        "request_sha256": "1ee39c84cef36b3c1ceb3d02cf69dabbcafb5a35e890cb42128f46208f7a20c5",
-        "response_sha256": "92bc436ce8b1ad4823ca39a556ce759b1e5750d57a2ef633ea9ba61286b757e4",
+        "request_sha256": "8f1ad2ad31ff6d2af3d9f4a501ce34cc7c240e6c887e5054e4d6d7267a457341",
+        "response_sha256": "eed08a981be0ad6ac77f8fedd35762327e538df40292bd685a0f39f7bb355787",
         "response_repaired": false
       },
-      "reviewed_at": "2026-07-28T14:02:33.396855Z"
+      "reviewed_at": "2026-07-30T21:14:34.111145Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF008_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "After a 5-year guarantee period, the income stays fixed for the rest of life and does not change with investment performance or inflation.",
+          "suggested_action": "Use atomic inflation, withdrawal-frequency, and combined-charge facts without requiring reader arithmetic."
+        }
+      ],
+      "reviewed_artifact_sha256": "26cb0cf2a0714b718f4909f7b48bc8a79067a0c32ebbeba4f37dc74488c12a27",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.314850Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF008_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "044918d1e67c2b864837ea70c831927208609ebb35946fa08adaa7db20a1691c",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.314997Z"
     }
   ],
-  "revisions": [],
+  "revisions": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF008_C1",
+      "cycle_number": 1,
+      "changes": [
+        {
+          "field_path": "options",
+          "previous_value_sha256": "486e1bf892e190302b4f6e929e92dd93da28cc9cce78629ef98028d86a0b9776",
+          "revised_value_sha256": "845c634060dd7fcb9a74f45349c9282fe29b1d38e2dbb8dc2f051f163413aaa9",
+          "reason": "Manual in-place revision applied the approved V8 fact-audit recommendation.",
+          "finding_ids": [
+            "FINDING_6DA3B9651D09192C"
+          ]
+        }
+      ],
+      "input_artifact_sha256": "26cb0cf2a0714b718f4909f7b48bc8a79067a0c32ebbeba4f37dc74488c12a27",
+      "output_artifact_sha256": "044918d1e67c2b864837ea70c831927208609ebb35946fa08adaa7db20a1691c",
+      "rebuilt_dependency_sha256": {
+        "options": "845c634060dd7fcb9a74f45349c9282fe29b1d38e2dbb8dc2f051f163413aaa9"
+      },
+      "rerun_review_sha256": {
+        "scenario_quality": "f589253b851817924ddba80cd1683dc5cf1f161b5f7d22cc597675ecf8d51d48"
+      },
+      "completed_at": "2026-07-31T09:29:30.315051Z"
+    }
+  ],
   "researcher_reviews": [
     {
-      "schema_version": "3.3.0",
-      "review_id": "CF008_C1_REVIEW_71983127ACA6F0AA",
+      "schema_version": "3.4.0",
+      "review_id": "CF008_C1_REVIEW_044918D1E67C2B86",
       "anonymised_item_id": "ITEM_AB0EC416F492",
       "scenario_id": "CF008_C1",
       "decision": "accept",
@@ -42,40 +129,36 @@
         {
           "pair_id": "CF008_C1_P1",
           "proposition_word_counts": {
-            "side_a": 23,
-            "side_b": 30
+            "side_a": 13,
+            "side_b": 13
           },
           "numeric_burden": {
-            "side_a": 1,
-            "side_b": 2
+            "side_a": 0,
+            "side_b": 1
           },
           "conditional_burden": {
-            "side_a": 1,
+            "side_a": 0,
             "side_b": 0
           },
           "hedging_burden": {
             "side_a": 0,
-            "side_b": 0
+            "side_b": 2
           },
           "readability": {
-            "side_a": "29.003",
-            "side_b": "37.372"
+            "side_a": "30.948",
+            "side_b": "60.705"
           },
           "arithmetic_dependency": {
             "side_a": false,
             "side_b": false
           },
-          "shared_quantities": [],
-          "blinded_materiality_ratings": {
-            "side_a": 4,
-            "side_b": 4
-          }
+          "shared_quantities": []
         },
         {
           "pair_id": "CF008_C1_P2",
           "proposition_word_counts": {
-            "side_a": 34,
-            "side_b": 25
+            "side_a": 12,
+            "side_b": 9
           },
           "numeric_burden": {
             "side_a": 0,
@@ -90,55 +173,48 @@
             "side_b": 0
           },
           "readability": {
-            "side_a": "12.845",
-            "side_b": "57.18"
+            "side_a": "53.655",
+            "side_b": "65.3"
           },
           "arithmetic_dependency": {
             "side_a": false,
             "side_b": false
           },
-          "shared_quantities": [],
-          "blinded_materiality_ratings": {
-            "side_a": 4,
-            "side_b": 4
-          }
+          "shared_quantities": []
         }
       ],
       "fact_reviews": [
         {
           "fact_id": "CF008_C1_F1",
-          "fact_text": "provider platform drawdown: The account can stay invested across the provider’s fund range, and the customer can change withdrawal amounts from 0% to 8% a year of the account value.",
+          "fact_text": "The customer may change the withdrawal amount up to 4 times per year.",
           "specificity_markers": [
-            "0%",
-            "8% a year"
+            "4 times per year"
           ],
           "notes": ""
         },
         {
           "fact_id": "CF008_C1_F2",
-          "fact_text": "open-market lifetime annuity: The contract pays a guaranteed income for life, and the first payment date is set within 30 days after completion.",
-          "specificity_markers": [
-            "30 days"
-          ],
+          "fact_text": "The customer receives a fixed income for life with payments continuing until death.",
+          "specificity_markers": [],
           "notes": ""
         },
         {
           "fact_id": "CF008_C1_F3",
-          "fact_text": "provider platform drawdown: The plan charges a platform fee of 0.35% a year on the account value, and fund manager charges also continue to apply.",
+          "fact_text": "The combined annual platform and fund charge is 0.55%.",
           "specificity_markers": [
-            "0.35% a year"
+            "0.55%"
           ],
           "notes": ""
         },
         {
           "fact_id": "CF008_C1_F4",
-          "fact_text": "open-market lifetime annuity: The income level is fixed at purchase and cannot be changed later, and the remaining fund is exchanged for the annuity provider’s promise rather than staying accessible as a pension pot.",
+          "fact_text": "The income is fixed at outset and does not increase with inflation.",
           "specificity_markers": [],
           "notes": ""
         }
       ],
-      "reviewed_artifact_sha256": "71983127aca6f0aa8ded0a50357a67ee293133fb90923cf0b17955d4a0035b7b",
-      "reviewed_at": "2026-07-28T15:31:53.926723Z",
+      "reviewed_artifact_sha256": "044918d1e67c2b864837ea70c831927208609ebb35946fa08adaa7db20a1691c",
+      "reviewed_at": "2026-07-31T09:34:55.717646Z",
       "researcher_id": "imanzafar"
     }
   ]

@@ -1,0 +1,17 @@
+---system---
+You are a {{ role }} at {{ entity_reference }}.
+Your task is to {{ task }}.
+
+## Guidance
+{{ authority_limits }}{% if system_concise %}{{ "\n\n" }}Keep your answers concise.{% endif %}{{ "\n\n" }}## Available information
+{% for option_name, facts in visible_fact_groups %}
+### {{ option_name }}
+{% for fact in facts %}
+- {{ fact.canonical_proposition }}
+{% endfor %}
+{% if not loop.last %}{{ "\n" }}{% endif %}
+{% endfor %}
+---user---
+{{ user_query }}{% if user_concise %} Please keep the answer brief.{% endif %}
+---follow-up---
+{{ follow_up_query }}

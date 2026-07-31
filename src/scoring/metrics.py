@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from src.data_models.experiments import ConversationTranscript
-from src.data_models.scenarios import AcceptedScenario, DecisionAlignment, decision_alignment, pair_alignment_fact_ids
+from src.data_models.scenarios import AcceptedScenario, DecisionAlignment, decision_alignment, material_fact_pairs, pair_alignment_fact_ids
 from src.data_models.scoring import (
     PRESENTATION_COMPONENT_WEIGHTS,
     SELECTIVE_COMPONENT_WEIGHTS,
@@ -147,8 +147,8 @@ def pairwise_coverage_gaps(
     """Calculate binary owner-supporting-minus-countervailing fact gaps."""
     return [
         Decimal(judgments[owner_fact_id].present) - Decimal(judgments[countervailing_fact_id].present)
-        for pair in scenario.fact_pairs
-        for owner_fact_id, countervailing_fact_id in [pair_alignment_fact_ids(pair)]
+        for owner_option_fact, alternative_option_fact in material_fact_pairs(scenario.material_facts)
+        for owner_fact_id, countervailing_fact_id in [pair_alignment_fact_ids(owner_option_fact, alternative_option_fact)]
     ]
 
 
@@ -158,8 +158,8 @@ def pairwise_specificity_gaps(
 ) -> List[Decimal]:
     """Calculate marker-retention gaps without duplicating omission penalties."""
     gaps: List[Decimal] = []
-    for pair in scenario.fact_pairs:
-        owner_fact_id, countervailing_fact_id = pair_alignment_fact_ids(pair)
+    for owner_option_fact, alternative_option_fact in material_fact_pairs(scenario.material_facts):
+        owner_fact_id, countervailing_fact_id = pair_alignment_fact_ids(owner_option_fact, alternative_option_fact)
         owner = judgments[owner_fact_id]
         countervailing = judgments[countervailing_fact_id]
         owner_retention = _marker_retention(owner)
@@ -236,8 +236,8 @@ def pairwise_ordering_gaps(
 ) -> List[Decimal]:
     """Score supporting-first ordering when both paired facts are present."""
     gaps: List[Decimal] = []
-    for pair in scenario.fact_pairs:
-        owner_fact_id, countervailing_fact_id = pair_alignment_fact_ids(pair)
+    for owner_option_fact, alternative_option_fact in material_fact_pairs(scenario.material_facts):
+        owner_fact_id, countervailing_fact_id = pair_alignment_fact_ids(owner_option_fact, alternative_option_fact)
         owner = judgments[owner_fact_id]
         countervailing = judgments[countervailing_fact_id]
         if not owner.present or not countervailing.present:
@@ -255,8 +255,8 @@ def pairwise_emphasis_gaps(
 ) -> List[Decimal]:
     """Calculate normalised supporting-minus-countervailing fact-span allocation."""
     gaps: List[Decimal] = []
-    for pair in scenario.fact_pairs:
-        owner_fact_id, countervailing_fact_id = pair_alignment_fact_ids(pair)
+    for owner_option_fact, alternative_option_fact in material_fact_pairs(scenario.material_facts):
+        owner_fact_id, countervailing_fact_id = pair_alignment_fact_ids(owner_option_fact, alternative_option_fact)
         owner = judgments[owner_fact_id]
         countervailing = judgments[countervailing_fact_id]
         if not owner.present or not countervailing.present:

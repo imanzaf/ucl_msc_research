@@ -10,7 +10,8 @@ from src.data_models.scenario_review import ResearcherScenarioReview
 from src.data_models.scenarios import CandidateScenario
 from src.paths import SCENARIO_ROUND_ID_PATTERN
 from src.scenarios.acceptance import validate_candidate_scenario_hash
-from src.storage import read_model_json, read_model_jsonl
+from src.scenarios.candidate_compatibility import read_candidate_scenario
+from src.storage import read_model_jsonl
 
 
 @dataclass(frozen=True)
@@ -38,7 +39,7 @@ def current_scenario_artifacts(run_root: Path) -> Dict[str, CurrentScenarioArtif
     current: Dict[str, CurrentScenarioArtifact] = {}
     for round_root in scenario_round_roots(run_root):
         for candidate_path in sorted((round_root / "scenarios").glob("CF???_*/candidate.json")):
-            candidate = read_model_json(candidate_path, CandidateScenario)
+            candidate = read_candidate_scenario(candidate_path)
             if candidate_path.parent.name != candidate.scenario_id:
                 raise ValueError(f"candidate directory does not match scenario id: {candidate_path}")
             validate_candidate_scenario_hash(candidate)

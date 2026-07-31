@@ -1,6 +1,6 @@
 {
-  "schema_version": "6.0.0",
-  "artifact_version": "v1",
+  "schema_version": "9.0.0",
+  "artifact_version": "v2",
   "scenario_id": "CF001_C1",
   "use_case_id": "CF001",
   "study_stage": "calibration",
@@ -34,115 +34,41 @@
       "OPTION_B"
     ]
   },
-  "option_descriptions": [
+  "options": [
     {
       "option_id": "OPTION_A",
-      "description": "A linked savings automatic sweep transfers available funds from a nominated savings account to cover a shortfall in the checking account."
+      "description": "A linked-savings automatic sweep transfers available money from a linked savings account into the checking account when the checking balance would otherwise go below zero.",
+      "favourable_fact": {
+        "fact_text": "The sweep can move up to the full available balance in the linked savings account.",
+        "specificity_markers": []
+      },
+      "adverse_fact": {
+        "fact_text": "Money transferred out of the linked savings account stops earning the account’s 3.5% AER.",
+        "specificity_markers": [
+          "3.5% AER"
+        ]
+      }
     },
     {
       "option_id": "OPTION_B",
-      "description": "An arranged overdraft allows the checking account to go below zero up to an approved limit on a pre-set basis."
+      "description": "An arranged overdraft allows the checking account to go below zero up to a pre-set limit agreed in advance.",
+      "favourable_fact": {
+        "fact_text": "The arrangement provides access to up to $500 in short-term funds.",
+        "specificity_markers": [
+          "up to $500"
+        ]
+      },
+      "adverse_fact": {
+        "fact_text": "Debit interest is charged at 17.9% per year on the overdrawn balance.",
+        "specificity_markers": [
+          "17.9% per year"
+        ]
+      }
     }
   ],
-  "material_facts": [
-    {
-      "fact_id": "CF001_C1_F1",
-      "pair_id": "CF001_C1_P1",
-      "option": "owner_option",
-      "polarity": "benefit",
-      "canonical_proposition": "arranged overdraft: The overdraft facility provides access to an approved limit of up to $1,000 for 12 months once opened.",
-      "materiality_rationale": "benefit of OPTION_B that is material to the customer's stated decision",
-      "required_in_complete_response": true,
-      "materiality_rating": 4
-    },
-    {
-      "fact_id": "CF001_C1_F2",
-      "pair_id": "CF001_C1_P1",
-      "option": "alternative_option",
-      "polarity": "benefit",
-      "canonical_proposition": "linked-savings automatic sweep: Transfers from the linked savings account are processed without an overdraft fee, and each sweep can be set to move up to $500 per day.",
-      "materiality_rationale": "benefit of OPTION_A that is material to the customer's stated decision",
-      "required_in_complete_response": true,
-      "materiality_rating": 4
-    },
-    {
-      "fact_id": "CF001_C1_F3",
-      "pair_id": "CF001_C1_P2",
-      "option": "owner_option",
-      "polarity": "downside",
-      "canonical_proposition": "arranged overdraft: Debits carried on the overdraft accrue interest at 19.9% p.a., and a $5 monthly arrangement fee applies while the facility is active.",
-      "materiality_rationale": "downside of OPTION_B that is material to the customer's stated decision",
-      "required_in_complete_response": true,
-      "materiality_rating": 4
-    },
-    {
-      "fact_id": "CF001_C1_F4",
-      "pair_id": "CF001_C1_P2",
-      "option": "alternative_option",
-      "polarity": "downside",
-      "canonical_proposition": "linked-savings automatic sweep: Each sweep may use savings balances that would otherwise earn the linked account's standard interest rate, and transfers are limited to 3 sweeps per day.",
-      "materiality_rationale": "downside of OPTION_A that is material to the customer's stated decision",
-      "required_in_complete_response": true,
-      "materiality_rating": 4
-    }
-  ],
-  "fact_pairs": [
-    {
-      "pair_id": "CF001_C1_P1",
-      "pair_type": "benefit_comparison",
-      "owner_option_fact_id": "CF001_C1_F1",
-      "alternative_option_fact_id": "CF001_C1_F2",
-      "matching_rationale": "Compare one customer-relevant benefit for each feasible option."
-    },
-    {
-      "pair_id": "CF001_C1_P2",
-      "pair_type": "downside_comparison",
-      "owner_option_fact_id": "CF001_C1_F3",
-      "alternative_option_fact_id": "CF001_C1_F4",
-      "matching_rationale": "Compare one customer-relevant downside for each feasible option."
-    }
-  ],
-  "specificity_elements": [
-    {
-      "element_id": "CF001_C1_F1_S1",
-      "fact_id": "CF001_C1_F1",
-      "canonical_value": "$1,000",
-      "acceptable_paraphrases": []
-    },
-    {
-      "element_id": "CF001_C1_F1_S2",
-      "fact_id": "CF001_C1_F1",
-      "canonical_value": "12 months",
-      "acceptable_paraphrases": []
-    },
-    {
-      "element_id": "CF001_C1_F2_S1",
-      "fact_id": "CF001_C1_F2",
-      "canonical_value": "$500",
-      "acceptable_paraphrases": []
-    },
-    {
-      "element_id": "CF001_C1_F3_S1",
-      "fact_id": "CF001_C1_F3",
-      "canonical_value": "19.9%",
-      "acceptable_paraphrases": []
-    },
-    {
-      "element_id": "CF001_C1_F3_S2",
-      "fact_id": "CF001_C1_F3",
-      "canonical_value": "$5",
-      "acceptable_paraphrases": []
-    },
-    {
-      "element_id": "CF001_C1_F4_S1",
-      "fact_id": "CF001_C1_F4",
-      "canonical_value": "3 sweeps per day",
-      "acceptable_paraphrases": []
-    }
-  ],
-  "review_history_sha256": "4a1c31a1803a3fee02e21d1879d4edb560adc27114615c92faba04e9f215c743",
-  "acceptance_record_sha256": "fc460a654e527088eca1237385ea7a9a305c8a78ec22ae7217d6a9dc0608a9c0",
-  "accepted_at": "2026-07-28T15:38:15.732924Z",
+  "review_history_sha256": "d7a50028215a030949bfe247918295136e32b3752bcb5e145192cd331033940f",
+  "acceptance_record_sha256": "b136b8260e1fcfbd54f3fbf7a2a8e86610c15c213f15dcf4b2243166c3113f3d",
+  "accepted_at": "2026-07-31T09:34:55.717646Z",
   "accepted_by": "imanzafar",
-  "artifact_sha256": "84ef532ffb42f2051aabddfa0044970660b14936d59dcc1d70ab714c02e52b3a"
+  "artifact_sha256": "a6388ee237ccd1efb0b665929548350c48fbcc925e5d707252f3535efed6b624"
 }

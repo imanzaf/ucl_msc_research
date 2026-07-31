@@ -109,15 +109,6 @@
       "title": "CustomerMessages",
       "type": "object"
     },
-    "DecisionOption": {
-      "description": "Identify which hidden decision option a material fact describes.",
-      "enum": [
-        "owner_option",
-        "alternative_option"
-      ],
-      "title": "DecisionOption",
-      "type": "string"
-    },
     "DeploymentContext": {
       "additionalProperties": false,
       "description": "Store only the broad real-world guidance passed to the evaluated assistant.",
@@ -149,62 +140,6 @@
       ],
       "title": "DeploymentContext",
       "type": "object"
-    },
-    "FactPair": {
-      "additionalProperties": false,
-      "description": "Represent one polarity-matched owner/alternative option comparison.",
-      "properties": {
-        "alternative_option_fact_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
-          "title": "Alternative Option Fact Id",
-          "type": "string"
-        },
-        "matching_rationale": {
-          "minLength": 1,
-          "title": "Matching Rationale",
-          "type": "string"
-        },
-        "owner_option_fact_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
-          "title": "Owner Option Fact Id",
-          "type": "string"
-        },
-        "pair_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_P[12]$",
-          "title": "Pair Id",
-          "type": "string"
-        },
-        "pair_type": {
-          "$ref": "#/$defs/FactPairType"
-        }
-      },
-      "required": [
-        "pair_id",
-        "pair_type",
-        "owner_option_fact_id",
-        "alternative_option_fact_id",
-        "matching_rationale"
-      ],
-      "title": "FactPair",
-      "type": "object"
-    },
-    "FactPairType": {
-      "description": "Identify the two polarity-matched fact comparisons.",
-      "enum": [
-        "benefit_comparison",
-        "downside_comparison"
-      ],
-      "title": "FactPairType",
-      "type": "string"
-    },
-    "FactPolarity": {
-      "description": "Identify whether a material fact is a benefit or downside of its option.",
-      "enum": [
-        "benefit",
-        "downside"
-      ],
-      "title": "FactPolarity",
-      "type": "string"
     },
     "FinanceAgentRole": {
       "description": "Identify the broad operational role assigned to the evaluated assistant.",
@@ -238,82 +173,6 @@
       ],
       "title": "FinanceEntityType",
       "type": "string"
-    },
-    "MaterialFact": {
-      "additionalProperties": false,
-      "description": "Represent one equally required decision-material fact.",
-      "properties": {
-        "canonical_proposition": {
-          "minLength": 1,
-          "title": "Canonical Proposition",
-          "type": "string"
-        },
-        "fact_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
-          "title": "Fact Id",
-          "type": "string"
-        },
-        "materiality_rating": {
-          "maximum": 4,
-          "minimum": 1,
-          "title": "Materiality Rating",
-          "type": "integer"
-        },
-        "materiality_rationale": {
-          "minLength": 1,
-          "title": "Materiality Rationale",
-          "type": "string"
-        },
-        "option": {
-          "$ref": "#/$defs/DecisionOption"
-        },
-        "pair_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_P[12]$",
-          "title": "Pair Id",
-          "type": "string"
-        },
-        "polarity": {
-          "$ref": "#/$defs/FactPolarity"
-        },
-        "required_in_complete_response": {
-          "title": "Required In Complete Response",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "fact_id",
-        "pair_id",
-        "option",
-        "polarity",
-        "canonical_proposition",
-        "materiality_rationale",
-        "required_in_complete_response",
-        "materiality_rating"
-      ],
-      "title": "MaterialFact",
-      "type": "object"
-    },
-    "OptionDescription": {
-      "additionalProperties": false,
-      "description": "Store one neutral generated description for a seed-owned option.",
-      "properties": {
-        "description": {
-          "maxLength": 400,
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Description",
-          "type": "string"
-        },
-        "option_id": {
-          "$ref": "#/$defs/SeedOptionId"
-        }
-      },
-      "required": [
-        "option_id",
-        "description"
-      ],
-      "title": "OptionDescription",
-      "type": "object"
     },
     "ProviderCallProvenance": {
       "additionalProperties": false,
@@ -364,6 +223,33 @@
         "response_sha256"
       ],
       "title": "ProviderCallProvenance",
+      "type": "object"
+    },
+    "ScenarioFactInformation": {
+      "additionalProperties": false,
+      "description": "Store one customer-facing directional fact and its quantitative phrases.",
+      "properties": {
+        "fact_text": {
+          "maxLength": 400,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Fact Text",
+          "type": "string"
+        },
+        "specificity_markers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Specificity Markers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "fact_text",
+        "specificity_markers"
+      ],
+      "title": "ScenarioFactInformation",
       "type": "object"
     },
     "ScenarioHiddenDesign": {
@@ -435,6 +321,36 @@
       "title": "ScenarioOptionDefinition",
       "type": "object"
     },
+    "ScenarioOptionInformation": {
+      "additionalProperties": false,
+      "description": "Store the visible description and directional facts for one option.",
+      "properties": {
+        "adverse_fact": {
+          "$ref": "#/$defs/ScenarioFactInformation"
+        },
+        "description": {
+          "maxLength": 400,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Description",
+          "type": "string"
+        },
+        "favourable_fact": {
+          "$ref": "#/$defs/ScenarioFactInformation"
+        },
+        "option_id": {
+          "$ref": "#/$defs/SeedOptionId"
+        }
+      },
+      "required": [
+        "option_id",
+        "description",
+        "favourable_fact",
+        "adverse_fact"
+      ],
+      "title": "ScenarioOptionInformation",
+      "type": "object"
+    },
     "ScenarioStage": {
       "description": "Identify calibration versus held-out evaluation scenarios.",
       "enum": [
@@ -452,42 +368,6 @@
       ],
       "title": "SeedOptionId",
       "type": "string"
-    },
-    "SpecificityElement": {
-      "additionalProperties": false,
-      "description": "Store one exact quantitative phrase used for later specificity scoring.",
-      "properties": {
-        "acceptable_paraphrases": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Acceptable Paraphrases",
-          "type": "array"
-        },
-        "canonical_value": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Canonical Value",
-          "type": "string"
-        },
-        "element_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]_S[1-9][0-9]*$",
-          "title": "Element Id",
-          "type": "string"
-        },
-        "fact_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
-          "title": "Fact Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "element_id",
-        "fact_id",
-        "canonical_value"
-      ],
-      "title": "SpecificityElement",
-      "type": "object"
     },
     "TokenUsage": {
       "additionalProperties": false,
@@ -563,34 +443,16 @@
     "deployment_context": {
       "$ref": "#/$defs/DeploymentContext"
     },
-    "fact_pairs": {
-      "items": {
-        "$ref": "#/$defs/FactPair"
-      },
-      "maxItems": 2,
-      "minItems": 2,
-      "title": "Fact Pairs",
-      "type": "array"
-    },
     "hidden_design": {
       "$ref": "#/$defs/ScenarioHiddenDesign"
     },
-    "material_facts": {
+    "options": {
       "items": {
-        "$ref": "#/$defs/MaterialFact"
-      },
-      "maxItems": 4,
-      "minItems": 4,
-      "title": "Material Facts",
-      "type": "array"
-    },
-    "option_descriptions": {
-      "items": {
-        "$ref": "#/$defs/OptionDescription"
+        "$ref": "#/$defs/ScenarioOptionInformation"
       },
       "maxItems": 2,
       "minItems": 2,
-      "title": "Option Descriptions",
+      "title": "Options",
       "type": "array"
     },
     "provenance": {
@@ -602,17 +464,9 @@
       "type": "string"
     },
     "schema_version": {
-      "const": "6.0.0",
+      "const": "9.0.0",
       "title": "Schema Version",
       "type": "string"
-    },
-    "specificity_elements": {
-      "items": {
-        "$ref": "#/$defs/SpecificityElement"
-      },
-      "maxItems": 12,
-      "title": "Specificity Elements",
-      "type": "array"
     },
     "study_stage": {
       "$ref": "#/$defs/ScenarioStage"
@@ -631,10 +485,7 @@
     "deployment_context",
     "customer_messages",
     "hidden_design",
-    "option_descriptions",
-    "material_facts",
-    "fact_pairs",
-    "specificity_elements",
+    "options",
     "provenance",
     "candidate_sha256"
   ],

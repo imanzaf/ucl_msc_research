@@ -11,13 +11,6 @@
           "title": "Arithmetic Dependency",
           "type": "object"
         },
-        "blinded_materiality_ratings": {
-          "additionalProperties": {
-            "type": "integer"
-          },
-          "title": "Blinded Materiality Ratings",
-          "type": "object"
-        },
         "conditional_burden": {
           "additionalProperties": {
             "type": "integer"
@@ -82,8 +75,7 @@
         "hedging_burden",
         "readability",
         "arithmetic_dependency",
-        "shared_quantities",
-        "blinded_materiality_ratings"
+        "shared_quantities"
       ],
       "title": "PairDiagnostics",
       "type": "object"
@@ -191,7 +183,10 @@
       "type": "string"
     },
     "schema_version": {
-      "pattern": "^3\\.3\\.0$",
+      "enum": [
+        "3.3.0",
+        "3.4.0"
+      ],
       "title": "Schema Version",
       "type": "string"
     }

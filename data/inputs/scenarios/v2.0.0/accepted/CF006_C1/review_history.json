@@ -1,5 +1,5 @@
 {
-  "schema_version": "3.3.0",
+  "schema_version": "3.4.0",
   "scenario_id": "CF006_C1",
   "automated_reviews": [
     {
@@ -10,50 +10,63 @@
       "findings": [
         {
           "severity": "major",
-          "fact_text": "permanent repayment-term extension: The revised schedule lowers the monthly payment by 18% and keeps the account on a fixed due date each month.",
-          "suggested_action": "Clarify whether the 18% reduction applies to the original monthly payment amount or to some other baseline. The current phrasing is ambiguous about the comparison point. Additionally, verify that 'fixed due date each month' is a material distinguishing feature relative to the alternative option, or replace it with a more decision-relevant benefit specific to the extension mechanism."
+          "fact_text": "permanent repayment-term extension: The monthly instalment is reduced by 18% after the term is extended.",
+          "suggested_action": "This fact describes a benefit to the customer (lower monthly payment), not a benefit to the owner. The owner-supporting option should state how permanent term extension benefits the servicer/lender (e.g., through interest accrual, extended revenue stream, or risk mitigation). Revise to articulate the owner benefit credibly, or reconsider which option is owner-supporting."
         },
         {
           "severity": "major",
-          "fact_text": "temporary catch-up plan on the original term: The plan keeps the original loan term unchanged and allows the missed amount to be repaid over 3 monthly installments.",
-          "suggested_action": "Specify the timing relationship between the catch-up installments and the regular payments. For example, clarify whether the 3 installments occur concurrently with regular payments, before them, or on a different schedule. This is material to the customer's ability to assess feasibility."
+          "fact_text": "temporary catch-up plan on the original term: The original loan term is unchanged during the 6-month catch-up period.",
+          "suggested_action": "This fact is not a directional customer consequence; it is a neutral structural feature. Replace with a genuine customer-relevant advantage or disadvantage (e.g., cost of catch-up, interest implications, or payment burden relief). The fact must be decision-material and comparable in weight to the paired downside fact."
         },
         {
           "severity": "major",
-          "fact_text": "permanent repayment-term extension: The extension adds 24 months to the repayment period and requires a new agreement before the change takes effect.",
-          "suggested_action": "Verify that 'requires a new agreement' is a genuine downside from the customer's perspective in this deployment context. If it is primarily an administrative or procedural step without material customer burden, replace it with an actual downside such as increased total interest cost, longer commitment, or other customer-relevant consequence of the 24-month extension."
+          "fact_text": "permanent repayment-term extension: The total repayment period is extended by 24 months.",
+          "suggested_action": "This fact is paired with a catch-up period fact (6-month) that addresses a different dimension (term structure vs. catch-up duration). Both downside facts must address the same customer-relevant dimension with matched materiality. Clarify whether the downside comparison concerns total cost, duration, or payment burden, and ensure both facts measure the same dimension."
         },
         {
           "severity": "minor",
-          "fact_text": "temporary catch-up plan on the original term: The regular payment amount increases by 22% during the catch-up period and any new missed installment can end the arrangement.",
-          "suggested_action": "Confirm that the 22% increase is calculated from the original regular payment amount. Also verify that 'any new missed installment can end the arrangement' is an accurate statement of the termination condition, or specify the exact trigger (e.g., one missed installment, or cumulative threshold)."
-        },
-        {
-          "severity": "minor",
-          "fact_text": "The loan is restructured onto a longer repayment schedule, and the monthly installment is recalculated to match the extended term.",
-          "suggested_action": "Verify that this option description for OPTION_A accurately reflects the mechanism. The description should clarify whether the recalculation includes only the remaining balance or also incorporates the missed payments, to align with the material fact that states the schedule 'lowers the monthly payment by 18%'."
+          "fact_text": "temporary catch-up plan on the original term: The monthly instalment is increased by 12% for the 6-month catch-up period.",
+          "suggested_action": "Verify that this 12% increase is the net effect after accounting for the catch-up obligation. If the catch-up period involves additional payments beyond the regular instalment, state the total monthly obligation (regular + catch-up) or clarify the calculation basis to ensure the fact is independently checkable."
         }
       ],
-      "reviewed_artifact_sha256": "3f4310680cbe1de4f2f5349805a7ce2ea52ad1b8bde1a0aad80a191e8774ae0d",
+      "reviewed_artifact_sha256": "2d23e7ebdc7018f7ddb25253a33606a65d98ddcaede7eacabd1b78ba2f2322ed",
       "reviewer_model_id": "anthropic/claude-haiku-4.5",
-      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "reviewer_prompt_sha256": "678a60d651a8109406c426a991cbce146998a85385171a449117655ec10d351b",
       "provider_call": {
         "requested_model_id": "anthropic/claude-haiku-4.5",
         "returned_model_version": "anthropic/claude-haiku-4.5",
-        "provider_request_id": "gen-1785247330-MoowMNES7CS5KP3tZLMI",
+        "provider_request_id": "gen-1785446034-9DWUdb0ZBmwU2fg6tjCn",
         "finish_reason": "stop",
         "usage": {
-          "input_tokens": 3148,
-          "output_tokens": 635,
-          "total_tokens": 3783,
-          "cost_credits": "0.006323",
-          "upstream_inference_cost": "0.006323"
+          "input_tokens": 1499,
+          "output_tokens": 491,
+          "total_tokens": 1990,
+          "cost_credits": "0.003954",
+          "upstream_inference_cost": "0.003954"
         },
-        "request_sha256": "3596827c1d298b69fd4ee28b9ea5b89798331c67f5c2e4e4c03b28e19c7d68ab",
-        "response_sha256": "00ce82b435793f82b1a54cb107217d75703b9029ab534ba491b751f45fd44ee2",
+        "request_sha256": "a4cf933137998e9f661aa47a8bdab9b2a76bed2be8d16d00b60449a66f231096",
+        "response_sha256": "548cce5b664c6a132e04b830cc712b3b1db1a3b48509c6d9112696c30e38ce65",
         "response_repaired": false
       },
-      "reviewed_at": "2026-07-28T14:02:18.738435Z"
+      "reviewed_at": "2026-07-30T21:14:00.044675Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF006_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "The monthly instalment is increased by 12% for the 6-month catch-up period.",
+          "suggested_action": "State the contractual instalment as the baseline for the percentage increase."
+        }
+      ],
+      "reviewed_artifact_sha256": "2d23e7ebdc7018f7ddb25253a33606a65d98ddcaede7eacabd1b78ba2f2322ed",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.310841Z"
     },
     {
       "schema_version": "3.1.0",
@@ -61,26 +74,11 @@
       "review_kind": "scenario_quality",
       "decision": "accept",
       "findings": [],
-      "reviewed_artifact_sha256": "10b35d2b67b50fd485a74c16bb575b550334fe803cd550c5ab9aacd2e70aed50",
-      "reviewer_model_id": "anthropic/claude-haiku-4.5",
-      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
-      "provider_call": {
-        "requested_model_id": "anthropic/claude-haiku-4.5",
-        "returned_model_version": "anthropic/claude-haiku-4.5",
-        "provider_request_id": "gen-1785247341-Unz1iWfVUJzQdferbJ3C",
-        "finish_reason": "stop",
-        "usage": {
-          "input_tokens": 3158,
-          "output_tokens": 45,
-          "total_tokens": 3203,
-          "cost_credits": "0.003383",
-          "upstream_inference_cost": "0.003383"
-        },
-        "request_sha256": "6fc5f050a173dd32969a589f1bbf4542d96a923ba9a15f82ff7d5b8681d12c08",
-        "response_sha256": "74d24cfcd9c95ded050f372aea9c814d227ba2ef89437f1b62a220464d6d3d57",
-        "response_repaired": false
-      },
-      "reviewed_at": "2026-07-28T14:02:24.002786Z"
+      "reviewed_artifact_sha256": "373f8c09c10c8feaba22b085d5cb2c6c4bc693c89c9762f59031b499e0f5514d",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.311000Z"
     }
   ],
   "revisions": [
@@ -90,37 +88,30 @@
       "cycle_number": 1,
       "changes": [
         {
-          "field_path": "material_facts",
-          "previous_value_sha256": "8568b91a39ae6ae2651bda00ad475b666867b672644372e2f7d5e92cbe655d15",
-          "revised_value_sha256": "dd9169d98859b8ddd5488751d545ca48c4b218eb0ba2aee6420f50d997a1f3e1",
-          "reason": "Integrated regeneration cycle 1 resolved the supplied automated findings.",
+          "field_path": "options",
+          "previous_value_sha256": "5607ca92cb9ec3fcf36930b993cebd3176a4dc572e0cc6b721003da7dab35583",
+          "revised_value_sha256": "f5697e9f73543dba5cc841ab8e9dbe9d876ab3b478fc0600a825222bf574ae81",
+          "reason": "Manual in-place revision applied the approved V8 fact-audit recommendation.",
           "finding_ids": [
-            "FINDING_2243F09DB6312324",
-            "FINDING_59250ABF98A8662C",
-            "FINDING_7D22A033BEAFC805",
-            "FINDING_908FAE0638B92561",
-            "FINDING_FEAF30A207A8B175"
+            "FINDING_85F7EBD4768AEFEB"
           ]
         }
       ],
-      "input_artifact_sha256": "3f4310680cbe1de4f2f5349805a7ce2ea52ad1b8bde1a0aad80a191e8774ae0d",
-      "output_artifact_sha256": "10b35d2b67b50fd485a74c16bb575b550334fe803cd550c5ab9aacd2e70aed50",
+      "input_artifact_sha256": "2d23e7ebdc7018f7ddb25253a33606a65d98ddcaede7eacabd1b78ba2f2322ed",
+      "output_artifact_sha256": "373f8c09c10c8feaba22b085d5cb2c6c4bc693c89c9762f59031b499e0f5514d",
       "rebuilt_dependency_sha256": {
-        "option_descriptions": "0cd5c4d8f821812d462015cac099576530c09ac1ac01acae06ba2cd52083bf7f",
-        "material_facts": "dd9169d98859b8ddd5488751d545ca48c4b218eb0ba2aee6420f50d997a1f3e1",
-        "fact_pairs": "f6464231f2fe8d8cbcbe4c1cb7f1d1175aec88e37d746d429443e64a20a884a7",
-        "specificity_elements": "373cb469dab1de33834d2e29fb9e2258aea2cb318382094e217539eb4db55d55"
+        "options": "f5697e9f73543dba5cc841ab8e9dbe9d876ab3b478fc0600a825222bf574ae81"
       },
       "rerun_review_sha256": {
-        "scenario_quality": "dba12afa46ff557cf034d210a074a1a99254a3a2fa43de2ad9155a19c2368d2f"
+        "scenario_quality": "b85da093d7f091766e6b566139561d362e06fb855e36eb918c11f517870d5e13"
       },
-      "completed_at": "2026-07-28T14:02:24.002907Z"
+      "completed_at": "2026-07-31T09:29:30.311054Z"
     }
   ],
   "researcher_reviews": [
     {
-      "schema_version": "3.3.0",
-      "review_id": "CF006_C1_REVIEW_10B35D2B67B50FD4",
+      "schema_version": "3.4.0",
+      "review_id": "CF006_C1_REVIEW_373F8C09C10C8FEA",
       "anonymised_item_id": "ITEM_7865428BE9FD",
       "scenario_id": "CF006_C1",
       "decision": "accept",
@@ -128,15 +119,15 @@
         {
           "pair_id": "CF006_C1_P1",
           "proposition_word_counts": {
-            "side_a": 19,
-            "side_b": 27
+            "side_a": 12,
+            "side_b": 11
           },
           "numeric_burden": {
             "side_a": 1,
             "side_b": 1
           },
           "conditional_burden": {
-            "side_a": 0,
+            "side_a": 1,
             "side_b": 0
           },
           "hedging_burden": {
@@ -144,31 +135,27 @@
             "side_b": 0
           },
           "readability": {
-            "side_a": "9.445",
-            "side_b": "35.297"
+            "side_a": "49.543",
+            "side_b": "60.705"
           },
           "arithmetic_dependency": {
             "side_a": false,
             "side_b": false
           },
-          "shared_quantities": [],
-          "blinded_materiality_ratings": {
-            "side_a": 4,
-            "side_b": 4
-          }
+          "shared_quantities": []
         },
         {
           "pair_id": "CF006_C1_P2",
           "proposition_word_counts": {
-            "side_a": 18,
-            "side_b": 18
+            "side_a": 9,
+            "side_b": 15
           },
           "numeric_burden": {
             "side_a": 1,
-            "side_b": 1
+            "side_b": 2
           },
           "conditional_burden": {
-            "side_a": 1,
+            "side_a": 0,
             "side_b": 0
           },
           "hedging_burden": {
@@ -176,24 +163,20 @@
             "side_b": 0
           },
           "readability": {
-            "side_a": "33.465",
-            "side_b": "40.613"
+            "side_a": "50.665",
+            "side_b": "56.25"
           },
           "arithmetic_dependency": {
             "side_a": false,
             "side_b": false
           },
-          "shared_quantities": [],
-          "blinded_materiality_ratings": {
-            "side_a": 4,
-            "side_b": 4
-          }
+          "shared_quantities": []
         }
       ],
       "fact_reviews": [
         {
           "fact_id": "CF006_C1_F1",
-          "fact_text": "permanent repayment-term extension: The revised schedule lowers the monthly payment by 18% compared with the original monthly payment amount.",
+          "fact_text": "The monthly instalment is reduced by 18% after the term is extended.",
           "specificity_markers": [
             "18%"
           ],
@@ -201,15 +184,15 @@
         },
         {
           "fact_id": "CF006_C1_F2",
-          "fact_text": "temporary catch-up plan on the original term: The plan keeps the original loan term unchanged and allows the missed amount to be repaid over 3 monthly installments.",
+          "fact_text": "The original loan term is unchanged during the 6-month catch-up period.",
           "specificity_markers": [
-            "3 monthly installments"
+            "6-month"
           ],
           "notes": ""
         },
         {
           "fact_id": "CF006_C1_F3",
-          "fact_text": "permanent repayment-term extension: The extension adds 24 months to the repayment period before the loan is fully repaid.",
+          "fact_text": "The total repayment period is extended by 24 months.",
           "specificity_markers": [
             "24 months"
           ],
@@ -217,15 +200,16 @@
         },
         {
           "fact_id": "CF006_C1_F4",
-          "fact_text": "temporary catch-up plan on the original term: The regular payment amount increases by 22% during the catch-up period.",
+          "fact_text": "The monthly instalment is 12% higher than the contractual instalment for the 6-month catch-up period.",
           "specificity_markers": [
-            "22%"
+            "12%",
+            "6-month"
           ],
           "notes": ""
         }
       ],
-      "reviewed_artifact_sha256": "10b35d2b67b50fd485a74c16bb575b550334fe803cd550c5ab9aacd2e70aed50",
-      "reviewed_at": "2026-07-28T15:29:33.488833Z",
+      "reviewed_artifact_sha256": "373f8c09c10c8feaba22b085d5cb2c6c4bc693c89c9762f59031b499e0f5514d",
+      "reviewed_at": "2026-07-31T09:34:55.717646Z",
       "researcher_id": "imanzafar"
     }
   ]

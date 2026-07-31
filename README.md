@@ -4,9 +4,11 @@ This repository contains the dissertation and reproducible experiments for a con
 concise-response guidance and user-expressed concern.
 
 The canonical methodology is [RESEARCH_PLAN.md](docs/research-plan/RESEARCH_PLAN.md). The active scenario seed is V2.0.0 and generated/accepted
-scenario artifacts use schema 6.0.0. Scenario definitions and customer queries are stored in separate, schema-validated JSON files joined by
-family and scenario IDs. Generation protocol V1.0.5 excludes all customer queries from initial and revision model calls and generates exact
-quantitative specificity markers with each fact. The local reviewer saves editable fact text, marker lists, and an optional note for every fact.
+scenario artifacts use schema 9.0.0. Scenario definitions and customer queries are stored in separate, schema-validated JSON files joined by
+family and scenario IDs. Generation protocol V1.0.10 excludes all customer queries from initial and revision model calls and generates exact
+quantitative specificity markers with each fact. All seven active scenario, experiment, and scoring prompts are paired Jinja2 templates under
+`src/prompts/templates/`, loaded through shared utilities in `src/prompts/template_utils.py`; R1/R2 are processed independently. The local reviewer
+saves editable fact text, marker lists, and an optional note for every fact.
 
 ## Study at a glance
 
@@ -22,7 +24,7 @@ outcomes. Follow-up-only and code-derived cumulative results for all three score
 calibration supplies expected interval precision for the initial secondary contrasts.
 
 Scoring makes six successful LLM calls per conversation: content, presentation, and accuracy for the isolated initial response, then the same three
-contracts for the isolated follow-up. Facts and every predefined marker value/paraphrase are supplied to content scoring. Cumulative results require
+contracts for the isolated follow-up. Facts and every predefined marker value are supplied to content scoring. Cumulative results require
 no additional LLM call.
 
 | Experiment | Design | Conversations |

@@ -18,7 +18,7 @@ from src.data_models.scenario_review import (
     required_automated_review_kinds,
 )
 from src.data_models.scenarios import AcceptedScenario, CandidateScenario
-from src.scenarios.researcher_edits import apply_researcher_fact_reviews, specificity_elements_from_fact_reviews
+from src.scenarios.researcher_edits import apply_researcher_fact_reviews
 from src.storage import write_model_json_atomic
 
 
@@ -72,8 +72,7 @@ def build_accepted_scenario(
     researcher_review = _validated_researcher_review(review_history.researcher_reviews, candidate)
     if researcher_review.decision != ReviewDecision.ACCEPT:
         raise ValueError("acceptance requires an accepted researcher decision")
-    accepted_material_facts = apply_researcher_fact_reviews(candidate, researcher_review.fact_reviews)
-    accepted_specificity_elements = specificity_elements_from_fact_reviews(researcher_review.fact_reviews)
+    accepted_options = apply_researcher_fact_reviews(candidate, researcher_review.fact_reviews)
     review_history_sha256 = artifact_sha256(review_history)
     record_payload = {
         "schema_version": "3.0.0",
@@ -94,10 +93,7 @@ def build_accepted_scenario(
         "deployment_context": candidate.deployment_context,
         "customer_messages": candidate.customer_messages,
         "hidden_design": candidate.hidden_design,
-        "option_descriptions": candidate.option_descriptions,
-        "material_facts": accepted_material_facts,
-        "fact_pairs": candidate.fact_pairs,
-        "specificity_elements": accepted_specificity_elements,
+        "options": accepted_options,
         "review_history_sha256": review_history_sha256,
         "acceptance_record_sha256": acceptance_record.record_sha256,
         "accepted_at": accepted_at,

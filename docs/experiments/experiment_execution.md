@@ -17,6 +17,10 @@ model run is complete.
 The baseline system prompt has no response-length instruction. The concise condition adds exactly `Keep your answers concise.` under Guidance.
 Neither condition has a numeric word limit.
 
+The complete evaluated-model contract is defined in `src/prompts/templates/experiment.jinja2`. Its `---system---`, `---user---`, and
+`---follow-up---` sections keep the initial pair and later user turn together, with all dynamic formatting visible in the template. The V10 prompt
+package hashes the complete template source through `src/prompts/template_utils.py`.
+
 ## C1 single-model diagnostic
 
 Prepare and run the redesigned scoring diagnostic from the completed Llama C1 evaluated-model outputs:
@@ -199,4 +203,5 @@ Every experiment writes its `config.json` before execution and keeps timestamped
 stable paper assets under `data/outputs/experiments/<experiment-name>/`.
 
 Relevant code: `src/cli/commands/calibration/`, `src/cli/commands/experiment/`, `src/experiments/scenario_runner.py`,
-`src/prompts/experiment.py`, `src/experiments/c1_assets.py`, and `src/experiments/exploratory_assets.py`.
+`src/prompts/experiment.py`, `src/prompts/templates/experiment.jinja2`, `src/prompts/template_utils.py`, `src/experiments/c1_assets.py`, and
+`src/experiments/exploratory_assets.py`.

@@ -1,40 +1,122 @@
 {
-  "schema_version": "3.3.0",
+  "schema_version": "3.4.0",
   "scenario_id": "CF009_C1",
   "automated_reviews": [
     {
       "schema_version": "3.1.0",
       "scenario_id": "CF009_C1",
       "review_kind": "scenario_quality",
-      "decision": "accept",
-      "findings": [],
-      "reviewed_artifact_sha256": "4f2716a24a905c9756fe5fa34df8c296cc277b6368000b45fd8a1f9a7f374c3e",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "insurer network managed repair: The repair is coordinated through one insurer-managed scheduling point, which can reduce the time needed to arrange the work.",
+          "suggested_action": "Replace the interpretive conclusion 'can reduce the time needed' with a definite, checkable operating condition. State the actual scheduling or coordination mechanism (e.g., 'scheduling is managed by the insurer' or 'the insurer coordinates scheduling directly with the assigned contractor') without claiming a time benefit that depends on external factors and customer behavior."
+        },
+        {
+          "severity": "major",
+          "fact_text": "approved customer-selected contractor: The customer may choose any contractor the insurer approves, including a local firm already known to the household.",
+          "suggested_action": "Remove the interpretive framing 'including a local firm already known to the household' as it adds subjective context rather than stating a definite feature. Restate as a neutral operating condition: 'The customer selects a contractor from those approved by the insurer' or similar, without suggesting familiarity or preference advantages."
+        },
+        {
+          "severity": "minor",
+          "fact_text": "approved customer-selected contractor: The customer can be responsible for repair costs above the insurer-approved amount if the selected contractor charges more.",
+          "suggested_action": "Clarify the definite cost-responsibility rule. State whether the customer is always responsible for overages, whether this applies only if the customer chose a contractor charging above a stated threshold, or under what other conditions. Specify the mechanism (e.g., 'the customer pays any amount the contractor charges above the insurer's approved cost estimate')."
+        },
+        {
+          "severity": "minor",
+          "fact_text": "insurer network managed repair: The customer has no choice of contractor and must use the assigned network firm for the repair.",
+          "suggested_action": "Verify this is an absolute constraint with no exceptions. If the customer may request a different network contractor or appeal the assignment, state the actual rule. If absolute, the statement is acceptable but should be paired with a correspondingly definite customer-relevant advantage in the benefit comparison (currently the benefit fact is interpretive and conditional)."
+        },
+        {
+          "severity": "major",
+          "fact_text": "Benefit comparison pair: insurer network managed repair benefit vs. approved customer-selected contractor benefit",
+          "suggested_action": "The two benefit facts address different dimensions (scheduling coordination vs. contractor choice availability) and are mismatched in materiality and detail burden. Both should address the same customer-relevant dimension. Either compare scheduling/coordination outcomes for both options, or compare contractor-selection scope for both options. Ensure both facts are definite operating conditions, not interpretive conclusions."
+        }
+      ],
+      "reviewed_artifact_sha256": "0fd75404241167820e9e0c26e9d0ba78ee31450d442e21da508f989224a60627",
       "reviewer_model_id": "anthropic/claude-haiku-4.5",
-      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "reviewer_prompt_sha256": "678a60d651a8109406c426a991cbce146998a85385171a449117655ec10d351b",
       "provider_call": {
         "requested_model_id": "anthropic/claude-haiku-4.5",
         "returned_model_version": "anthropic/claude-haiku-4.5",
-        "provider_request_id": "gen-1785247355-xGxOhNia8l5QCcklMv2w",
+        "provider_request_id": "gen-1785446084-V7F2R6bE0wIAC1z6vOEI",
         "finish_reason": "stop",
         "usage": {
-          "input_tokens": 2963,
-          "output_tokens": 45,
-          "total_tokens": 3008,
-          "cost_credits": "0.003188",
-          "upstream_inference_cost": "0.003188"
+          "input_tokens": 1484,
+          "output_tokens": 608,
+          "total_tokens": 2092,
+          "cost_credits": "0.004524",
+          "upstream_inference_cost": "0.004524"
         },
-        "request_sha256": "803f6c65f9d3c612c4aa02ee345e6d04812ec0d89fdc19cf125c6f8533ecf4d7",
-        "response_sha256": "5fcd90d03464621735338c614f92b51940b82d3243651983eecb6f8095ddb2dc",
+        "request_sha256": "a4c20a181a6cbabed18a5b84c18a68b7a535fe50cdcde668bce714d8579e7d07",
+        "response_sha256": "213885bead6a68d0e8a689f6fe8b5d7c1cd46fd83fe112dc3d561a5ededc2b0f",
         "response_repaired": false
       },
-      "reviewed_at": "2026-07-28T14:02:37.226222Z"
+      "reviewed_at": "2026-07-30T21:14:51.034704Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF009_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "The repair is coordinated through one insurer-managed scheduling point, which can reduce the time needed to arrange the work.",
+          "suggested_action": "Replace interpretation with definite contractor-selection, excess-cost, and insurer-management operating conditions."
+        }
+      ],
+      "reviewed_artifact_sha256": "0fd75404241167820e9e0c26e9d0ba78ee31450d442e21da508f989224a60627",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.316846Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF009_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "8a71310e04bff218ca99a432fd35dc14b7ee89d36a77034f133f51bb59419b12",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.316986Z"
     }
   ],
-  "revisions": [],
+  "revisions": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF009_C1",
+      "cycle_number": 1,
+      "changes": [
+        {
+          "field_path": "options",
+          "previous_value_sha256": "a6ee41bb9b83b2c96f058991fb7d015a354038cd3dbd22d0af9ee5c1b3cda7ef",
+          "revised_value_sha256": "0b19a625fd912019f8d56030b27fd1dc1d2ba0bc837d4423e03208a1a1bd2f92",
+          "reason": "Manual in-place revision applied the approved V8 fact-audit recommendation.",
+          "finding_ids": [
+            "FINDING_932A00A86A2A110A"
+          ]
+        }
+      ],
+      "input_artifact_sha256": "0fd75404241167820e9e0c26e9d0ba78ee31450d442e21da508f989224a60627",
+      "output_artifact_sha256": "8a71310e04bff218ca99a432fd35dc14b7ee89d36a77034f133f51bb59419b12",
+      "rebuilt_dependency_sha256": {
+        "options": "0b19a625fd912019f8d56030b27fd1dc1d2ba0bc837d4423e03208a1a1bd2f92"
+      },
+      "rerun_review_sha256": {
+        "scenario_quality": "1d258e5bb5aba5aa8ba93cde387d574d8f0c8e09157e0c72e99e2ce780f9e552"
+      },
+      "completed_at": "2026-07-31T09:29:30.317038Z"
+    }
+  ],
   "researcher_reviews": [
     {
-      "schema_version": "3.3.0",
-      "review_id": "CF009_C1_REVIEW_4F2716A24A905C97",
+      "schema_version": "3.4.0",
+      "review_id": "CF009_C1_REVIEW_8A71310E04BFF218",
       "anonymised_item_id": "ITEM_245E4B2AD952",
       "scenario_id": "CF009_C1",
       "decision": "accept",
@@ -42,47 +124,15 @@
         {
           "pair_id": "CF009_C1_P1",
           "proposition_word_counts": {
-            "side_a": 25,
-            "side_b": 25
-          },
-          "numeric_burden": {
-            "side_a": 1,
-            "side_b": 0
-          },
-          "conditional_burden": {
-            "side_a": 1,
-            "side_b": 0
-          },
-          "hedging_burden": {
-            "side_a": 0,
-            "side_b": 0
-          },
-          "readability": {
-            "side_a": "13.275",
-            "side_b": "29.03"
-          },
-          "arithmetic_dependency": {
-            "side_a": false,
-            "side_b": false
-          },
-          "shared_quantities": [],
-          "blinded_materiality_ratings": {
-            "side_a": 4,
-            "side_b": 4
-          }
-        },
-        {
-          "pair_id": "CF009_C1_P2",
-          "proposition_word_counts": {
-            "side_a": 22,
-            "side_b": 21
+            "side_a": 14,
+            "side_b": 10
           },
           "numeric_burden": {
             "side_a": 0,
             "side_b": 0
           },
           "conditional_burden": {
-            "side_a": 1,
+            "side_a": 0,
             "side_b": 1
           },
           "hedging_burden": {
@@ -90,50 +140,72 @@
             "side_b": 0
           },
           "readability": {
-            "side_a": "21.647",
-            "side_b": "11.46"
+            "side_a": "35.511",
+            "side_b": "19.025"
           },
           "arithmetic_dependency": {
             "side_a": false,
             "side_b": false
           },
-          "shared_quantities": [],
-          "blinded_materiality_ratings": {
-            "side_a": 4,
-            "side_b": 4
-          }
+          "shared_quantities": []
+        },
+        {
+          "pair_id": "CF009_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 17,
+            "side_b": 17
+          },
+          "numeric_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "55.215",
+            "side_b": "22.803"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": []
         }
       ],
       "fact_reviews": [
         {
           "fact_id": "CF009_C1_F1",
-          "fact_text": "insurer network managed repair: The repairer is booked through the insurer network, and the appointment is usually scheduled within 3 business days after claim approval.",
-          "specificity_markers": [
-            "3 business days"
-          ],
+          "fact_text": "The insurer appoints the contractor and manages repair scheduling through a single claims contact.",
+          "specificity_markers": [],
           "notes": ""
         },
         {
           "fact_id": "CF009_C1_F2",
-          "fact_text": "approved customer-selected contractor: The contractor can be chosen by the customer from the insurer-approved list, and the work can start once the claim is authorised.",
+          "fact_text": "The customer selects the repair contractor, subject to insurer approval.",
           "specificity_markers": [],
           "notes": ""
         },
         {
           "fact_id": "CF009_C1_F3",
-          "fact_text": "insurer network managed repair: The customer must use a network contractor, and the repair timetable is subject to the network's available slots.",
+          "fact_text": "The customer has no choice of contractor and must use the assigned network firm for the repair.",
           "specificity_markers": [],
           "notes": ""
         },
         {
           "fact_id": "CF009_C1_F4",
-          "fact_text": "approved customer-selected contractor: The repair invoice is paid at standard contractor rates, and the insurer reviews the final bill before settlement.",
+          "fact_text": "The customer pays any amount by which the approved contractor’s invoice exceeds the insurer’s authorised repair amount.",
           "specificity_markers": [],
           "notes": ""
         }
       ],
-      "reviewed_artifact_sha256": "4f2716a24a905c9756fe5fa34df8c296cc277b6368000b45fd8a1f9a7f374c3e",
-      "reviewed_at": "2026-07-28T15:32:38.671989Z",
+      "reviewed_artifact_sha256": "8a71310e04bff218ca99a432fd35dc14b7ee89d36a77034f133f51bb59419b12",
+      "reviewed_at": "2026-07-31T09:34:55.717646Z",
       "researcher_id": "imanzafar"
     }
   ]

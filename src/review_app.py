@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import ValidationError
 
@@ -25,8 +25,9 @@ from src.data_models.scoring import (
     ScoredResponse,
 )
 from src.scenarios.acceptance import validate_candidate_scenario_hash
+from src.scenarios.candidate_compatibility import read_candidate_scenario
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
-from src.scenarios.researcher_edits import apply_researcher_fact_reviews, specificity_elements_from_fact_reviews
+from src.scenarios.researcher_edits import apply_researcher_fact_reviews
 from src.scenarios.run_resolution import current_scenario_artifacts, run_researcher_reviews
 from src.storage import append_model_jsonl_validated, read_model_json, read_model_jsonl
 
@@ -36,6 +37,10 @@ class ReviewPage(str, Enum):
 
     SCENARIO_INITIAL = "Scenario review"
     CONVERSATION_INITIAL = "Conversation annotation"
+
+
+SCENARIO_SELECTION_KEY = "scenario_review_selected_id"
+SCENARIO_NAVIGATION_TARGET_KEY = "scenario_review_navigation_target"
 
 
 SCENARIO_REVIEW_GUIDANCE = (
@@ -49,7 +54,7 @@ SCENARIO_REVIEW_GUIDANCE = (
 APP_CSS = """
 <style>
     .block-container {
-        max-width: 1520px;
+        max-width: 1120px;
         padding-top: 1.4rem;
         padding-bottom: 4rem;
     }
@@ -129,7 +134,7 @@ class ReviewStore:
         if (self.candidate_root / "run_config.json").is_file():
             candidates = [artifact.candidate for _, artifact in sorted(current_scenario_artifacts(self.candidate_root).items())]
         else:
-            candidates = [read_model_json(path, CandidateScenario) for path in sorted(self.candidate_root.glob("*/candidate.json"))]
+            candidates = [read_candidate_scenario(path) for path in sorted(self.candidate_root.glob("*/candidate.json"))]
         for candidate in candidates:
             validate_candidate_scenario_hash(candidate)
         return candidates
@@ -179,7 +184,6 @@ class ReviewStore:
         if review.reviewed_artifact_sha256 != candidate.candidate_sha256:
             raise ValueError("scenario review does not bind the selected candidate hash")
         apply_researcher_fact_reviews(candidate, review.fact_reviews)
-        specificity_elements_from_fact_reviews(review.fact_reviews)
         if review.reviewed_at > datetime.now(timezone.utc) + timedelta(minutes=5):
             raise ValueError("scenario review timestamp cannot be in the future")
         all_existing = self.scenario_reviews()
@@ -309,9 +313,9 @@ def build_researcher_scenario_review(
         specificity_by_fact,
         notes_by_fact or {},
     )
-    edited_scenario = scenario.model_copy(update={"material_facts": apply_researcher_fact_reviews(scenario, fact_reviews)})
+    edited_scenario = scenario.model_copy(update={"options": apply_researcher_fact_reviews(scenario, fact_reviews)})
     return ResearcherScenarioReview(
-        schema_version="3.3.0",
+        schema_version="3.4.0",
         review_id=f"{scenario.scenario_id}_REVIEW_{candidate_digest}",
         anonymised_item_id=f"ITEM_{item_digest}",
         scenario_id=scenario.scenario_id,
@@ -351,8 +355,67 @@ def build_researcher_fact_reviews(
     ]
 
 
-def _render_source(st: Any, scenario: CandidateScenario) -> None:
-    """Display the evaluated content, option information, and concise hidden design."""
+def scenario_navigation_targets(scenario_ids: List[str], current_scenario_id: str) -> Tuple[Optional[str], Optional[str]]:
+    """Return the previous and next scenario IDs around the current selection."""
+    if current_scenario_id not in scenario_ids:
+        raise ValueError(f"current scenario is not available for review: {current_scenario_id}")
+    current_index = scenario_ids.index(current_scenario_id)
+    previous_scenario_id = scenario_ids[current_index - 1] if current_index > 0 else None
+    next_scenario_id = scenario_ids[current_index + 1] if current_index < len(scenario_ids) - 1 else None
+    return previous_scenario_id, next_scenario_id
+
+
+def _queue_scenario_navigation(st: Any, scenario_id: str) -> None:
+    """Queue a scenario selection for the next top-to-bottom rerun."""
+    st.session_state[SCENARIO_NAVIGATION_TARGET_KEY] = scenario_id
+
+
+def _select_pending_scenario(st: Any, pending: List[CandidateScenario]) -> CandidateScenario:
+    """Resolve the sidebar selection while honouring queued navigation."""
+    scenario_by_id = {scenario.scenario_id: scenario for scenario in pending}
+    scenario_ids = list(scenario_by_id)
+    target_scenario_id = st.session_state.pop(SCENARIO_NAVIGATION_TARGET_KEY, None)
+    selected_scenario_id = target_scenario_id or st.session_state.get(SCENARIO_SELECTION_KEY)
+    if selected_scenario_id not in scenario_by_id:
+        selected_scenario_id = scenario_ids[0]
+    if st.session_state.get(SCENARIO_SELECTION_KEY) != selected_scenario_id:
+        st.session_state[SCENARIO_SELECTION_KEY] = selected_scenario_id
+    selected_scenario_id = st.sidebar.selectbox(
+        "Scenario",
+        scenario_ids,
+        key=SCENARIO_SELECTION_KEY,
+        persist_state="session",
+    )
+    return scenario_by_id[selected_scenario_id]
+
+
+def _render_scenario_navigation(st: Any, scenario_ids: List[str], current_scenario_id: str, location: str) -> None:
+    """Render previous and next controls for one position in the review page."""
+    previous_scenario_id, next_scenario_id = scenario_navigation_targets(scenario_ids, current_scenario_id)
+    current_index = scenario_ids.index(current_scenario_id)
+    with st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center"):
+        st.button(
+            "Previous scenario",
+            icon=":material/arrow_back:",
+            disabled=previous_scenario_id is None,
+            on_click=_queue_scenario_navigation,
+            args=(st, previous_scenario_id or current_scenario_id),
+            key=f"scenario_previous_{location}_{current_scenario_id}",
+        )
+        st.caption(f"Scenario {current_index + 1} of {len(scenario_ids)} pending")
+        st.button(
+            "Next scenario",
+            icon=":material/arrow_forward:",
+            icon_position="right",
+            disabled=next_scenario_id is None,
+            on_click=_queue_scenario_navigation,
+            args=(st, next_scenario_id or current_scenario_id),
+            key=f"scenario_next_{location}_{current_scenario_id}",
+        )
+
+
+def _render_scenario_overview(st: Any, scenario: CandidateScenario) -> None:
+    """Display the task, user queries, and option descriptions once."""
     option_name_by_id = {option.option_id: option.option_name for option in scenario.hidden_design.options}
     description_by_id = {description.option_id: description.description for description in scenario.option_descriptions}
 
@@ -363,58 +426,50 @@ def _render_source(st: Any, scenario: CandidateScenario) -> None:
         f"{scenario.deployment_context.entity_type.value.capitalize()}"
     )
 
-    st.subheader("Customer and assistant context")
-    context_columns = st.columns([1.15, 1], gap="large")
-    with context_columns[0].container(border=True):
+    st.subheader("Agent task")
+    with st.container(border=True):
+        st.markdown(f"**{scenario.deployment_context.role.value.replace('_', ' ').capitalize()}**")
+        st.write(scenario.deployment_context.task)
+        st.caption(f"Authority boundary: {scenario.deployment_context.authority_limits}")
+
+    st.subheader("User queries")
+    with st.container(border=True):
         st.markdown("**Neutral query**")
         st.write(scenario.customer_messages.neutral_user_query)
         st.markdown("**Concerned query**")
         st.write(scenario.customer_messages.concerned_user_query)
         st.markdown("**Follow-up**")
         st.write(scenario.customer_messages.follow_up_query)
-    with context_columns[1].container(border=True):
-        st.markdown(f"**{scenario.deployment_context.role.value.title()}**")
-        st.write(scenario.deployment_context.task)
-        st.caption(f"Authority boundary: {scenario.deployment_context.authority_limits}")
 
-    st.subheader("Option information shown to the evaluated assistant")
-    option_columns = st.columns(2, gap="large")
-    for column, option_id in zip(option_columns, scenario.hidden_design.presentation_order):
+    st.subheader("Option descriptions")
+    for option_id in scenario.hidden_design.presentation_order:
         option_name = option_name_by_id[option_id]
-        decision_option = (
-            DecisionOption.OWNER_OPTION if option_id == scenario.hidden_design.owner_supporting_option else DecisionOption.ALTERNATIVE_OPTION
-        )
-        fact_by_polarity = {
-            fact.polarity: fact.canonical_proposition.removeprefix(f"{option_name}: ")
-            for fact in scenario.material_facts
-            if fact.option == decision_option
-        }
-        with column.container(border=True):
-            st.markdown(f"### {option_name}")
-            st.caption(description_by_id[option_id])
-            st.markdown("**Favourable**")
-            st.write(fact_by_polarity[FactPolarity.BENEFIT])
-            st.markdown("**Adverse**")
-            st.write(fact_by_polarity[FactPolarity.DOWNSIDE])
+        with st.container(border=True):
+            st.markdown(f"**{option_name}**")
+            st.write(description_by_id[option_id])
 
-    with st.expander("Hidden research design"):
+
+def _render_research_context(st: Any, scenario: CandidateScenario) -> None:
+    """Display compact research context and optional diagnostics before editing."""
+    option_name_by_id = {option.option_id: option.option_name for option in scenario.hidden_design.options}
+
+    st.subheader("Research context")
+    with st.container(border=True):
         owner_option = option_name_by_id[scenario.hidden_design.owner_supporting_option]
-        alternative_option = option_name_by_id[alternative_seed_option(scenario.hidden_design.owner_supporting_option)]
-        design_columns = st.columns(2)
-        design_columns[0].markdown("**Owner-supporting option**")
-        design_columns[0].write(owner_option)
-        design_columns[1].markdown("**Alternative option**")
-        design_columns[1].write(alternative_option)
+        st.markdown("**Owner-supporting option**")
+        st.write(owner_option)
         st.markdown("**Owner benefit mechanism**")
         st.write(scenario.hidden_design.owner_benefit_mechanism)
         st.caption("This design is hidden from evaluated prompts.")
 
-    with st.expander("Pair diagnostics"):
+    with st.expander("Review criteria and pair diagnostics", icon=":material/checklist:"):
+        for criterion in SCENARIO_REVIEW_GUIDANCE:
+            st.markdown(f"- {criterion}")
         st.caption("Descriptive only. Use these to compare detail burden; there is no automatic threshold.")
-        pair_type_by_id = {pair.pair_id: pair.pair_type for pair in scenario.fact_pairs}
+        polarity_by_pair_id = {fact.pair_id: fact.polarity for fact in scenario.material_facts}
         rows = []
         for diagnostic in build_pair_diagnostics(scenario):
-            pair_name = "Favourable facts" if pair_type_by_id[diagnostic.pair_id].value == "benefit_comparison" else "Adverse facts"
+            pair_name = "Favourable facts" if polarity_by_pair_id[diagnostic.pair_id] == FactPolarity.BENEFIT else "Adverse facts"
             rows.append(
                 {
                     "Pair": pair_name,
@@ -432,63 +487,79 @@ def _render_source(st: Any, scenario: CandidateScenario) -> None:
         st.json(scenario.provenance.model_dump(mode="json"))
 
 
-def _render_scenario_review_form(st: Any, store: ReviewStore, scenario: CandidateScenario, now: datetime) -> None:
-    """Render and persist a point-and-click scenario review form."""
-    st.markdown('<div class="review-kicker">Your review</div>', unsafe_allow_html=True)
-    st.header("Mark this scenario")
-    with st.expander("Concise review criteria"):
-        for criterion in SCENARIO_REVIEW_GUIDANCE:
-            st.markdown(f"- {criterion}")
+def _render_scenario_review_form(
+    st: Any,
+    store: ReviewStore,
+    scenario: CandidateScenario,
+    pending_scenario_ids: List[str],
+    now: datetime,
+) -> None:
+    """Render editable facts followed by researcher identity and decision controls."""
+    option_name_by_id = {option.option_id: option.option_name for option in scenario.hidden_design.options}
+    decision_option_by_id = {
+        scenario.hidden_design.owner_supporting_option: DecisionOption.OWNER_OPTION,
+        alternative_seed_option(scenario.hidden_design.owner_supporting_option): DecisionOption.ALTERNATIVE_OPTION,
+    }
+    fact_by_coordinate = {(fact.option, fact.polarity): fact for fact in scenario.material_facts}
+    generated_markers_by_fact = {
+        fact.fact_id: [element.canonical_value for element in scenario.specificity_elements if element.fact_id == fact.fact_id]
+        for fact in scenario.material_facts
+    }
 
+    st.markdown('<div class="review-kicker">Your review</div>', unsafe_allow_html=True)
+    st.header("Editable facts")
+    st.caption("Edit each fact and its quantitative markers directly. Markers must be exact phrases from the fact, one per line.")
     with st.form(key=f"scenario_review_{scenario.scenario_id}"):
-        researcher_id = st.text_input("Researcher ID", value="imanzafar")
-        decision_value = st.segmented_control(
-            "Do you agree this scenario is ready?",
-            [ReviewDecision.ACCEPT.value, ReviewDecision.REVISE.value],
-            default=None,
-            required=True,
-            format_func=lambda value: "Agree · Accept" if value == ReviewDecision.ACCEPT.value else "Disagree · Revise",
-            width="stretch",
-        )
-        st.markdown('<div class="review-section-label">Editable facts</div>', unsafe_allow_html=True)
-        st.caption("Edit each fact and its quantitative markers directly. Markers must be exact phrases from the fact, one per line.")
-        generated_markers_by_fact = {
-            fact.fact_id: [element.canonical_value for element in scenario.specificity_elements if element.fact_id == fact.fact_id]
-            for fact in scenario.material_facts
-        }
         fact_text_by_fact: Dict[str, str] = {}
         specificity_text: Dict[str, str] = {}
         notes_by_fact: Dict[str, str] = {}
-        for fact in scenario.material_facts:
-            option_label = "Owner option" if fact.option == DecisionOption.OWNER_OPTION else "Alternative option"
-            polarity_label = "Favourable" if fact.polarity == FactPolarity.BENEFIT else "Adverse"
-            with st.container(border=True):
-                st.markdown(f"**{option_label} · {polarity_label}**")
-                fact_text_by_fact[fact.fact_id] = st.text_area(
-                    f"Fact text for {fact.fact_id}",
-                    value=fact.canonical_proposition,
-                    height=96,
-                    key=f"{scenario.scenario_id}_{fact.fact_id}_fact_text",
-                )
-                specificity_text[fact.fact_id] = st.text_area(
-                    f"Specificity markers for {fact.fact_id}",
-                    value="\n".join(generated_markers_by_fact[fact.fact_id]),
-                    height=72,
-                    placeholder="£250\n4.5%\n12 months",
-                    key=f"{scenario.scenario_id}_{fact.fact_id}_specificity",
-                )
-                notes_by_fact[fact.fact_id] = st.text_area(
-                    f"Notes for {fact.fact_id}",
-                    height=88,
-                    placeholder="Optional note about this fact",
-                    key=f"{scenario.scenario_id}_{fact.fact_id}_notes",
-                )
+        for polarity in (FactPolarity.BENEFIT, FactPolarity.DOWNSIDE):
+            polarity_label = "Favourable" if polarity == FactPolarity.BENEFIT else "Adverse"
+            st.subheader(f"{polarity_label} facts")
+            for option_id in scenario.hidden_design.presentation_order:
+                fact = fact_by_coordinate[(decision_option_by_id[option_id], polarity)]
+                with st.container(border=True):
+                    st.markdown(f"**{option_name_by_id[option_id]}**")
+                    fact_text_by_fact[fact.fact_id] = st.text_area(
+                        "Fact text",
+                        value=fact.canonical_proposition,
+                        height=96,
+                        key=f"{scenario.scenario_id}_{fact.fact_id}_fact_text",
+                        persist_state="session",
+                    )
+                    specificity_text[fact.fact_id] = st.text_area(
+                        "Specificity markers",
+                        value="\n".join(generated_markers_by_fact[fact.fact_id]),
+                        height=72,
+                        placeholder="£250\n4.5%\n12 months",
+                        key=f"{scenario.scenario_id}_{fact.fact_id}_specificity",
+                        persist_state="session",
+                    )
+                    notes_by_fact[fact.fact_id] = st.text_area(
+                        "Notes",
+                        height=88,
+                        placeholder="Optional note about this fact",
+                        key=f"{scenario.scenario_id}_{fact.fact_id}_notes",
+                        persist_state="session",
+                    )
+
+        st.markdown('<div class="review-section-label">Final decision</div>', unsafe_allow_html=True)
+        researcher_id = st.text_input("Researcher ID", value="imanzafar")
+        st.caption("Agree accepts the scenario as shown above. Disagree returns it for revision using your edits and notes.")
+        decision_value = st.segmented_control(
+            "Is this scenario ready to use?",
+            [ReviewDecision.ACCEPT.value, ReviewDecision.REVISE.value],
+            default=None,
+            required=True,
+            format_func=lambda value: "Agree" if value == ReviewDecision.ACCEPT.value else "Disagree",
+            width="stretch",
+        )
         submitted = st.form_submit_button("Save review", type="primary", width="stretch")
     if not submitted:
         return
     try:
         if decision_value is None:
-            raise ValueError("Choose Agree · Accept or Disagree · Revise.")
+            raise ValueError("Choose Agree or Disagree.")
         decision = ReviewDecision(decision_value)
         review = build_researcher_scenario_review(
             scenario=scenario,
@@ -503,17 +574,28 @@ def _render_scenario_review_form(st: Any, store: ReviewStore, scenario: Candidat
     except (ValueError, ValidationError) as error:
         st.error(str(error))
     else:
+        previous_scenario_id, next_scenario_id = scenario_navigation_targets(pending_scenario_ids, scenario.scenario_id)
+        next_selection = next_scenario_id or previous_scenario_id
+        if next_selection is not None:
+            st.session_state[SCENARIO_NAVIGATION_TARGET_KEY] = next_selection
         st.toast("Decision saved.")
         st.rerun()
 
 
-def _render_scenario_workspace(st: Any, store: ReviewStore, scenario: CandidateScenario, now: datetime) -> None:
-    """Place scenario evidence on the left and all review controls on the right."""
-    scenario_column, review_column = st.columns([1.8, 1], gap="large", vertical_alignment="top")
-    with scenario_column:
-        _render_source(st, scenario)
-    with review_column:
-        _render_scenario_review_form(st, store, scenario, now)
+def _render_scenario_workspace(
+    st: Any,
+    store: ReviewStore,
+    scenario: CandidateScenario,
+    pending_scenarios: List[CandidateScenario],
+    now: datetime,
+) -> None:
+    """Render one linear scenario review from context through final decision."""
+    pending_scenario_ids = [item.scenario_id for item in pending_scenarios]
+    _render_scenario_navigation(st, pending_scenario_ids, scenario.scenario_id, "top")
+    _render_scenario_overview(st, scenario)
+    _render_research_context(st, scenario)
+    _render_scenario_review_form(st, store, scenario, pending_scenario_ids, now)
+    _render_scenario_navigation(st, pending_scenario_ids, scenario.scenario_id, "bottom")
 
 
 def _render_scoring_input(st: Any, scoring_input: ConditionBlindScoringInput) -> None:
@@ -722,8 +804,8 @@ def run_streamlit_app(store: ReviewStore) -> None:
         if not pending:
             st.info("All candidate scenarios have a complete researcher review.")
             return
-        scenario = st.sidebar.selectbox("Scenario", pending, format_func=lambda item: item.scenario_id)
-        _render_scenario_workspace(st, store, scenario, now)
+        scenario = _select_pending_scenario(st, pending)
+        _render_scenario_workspace(st, store, scenario, pending, now)
         return
     scoring_packages = store.list_scoring_inputs()
     if not scoring_packages:

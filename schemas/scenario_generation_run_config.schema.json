@@ -8,7 +8,7 @@
       "type": "string"
     },
     "generation_protocol_version": {
-      "const": "v1.0.5",
+      "const": "v1.0.10",
       "title": "Generation Protocol Version",
       "type": "string"
     },

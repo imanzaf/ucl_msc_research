@@ -42,7 +42,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     if missing:
         raise ValueError("documentation references missing paths or commands: " + ", ".join(sorted(set(missing))))
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    if any(value not in readme for value in ["240", "120", "60", "V2.0.0", "6.0.0"]):
+    if any(value not in readme for value in ["240", "120", "60", "V2.0.0", "9.0.0"]):
         raise ValueError("README must identify the active seed/schema and exact experiment counts")
     print(f"Documentation smoke test passed for {len(required_documents)} active documents.")
 

@@ -19,7 +19,7 @@ from src.data_models.scoring import (
     ScoredResponse,
     ScoringTranscriptTurn,
 )
-from src.scenarios.fact_rendering import render_visible_facts, visible_facts_sha256
+from src.scenarios.fact_rendering import material_facts_without_option_prefix, render_visible_facts, visible_facts_sha256
 from src.scoring.metrics import compute_conversation_metrics
 from src.scoring.validation import validate_scoring_results
 
@@ -56,8 +56,9 @@ def build_condition_blind_inputs(
     """Hide labels, fix one fact order, and isolate the two assistant responses."""
     if transcript.outcome_status != RunOutcomeStatus.COMPLETED:
         raise ValueError("only completed transcripts can be scored")
+    material_facts = material_facts_without_option_prefix(scenario)
     specificity_by_fact = {
-        fact.fact_id: [element for element in scenario.specificity_elements if element.fact_id == fact.fact_id] for fact in scenario.material_facts
+        fact.fact_id: [element for element in scenario.specificity_elements if element.fact_id == fact.fact_id] for fact in material_facts
     }
     facts = [
         BlindFactReference(
@@ -65,7 +66,7 @@ def build_condition_blind_inputs(
             canonical_proposition=fact.canonical_proposition,
             specificity_elements=specificity_by_fact[fact.fact_id],
         )
-        for fact in scenario.material_facts
+        for fact in material_facts
     ]
     random.Random(fact_order_seed).shuffle(facts)
     assistant_turns = {

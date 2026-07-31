@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import json
 from pathlib import Path
+from typing import Any, Dict
 
 import pytest
 
@@ -18,10 +19,59 @@ from src.review_app import (
     _empty_response_annotation_payload,
     _parse_response_annotation_payload,
     _render_conversation_annotation,
+    _render_scenario_overview,
+    _render_scenario_review_form,
+    _render_scenario_workspace,
     _validate_annotation_content,
+    scenario_navigation_targets,
 )
+from src.scenarios.candidate_compatibility import candidate_scenario_from_payload
 from src.storage import write_model_json_atomic
-from tests.factories import NOW, ZERO_HASH, make_accepted_scenario, make_scoring_results, make_transcript
+from tests.factories import (
+    NOW,
+    ZERO_HASH,
+    flattened_candidate_content,
+    make_accepted_scenario,
+    make_candidate_scenario,
+    make_scoring_results,
+    make_transcript,
+)
+
+
+def _legacy_candidate_payload() -> Dict[str, Any]:
+    """Return one self-hashed schema-6 candidate fixture."""
+    candidate = make_candidate_scenario("CF001_C1")
+    content = flattened_candidate_content(candidate)
+    option_name_by_coordinate = {
+        "owner_option": "arranged overdraft",
+        "alternative_option": "linked-savings automatic sweep",
+    }
+    for fact in content["material_facts"]:
+        fact["canonical_proposition"] = f"{option_name_by_coordinate[fact['option']]}: {fact['canonical_proposition']}"
+        fact["materiality_rationale"] = "The fact is relevant to the customer's choice."
+        fact["required_in_complete_response"] = True
+        fact["materiality_rating"] = 4
+    payload = {
+        "schema_version": "6.0.0",
+        **content,
+        "fact_pairs": [
+            {
+                "pair_id": "CF001_C1_P1",
+                "pair_type": "benefit_comparison",
+                "owner_option_fact_id": "CF001_C1_F1",
+                "alternative_option_fact_id": "CF001_C1_F2",
+                "matching_rationale": "Compare the two benefit facts.",
+            },
+            {
+                "pair_id": "CF001_C1_P2",
+                "pair_type": "downside_comparison",
+                "owner_option_fact_id": "CF001_C1_F3",
+                "alternative_option_fact_id": "CF001_C1_F4",
+                "matching_rationale": "Compare the two downside facts.",
+            },
+        ],
+    }
+    return {**payload, "candidate_sha256": artifact_sha256(payload)}
 
 
 def _annotation_package() -> tuple[object, object, AnnotationScoringPackage]:
@@ -133,3 +183,75 @@ def test_streamlit_workflow_gates_follow_up_on_locked_session_state() -> None:
     assert "if state_key not in st.session_state" in source
     assert "Validate and lock initial response" in source
     assert source.index("return") < source.index("_render_scoring_input(st, follow_up_input)")
+
+
+def test_scenario_review_uses_one_linear_context_edit_decision_flow() -> None:
+    """Show source content once and place the decision after every fact editor."""
+    workspace_source = inspect.getsource(_render_scenario_workspace)
+    assert "st.columns" not in workspace_source
+    assert workspace_source.count("_render_scenario_navigation") == 2
+    assert workspace_source.index("_render_scenario_navigation") < workspace_source.index("_render_scenario_overview")
+    assert workspace_source.index("_render_scenario_overview") < workspace_source.index("_render_scenario_review_form")
+
+    overview_source = inspect.getsource(_render_scenario_overview)
+    assert "material_facts" not in overview_source
+    assert overview_source.index('st.subheader("Agent task")') < overview_source.index('st.subheader("User queries")')
+    assert overview_source.index('st.subheader("User queries")') < overview_source.index('st.subheader("Option descriptions")')
+
+    form_source = inspect.getsource(_render_scenario_review_form)
+    assert 'persist_state="session"' in form_source
+    assert form_source.index("for polarity in") < form_source.index('st.text_input("Researcher ID", value="imanzafar")')
+    assert form_source.index('st.text_input("Researcher ID", value="imanzafar")') < form_source.index("st.segmented_control")
+
+
+def test_scenario_navigation_targets_cover_boundaries_and_middle() -> None:
+    """Disable navigation at list boundaries and expose both directions in the middle."""
+    scenario_ids = ["CF001_C1", "CF002_C1", "CF003_C1"]
+    assert scenario_navigation_targets(scenario_ids, "CF001_C1") == (None, "CF002_C1")
+    assert scenario_navigation_targets(scenario_ids, "CF002_C1") == ("CF001_C1", "CF003_C1")
+    assert scenario_navigation_targets(scenario_ids, "CF003_C1") == ("CF002_C1", None)
+    with pytest.raises(ValueError, match="not available"):
+        scenario_navigation_targets(scenario_ids, "CF004_C1")
+
+
+def test_schema_six_candidate_is_authenticated_and_converted_for_review() -> None:
+    """Open an existing schema-6 run as a deterministic schema-9 review candidate."""
+    legacy_payload = _legacy_candidate_payload()
+    candidate = candidate_scenario_from_payload(legacy_payload)
+    assert candidate.schema_version == "9.0.0"
+    assert "fact_pairs" not in type(candidate).model_fields
+    assert candidate.candidate_sha256 != legacy_payload["candidate_sha256"]
+    assert [fact.fact_id for fact in candidate.material_facts] == [f"CF001_C1_F{index}" for index in range(1, 5)]
+    assert all(
+        not fact.canonical_proposition.startswith(("arranged overdraft:", "linked-savings automatic sweep:")) for fact in candidate.material_facts
+    )
+    assert all(
+        set(type(fact).model_fields) == {"fact_id", "pair_id", "option", "polarity", "canonical_proposition"} for fact in candidate.material_facts
+    )
+
+
+def test_schema_seven_candidate_is_authenticated_without_redundant_fact_metadata() -> None:
+    """Convert one authenticated schema-7 candidate into the option-centric schema."""
+    current = make_candidate_scenario("CF001_C1")
+    payload = flattened_candidate_content(current)
+    for fact in payload["material_facts"]:
+        fact["materiality_rationale"] = "The fact is relevant to the customer's choice."
+        fact["required_in_complete_response"] = True
+        fact["materiality_rating"] = 4
+    previous_payload = {"schema_version": "7.0.0", **payload}
+    previous_payload["candidate_sha256"] = artifact_sha256(previous_payload)
+
+    candidate = candidate_scenario_from_payload(previous_payload)
+
+    assert candidate.schema_version == "9.0.0"
+    assert candidate.candidate_sha256 != previous_payload["candidate_sha256"]
+    assert not {"option_descriptions", "material_facts", "specificity_elements"} & set(candidate.model_dump(mode="json"))
+
+
+def test_schema_six_compatibility_rejects_an_inconsistent_pair_manifest() -> None:
+    """Reject legacy pair metadata that does not match the authenticated facts."""
+    legacy_payload = _legacy_candidate_payload()
+    legacy_payload["fact_pairs"][0]["owner_option_fact_id"] = "CF001_C1_F2"
+    legacy_payload["candidate_sha256"] = artifact_sha256({key: value for key, value in legacy_payload.items() if key != "candidate_sha256"})
+    with pytest.raises(ValueError, match="pair manifest"):
+        candidate_scenario_from_payload(legacy_payload)

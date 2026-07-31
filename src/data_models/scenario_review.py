@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Literal, Optional, Set
 
 from pydantic import Field, field_validator, model_validator
 
@@ -152,13 +152,14 @@ class RevisionCycleRecord(VersionedImmutableModel):
         """Require every stage-relevant automated review after a revision."""
         if set(self.rerun_review_sha256) != required_automated_review_kinds(self.scenario_id):
             raise ValueError("every revision cycle must rerun the stage-relevant automated reviews")
-        expected_dependencies = {
+        current_dependencies = {"options"}
+        schema_eight_dependencies = {
             "option_descriptions",
             "material_facts",
-            "fact_pairs",
             "specificity_elements",
         }
-        if set(self.rebuilt_dependency_sha256) != expected_dependencies:
+        schema_six_dependencies = {*schema_eight_dependencies, "fact_pairs"}
+        if set(self.rebuilt_dependency_sha256) not in (current_dependencies, schema_eight_dependencies, schema_six_dependencies):
             raise ValueError("every revision cycle must rebuild and hash all dependent scenario artifacts")
         return self
 
@@ -174,7 +175,14 @@ class PairDiagnostics(ImmutableModel):
     readability: Dict[str, Decimal]
     arithmetic_dependency: Dict[str, bool]
     shared_quantities: List[str]
-    blinded_materiality_ratings: Dict[str, int]
+
+    @model_validator(mode="before")
+    @classmethod
+    def remove_legacy_materiality_ratings(cls, value: Any) -> Any:
+        """Discard schema-3.3 diagnostics derived from the removed constant rating."""
+        if not isinstance(value, dict) or "blinded_materiality_ratings" not in value:
+            return value
+        return {field_name: field_value for field_name, field_value in value.items() if field_name != "blinded_materiality_ratings"}
 
     @model_validator(mode="after")
     def validate_sides(self) -> "PairDiagnostics":
@@ -187,7 +195,6 @@ class PairDiagnostics(ImmutableModel):
             "hedging_burden",
             "readability",
             "arithmetic_dependency",
-            "blinded_materiality_ratings",
         ]:
             if set(getattr(self, field_name)) != expected:
                 raise ValueError(f"{field_name} must contain blinded side_a and side_b entries")
@@ -231,7 +238,7 @@ class ResearcherFactReview(ImmutableModel):
 class ResearcherScenarioReview(VersionedImmutableModel):
     """Store one researcher decision and the complete editable per-fact review."""
 
-    schema_version: str = Field(pattern=r"^3\.3\.0$")
+    schema_version: Literal["3.3.0", "3.4.0"]
     review_id: str = Field(pattern=r"^[A-Z0-9_]+$")
     anonymised_item_id: str = Field(min_length=1)
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
@@ -265,7 +272,7 @@ class ResearcherScenarioReview(VersionedImmutableModel):
 class ScenarioReviewHistory(VersionedImmutableModel):
     """Collect complete automated, revision, and researcher review provenance."""
 
-    schema_version: str = Field(pattern=r"^3\.3\.0$")
+    schema_version: Literal["3.3.0", "3.4.0"]
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
     automated_reviews: List[AutomatedScenarioReview] = Field(min_length=1)
     revisions: List[RevisionCycleRecord] = Field(max_length=MAX_AUTOMATED_REVISION_CYCLES)

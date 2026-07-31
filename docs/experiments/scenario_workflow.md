@@ -1,7 +1,7 @@
 # Scenario workflow
 
 This workflow covers V2.0.0 scenario generation, run-ID continuation, researcher review, revision, and publication. The active generation protocol
-is V1.0.5; the active scenario inputs are:
+is V1.0.10; the active scenario inputs are:
 
 - scenario definitions: `data/inputs/scenarios/v2.0.0/scenario_generation_seeds.json`
 - definition schema: `data/inputs/scenarios/v2.0.0/scenario_generation_seed_schema.json`
@@ -15,7 +15,7 @@ The four SHA-256 digests are:
 - customer queries: `2d5271a115a5a1edc10cd11f49c111d1b7d977e8f807d2405b847b301072f1e8`
 - query schema: `a8707b1a2388f9149b80b34870cdd2b98424025d4a45c6173b702248f5249133`
 
-Candidate and accepted artifacts use schema `6.0.0`.
+Candidate and accepted artifacts use schema `9.0.0`.
 
 ## Generation contract
 
@@ -23,8 +23,17 @@ One structured model call receives the broad deployment task and one seed-owned 
 owner-supporting option, and the owner-benefit mechanism. It returns a neutral operating description plus one favourable and one adverse fact for
 each option. Every fact also returns zero to three exact quantitative specificity markers, limited to phrases such as currency amounts,
 percentages, rates, limits, counts, and durations. No customer query is sent to the initial or revision generator. Revision calls receive only the
-frozen decision input, prior generated option descriptions, facts, specificity markers, fact-pair structure, and review findings; a runtime guard
+frozen decision input, prior generated option records, and review findings; a runtime guard
 rejects any generation payload containing an exact seed-authored query.
+
+The provider-facing structured output and persisted generated content share the same two option records. Each record has `option_id`, `description`,
+`favourable_fact`, and `adverse_fact`; each fact contains only `fact_text` and `specificity_markers`. Stable fact IDs, marker IDs, owner/alternative
+coordinates, polarities, and benefit/downside pairs are derived from the option slots and hidden ownership mapping when scoring or reviewing.
+
+Generation, review, and revision each use one Jinja2 file under `src/prompts/templates/`. Like the experiment and scoring contracts, every file
+contains its system and user sections separated by `---system---` and `---user---`, and formats dynamic inputs directly in the relevant section.
+The shared `src/prompts/template_utils.py` loader validates, renders, and hashes complete template sources, so changing any section invalidates
+stale generated or reviewed artifacts.
 
 Every automated or researcher-directed revision finding contains exactly `severity`, `fact_text`, and `suggested_action`. Automated review copies
 the problematic option description or material fact into `fact_text`. The researcher form saves one editable record per fact containing the fact
@@ -36,17 +45,20 @@ The separate query document groups records first by `use_case_id` and then by `s
 semantically equivalent `concerned_user_query`, and one generic `follow_up_query`. Loading requires an exact one-to-one match between the 30
 definition IDs and 30 query IDs. Deterministic code joins the records after validation, copies the queries into the candidate after generation,
 and uses them directly in evaluated prompts; there is no reusable cue-prefix or cue-template layer. The complete candidate, including its queries,
-remains visible to the independent semantic reviewer and the separate researcher prompt-review gates.
+remains visible to the separate researcher prompt-review gates. The independent semantic reviewer receives the deployment context, hidden decision
+design, and generated option information, but not the seed-authored customer queries.
 
-Only the four directional facts form the material-fact scoring denominator. Descriptions are unscored option context. Generated specificity
-markers are editable during researcher review, and accepted publication uses the researcher-saved fact text and marker lists.
+Only the four directional facts form the material-fact scoring denominator. Descriptions are unscored option context. The benefit and downside
+comparisons are derived from each option's favourable/adverse slots and the hidden ownership mapping. Generated specificity markers
+are editable during researcher review, and accepted publication uses the researcher-saved fact text and marker lists. Canonical facts do not repeat
+their option names; the evaluated prompt groups the two plain facts beneath each option-name heading in the frozen presentation order.
 
 The independent semantic reviewer checks option feasibility, operating-description neutrality, fact definiteness and materiality, internal
 consistency, pair comparability, finance realism, authority boundaries, and hidden-design leakage. Deterministic validation separately checks
 structure, identifiers, counts, hashes, and option-by-polarity coverage.
 
-Relevant implementation: `src/prompts/scenario_generation.py`, `src/scenarios/openrouter_backend.py`, `src/review_app.py`,
-`src/scenarios/researcher_edits.py`, and `src/scenarios/acceptance.py`.
+Relevant implementation: `src/prompts/scenario_generation.py`, `src/prompts/templates/`, `src/scenarios/openrouter_backend.py`,
+`src/review_app.py`, `src/scenarios/researcher_edits.py`, and `src/scenarios/acceptance.py`.
 
 ## Run structure and continuation
 
@@ -75,7 +87,9 @@ creates a timestamped round. Reusing the run ID authenticates and continues that
 same seed.
 
 Run authentication binds the generation-protocol version and all four scenario-input hashes. Earlier histories remain preserved on disk but are
-not accepted by the active V2.0.0 input and V1.0.5 generation contracts; a new run ID is required.
+not accepted by the active V2.0.0 input and V1.0.10 generation contracts; a new run ID is required.
+The reviewer can still authenticate schema-6, schema-7, and schema-8 candidates from earlier V2.0.0 runs, remove superseded flattened metadata, and
+derive a strict schema-9 option view without rewriting the historical run.
 
 Current-set resolution scans all rounds and selects the newest candidate for each scenario. An interrupted command resumes its incomplete matching
 round and reuses valid saved candidates. Publication never falls back to an older accepted candidate when a newer candidate is pending or marked
@@ -104,9 +118,10 @@ uv run risk-comm review launch \
   --server-address 127.0.0.1
 ```
 
-The scenario page shows the customer dialogue, assistant remit, option descriptions, and four directional facts as readable cards. The hidden
-owner-supporting option, its alternative, and compact pair diagnostics remain available in expanders. Five concise criteria guide one overall `accept` or
-`revise` decision:
+The scenario page uses one linear review flow. It first shows the assistant task, authority boundary, three user queries, and the two option
+descriptions. A compact research-context section identifies the owner-supporting option and benefit mechanism; the review criteria and pair diagnostics
+remain available in an expander. The four facts then appear once, as editable fields grouped into favourable and adverse pairs. Five concise criteria guide
+one overall `accept` or `revise` decision:
 
 1. realistic context and appropriate authority boundary;
 2. two feasible options;
@@ -115,10 +130,12 @@ owner-supporting option, its alternative, and compact pair diagnostics remain av
 5. sufficiently comparable fact pairs.
 
 The criteria are guidance, not separately persisted checkboxes or automatic thresholds. Each fact card contains editable fact text, an editable
-one-marker-per-line list, and an optional notes field. A revise decision requires at least one nonblank fact note. The saved researcher review uses
-schema `3.3.0`; accepted publication applies its edited fact text and marker lists, while revision turns its notes and edits into parent-linked
-findings. The app has no provider client and cannot generate, score, or run experiments. Progress is written immediately to
-`<run-id>/researcher_review/scenario_reviews.jsonl` and remains resumable if the browser closes.
+one-marker-per-line list, and an optional notes field. The prefilled researcher ID and final Agree/Disagree control appear after all fact editors. A
+revise decision requires at least one nonblank fact note. New researcher reviews use schema `3.4.0`; accepted publication applies its edited fact
+text and marker lists, while revision turns its notes and edits into parent-linked findings. The app has no provider client and cannot generate, score,
+or run experiments. Progress is written immediately to `<run-id>/researcher_review/scenario_reviews.jsonl` and remains resumable if the browser closes.
+The sidebar selector and Previous/Next controls at both ends of the page move between pending scenarios. Unsaved fact edits remain in the current
+browser session when moving between scenarios, and saving a review advances to the next pending item when one exists.
 
 ## Regenerate revised scenarios
 
@@ -134,6 +151,38 @@ uv run risk-comm scenarios generate \
 Only current `revise` cases are regenerated. Every noted or edited fact becomes a finding whose `fact_text` is the exact parent fact and whose
 `suggested_action` contains the saved note plus any researcher-edited fact text or marker list. Each replacement records its parent candidate and
 review hashes. The reviewer subsequently shows only regenerated candidate hashes without a current decision.
+
+To preserve an earlier compatible run while carrying its current `revise` decisions into a new protocol run, name the reviewed source explicitly:
+
+```bash
+uv run risk-comm scenarios generate \
+  --backend src.scenarios.openrouter_backend:create_openrouter_scenario_backend \
+  --stage calibration \
+  --run-id c1_calibration_v7 \
+  --researcher-review-run-id c1_calibration_v6
+```
+
+The new run stores an immutable copy of each selected parent candidate and its hash-bound researcher review under the timestamped round’s `inputs/`
+directory.
+
+## Migrate flattened outputs
+
+The local-only migration combines the newest approved candidate per C1 without making provider calls:
+
+```bash
+uv run risk-comm scenarios migrate-v8 \
+  --source-run-id c1_calibration_v6 \
+  --source-run-id c1_calibration_v7 \
+  --run-id c1_calibration_v8
+```
+
+It writes a complete ten-scenario target run plus `migration_manifest.json`, rebinding automated and researcher decisions to the option-centric
+candidate hashes. To convert the existing V8 run and tracked accepted bundles in place:
+
+```bash
+uv run risk-comm scenarios migrate-option-schema --run-id c1_calibration_v8
+uv run risk-comm scenarios migrate-accepted-option-schema
+```
 
 ## Generate R1 and R2 separately
 
@@ -157,8 +206,9 @@ uv run risk-comm scenarios generate \
   --calibration-run-id c1_calibration_v1
 ```
 
-The combined family review waits until both R candidates exist. Omit `--scenario-id` and use `--use-case-id CF001` to create the complete family in
-one round. The layout does not depend on a fixed replication count, so later R3/R4 seeds can use the same mechanism.
+Each command completes generation, automated review, and any bounded revision for its selected replication without waiting for the other R
+candidate. The accepted C1 remains an individual comparison anchor for each review. Omit `--scenario-id` and use `--use-case-id CF001` to process
+R1 and R2 independently within one round.
 
 ## Publish the accepted set
 

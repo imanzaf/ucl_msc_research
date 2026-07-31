@@ -92,7 +92,7 @@ def _build_current_accepted_bundles(
             raise ValueError(f"current candidate does not have an exact researcher accept decision: {scenario_id}")
         validate_candidate_seed_ownership(artifact.candidate, seed)
         history = ScenarioReviewHistory(
-            schema_version="3.3.0",
+            schema_version="3.4.0",
             scenario_id=scenario_id,
             automated_reviews=read_model_jsonl(artifact.automated_reviews_path, AutomatedScenarioReview),
             revisions=read_model_jsonl(artifact.revision_cycles_path, RevisionCycleRecord),

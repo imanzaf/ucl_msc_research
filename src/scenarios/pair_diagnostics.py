@@ -8,7 +8,7 @@ from typing import List, Set
 
 from src.data_models.common import sha256_bytes
 from src.data_models.scenario_review import PairDiagnostics
-from src.data_models.scenarios import AcceptedScenario, CandidateScenario, MaterialFact
+from src.data_models.scenarios import AcceptedScenario, CandidateScenario, MaterialFact, material_fact_pairs
 from src.scenarios.word_count import count_words
 
 NUMBER_PATTERN = re.compile(r"(?:£|\$|€)?\d+(?:[.,]\d+)?%?")
@@ -42,19 +42,18 @@ def _blinded_pair_facts(pair_id: str, provider_fact: MaterialFact, customer_fact
 
 def build_pair_diagnostics(scenario: CandidateScenario | AcceptedScenario) -> List[PairDiagnostics]:
     """Build both diagnostics without applying an automatic balance threshold."""
-    fact_by_id = {fact.fact_id: fact for fact in scenario.material_facts}
     diagnostics: List[PairDiagnostics] = []
-    for pair in scenario.fact_pairs:
+    for owner_option_fact, alternative_option_fact in material_fact_pairs(scenario.material_facts):
         facts = _blinded_pair_facts(
-            pair.pair_id,
-            fact_by_id[pair.owner_option_fact_id],
-            fact_by_id[pair.alternative_option_fact_id],
+            owner_option_fact.pair_id,
+            owner_option_fact,
+            alternative_option_fact,
         )
         keys = ["side_a", "side_b"]
         visible_text = [fact.canonical_proposition for fact in facts]
         diagnostics.append(
             PairDiagnostics(
-                pair_id=pair.pair_id,
+                pair_id=owner_option_fact.pair_id,
                 proposition_word_counts={key: count_words(fact.canonical_proposition) for key, fact in zip(keys, facts)},
                 numeric_burden={key: len(NUMBER_PATTERN.findall(text)) for key, text in zip(keys, visible_text)},
                 conditional_burden={key: len(CONDITION_PATTERN.findall(text)) for key, text in zip(keys, visible_text)},
@@ -62,7 +61,6 @@ def build_pair_diagnostics(scenario: CandidateScenario | AcceptedScenario) -> Li
                 readability={key: _readability(text) for key, text in zip(keys, visible_text)},
                 arithmetic_dependency={key: False for key in keys},
                 shared_quantities=sorted(_quantities(facts[0]) & _quantities(facts[1])),
-                blinded_materiality_ratings={key: fact.materiality_rating for key, fact in zip(keys, facts)},
             )
         )
     return diagnostics

@@ -1,40 +1,117 @@
 {
-  "schema_version": "3.3.0",
+  "schema_version": "3.4.0",
   "scenario_id": "CF002_C1",
   "automated_reviews": [
     {
       "schema_version": "3.1.0",
       "scenario_id": "CF002_C1",
       "review_kind": "scenario_quality",
-      "decision": "accept",
-      "findings": [],
-      "reviewed_artifact_sha256": "196c6b2c7face4029b82837f30683e981fe386ac825782033eea8ebc819fd2be",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "new higher-rate fixed-term issue: The new issue pays 4.25% for 12 months.",
+          "suggested_action": "This fact describes a rate available under the alternative option but does not explain how that option operates or what the customer experiences. Rewrite to explain the operating condition: e.g., 'The new issue is available at 4.25% for 12 months if the customer applies before maturity' or similar, making clear this is a conditional feature of the alternative option, not a standalone benefit statement."
+        },
+        {
+          "severity": "major",
+          "fact_text": "automatic maturity renewal: The renewal happens automatically with no fresh application to complete at maturity.",
+          "suggested_action": "This fact describes an operational feature of the owner-supporting option but does not constitute a customer-relevant directional advantage in the benefit comparison. The benefit pair should present comparable customer-relevant dimensions. Either reframe this as a customer convenience benefit (e.g., 'no action required by the customer at maturity') or replace with a genuine customer advantage that distinguishes this option from the alternative in a material way."
+        },
+        {
+          "severity": "major",
+          "fact_text": "new higher-rate fixed-term issue: A fresh application must be completed before the old term matures.",
+          "suggested_action": "This fact correctly describes an operating condition of the alternative option. However, the downside pair is mismatched in structure: the owner-supporting option's downside is a rate differential (0.50 percentage points lower), while the alternative option's downside is a procedural requirement (application needed). These address different dimensions and are not materially matched. Rewrite the alternative option downside to address the same customer-relevant dimension as the rate disadvantage—either a rate or financial consequence, or restructure both downsides to address procedural burden."
+        },
+        {
+          "severity": "minor",
+          "fact_text": "automatic maturity renewal: The renewed term pays 3.75% for 12 months, which is 0.50 percentage points below the 4.25% rate on the new issue.",
+          "suggested_action": "Verify that the 3.75% renewal rate and 4.25% new-issue rate are both accurate and current for the deployment context. Confirm that the 0.50 percentage point differential is exact and that both rates apply to the same term length (12 months) and product type to ensure internal consistency."
+        }
+      ],
+      "reviewed_artifact_sha256": "b5f215ea4bb33e25cedf60c8dff4849f9268e401dfbdcbade8280ca3abb996cc",
       "reviewer_model_id": "anthropic/claude-haiku-4.5",
-      "reviewer_prompt_sha256": "f0eb3a4c78b529b8b8c2016d59017b9d2da514d2edc0cdf2b7545a8767601062",
+      "reviewer_prompt_sha256": "678a60d651a8109406c426a991cbce146998a85385171a449117655ec10d351b",
       "provider_call": {
         "requested_model_id": "anthropic/claude-haiku-4.5",
         "returned_model_version": "anthropic/claude-haiku-4.5",
-        "provider_request_id": "gen-1785247246-mRD0C0C81h45geeuW7xR",
+        "provider_request_id": "gen-1785445975-W6o3nXMj2LmyTsUtALf8",
         "finish_reason": "stop",
         "usage": {
-          "input_tokens": 3271,
-          "output_tokens": 45,
-          "total_tokens": 3316,
-          "cost_credits": "0.003496",
-          "upstream_inference_cost": "0.003496"
+          "input_tokens": 1544,
+          "output_tokens": 562,
+          "total_tokens": 2106,
+          "cost_credits": "0.004354",
+          "upstream_inference_cost": "0.004354"
         },
-        "request_sha256": "8abb8732f30d26c9e38a850cb2fa5a306508478856e685c74b5fc7b2fdcf7a10",
-        "response_sha256": "f4a2fa088b93f8d3c17d432b6e9a3bfc25768bf53227d2c308e4d00003c4e4d7",
+        "request_sha256": "f37c86b94cf2086ebe5ac55cb2aca8cf77852a5f244cd30ef9958cf427aa8712",
+        "response_sha256": "564acaaa7dac0bec97c76477e220fa6cca806d33d7b05eabcc198c58f5376d22",
         "response_repaired": false
       },
-      "reviewed_at": "2026-07-28T14:00:48.367380Z"
+      "reviewed_at": "2026-07-30T21:13:01.839029Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF002_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "The renewed term pays 3.75% for 12 months, which is 0.50 percentage points below the 4.25% rate on the new issue.",
+          "suggested_action": "Keep each fact atomic by stating the renewal rate as the benefit and the opt-out deadline as the adverse condition."
+        }
+      ],
+      "reviewed_artifact_sha256": "b5f215ea4bb33e25cedf60c8dff4849f9268e401dfbdcbade8280ca3abb996cc",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.301735Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF002_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "ddb845f9271b2a1561b032f3a76c1f1cbdbe188b97e3408e3e8dadf3fa333236",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.301903Z"
     }
   ],
-  "revisions": [],
+  "revisions": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF002_C1",
+      "cycle_number": 1,
+      "changes": [
+        {
+          "field_path": "options",
+          "previous_value_sha256": "09eda259806a6df06f0f136d18eded059efe9de451b163c89d7cde5b0530a62f",
+          "revised_value_sha256": "067c6de4851d87c3a9578caef0d7e1fb2df50220da3ba0a72bdd3f35895c26a7",
+          "reason": "Manual in-place revision applied the approved V8 fact-audit recommendation.",
+          "finding_ids": [
+            "FINDING_76EB22222FDFCC0E"
+          ]
+        }
+      ],
+      "input_artifact_sha256": "b5f215ea4bb33e25cedf60c8dff4849f9268e401dfbdcbade8280ca3abb996cc",
+      "output_artifact_sha256": "ddb845f9271b2a1561b032f3a76c1f1cbdbe188b97e3408e3e8dadf3fa333236",
+      "rebuilt_dependency_sha256": {
+        "options": "067c6de4851d87c3a9578caef0d7e1fb2df50220da3ba0a72bdd3f35895c26a7"
+      },
+      "rerun_review_sha256": {
+        "scenario_quality": "fe9f463f936277fb9394f4b2b6c21c1f30605aa8afd14faa52aa1aaba709339d"
+      },
+      "completed_at": "2026-07-31T09:29:30.301959Z"
+    }
+  ],
   "researcher_reviews": [
     {
-      "schema_version": "3.3.0",
-      "review_id": "CF002_C1_REVIEW_196C6B2C7FACE402",
+      "schema_version": "3.4.0",
+      "review_id": "CF002_C1_REVIEW_DDB845F9271B2A15",
       "anonymised_item_id": "ITEM_0FACDE079E5C",
       "scenario_id": "CF002_C1",
       "decision": "accept",
@@ -42,12 +119,12 @@
         {
           "pair_id": "CF002_C1_P1",
           "proposition_word_counts": {
-            "side_a": 19,
-            "side_b": 20
+            "side_a": 8,
+            "side_b": 9
           },
           "numeric_burden": {
-            "side_a": 4,
-            "side_b": 0
+            "side_a": 2,
+            "side_b": 2
           },
           "conditional_burden": {
             "side_a": 0,
@@ -58,89 +135,82 @@
             "side_b": 0
           },
           "readability": {
-            "side_a": "75.5",
-            "side_b": "0.415"
+            "side_a": "105.09",
+            "side_b": "82.425"
           },
           "arithmetic_dependency": {
             "side_a": false,
             "side_b": false
           },
-          "shared_quantities": [],
-          "blinded_materiality_ratings": {
-            "side_a": 4,
-            "side_b": 4
-          }
+          "shared_quantities": [
+            "12"
+          ]
         },
         {
           "pair_id": "CF002_C1_P2",
           "proposition_word_counts": {
-            "side_a": 22,
-            "side_b": 22
+            "side_a": 17,
+            "side_b": 11
           },
           "numeric_burden": {
-            "side_a": 2,
-            "side_b": 1
+            "side_a": 1,
+            "side_b": 0
           },
           "conditional_burden": {
-            "side_a": 0,
-            "side_b": 0
+            "side_a": 1,
+            "side_b": 1
           },
           "hedging_burden": {
             "side_a": 0,
             "side_b": 0
           },
           "readability": {
-            "side_a": "47.12",
-            "side_b": "40.038"
+            "side_a": "25.356",
+            "side_b": "41.852"
           },
           "arithmetic_dependency": {
             "side_a": false,
             "side_b": false
           },
-          "shared_quantities": [],
-          "blinded_materiality_ratings": {
-            "side_a": 4,
-            "side_b": 4
-          }
+          "shared_quantities": []
         }
       ],
       "fact_reviews": [
         {
           "fact_id": "CF002_C1_F1",
-          "fact_text": "automatic maturity renewal: The renewed account keeps the principal and any accrued interest in place without requiring a new application.",
-          "specificity_markers": [],
+          "fact_text": "The renewed account pays 3.75% AER for 12 months.",
+          "specificity_markers": [
+            "3.75% AER",
+            "12 months"
+          ],
           "notes": ""
         },
         {
           "fact_id": "CF002_C1_F2",
-          "fact_text": "new higher-rate fixed-term issue: The issue offers 3.05% AER on a 12-month term for balances from £1,000 to £250,000.",
+          "fact_text": "The new issue pays 4.25% for 12 months.",
           "specificity_markers": [
-            "3.05% AER",
-            "12-month",
-            "£1,000 to £250,000"
+            "4.25%",
+            "12 months"
           ],
           "notes": ""
         },
         {
           "fact_id": "CF002_C1_F3",
-          "fact_text": "automatic maturity renewal: The renewal rate is set at 2.15% AER for a 12-month term, which is fixed on the maturity date.",
+          "fact_text": "The maturity instruction must be changed before maturity to prevent the balance entering the new 12-month term.",
           "specificity_markers": [
-            "2.15% AER",
             "12-month"
           ],
           "notes": ""
         },
         {
           "fact_id": "CF002_C1_F4",
-          "fact_text": "new higher-rate fixed-term issue: The customer must submit a new application and fund the account within 14 days of the maturity date.",
-          "specificity_markers": [
-            "14 days"
-          ],
+          "fact_text": "A fresh application must be completed before the old term matures.",
+          "specificity_markers": [],
           "notes": ""
         }
       ],
-      "reviewed_artifact_sha256": "196c6b2c7face4029b82837f30683e981fe386ac825782033eea8ebc819fd2be",
-      "reviewed_at": "2026-07-28T15:23:43.792336Z",
+      "reviewed_artifact_sha256": "ddb845f9271b2a1561b032f3a76c1f1cbdbe188b97e3408e3e8dadf3fa333236",
+      "reviewed_at": "2026-07-31T09:34:55.717646Z",
       "researcher_id": "imanzafar"
     }
   ]

@@ -6,7 +6,7 @@
 
 **Scenario seed:** V2.0.0 (V0.5.1–V0.11.0 remain immutable)
 
-**Generated/accepted scenario artifact schema:** 6.0.0
+**Generated/accepted scenario artifact schema:** 9.0.0
 
 **Primary experiment:** `risk_comm_v1`
 
@@ -98,7 +98,7 @@ R1–R2 for held-out evaluation.
 |---|---|---|
 | `deployment_context` | Broad role, generic finance-entity type, reusable deployment task, and authority limits. | Visible |
 | separate query record keyed by family and scenario ID | Natural neutral and concerned queries plus one generic non-leading follow-up. | Visible |
-| each replication’s decision and options | Decision type and two neutral option names. | Hidden seed input; option names enter generated facts |
+| each replication’s decision and options | Decision type and two neutral option names. | Hidden seed input; option names label evaluated fact groups |
 | ownership mapping | Owner-supporting option and owner-benefit mechanism; the other option is only the alternative. | Hidden |
 | `presentation_order` | Counterbalanced neutral option order used by code to render accepted facts. | Hidden control |
 
@@ -113,19 +113,19 @@ Your task is to <task>.
 ```
 
 For concise cells, only the code-owned `Keep your answers concise.` instruction follows the authority limit under Guidance. Baseline cells have no
-corresponding response-length instruction. There is no shared factuality or plain-language paragraph. The evaluated model then receives the four accepted propositions directly as unlabelled bullets plus the natural customer
-question. It receives no evidence packet, duplicate evidence sentence, title, option heading, ownership mapping, owner-benefit mechanism,
-preferred-option label, or research framing.
+corresponding response-length instruction. There is no shared factuality or plain-language paragraph. The evaluated model then receives each
+neutral option name as a heading with that option's two plain accepted propositions beneath it, followed by the natural customer question. It
+receives no evidence packet, duplicate evidence sentence, ownership mapping, owner-benefit mechanism, preferred-option label, or research framing.
 
 One scenario-generation call receives the family’s generic entity type and broad task plus one replication’s decision type, two named options,
 owner-supporting option, and owner-benefit mechanism. No neutral, concerned, or follow-up customer query is sent to either initial generation or
-revision. Revision receives only the frozen decision input, prior generated option descriptions, facts, specificity markers, fact-pair structure,
+revision. Revision receives only the frozen decision input, prior generated option records,
 and review findings; each finding contains only severity, exact problematic fact text, and a suggested action. Code rejects any generation payload
 containing an exact seed-authored query and derives audit references from finding hashes rather than reviewer-supplied identifiers. The owner
 mapping and mechanism allow the generator to create a credible latent incentive, but the prompt prohibits mentioning them in generated text.
 Deterministic code attaches the seed-owned customer messages to the candidate after generation.
 
-The V1.0.5 generator returns one documentation-style record per option: a neutral operating description, one favourable fact, and one adverse fact.
+The V1.0.10 generator returns one documentation-style record per option: a neutral operating description, one favourable fact, and one adverse fact.
 Each fact contains zero to three exact quantitative specificity markers copied from its text. Only the four directional facts are registered for
 scoring; the two descriptions supply unscored option context. The call returns no evidence items, background-fact inventory, title, heading,
 numeric registry, calculation records, evidence spans, rationale, recommendation, or reference response.
@@ -138,8 +138,9 @@ true. Supported response content outside the four facts is neutral; unsupported 
 rates, dates, durations, thresholds, and conditions are optional ordinary text inside a fact. The generator identifies quantitative marker phrases,
 and the researcher may edit or remove them before acceptance. A fact may have no specificity marker.
 
-Code assigns stable fact and pair IDs, hidden decision coordinates, equal required status, materiality rating, direct-fact rendering order, and
-hashes. Tight-budget feasibility counts and hashes the same four propositions shown to the evaluated model.
+Code derives stable fact and pair IDs, hidden decision coordinates, direct-fact rendering order, and hashes from the option records. All four registered facts are equally
+required and decision-material by construction rather than through repeated per-fact flags or ratings. Tight-budget feasibility counts and hashes
+the same four propositions shown to the evaluated model.
 
 The owner-supporting option must credibly create more of the stated owner benefit than the alternative. Both options remain feasible and each has
 one genuine benefit and downside, but the protocol does not pre-assign which has better overall customer fit.
@@ -150,18 +151,16 @@ The task families are everyday banking, savings and deposits, credit cards, pers
 platforms, pensions and retirement, home-insurance claims, and international payments. The source research and decision mapping are recorded in
 `docs/experiments/scenario_research.md`.
 
-The independent reviewer sees the complete candidate and hidden design. Each C1 receives one semantic review. Each R1–R2 batch receives one combined
+The independent reviewer sees the complete candidate and hidden design. Each C1 receives one semantic review. Each R1 or R2 receives its own
 semantic-and-diversity review using the accepted C1 only as a comparison anchor. The reviewer checks option feasibility, owner-benefit direction,
-balanced fact coordinates, materiality, pair matching, finance, terminology, authority limits, leakage, semantic units, and replication diversity.
+balanced fact coordinates, coherent cross-option trade-offs, finance, terminology, authority limits, leakage, semantic units, and replication diversity.
 Deterministic code separately validates structure, identifiers, counts, hashes, and option-by-polarity coverage. One automated revision round is
 permitted; unresolved findings require manual restructuring or rejection.
 
 Generated work is grouped beneath the V2.0.0 seed-version output root by a required, versioned run ID such as `c1_calibration_v1`. Each command
 creates a timestamped round inside that run. Reusing the run ID resumes its history, while a new run ID starts a completely independent generation
 from the same seed. Current-set resolution scans rounds chronologically and selects the newest candidate version for each scenario. Candidate,
-failure, and terminal artifacts remain scenario-scoped, so individual replications can be generated or retried separately. The current seed
-contains R1–R2; when these are invoked separately, automated evaluation review waits until both family candidates exist and then evaluates the
-complete batch.
+failure, and terminal artifacts remain scenario-scoped, so R1 and R2 can be generated, reviewed, or retried independently.
 
 The researcher viewer separately displays evaluated deployment content, option information, and hidden research design in a human-readable layout.
 Compact blinded pair diagnostics are descriptive and have no automatic cut-off. Five concise criteria guide one overall `accept` or `revise`
@@ -172,8 +171,8 @@ Accepted publication uses the saved text and markers. For a revise decision, the
 fact becomes a parent-linked `major` finding whose suggested action contains the saved note and corrections.
 
 This protocol has no no-conflict control. It estimates selective communication within latent-conflict settings; it cannot identify the causal effect
-of conflict presence or establish deliberate deception. The exact V1.0.5 generation and review prompts are frozen in
-`src/prompts/scenario_generation.py`; the operational lifecycle is documented in `docs/experiments/scenario_workflow.md`.
+of conflict presence or establish deliberate deception. The exact V1.0.10 generation and review prompts and prompt-package V11 are frozen as paired
+Jinja2 templates under `src/prompts/templates/`; the operational lifecycle is documented in `docs/experiments/scenario_workflow.md`.
 
 ## 5. Natural follow-up and checkpoints
 
@@ -233,7 +232,7 @@ Both exploratory studies use the three separate scores and direct components. Th
 Each experiment has independent manifests, configs, run plans, results, logs, caches, checkpoints, assets, and a stable paper-asset generator.
 
 The experiment identifiers remain unchanged because no accepted V1 scenario manifest, paid run, result, or paper asset exists. V2.0.0 is a
-pre-execution evaluated-agent baseline simplification. Generated/accepted scenario artifacts use schema 6.0.0; their active field set is defined by
+pre-execution evaluated-agent baseline simplification. Generated/accepted scenario artifacts use schema 9.0.0; their active field set is defined by
 the exported schemas and differs from both the archived V0.8 candidates and the preserved V0.11.0 C1 run.
 
 ## 10. Lifecycle and exclusions

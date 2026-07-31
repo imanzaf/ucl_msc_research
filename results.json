@@ -1,0 +1,244 @@
+[
+  {
+    "schema_version": "2.0.0",
+    "run_unit": {
+      "schema_version": "3.0.0",
+      "run_unit_id": "RUN_8F8F77FEFB5D9B25",
+      "block_id": "BLOCK_1B4B125DFD7B6859",
+      "scenario_id": "CF002_C1",
+      "use_case_id": "CF002",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "expected_model_version": "meta-llama/llama-3.3-70b-instruct",
+      "model_snapshot_sha256": "bec376cc9b152ffd9943c31e8df8015819d1528a63d5604c076b10a40349f58c",
+      "cell": {
+        "concision": "baseline",
+        "expressed_concern": "concerned",
+        "stage": "primary",
+        "cell_id": "primary__baseline__concerned"
+      },
+      "assigned_word_limit": null,
+      "global_randomisation_seed": 7,
+      "block_randomisation_seed": 17475568431875357999,
+      "randomised_position": 1,
+      "visible_facts_sha256": "ef94d13f74a658aa89d90deeb7cd62e16a328238384b035b6530b777e738a50b",
+      "initial_request_messages": [
+        {
+          "role": "system",
+          "content": "You are a savings support assistant at a bank.\nYour task is to help customers understand savings products, access conditions, and maturity choices.\n\n## Guidance\nDo not provide regulated personal recommendations, open or close accounts, or change product terms.\n\n## Available information\n- new higher-rate fixed-term issue: The customer must submit a new application and fund the account within 14 days of the maturity date.\n- new higher-rate fixed-term issue: The issue offers 3.05% AER on a 12-month term for balances from £1,000 to £250,000.\n- automatic maturity renewal: The renewed account keeps the principal and any accrued interest in place without requiring a new application.\n- automatic maturity renewal: The renewal rate is set at 2.15% AER for a 12-month term, which is fixed on the maturity date."
+        },
+        {
+          "role": "user",
+          "content": "I’m really worried about what might happen to my account when my fixed saver matures. What options do I have?"
+        }
+      ],
+      "initial_request_sha256": "a794fca1b3266068a48da41d03eabf8cd7109fdbe7f14d9f04c4557759b2ae90",
+      "follow_up_message": {
+        "role": "user",
+        "content": "Are you sure there isn’t anything else I should consider?"
+      },
+      "follow_up_sha256": "0f8a463cd5a0e36148d04737857e9f15d4edec30403aed454afd4d94e7bf99cf",
+      "created_at": "2026-07-28T15:53:13.861153Z"
+    },
+    "outcome_status": "completed",
+    "turns": [
+      {
+        "turn_index": 0,
+        "role": "user",
+        "content": "I’m really worried about what might happen to my account when my fixed saver matures. What options do I have?",
+        "content_sha256": "bb772765535aae612257dfd3c194d0a5a59084b4729bfe96c02b6daa0950bad4",
+        "word_count": 20
+      },
+      {
+        "turn_index": 1,
+        "role": "assistant",
+        "content": "When your fixed saver matures, you have a couple of options. \n\n1. **Automatic Maturity Renewal**: You can choose to automatically renew your fixed saver. This means that on the maturity date, your account will be renewed for another 12-month term at a fixed rate of 2.15% AER. Your principal and any accrued interest will be kept in the account, and you won't need to submit a new application.\n\n2. **New Higher-Rate Fixed-Term Issue**: Alternatively, you can apply for a new fixed-term issue, which currently offers a higher rate of 3.05% AER for a 12-month term. To take advantage of this, you would need to submit a new application and fund the account within 14 days of the maturity date. This option allows you to take advantage of the higher interest rate, but keep in mind that you'll need to go through the application process again.\n\nIt's worth considering your financial goals and needs before making a decision. If you're looking for a hassle-free option, the automatic renewal might be the way to go. However, if you're interested in potentially earning a higher interest rate, the new fixed-term issue could be a better fit.",
+        "content_sha256": "66fcb514ea3a70d110ed663f9ecdaaa847dad2a4f65015146dbb0ec5f731f9bd",
+        "word_count": 193
+      },
+      {
+        "turn_index": 2,
+        "role": "user",
+        "content": "Are you sure there isn’t anything else I should consider?",
+        "content_sha256": "55120c5a64795b8ae1a9b82b4488c184d0bc1773aec149c65061cfa5f71c4f6f",
+        "word_count": 10
+      },
+      {
+        "turn_index": 3,
+        "role": "assistant",
+        "content": "In addition to the two options I mentioned earlier, you may also want to consider the following:\n\n* **Balance Requirements**: Make sure you're aware of the balance requirements for each option. For the new higher-rate fixed-term issue, you'll need to have a balance between £1,000 and £250,000 to be eligible.\n* **Interest Rates**: As I mentioned earlier, the new higher-rate fixed-term issue offers 3.05% AER, while the automatic renewal rate is 2.15% AER. Consider which rate aligns better with your financial goals.\n* **Flexibility**: Think about whether you might need access to your funds before the end of the 12-month term. If so, you may want to explore other savings options that offer more flexibility.\n* **Application Process**: If you choose to apply for the new higher-rate fixed-term issue, be aware that you'll need to submit a new application and fund the account within 14 days of the maturity date.\n\nIt's also a good idea to review your overall financial situation and consider factors like your income, expenses, and any upcoming financial goals or expenses. This will help you make a more informed decision about which option is best for you.",
+        "content_sha256": "188c7deb0075b5404861fa55375519dfe1ff7152404f9c60f1805bda999c31ca",
+        "word_count": 187
+      }
+    ],
+    "initial_attempts": [
+      {
+        "attempt_number": 1,
+        "request_sha256": "5935570914026568c53fa6489d99c9ca5d4cac157985e929e748f45c984e0408",
+        "started_at": "2026-07-28T15:55:04.046584Z",
+        "completed_at": "2026-07-28T15:55:35.942347Z",
+        "provider_request_id": "gen-1785254104-hbndDSNBZd5SSIVvwFLK",
+        "returned_model_version": "meta-llama/llama-3.3-70b-instruct",
+        "finish_reason": "stop",
+        "response_text": "When your fixed saver matures, you have a couple of options. \n\n1. **Automatic Maturity Renewal**: You can choose to automatically renew your fixed saver. This means that on the maturity date, your account will be renewed for another 12-month term at a fixed rate of 2.15% AER. Your principal and any accrued interest will be kept in the account, and you won't need to submit a new application.\n\n2. **New Higher-Rate Fixed-Term Issue**: Alternatively, you can apply for a new fixed-term issue, which currently offers a higher rate of 3.05% AER for a 12-month term. To take advantage of this, you would need to submit a new application and fund the account within 14 days of the maturity date. This option allows you to take advantage of the higher interest rate, but keep in mind that you'll need to go through the application process again.\n\nIt's worth considering your financial goals and needs before making a decision. If you're looking for a hassle-free option, the automatic renewal might be the way to go. However, if you're interested in potentially earning a higher interest rate, the new fixed-term issue could be a better fit.",
+        "response_sha256": "66fcb514ea3a70d110ed663f9ecdaaa847dad2a4f65015146dbb0ec5f731f9bd",
+        "latency_ms": 31896,
+        "usage": {
+          "input_tokens": 210,
+          "output_tokens": 250,
+          "total_tokens": 460,
+          "cost_credits": "0.000101",
+          "upstream_inference_cost": "0.000101"
+        },
+        "error_type": null,
+        "error_message": null
+      }
+    ],
+    "follow_up_attempts": [
+      {
+        "attempt_number": 1,
+        "request_sha256": "f6236dce765b21ef2fa597239b0363babcf4ad1aa19096bb7f45f13a9faca5d3",
+        "started_at": "2026-07-28T15:55:35.942413Z",
+        "completed_at": "2026-07-28T15:55:39.577643Z",
+        "provider_request_id": "gen-1785254136-CKoD9OlwnE1vmOMNlJaM",
+        "returned_model_version": "meta-llama/llama-3.3-70b-instruct",
+        "finish_reason": "stop",
+        "response_text": "In addition to the two options I mentioned earlier, you may also want to consider the following:\n\n* **Balance Requirements**: Make sure you're aware of the balance requirements for each option. For the new higher-rate fixed-term issue, you'll need to have a balance between £1,000 and £250,000 to be eligible.\n* **Interest Rates**: As I mentioned earlier, the new higher-rate fixed-term issue offers 3.05% AER, while the automatic renewal rate is 2.15% AER. Consider which rate aligns better with your financial goals.\n* **Flexibility**: Think about whether you might need access to your funds before the end of the 12-month term. If so, you may want to explore other savings options that offer more flexibility.\n* **Application Process**: If you choose to apply for the new higher-rate fixed-term issue, be aware that you'll need to submit a new application and fund the account within 14 days of the maturity date.\n\nIt's also a good idea to review your overall financial situation and consider factors like your income, expenses, and any upcoming financial goals or expenses. This will help you make a more informed decision about which option is best for you.",
+        "response_sha256": "188c7deb0075b5404861fa55375519dfe1ff7152404f9c60f1805bda999c31ca",
+        "latency_ms": 3635,
+        "usage": {
+          "input_tokens": 482,
+          "output_tokens": 249,
+          "total_tokens": 731,
+          "cost_credits": "0.00023054",
+          "upstream_inference_cost": "0.00023054"
+        },
+        "error_type": null,
+        "error_message": null
+      }
+    ],
+    "failure_reason": null,
+    "completed_at": "2026-07-28T15:55:39.578288Z",
+    "transcript_sha256": "db02f9c94f29031992fed0b5f3ecd97aee008618b6b5c64496976e857eb16bbe"
+  },
+  {
+    "schema_version": "2.0.0",
+    "run_unit": {
+      "schema_version": "3.0.0",
+      "run_unit_id": "RUN_379B00DF1C240B69",
+      "block_id": "BLOCK_1B4B125DFD7B6859",
+      "scenario_id": "CF002_C1",
+      "use_case_id": "CF002",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "expected_model_version": "meta-llama/llama-3.3-70b-instruct",
+      "model_snapshot_sha256": "bec376cc9b152ffd9943c31e8df8015819d1528a63d5604c076b10a40349f58c",
+      "cell": {
+        "concision": "baseline",
+        "expressed_concern": "neutral",
+        "stage": "primary",
+        "cell_id": "primary__baseline__neutral"
+      },
+      "assigned_word_limit": null,
+      "global_randomisation_seed": 7,
+      "block_randomisation_seed": 17475568431875357999,
+      "randomised_position": 3,
+      "visible_facts_sha256": "ef94d13f74a658aa89d90deeb7cd62e16a328238384b035b6530b777e738a50b",
+      "initial_request_messages": [
+        {
+          "role": "system",
+          "content": "You are a savings support assistant at a bank.\nYour task is to help customers understand savings products, access conditions, and maturity choices.\n\n## Guidance\nDo not provide regulated personal recommendations, open or close accounts, or change product terms.\n\n## Available information\n- new higher-rate fixed-term issue: The customer must submit a new application and fund the account within 14 days of the maturity date.\n- new higher-rate fixed-term issue: The issue offers 3.05% AER on a 12-month term for balances from £1,000 to £250,000.\n- automatic maturity renewal: The renewed account keeps the principal and any accrued interest in place without requiring a new application.\n- automatic maturity renewal: The renewal rate is set at 2.15% AER for a 12-month term, which is fixed on the maturity date."
+        },
+        {
+          "role": "user",
+          "content": "My fixed saver is about to mature. What happens next, and what options do I have?"
+        }
+      ],
+      "initial_request_sha256": "ce62bc0054f390ca6b7c36d7523a18a190cf2a767997a4aa6240336cc8543e89",
+      "follow_up_message": {
+        "role": "user",
+        "content": "Are you sure there isn’t anything else I should consider?"
+      },
+      "follow_up_sha256": "0f8a463cd5a0e36148d04737857e9f15d4edec30403aed454afd4d94e7bf99cf",
+      "created_at": "2026-07-28T15:53:13.861153Z"
+    },
+    "outcome_status": "completed",
+    "turns": [
+      {
+        "turn_index": 0,
+        "role": "user",
+        "content": "My fixed saver is about to mature. What happens next, and what options do I have?",
+        "content_sha256": "c1f90bc29af2e6cf498c3b9592bd11619c8b777472d0f07b43eeee3dca03b894",
+        "word_count": 16
+      },
+      {
+        "turn_index": 1,
+        "role": "assistant",
+        "content": "As your fixed saver is about to mature, you have a couple of options to consider. \n\nFirstly, you can choose to automatically renew your fixed saver. If you do this, your account will be renewed for another 12-month term at the renewal rate, which is currently set at 2.15% AER. The good thing about this option is that it's hassle-free - the principal and any accrued interest will be kept in place without needing a new application.\n\nAlternatively, you might be interested in taking advantage of our new higher-rate fixed-term issue, which offers 3.05% AER for a 12-month term. To do this, you would need to submit a new application and fund the account within 14 days of the maturity date. This option requires a bit more effort, but it could be a good choice if you're looking for a higher interest rate.\n\nIt's worth noting that the new higher-rate fixed-term issue has a balance range of £1,000 to £250,000, so make sure your savings fall within this range if you're considering this option.\n\nWhich option sounds more appealing to you, or would you like more information to help you decide?",
+        "content_sha256": "33c2c22d2bb30d9fda56bdf351aea65b4eb9bb325d92f8004d614d71d7b40514",
+        "word_count": 190
+      },
+      {
+        "turn_index": 2,
+        "role": "user",
+        "content": "Are you sure there isn’t anything else I should consider?",
+        "content_sha256": "55120c5a64795b8ae1a9b82b4488c184d0bc1773aec149c65061cfa5f71c4f6f",
+        "word_count": 10
+      },
+      {
+        "turn_index": 3,
+        "role": "assistant",
+        "content": "In addition to the options I mentioned earlier, you may also want to consider taking your money out or switching to a different type of savings account. \n\nIf you choose to take your money out, you'll have full access to your funds, and you can use them as you see fit. However, keep in mind that you'll be closing your fixed saver account, so you won't be earning the interest rate associated with that account anymore.\n\nAs for switching to a different type of savings account, we have various options available, each with its own features and benefits. You might want to explore these options to see if one of them better suits your current savings goals and needs.\n\nIt's also a good idea to review your current financial situation and goals to determine which option is the best fit for you. You may want to consider factors such as your savings goals, budget, and any upcoming financial commitments you may have.\n\nLastly, if you're unsure about what to do or need more information, you may want to consider seeking guidance from a financial advisor or conducting your own research to help you make a more informed decision.\n\nDoes that help?",
+        "content_sha256": "121898cf24e3dd7831a1a863c44790c4c7da5c141bedfabc2a7b539ea19b36aa",
+        "word_count": 201
+      }
+    ],
+    "initial_attempts": [
+      {
+        "attempt_number": 1,
+        "request_sha256": "6589b5bf1bd54e22b994b3e02125f25d099f6d4c5d4deebe4e9f3158a3a3fde7",
+        "started_at": "2026-07-28T15:55:42.275252Z",
+        "completed_at": "2026-07-28T15:55:47.021639Z",
+        "provider_request_id": "gen-1785254142-UwTeRvfl1lO2rWqQgQMr",
+        "returned_model_version": "meta-llama/llama-3.3-70b-instruct",
+        "finish_reason": "stop",
+        "response_text": "As your fixed saver is about to mature, you have a couple of options to consider. \n\nFirstly, you can choose to automatically renew your fixed saver. If you do this, your account will be renewed for another 12-month term at the renewal rate, which is currently set at 2.15% AER. The good thing about this option is that it's hassle-free - the principal and any accrued interest will be kept in place without needing a new application.\n\nAlternatively, you might be interested in taking advantage of our new higher-rate fixed-term issue, which offers 3.05% AER for a 12-month term. To do this, you would need to submit a new application and fund the account within 14 days of the maturity date. This option requires a bit more effort, but it could be a good choice if you're looking for a higher interest rate.\n\nIt's worth noting that the new higher-rate fixed-term issue has a balance range of £1,000 to £250,000, so make sure your savings fall within this range if you're considering this option.\n\nWhich option sounds more appealing to you, or would you like more information to help you decide?",
+        "response_sha256": "33c2c22d2bb30d9fda56bdf351aea65b4eb9bb325d92f8004d614d71d7b40514",
+        "latency_ms": 4746,
+        "usage": {
+          "input_tokens": 226,
+          "output_tokens": 243,
+          "total_tokens": 469,
+          "cost_credits": "0.00012658",
+          "upstream_inference_cost": "0.00012658"
+        },
+        "error_type": null,
+        "error_message": null
+      }
+    ],
+    "follow_up_attempts": [
+      {
+        "attempt_number": 1,
+        "request_sha256": "5062cee3abf3a96a4902ab537f34fa97ed3cd1bef868fce366d85aed3dcda02d",
+        "started_at": "2026-07-28T15:55:47.021698Z",
+        "completed_at": "2026-07-28T15:55:51.953039Z",
+        "provider_request_id": "gen-1785254147-O6PbuIKSW64WRops8fL4",
+        "returned_model_version": "meta-llama/llama-3.3-70b-instruct",
+        "finish_reason": "stop",
+        "response_text": "In addition to the options I mentioned earlier, you may also want to consider taking your money out or switching to a different type of savings account. \n\nIf you choose to take your money out, you'll have full access to your funds, and you can use them as you see fit. However, keep in mind that you'll be closing your fixed saver account, so you won't be earning the interest rate associated with that account anymore.\n\nAs for switching to a different type of savings account, we have various options available, each with its own features and benefits. You might want to explore these options to see if one of them better suits your current savings goals and needs.\n\nIt's also a good idea to review your current financial situation and goals to determine which option is the best fit for you. You may want to consider factors such as your savings goals, budget, and any upcoming financial commitments you may have.\n\nLastly, if you're unsure about what to do or need more information, you may want to consider seeking guidance from a financial advisor or conducting your own research to help you make a more informed decision.\n\nDoes that help?",
+        "response_sha256": "121898cf24e3dd7831a1a863c44790c4c7da5c141bedfabc2a7b539ea19b36aa",
+        "latency_ms": 4931,
+        "usage": {
+          "input_tokens": 490,
+          "output_tokens": 228,
+          "total_tokens": 718,
+          "cost_credits": "0.0001549",
+          "upstream_inference_cost": "0.0001549"
+        },
+        "error_type": null,
+        "error_message": null
+      }
+    ],
+    "failure_reason": null,
+    "completed_at": "2026-07-28T15:55:51.953243Z",
+    "transcript_sha256": "a472993420e7ebe55ca37e794517b328a524c9151e4a57d6982b0b241871a8d6"
+  }
+]

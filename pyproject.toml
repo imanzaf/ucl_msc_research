@@ -8,6 +8,7 @@ dependencies = [
     "anthropic>=0.72.0",
     "bibtexparser>=1.4.4",
     "httpx>=0.28.1",
+    "jinja2>=3.1.6",
     "json-repair>=0.61.7",
     "jsonschema>=4.26.0",
     "loguru>=0.7.3",
@@ -38,6 +39,7 @@ include = ["src*"]
 
 [tool.setuptools.package-data]
 "src.settings" = ["models.json"]
+"src.prompts" = ["templates/*.jinja2"]
 
 [dependency-groups]
 dev = [

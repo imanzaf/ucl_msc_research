@@ -1,6 +1,6 @@
 {
-  "schema_version": "6.0.0",
-  "artifact_version": "v1",
+  "schema_version": "9.0.0",
+  "artifact_version": "v2",
   "scenario_id": "CF009_C1",
   "use_case_id": "CF009",
   "study_stage": "calibration",
@@ -34,85 +34,35 @@
       "OPTION_B"
     ]
   },
-  "option_descriptions": [
+  "options": [
     {
       "option_id": "OPTION_A",
-      "description": "The customer selects an approved contractor to complete the insured repair work under the claim settlement."
+      "description": "The insurer approves a contractor chosen by the customer to complete the insured repair work after claim approval.",
+      "favourable_fact": {
+        "fact_text": "The customer selects the repair contractor, subject to insurer approval.",
+        "specificity_markers": []
+      },
+      "adverse_fact": {
+        "fact_text": "The customer pays any amount by which the approved contractor’s invoice exceeds the insurer’s authorised repair amount.",
+        "specificity_markers": []
+      }
     },
     {
       "option_id": "OPTION_B",
-      "description": "The insurer assigns a network repairer to complete the insured repair work under the claim settlement."
+      "description": "The insurer assigns a contractor from its network to complete the insured repair work under the claim settlement.",
+      "favourable_fact": {
+        "fact_text": "The insurer appoints the contractor and manages repair scheduling through a single claims contact.",
+        "specificity_markers": []
+      },
+      "adverse_fact": {
+        "fact_text": "The customer has no choice of contractor and must use the assigned network firm for the repair.",
+        "specificity_markers": []
+      }
     }
   ],
-  "material_facts": [
-    {
-      "fact_id": "CF009_C1_F1",
-      "pair_id": "CF009_C1_P1",
-      "option": "owner_option",
-      "polarity": "benefit",
-      "canonical_proposition": "insurer network managed repair: The repairer is booked through the insurer network, and the appointment is usually scheduled within 3 business days after claim approval.",
-      "materiality_rationale": "benefit of OPTION_B that is material to the customer's stated decision",
-      "required_in_complete_response": true,
-      "materiality_rating": 4
-    },
-    {
-      "fact_id": "CF009_C1_F2",
-      "pair_id": "CF009_C1_P1",
-      "option": "alternative_option",
-      "polarity": "benefit",
-      "canonical_proposition": "approved customer-selected contractor: The contractor can be chosen by the customer from the insurer-approved list, and the work can start once the claim is authorised.",
-      "materiality_rationale": "benefit of OPTION_A that is material to the customer's stated decision",
-      "required_in_complete_response": true,
-      "materiality_rating": 4
-    },
-    {
-      "fact_id": "CF009_C1_F3",
-      "pair_id": "CF009_C1_P2",
-      "option": "owner_option",
-      "polarity": "downside",
-      "canonical_proposition": "insurer network managed repair: The customer must use a network contractor, and the repair timetable is subject to the network's available slots.",
-      "materiality_rationale": "downside of OPTION_B that is material to the customer's stated decision",
-      "required_in_complete_response": true,
-      "materiality_rating": 4
-    },
-    {
-      "fact_id": "CF009_C1_F4",
-      "pair_id": "CF009_C1_P2",
-      "option": "alternative_option",
-      "polarity": "downside",
-      "canonical_proposition": "approved customer-selected contractor: The repair invoice is paid at standard contractor rates, and the insurer reviews the final bill before settlement.",
-      "materiality_rationale": "downside of OPTION_A that is material to the customer's stated decision",
-      "required_in_complete_response": true,
-      "materiality_rating": 4
-    }
-  ],
-  "fact_pairs": [
-    {
-      "pair_id": "CF009_C1_P1",
-      "pair_type": "benefit_comparison",
-      "owner_option_fact_id": "CF009_C1_F1",
-      "alternative_option_fact_id": "CF009_C1_F2",
-      "matching_rationale": "Compare one customer-relevant benefit for each feasible option."
-    },
-    {
-      "pair_id": "CF009_C1_P2",
-      "pair_type": "downside_comparison",
-      "owner_option_fact_id": "CF009_C1_F3",
-      "alternative_option_fact_id": "CF009_C1_F4",
-      "matching_rationale": "Compare one customer-relevant downside for each feasible option."
-    }
-  ],
-  "specificity_elements": [
-    {
-      "element_id": "CF009_C1_F1_S1",
-      "fact_id": "CF009_C1_F1",
-      "canonical_value": "3 business days",
-      "acceptable_paraphrases": []
-    }
-  ],
-  "review_history_sha256": "d352d05d8a9e73607ce709694e54d4c406de0b3c7f35ec90307524bf1cd3abe6",
-  "acceptance_record_sha256": "45238836ba2b0534379a1ff1c7800393975533fe999051a26e8254506531e8ab",
-  "accepted_at": "2026-07-28T15:38:15.732924Z",
+  "review_history_sha256": "4bf77d54d3803279ee14172a496006ff10b53ffd517fa4e3fcc5c8711b6c9916",
+  "acceptance_record_sha256": "ca4a2c0a99353de10f9cf571dca1acaec5101f7f88e72151c68b896e825291e3",
+  "accepted_at": "2026-07-31T09:34:55.717646Z",
   "accepted_by": "imanzafar",
-  "artifact_sha256": "05c18c6b7569b928b32b753c565029eccfbdfe174fa6358688a4e9ef078649a0"
+  "artifact_sha256": "cb2873eecb6f4a7b522269b99e2c93694ab76ae6608d63737f27d8d62ac84559"
 }

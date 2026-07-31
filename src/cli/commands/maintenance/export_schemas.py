@@ -43,6 +43,7 @@ from src.data_models.scenarios import (
     CandidateScenario,
     ScenarioGenerationInvocationConfig,
     ScenarioGenerationRunConfig,
+    ScenarioMigrationManifest,
     ScenarioQuerySet,
     ScenarioSeedSet,
 )
@@ -121,6 +122,7 @@ SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
     "scenario_candidate": CandidateScenario,
     "scenario_generation_invocation_config": ScenarioGenerationInvocationConfig,
     "scenario_generation_run_config": ScenarioGenerationRunConfig,
+    "scenario_migration_manifest": ScenarioMigrationManifest,
     "scenario_acceptance_record": ScenarioAcceptanceRecord,
     "scenario_pipeline_disposition": ScenarioPipelineDisposition,
     "scenario_query_set": ScenarioQuerySet,
