@@ -167,9 +167,11 @@ def build_response_generation_run_plan(
     randomisation_seed: int,
     created_at: datetime,
     provider_routing_by_model: Optional[Dict[str, ProviderRouting]] = None,
+    provider_routing_by_run_unit: Optional[Dict[str, ProviderRouting]] = None,
 ) -> List[RunUnit]:
     """Build a four-cell response matrix for the selected published scenarios and models."""
     routing_by_model = provider_routing_by_model or {}
+    routing_by_run_unit = provider_routing_by_run_unit or {}
     expected_scenario_ids = _scenario_ids_for_response_scope(scenario_scope)
     if {scenario.scenario_id for scenario in scenarios} != expected_scenario_ids or len(scenarios) != len(expected_scenario_ids):
         raise ValueError(f"response scope {scenario_scope.value} requires exactly its published scenario set")
@@ -196,7 +198,10 @@ def build_response_generation_run_plan(
                     block_randomisation_seed=block_randomisation_seed,
                     randomised_position=position,
                     created_at=created_at,
-                    provider_routing=routing_by_model.get(model.model_id),
+                    provider_routing=routing_by_run_unit.get(
+                        _short_identifier("RUN", block_id, cell.cell_id),
+                        routing_by_model.get(model.model_id),
+                    ),
                 )
                 for position, cell in enumerate(cells)
             ]
@@ -207,6 +212,7 @@ def build_response_generation_run_plan(
         scenario_scope,
         models,
         routing_by_model,
+        routing_by_run_unit,
         randomisation_seed,
     )
     return run_units
@@ -217,6 +223,7 @@ def _validate_response_generation_matrix(
     scenario_scope: ResponseScenarioScope,
     models: Sequence[EvaluatedModelSnapshot],
     provider_routing_by_model: Dict[str, ProviderRouting],
+    provider_routing_by_run_unit: Dict[str, ProviderRouting],
     global_randomisation_seed: int,
 ) -> None:
     """Validate identities, routing, seeded order, and prompt isolation for a response matrix."""
@@ -232,6 +239,9 @@ def _validate_response_generation_matrix(
         raise ValueError("response-generation plan model IDs differ from its selected snapshots")
     if len({unit.run_unit_id for unit in units}) != len(units):
         raise ValueError("response-generation run-unit identifiers must be unique")
+    unknown_routing_units = sorted(set(provider_routing_by_run_unit) - {unit.run_unit_id for unit in units})
+    if unknown_routing_units:
+        raise ValueError("provider routing names unknown run units: " + ", ".join(unknown_routing_units))
     if {unit.global_randomisation_seed for unit in units} != {global_randomisation_seed}:
         raise ValueError("response-generation run units must share the configured randomisation seed")
     grouped = group_run_units_by_block(units)
@@ -252,8 +262,10 @@ def _validate_response_generation_matrix(
         expected_version, expected_snapshot_sha256 = expected_models[model_id]
         if {(unit.expected_model_version, unit.model_snapshot_sha256) for unit in block_units} != {(expected_version, expected_snapshot_sha256)}:
             raise ValueError("response-generation block differs from its evaluated-model snapshot")
-        if {unit.provider_routing for unit in block_units} != {provider_routing_by_model.get(model_id)}:
-            raise ValueError("response-generation block differs from its configured provider routing")
+        for unit in block_units:
+            expected_routing = provider_routing_by_run_unit.get(unit.run_unit_id, provider_routing_by_model.get(model_id))
+            if unit.provider_routing != expected_routing:
+                raise ValueError("response-generation run unit differs from its configured provider routing")
         expected_cells = primary_experiment_cells()
         random.Random(expected_seed).shuffle(expected_cells)
         cell_by_position = {unit.randomised_position: unit.cell for unit in block_units}
@@ -267,13 +279,18 @@ def _validate_response_generation_matrix(
         validate_prompt_factor_isolation(block_units)
 
 
-def validate_response_generation_plan(run_units: Iterable[RunUnit], config: ResponseGenerationConfig) -> None:
+def validate_response_generation_plan(
+    run_units: Iterable[RunUnit],
+    config: ResponseGenerationConfig,
+    provider_routing_by_run_unit: Optional[Dict[str, ProviderRouting]] = None,
+) -> None:
     """Validate one response-generation plan against its immutable configuration."""
     _validate_response_generation_matrix(
         run_units,
         config.scenario_scope,
         config.evaluated_models,
         config.provider_routing_by_model,
+        provider_routing_by_run_unit or {},
         config.randomisation_seed,
     )
 
@@ -282,10 +299,12 @@ def validate_response_generation_plan_against_inputs(
     run_units: Iterable[RunUnit],
     scenarios: Sequence[AcceptedScenario],
     config: ResponseGenerationConfig,
+    provider_routing_by_run_unit: Optional[Dict[str, ProviderRouting]] = None,
 ) -> None:
     """Rebuild a response-generation plan and require exact byte-equivalent assignments."""
     units = list(run_units)
-    validate_response_generation_plan(units, config)
+    routing_by_run_unit = provider_routing_by_run_unit or {}
+    validate_response_generation_plan(units, config, routing_by_run_unit)
     if {unit.created_at for unit in units} != {config.created_at}:
         raise ValueError("response-generation plan creation time differs from its config")
     rebuilt = build_response_generation_run_plan(
@@ -295,6 +314,7 @@ def validate_response_generation_plan_against_inputs(
         randomisation_seed=config.randomisation_seed,
         created_at=config.created_at,
         provider_routing_by_model=config.provider_routing_by_model,
+        provider_routing_by_run_unit=routing_by_run_unit,
     )
     if [unit.model_dump(mode="json") for unit in units] != [unit.model_dump(mode="json") for unit in rebuilt]:
         raise ValueError("response-generation plan is not the exact product of its frozen inputs")
@@ -867,12 +887,13 @@ def execute_run_plan(
     results_path: Path,
     existing_transcripts: Sequence[ConversationTranscript],
     paid_execution_approved: bool,
+    provider_routing_by_run_unit: Optional[Dict[str, ProviderRouting]] = None,
 ) -> List[ConversationTranscript]:
     """Resume a plan, persist every outcome immediately, and require the paid-run gate."""
     if not paid_execution_approved:
         raise PermissionError("paid execution requires an explicit approved dry-run/cost gate")
     if isinstance(config, ResponseGenerationConfig):
-        validate_response_generation_plan(run_units, config)
+        validate_response_generation_plan(run_units, config, provider_routing_by_run_unit)
     elif isinstance(config, C1EvaluationConfig):
         validate_c1_single_model_run_plan(run_units, config.randomisation_seed)
     elif isinstance(config, CalibrationExperimentConfig):

@@ -1,19 +1,4 @@
-# Selective Risk Communication Under Concise-Response Guidance and Expressed Concern
-
-**Protocol status:** active, offline-ready implementation in progress
-
-**Software release:** 0.1.0
-
-**Scenario seed:** V3.0.0 (earlier versions remain immutable)
-
-**Generated/accepted scenario artifact schema:** 9.0.0
-
-**Primary experiment:** `risk_comm_v1`
-
-The preceding V0.11.0 seed remains byte-preserved under `data/inputs/scenarios/v0.11.0/`, and superseded generation runbooks remain under
-`docs/archive/experiments/`. No paid ample pilot, model evaluation, or scoring-provider call may occur without its separate gate. Scenario
-generation runs when explicitly requested and records actual provider usage and cost per call; it has no separate dry-run cost report or approval
-artifact.
+# Selective Communication Under Concise-Response Guidance and Expressed Concern
 
 ## 1. Research question and design
 
@@ -21,7 +6,7 @@ The primary question is whether selective financial decision communication chang
 (b) a natural expression of user concern. Every scenario is a consequential customer decision in which one feasible option benefits the model
 owner more than a feasible alternative. The design does not assume that the alternative is better for the customer.
 
-The primary design is 20 held-out scenarios (ten use cases × R1–R2) × three frozen models × a 2×2 concision-instruction/concern matrix, for exactly 240 conversations. Each conversation contains an initial answer and one natural, non-leading follow-up answer.
+The primary design is 30 held-out scenarios (ten use cases × C1-R1–R2) × three frozen models × a 2×2 concision-instruction/concern matrix, for exactly 360 conversations. Each conversation contains an initial answer and one natural, non-leading follow-up answer.
 
 | Cell | System concision guidance | Seed-authored opening query |
 |---|---:|---|

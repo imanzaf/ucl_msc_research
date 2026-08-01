@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
@@ -531,6 +532,92 @@ class ResponseGenerationConfig(VersionedImmutableModel):
             raise ValueError("provider routing names unselected models: " + ", ".join(unknown_routing))
         if self.results_filename.split("_", 1)[0] != self.log_filename.split("_", 1)[0]:
             raise ValueError("response result and log filenames must share one timestamp")
+        return self
+
+
+class ResponseGenerationRoutingAmendment(VersionedImmutableModel):
+    """Bind a provider-routing change to only the unfinished units of a stopped response run."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    experiment_name: str = Field(pattern=r"^[a-z0-9_]+_v[1-9][0-9]*$")
+    source_config_sha256: str
+    source_run_plan_sha256: str
+    amended_run_plan_sha256: str
+    source_results_sha256: str
+    model_id: str = Field(min_length=1)
+    provider_routing: ProviderRouting
+    affected_run_unit_ids: List[str] = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    amended_at: datetime
+    amendment_sha256: str
+
+    @field_validator(
+        "source_config_sha256",
+        "source_run_plan_sha256",
+        "amended_run_plan_sha256",
+        "source_results_sha256",
+        "amendment_sha256",
+    )
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate the bound config, plan, results, and amendment digests."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_amendment(self) -> "ResponseGenerationRoutingAmendment":
+        """Require unique run units and an exact canonical self-hash."""
+        if len(self.affected_run_unit_ids) != len(set(self.affected_run_unit_ids)):
+            raise ValueError("routing amendment run-unit ids must be unique")
+        if any(not re.fullmatch(r"RUN_[A-F0-9]{16}", run_unit_id) for run_unit_id in self.affected_run_unit_ids):
+            raise ValueError("routing amendment contains an invalid run-unit id")
+        expected = artifact_sha256(self.model_dump(mode="json", exclude={"amendment_sha256"}))
+        if self.amendment_sha256 != expected:
+            raise ValueError("routing amendment digest does not match canonical content")
+        return self
+
+
+class ResponseGenerationFailedRerunManifest(VersionedImmutableModel):
+    """Authenticate the archival and plan changes used to rerun failed response records."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    rerun_id: str = Field(pattern=r"^\d{8}T\d{12}Z$")
+    experiment_name: str = Field(pattern=r"^[a-z0-9_]+_v[1-9][0-9]*$")
+    source_config_sha256: str
+    source_run_plan_sha256: str
+    rerun_plan_sha256: str
+    source_results_sha256: str
+    archived_failures_sha256: str
+    failed_run_unit_ids: List[str] = Field(min_length=1)
+    provider_routing_by_run_unit: Dict[str, ProviderRouting] = Field(default_factory=dict)
+    rerun_at: datetime
+    manifest_sha256: str
+
+    @field_validator(
+        "source_config_sha256",
+        "source_run_plan_sha256",
+        "rerun_plan_sha256",
+        "source_results_sha256",
+        "archived_failures_sha256",
+        "manifest_sha256",
+    )
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate every artifact and manifest digest."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_rerun(self) -> "ResponseGenerationFailedRerunManifest":
+        """Require unique failed IDs, scoped routing, and an exact canonical self-hash."""
+        if len(self.failed_run_unit_ids) != len(set(self.failed_run_unit_ids)):
+            raise ValueError("failed-rerun run-unit ids must be unique")
+        if any(not re.fullmatch(r"RUN_[A-F0-9]{16}", run_unit_id) for run_unit_id in self.failed_run_unit_ids):
+            raise ValueError("failed-rerun manifest contains an invalid run-unit id")
+        unknown_routing = sorted(set(self.provider_routing_by_run_unit) - set(self.failed_run_unit_ids))
+        if unknown_routing:
+            raise ValueError("failed-rerun routing names a run unit outside the failed set")
+        expected = artifact_sha256(self.model_dump(mode="json", exclude={"manifest_sha256"}))
+        if self.manifest_sha256 != expected:
+            raise ValueError("failed-rerun manifest digest does not match canonical content")
         return self
 
 

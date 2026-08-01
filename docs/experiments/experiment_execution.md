@@ -52,6 +52,35 @@ run plan before making calls, and appends every terminal conversation immediatel
 generates evaluated-model responses only; scoring remains a separate command and is never invoked by this runner. Optional
 `--provider-only MODEL_ID=PROVIDER_ID[,PROVIDER_ID]` values freeze OpenRouter routing per selected model.
 
+If a stopped run needs a provider-route correction, amend only the unfinished units for one model and record the reason while resuming:
+
+```bash
+uv run risk-comm experiment run-responses \
+  --experiment-name all_scenarios_all_models_2x2_v1 \
+  --scenario-scope all \
+  --route-unfinished-only qwen/qwen-2.5-72b-instruct=deepinfra \
+  --routing-amendment-reason "OpenRouter fallback selected an incompatible endpoint." \
+  --execute-paid
+```
+
+This preserves `checkpoints/run_plan_before_routing_amendment.jsonl`, writes a self-hashed
+`checkpoints/response_routing_amendment.json`, updates routing only for run-unit IDs without a terminal transcript, and resumes without repeating
+completed or failed calls. After the amendment exists, any later resume uses the ordinary command without the amendment options.
+
+To retry active failed records while leaving completed records untouched, resume with `--rerun-failed`:
+
+```bash
+uv run risk-comm experiment run-responses \
+  --experiment-name all_scenarios_all_models_2x2_v1 \
+  --scenario-scope all \
+  --rerun-failed \
+  --execute-paid
+```
+
+The runner snapshots the pre-rerun results and plan, archives the failed transcripts under `results/failed_reruns/`, and makes only their run-unit
+IDs pending. If the model already has an authenticated provider-routing amendment, the failed records inherit that route. Every failed rerun writes
+a self-hashed manifest under `checkpoints/failed_reruns/`; the active results retain only the replacement terminal record.
+
 ## Freeze shared manifests
 
 After scenario acceptance, prompt review, model selection, and budget calibration, build the manifests for calibration and all three registered

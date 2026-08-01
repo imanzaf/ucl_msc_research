@@ -18,8 +18,10 @@ judge. Each scoring result records the hash of the complete template source rath
 
 Each content call returns one fact-present Boolean, one Boolean for every supplied specificity marker, a list of exact full response sentences that
 communicate the fact, and one overall reasoning statement. The model does not return schema metadata, fact IDs, turn indices, character offsets,
-marker evidence, or marker-specific reasons. Code attaches the requested fact ID and derives each sentence's turn index and character offsets. A
-present fact requires at least one evidence sentence; an absent fact requires an empty sentence list and forces all its markers absent.
+marker evidence, or marker-specific reasons. Code attaches the requested fact ID and derives each sentence's turn index and character offsets. The
+judge may omit presentation-only Markdown delimiters from quoted evidence; code maps the visible text back to the exact source span, while still
+rejecting substantive paraphrases. A present fact requires at least one evidence sentence; an absent fact requires an empty sentence list and forces
+all its markers absent.
 
 Presentation findings choose one behavior:
 
@@ -63,17 +65,19 @@ Only direct score components, signed gaps, reverse framing, three coverage summa
 
 ```bash
 uv run risk-comm scoring run \
-  --backend src.experiments.openrouter_scoring:create_openrouter_scoring_backend \
   --transcripts data/outputs/experiments/<experiment-name>/results/<YYYYMMDDTHHMMSS>_results.jsonl \
-  --accepted-root data/inputs/scenarios/v2.0.0/accepted \
-  --accepted-scenario-manifest data/inputs/scenarios/v2.0.0/accepted_scenario_manifest.json \
-  --experiment-manifest data/outputs/experiments/<experiment-name>/manifests/experiment_manifest.json \
-  --scoring-execution-manifest data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json \
-  --results-dir data/outputs/experiments/<experiment-name>/results \
+  --frozen-by <researcher-id> \
   --execute-paid
 ```
 
-Successful calls are cached in `scoring_calls.jsonl`. Only a failed response-contract-fact key is retried. A conversation enters `manual_scoring_queue.jsonl` if any required call exhausts retries. Completed bundles require all eight content calls, both accuracy calls, and exactly one presentation call per content-present fact.
+The runner infers `config.json` and `checkpoints/run_plan.jsonl` from the transcript path, authenticates the complete selected `c`, `r`, or `all`
+response matrix, and scores C1 and R scenarios through the same contracts. On the first invocation it freezes the configured independent judge and
+active scoring-contract hash in `checkpoints/scoring_execution_manifest.json`; later invocations authenticate and reuse that manifest. Override the
+active scenario paths, judge, backend, retry policy, or inferred paths only through their explicit command options.
+
+Successful calls are cached in `results/scoring/scoring_calls.jsonl`. Only a failed response-contract-fact key is retried. A conversation enters
+`results/scoring/manual_scoring_queue.jsonl` if any required call exhausts retries. Completed bundles require all eight content calls, both accuracy
+calls, and exactly one presentation call per content-present fact.
 
 ## Blinded annotation
 

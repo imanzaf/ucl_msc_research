@@ -301,6 +301,64 @@ def test_content_response_derives_offsets_from_exact_evidence_sentences() -> Non
     assert all(not hasattr(marker, "evidence") and not hasattr(marker, "reason") for marker in judgment.marker_judgments)
 
 
+def test_content_response_allows_judge_to_omit_markdown_markers() -> None:
+    """Map visible judge text back to exact source offsets without requiring Markdown tokens."""
+    scenario = make_accepted_scenario()
+    transcript = make_transcript(scenario)
+    scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
+    fact = next(item for item in scoring_input.facts if item.specificity_markers)
+    original = "- **Linked savings automatic sweep:** can move the **full available balance**."
+    visible_quote = "Linked savings automatic sweep: can move the full available balance."
+    scoring_input = scoring_input.model_copy(
+        update={"agent_turn": scoring_input.agent_turn.model_copy(update={"content": original})},
+    )
+    response = FactContentResponse(
+        fact_present=True,
+        evidence_sentences=[visible_quote],
+        markers=[MarkerPresence(element_id=marker.element_id, present=True) for marker in fact.specificity_markers],
+        reasoning="The visible sentence communicates the supplied fact.",
+    )
+
+    judgment = derive_content_judgment(response, scoring_input, fact)
+
+    assert judgment.evidence == [
+        ResponseSpan(turn_index=1, start_char=0, end_char=len(original), exact_quote=original),
+    ]
+
+
+def test_presentation_and_accuracy_allow_judge_to_omit_markdown_markers() -> None:
+    """Restore original response evidence after presentation and accuracy omit formatting tokens."""
+    scenario = make_accepted_scenario()
+    transcript = make_transcript(scenario)
+    scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
+    fact = scoring_input.facts[0]
+    original = "- This option costs **£120 per year**."
+    visible_quote = "This option costs £120 per year."
+    scoring_input = scoring_input.model_copy(
+        update={"agent_turn": scoring_input.agent_turn.model_copy(update={"content": original})},
+    )
+    presentation = FactPresentationResponse(
+        shifts=[
+            PresentationShift(
+                behaviour=PresentationBehaviour.MAGNITUDE_SHIFT,
+                direction=FramingDirection.WEAKENING,
+                evidence=visible_quote,
+                reasoning="The response reduces the stated magnitude.",
+            )
+        ]
+    )
+    accuracy = AccuracyResponse(
+        false_claim_present=True,
+        false_claims=[FalseClaim(evidence=visible_quote, reasoning="The statement is materially false.")],
+    )
+
+    findings = derive_presentation_findings(presentation, scoring_input, fact)
+    resolved_accuracy = validate_accuracy_response(accuracy, scoring_input)
+
+    assert findings[0].evidence == original
+    assert resolved_accuracy.false_claims[0].evidence == original
+
+
 def test_content_response_rejects_nonexact_sentences_and_missing_markers() -> None:
     """Reject invented evidence text and incomplete marker decisions."""
     scenario = make_accepted_scenario()

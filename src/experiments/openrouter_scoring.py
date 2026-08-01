@@ -33,6 +33,62 @@ from src.settings.model_settings import get_model_settings
 StructuredT = TypeVar("StructuredT", bound=BaseModel)
 
 
+def _markdown_visible_text_with_mapping(line: str, line_offset: int) -> tuple[str, List[int]]:
+    """Strip presentation-only Markdown while retaining visible-character source positions."""
+    list_prefix = re.match(r"^\s*(?:(?:[-+*])|(?:\d+[.)]))\s+", line)
+    start = list_prefix.end() if list_prefix is not None else 0
+    visible: List[str] = []
+    source_positions: List[int] = []
+    index = start
+    while index < len(line):
+        token = next((value for value in ["**", "__", "~~", "`"] if line.startswith(value, index)), None)
+        if token is not None:
+            index += len(token)
+            continue
+        visible.append(line[index])
+        source_positions.append(line_offset + index)
+        index += 1
+    return "".join(visible), source_positions
+
+
+def _formatting_equivalent_spans(response_text: str, quote: str) -> List[tuple[int, int]]:
+    """Resolve a judge quote after removing only Markdown presentation delimiters."""
+    normalised_quote, _ = _markdown_visible_text_with_mapping(quote.strip(), 0)
+    if not normalised_quote:
+        return []
+    spans: List[tuple[int, int]] = []
+    line_offset = 0
+    for line in response_text.splitlines(keepends=True):
+        content = line.rstrip("\r\n")
+        visible, source_positions = _markdown_visible_text_with_mapping(content, line_offset)
+        search_start = 0
+        while True:
+            match_start = visible.find(normalised_quote, search_start)
+            if match_start < 0:
+                break
+            match_end = match_start + len(normalised_quote)
+            if match_start == 0 and match_end == len(visible):
+                spans.append((line_offset, line_offset + len(content)))
+            else:
+                spans.append((source_positions[match_start], source_positions[match_end - 1] + 1))
+            search_start = match_start + 1
+        line_offset += len(line)
+    return spans
+
+
+def _resolve_evidence_span(response_text: str, quote: str, occurrence_index: int) -> tuple[int, int]:
+    """Resolve exact evidence first, then a unique formatting-only Markdown equivalent."""
+    exact_spans = [(match.start(), match.end()) for match in re.finditer(re.escape(quote), response_text)]
+    if occurrence_index < len(exact_spans):
+        return exact_spans[occurrence_index]
+    formatting_spans = _formatting_equivalent_spans(response_text, quote)
+    if occurrence_index >= len(formatting_spans):
+        raise ValueError("content evidence sentence is not an exact response substring or Markdown-formatting equivalent")
+    if len(set(formatting_spans)) != len(formatting_spans):
+        raise ValueError("content evidence sentence has ambiguous Markdown-formatting matches")
+    return formatting_spans[occurrence_index]
+
+
 def derive_content_judgment(
     response: FactContentResponse,
     scoring_input: ConditionBlindScoringInput,
@@ -48,18 +104,15 @@ def derive_content_judgment(
     used_occurrences: Dict[str, int] = {}
     spans: List[ResponseSpan] = []
     for quote in response.evidence_sentences:
-        occurrences = [match.start() for match in re.finditer(re.escape(quote), response_text)]
         occurrence_index = used_occurrences.get(quote, 0)
-        if occurrence_index >= len(occurrences):
-            raise ValueError("content evidence sentence is not an exact response substring")
-        start_char = occurrences[occurrence_index]
+        start_char, end_char = _resolve_evidence_span(response_text, quote, occurrence_index)
         used_occurrences[quote] = occurrence_index + 1
         spans.append(
             ResponseSpan(
                 turn_index=scoring_input.agent_turn.turn_index,
                 start_char=start_char,
-                end_char=start_char + len(quote),
-                exact_quote=quote,
+                end_char=end_char,
+                exact_quote=response_text[start_char:end_char],
             )
         )
     return FactContentJudgment(
@@ -76,18 +129,31 @@ def derive_presentation_findings(
     scoring_input: ConditionBlindScoringInput,
     fact: BlindFactReference,
 ) -> List[PresentationFinding]:
-    """Validate exact evidence strings and attach the requested fact identifier."""
+    """Resolve evidence to source text and attach the requested fact identifier."""
+    used_occurrences: Dict[str, int] = {}
+    findings: List[PresentationFinding] = []
     for shift in response.shifts:
-        if shift.evidence not in scoring_input.agent_turn.content:
-            raise ValueError("presentation evidence is not an exact response substring")
-    return [PresentationFinding(fact_id=fact.fact_id, **shift.model_dump(mode="python")) for shift in response.shifts]
+        occurrence_index = used_occurrences.get(shift.evidence, 0)
+        start_char, end_char = _resolve_evidence_span(scoring_input.agent_turn.content, shift.evidence, occurrence_index)
+        used_occurrences[shift.evidence] = occurrence_index + 1
+        payload = shift.model_dump(mode="python")
+        payload["evidence"] = scoring_input.agent_turn.content[start_char:end_char]
+        findings.append(PresentationFinding(fact_id=fact.fact_id, **payload))
+    return findings
 
 
 def validate_accuracy_response(response: AccuracyResponse, scoring_input: ConditionBlindScoringInput) -> AccuracyResponse:
-    """Require every false-claim evidence string to quote the response exactly."""
-    if any(claim.evidence not in scoring_input.agent_turn.content for claim in response.false_claims):
-        raise ValueError("false-claim evidence is not an exact response substring")
-    return response
+    """Resolve every false-claim evidence string to the exact source response text."""
+    used_occurrences: Dict[str, int] = {}
+    resolved_claims = []
+    for claim in response.false_claims:
+        occurrence_index = used_occurrences.get(claim.evidence, 0)
+        start_char, end_char = _resolve_evidence_span(scoring_input.agent_turn.content, claim.evidence, occurrence_index)
+        used_occurrences[claim.evidence] = occurrence_index + 1
+        resolved_claims.append(
+            claim.model_copy(update={"evidence": scoring_input.agent_turn.content[start_char:end_char]}),
+        )
+    return response.model_copy(update={"false_claims": resolved_claims})
 
 
 class OpenRouterScoringBackend:

@@ -8,9 +8,17 @@ from typing import Dict, List
 
 import pytest
 
+from src.cli.commands.experiment.run_responses import _create_routing_amendment, _load_effective_routing, _prepare_failed_rerun
 from src.data_models.common import artifact_sha256, sha256_bytes
-from src.data_models.experiments import CompletionFinishReason, ConversationTranscript, RetryPolicy, evaluated_response_retry_policy
-from src.data_models.manifests import EvaluatedModelSnapshot, ResponseScenarioScope
+from src.data_models.experiments import (
+    CompletionFinishReason,
+    ConversationTranscript,
+    ProviderRouting,
+    RetryPolicy,
+    RunUnit,
+    evaluated_response_retry_policy,
+)
+from src.data_models.manifests import EvaluatedModelSnapshot, ResponseGenerationConfig, ResponseScenarioScope
 from src.data_models.prompt_controls import validate_prompt_factor_isolation
 from src.data_models.scenarios import AcceptedScenario
 from src.data_models.study import BRIEF_REQUEST, CONCISION_INSTRUCTION, ConcisionCondition, ExpressedConcernCondition, all_experiment_cells
@@ -24,11 +32,13 @@ from src.experiments.scenario_runner import (
     execute_run_unit,
     validate_calibration_run_plan,
     validate_complete_run_plan,
+    validate_response_generation_plan_against_inputs,
 )
 from src.llm.openrouter import ProviderTextResponse
 from src.prompts.experiment import _entity_reference, compile_experiment_prompt
 from src.scenarios.fact_rendering import ordered_visible_facts, render_visible_facts, visible_facts_sha256
 from src.scenarios.word_count import count_words
+from src.storage import read_model_jsonl, write_model_json_atomic, write_models_jsonl_atomic
 from tests.factories import make_accepted_scenario, make_models, make_transcript
 
 
@@ -149,6 +159,111 @@ def test_response_generation_plan_supports_c_r_or_all_and_one_to_three_models(
 
     assert len(plan) == expected_count
     assert len({unit.block_id for unit in plan}) == expected_count // 4
+
+
+def test_failed_response_resume_archives_and_reruns_with_inherited_model_route(tmp_path: Path) -> None:
+    """Make only failed IDs pending while preserving their record and inherited route."""
+    scenarios = [make_accepted_scenario(f"CF{index:03d}_C1") for index in range(1, 11)]
+    models = make_models()[:1]
+    created_at = datetime(2026, 8, 1, tzinfo=timezone.utc)
+    plan = build_response_generation_run_plan(
+        scenarios=scenarios,
+        models=models,
+        scenario_scope=ResponseScenarioScope.C,
+        randomisation_seed=7,
+        created_at=created_at,
+    )
+    config = ResponseGenerationConfig(
+        schema_version="1.0.0",
+        experiment_name="failed_rerun_test_v1",
+        scenario_scope=ResponseScenarioScope.C,
+        accepted_scenario_manifest_sha256="0" * 64,
+        evaluated_models=models,
+        prompt_package_sha256="1" * 64,
+        scenario_count=10,
+        evaluated_model_count=1,
+        expected_conversation_count=40,
+        expected_agent_response_count=80,
+        randomisation_seed=7,
+        retry_policy=RetryPolicy(max_retries=0, backoff_seconds=[]),
+        results_filename="20260801T000000_results.jsonl",
+        log_filename="20260801T000000_run.log",
+        created_at=created_at,
+    )
+
+    class FailingProvider:
+        """Return no valid content for the test's original failed record."""
+
+        def complete_text(
+            self,
+            model_id: str,
+            messages: List[Dict[str, str]],
+            temperature: float,
+            max_tokens: int,
+            seed: int,
+        ) -> ProviderTextResponse:
+            """Raise one provider error without mutating request content."""
+            raise RuntimeError("blank provider content")
+
+    failed = execute_run_unit(plan[0], FailingProvider(), config.retry_policy)
+    experiment_dir = tmp_path / config.experiment_name
+    config_path = experiment_dir / "config.json"
+    plan_path = experiment_dir / "checkpoints/run_plan.jsonl"
+    result_path = experiment_dir / "results" / config.results_filename
+    amendment_path = experiment_dir / "checkpoints/response_routing_amendment.json"
+    amendment_backup_path = experiment_dir / "checkpoints/run_plan_before_routing_amendment.jsonl"
+    write_model_json_atomic(config_path, config)
+    write_models_jsonl_atomic(plan_path, plan)
+    write_models_jsonl_atomic(result_path, [failed])
+    route = ProviderRouting(only=["deepinfra"], allow_fallbacks=False)
+    _create_routing_amendment(
+        amendment_path=amendment_path,
+        source_plan_path=plan_path,
+        source_plan_backup_path=amendment_backup_path,
+        config_path=config_path,
+        results_path=result_path,
+        config=config,
+        run_units=plan,
+        existing_run_unit_ids={failed.run_unit.run_unit_id},
+        requested_routing_by_model={models[0].model_id: route},
+        reason="Test an inherited route.",
+    )
+    amended_plan = read_model_jsonl(plan_path, RunUnit)
+    routing = _load_effective_routing(
+        experiment_dir,
+        config_path,
+        plan_path,
+        amendment_path,
+        amendment_backup_path,
+        config,
+    )
+    _prepare_failed_rerun(
+        experiment_dir,
+        config_path,
+        plan_path,
+        result_path,
+        config,
+        amended_plan,
+        [failed],
+        routing,
+    )
+
+    rerun_plan = read_model_jsonl(plan_path, RunUnit)
+    rerun_routing = _load_effective_routing(
+        experiment_dir,
+        config_path,
+        plan_path,
+        amendment_path,
+        amendment_backup_path,
+        config,
+    )
+    validate_response_generation_plan_against_inputs(rerun_plan, scenarios, config, rerun_routing)
+    assert read_model_jsonl(result_path, ConversationTranscript) == []
+    assert rerun_plan[0].provider_routing == route
+    assert rerun_routing[rerun_plan[0].run_unit_id] == route
+    failure_archives = list((experiment_dir / "results/failed_reruns").glob("*_failed_results.jsonl"))
+    assert len(failure_archives) == 1
+    assert read_model_jsonl(failure_archives[0], ConversationTranscript) == [failed]
 
 
 def test_prompt_factor_isolation_authored_queries_and_identical_follow_up() -> None:

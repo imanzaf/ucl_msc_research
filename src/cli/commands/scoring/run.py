@@ -5,14 +5,22 @@ from __future__ import annotations
 import argparse
 import importlib
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, TypeVar, Union, cast
 
 from pydantic import BaseModel
 
 from src.data_models.common import artifact_sha256, sha256_bytes, utc_now, validate_model_self_hash
-from src.data_models.experiments import ConversationTranscript, RunOutcomeStatus
-from src.data_models.manifests import AcceptedScenarioManifest, EvaluatedModelSnapshot, ExperimentManifest, FreezeStatus, ScoringExecutionManifest
+from src.data_models.experiments import ConversationTranscript, RetryPolicy, RunOutcomeStatus, RunUnit
+from src.data_models.manifests import (
+    AcceptedScenarioManifest,
+    EvaluatedModelSnapshot,
+    FreezeStatus,
+    ResponseGenerationConfig,
+    ResponseScenarioScope,
+    ScoringExecutionManifest,
+)
 from src.data_models.scenarios import AcceptedScenario
 from src.data_models.scoring import (
     AccuracyAssessmentResult,
@@ -29,25 +37,25 @@ from src.data_models.scoring import (
     ScoringContract,
     ScoringExecutionAttempt,
 )
-from src.data_models.study import EXPERIMENT_DIMENSIONS, ExperimentName
-from src.experiments.io import load_accepted_evaluation_scenarios
-from src.experiments.layout import validate_experiment_path
-from src.experiments.scenario_runner import validate_complete_run_plan, validate_exploratory_run_plan
+from src.experiments.io import load_all_accepted_scenarios
+from src.experiments.model_catalog import ExperimentModelSpec, load_model_catalog
 from src.experiments.scoring_pipeline import (
     ConditionBlindScoringBackend,
     aggregate_content_fact_results,
     aggregate_presentation_fact_results,
     build_condition_blind_inputs,
 )
-from src.paths import REPO_ROOT
+from src.paths import ACTIVE_SCENARIO_ACCEPTED_ROOT, ACTIVE_SCENARIO_INPUT_ROOT
 from src.prompts.scoring_contracts import scoring_contract_sha256
 from src.scoring.metrics import compute_conversation_metrics
 from src.scoring.validation import validate_accuracy_result, validate_content_fact_result, validate_presentation_fact_result
-from src.storage import append_model_jsonl_validated, read_model_json, read_model_jsonl
+from src.storage import append_model_jsonl_validated, read_model_json, read_model_jsonl, write_model_json_atomic
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 ContractResult = Union[FactContentAssessmentResult, FactPresentationAssessmentResult, AccuracyAssessmentResult]
 CallKey = Tuple[str, ScoredResponse, ScoringContract, Optional[str]]
+DEFAULT_ACCEPTED_MANIFEST_PATH = ACTIVE_SCENARIO_INPUT_ROOT / "accepted_scenario_manifest.json"
+DEFAULT_SCORING_BACKEND = "src.experiments.openrouter_scoring:create_openrouter_scoring_backend"
 
 
 def _load_backend(specification: str, judge_snapshot: EvaluatedModelSnapshot) -> ConditionBlindScoringBackend:
@@ -529,58 +537,178 @@ def execute_scoring_transcripts(
         _append_unique(bundle_path, bundle, "run_unit_id")
 
 
+def _judge_snapshot(model: ExperimentModelSpec, frozen_at: datetime) -> EvaluatedModelSnapshot:
+    """Freeze the configured independent judge identity for one scoring run."""
+    return EvaluatedModelSnapshot(
+        name=model.name,
+        model_id=model.model_id,
+        returned_model_version=model.model_id,
+        family=model.family,
+        provider=model.provider,
+        weight_type=model.weight_type,
+        metadata_sha256=artifact_sha256(model),
+        frozen_at=frozen_at,
+    )
+
+
+def _load_or_create_scoring_manifest(
+    path: Path,
+    response_config: ResponseGenerationConfig,
+    judge_model_id: str | None,
+    fact_order_seed: int,
+    max_retries: int,
+    backoff_seconds: List[float],
+    frozen_by: str | None,
+) -> ScoringExecutionManifest:
+    """Load an authenticated scoring manifest or freeze one from the configured judge."""
+    if path.exists():
+        manifest = read_model_json(path, ScoringExecutionManifest)
+        validate_model_self_hash(manifest, "manifest_sha256")
+        if manifest.freeze_status != FreezeStatus.FROZEN:
+            raise ValueError("scoring execution manifest must be frozen")
+        if manifest.scoring_contract_sha256 != scoring_contract_sha256():
+            raise ValueError("scoring execution manifest does not bind the active scoring contracts")
+        if judge_model_id is not None and manifest.judge_model_ids != [judge_model_id]:
+            raise ValueError("requested scoring judge differs from the existing scoring manifest")
+        return manifest
+
+    if not frozen_by or not frozen_by.strip():
+        raise ValueError("--frozen-by is required when creating a scoring execution manifest")
+    catalog = load_model_catalog()
+    selected_id = judge_model_id or catalog.scoring_models[0].model_id
+    configured = {model.model_id: model for model in catalog.scoring_models}
+    if selected_id not in configured:
+        raise ValueError(f"unconfigured scoring judge: {selected_id}")
+    if selected_id in {model.model_id for model in response_config.evaluated_models}:
+        raise ValueError("the scoring judge must be independent of every evaluated model")
+    retry_policy = RetryPolicy(
+        max_retries=max_retries,
+        backoff_seconds=backoff_seconds,
+        reuse_identical_prompt_bytes=True,
+    )
+    frozen_at = utc_now()
+    snapshot = _judge_snapshot(configured[selected_id], frozen_at)
+    payload = {
+        "schema_version": "2.0.0",
+        "freeze_status": FreezeStatus.FROZEN,
+        "judge_model_ids": [selected_id],
+        "judge_snapshots": [snapshot],
+        "scoring_contract_sha256": scoring_contract_sha256(),
+        "fact_order_seed": fact_order_seed,
+        "retry_policy": retry_policy,
+        "frozen_at": frozen_at,
+        "frozen_by": frozen_by.strip(),
+    }
+    manifest = ScoringExecutionManifest.model_validate({**payload, "manifest_sha256": artifact_sha256(payload)})
+    write_model_json_atomic(path, manifest)
+    return manifest
+
+
+def _expected_scenario_ids(scope: ResponseScenarioScope) -> set[str]:
+    """Return the published scenario identifiers selected by one response scope."""
+    calibration_ids = {f"CF{index:03d}_C1" for index in range(1, 11)}
+    evaluation_ids = {f"CF{index:03d}_R{replication}" for index in range(1, 11) for replication in range(1, 3)}
+    if scope == ResponseScenarioScope.C:
+        return calibration_ids
+    if scope == ResponseScenarioScope.R:
+        return evaluation_ids
+    return calibration_ids | evaluation_ids
+
+
+def _validate_response_scoring_inputs(
+    transcripts: List[ConversationTranscript],
+    run_units: List[RunUnit],
+    scenarios: List[AcceptedScenario],
+    accepted_manifest: AcceptedScenarioManifest,
+    response_config: ResponseGenerationConfig,
+) -> Dict[str, AcceptedScenario]:
+    """Authenticate a completed generic response matrix before any scoring call."""
+    if response_config.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
+        raise ValueError("response config does not bind the accepted-scenario manifest")
+    expected_ids = _expected_scenario_ids(response_config.scenario_scope)
+    selected_scenarios = {scenario.scenario_id: scenario for scenario in scenarios if scenario.scenario_id in expected_ids}
+    if set(selected_scenarios) != expected_ids:
+        raise ValueError("accepted scenarios do not contain the response config's exact scope")
+    if len(run_units) != response_config.expected_conversation_count or len(transcripts) != response_config.expected_conversation_count:
+        raise ValueError("scoring requires the response config's complete conversation matrix")
+    plan_by_id = {unit.run_unit_id: unit for unit in run_units}
+    if len(plan_by_id) != len(run_units):
+        raise ValueError("response run plan contains duplicate run-unit ids")
+    transcript_ids = [transcript.run_unit.run_unit_id for transcript in transcripts]
+    if len(transcript_ids) != len(set(transcript_ids)) or set(transcript_ids) != set(plan_by_id):
+        raise ValueError("active transcripts do not exactly cover the response run plan")
+    if any(transcript.outcome_status != RunOutcomeStatus.COMPLETED for transcript in transcripts):
+        raise ValueError("scoring requires every active response conversation to be completed")
+    if any(plan_by_id[transcript.run_unit.run_unit_id] != transcript.run_unit for transcript in transcripts):
+        raise ValueError("an active transcript differs from its authenticated run-plan unit")
+    if {unit.scenario_id for unit in run_units} != expected_ids:
+        raise ValueError("response run plan scenario ids differ from its configured scope")
+    expected_model_ids = {model.model_id for model in response_config.evaluated_models}
+    if {unit.model_id for unit in run_units} != expected_model_ids:
+        raise ValueError("response run plan model ids differ from its configured snapshots")
+    return selected_scenarios
+
+
 def main() -> None:
     """Score completed transcripts without exposing treatment or model labels to the backend."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", required=True)
+    parser.add_argument("--backend", default=DEFAULT_SCORING_BACKEND)
     parser.add_argument("--transcripts", type=Path, required=True)
-    parser.add_argument("--accepted-root", type=Path, required=True)
-    parser.add_argument("--accepted-scenario-manifest", type=Path, required=True)
-    parser.add_argument("--experiment-manifest", type=Path, required=True)
-    parser.add_argument("--scoring-execution-manifest", type=Path, required=True)
-    parser.add_argument("--results-dir", type=Path, required=True)
+    parser.add_argument("--response-config", type=Path)
+    parser.add_argument("--run-plan", type=Path)
+    parser.add_argument("--accepted-root", type=Path, default=ACTIVE_SCENARIO_ACCEPTED_ROOT)
+    parser.add_argument("--accepted-scenario-manifest", type=Path, default=DEFAULT_ACCEPTED_MANIFEST_PATH)
+    parser.add_argument("--scoring-execution-manifest", type=Path)
+    parser.add_argument("--results-dir", type=Path)
+    parser.add_argument("--judge-model-id")
+    parser.add_argument("--fact-order-seed", type=int, default=7)
+    parser.add_argument("--max-retries", type=int, default=2)
+    parser.add_argument("--backoff-seconds", nargs="+", type=float, default=[1.0, 2.0])
+    parser.add_argument("--frozen-by")
     parser.add_argument("--execute-paid", action="store_true")
     args = parser.parse_args()
     if not args.execute_paid:
         raise PermissionError("automated scoring may call paid APIs and requires --execute-paid")
+
+    experiment_dir = args.transcripts.parent.parent
+    response_config_path = args.response_config or experiment_dir / "config.json"
+    run_plan_path = args.run_plan or experiment_dir / "checkpoints/run_plan.jsonl"
+    scoring_manifest_path = args.scoring_execution_manifest or experiment_dir / "checkpoints/scoring_execution_manifest.json"
+    results_dir = args.results_dir or experiment_dir / "results/scoring"
+    response_config = read_model_json(response_config_path, ResponseGenerationConfig)
+    if experiment_dir.name != response_config.experiment_name:
+        raise ValueError("transcript experiment directory differs from its response config name")
     accepted_manifest = read_model_json(args.accepted_scenario_manifest, AcceptedScenarioManifest)
-    experiment_manifest = read_model_json(args.experiment_manifest, ExperimentManifest)
-    experiment_name = experiment_manifest.experiment_name.value
-    validate_experiment_path(args.transcripts, REPO_ROOT, "result", experiment_name)
-    validate_experiment_path(args.results_dir, REPO_ROOT, "results_tree", experiment_name)
-    scoring_manifest = read_model_json(args.scoring_execution_manifest, ScoringExecutionManifest)
     validate_model_self_hash(accepted_manifest, "manifest_sha256")
-    validate_model_self_hash(experiment_manifest, "manifest_sha256")
-    validate_model_self_hash(scoring_manifest, "manifest_sha256")
-    if scoring_manifest.freeze_status != FreezeStatus.FROZEN or experiment_manifest.freeze_status != FreezeStatus.FROZEN:
-        raise ValueError("automated scoring requires frozen experiment and scoring-execution manifests")
-    if experiment_manifest.accepted_scenario_manifest_sha256 != accepted_manifest.manifest_sha256:
-        raise ValueError("experiment manifest does not bind the accepted-scenario manifest")
-    if experiment_manifest.scoring_execution_manifest_sha256 != scoring_manifest.manifest_sha256:
-        raise ValueError("experiment manifest does not bind the scoring-execution manifest")
-    if experiment_manifest.scoring_contract_sha256 != scoring_manifest.scoring_contract_sha256:
-        raise ValueError("experiment and scoring-execution manifests bind different scoring contracts")
-    if experiment_manifest.scoring_judge_model_ids != scoring_manifest.judge_model_ids:
-        raise ValueError("experiment and scoring-execution manifests bind different judges")
-    if scoring_manifest.scoring_contract_sha256 != scoring_contract_sha256():
-        raise ValueError("scoring manifest does not bind the active content-gated contracts")
-    scenarios = {scenario.scenario_id: scenario for scenario in load_accepted_evaluation_scenarios(args.accepted_root, accepted_manifest)}
+    scenarios = load_all_accepted_scenarios(args.accepted_root, accepted_manifest)
     transcripts = read_model_jsonl(args.transcripts, ConversationTranscript)
-    run_units = [transcript.run_unit for transcript in transcripts]
-    if experiment_manifest.experiment_name == ExperimentName.RISK_COMM_V1:
-        validate_complete_run_plan(run_units)
-    else:
-        dimensions = EXPERIMENT_DIMENSIONS[experiment_manifest.experiment_name]
-        validate_exploratory_run_plan(run_units, dimensions.conversation_count, dimensions.cell_count)
+    run_units = read_model_jsonl(run_plan_path, RunUnit)
+    selected_scenarios = _validate_response_scoring_inputs(
+        transcripts,
+        run_units,
+        scenarios,
+        accepted_manifest,
+        response_config,
+    )
+    scoring_manifest = _load_or_create_scoring_manifest(
+        path=scoring_manifest_path,
+        response_config=response_config,
+        judge_model_id=args.judge_model_id,
+        fact_order_seed=args.fact_order_seed,
+        max_retries=args.max_retries,
+        backoff_seconds=args.backoff_seconds,
+        frozen_by=args.frozen_by,
+    )
+    results_dir.mkdir(parents=True, exist_ok=True)
     backend = _load_backend(args.backend, scoring_manifest.judge_snapshots[0])
     execute_scoring_transcripts(
         transcripts=transcripts,
-        scenarios=scenarios,
+        scenarios=selected_scenarios,
         scoring_manifest=scoring_manifest,
-        results_dir=args.results_dir,
+        results_dir=results_dir,
         backend=backend,
     )
-    print(f"Content-gated scoring bundles and any manual queue records are under {args.results_dir}")
+    print(f"Content-gated scoring bundles and any manual queue records are under {results_dir}")
 
 
 if __name__ == "__main__":
