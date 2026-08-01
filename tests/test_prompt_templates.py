@@ -12,7 +12,7 @@ from src.data_models.study import BRIEF_REQUEST, CONCISION_INSTRUCTION
 from src.experiments.scoring_pipeline import build_condition_blind_inputs
 from src.paths import REPO_ROOT
 from src.prompts.experiment import EXPERIMENT_TEMPLATE
-from src.prompts.scenario_generation import SCENARIO_GENERATION_TEMPLATE, SCENARIO_REVIEW_TEMPLATE, SCENARIO_REVISION_TEMPLATE
+from src.prompts.scenario_generation import SCENARIO_GENERATION_TEMPLATE
 from src.prompts.scoring_contracts import (
     ACCURACY_ASSESSMENT_PROMPT_SHA256,
     ACCURACY_ASSESSMENT_SYSTEM_PROMPT,
@@ -32,8 +32,6 @@ from tests.factories import make_accepted_scenario, make_transcript
 
 ALL_PROMPT_TEMPLATES = [
     SCENARIO_GENERATION_TEMPLATE,
-    SCENARIO_REVIEW_TEMPLATE,
-    SCENARIO_REVISION_TEMPLATE,
     EXPERIMENT_TEMPLATE,
     CONTENT_ASSESSMENT_TEMPLATE,
     PRESENTATION_ASSESSMENT_TEMPLATE,
@@ -68,18 +66,40 @@ def test_shared_renderer_rejects_missing_template_inputs() -> None:
         render_prompt_template(SCENARIO_GENERATION_TEMPLATE, {})
 
 
-def test_scoring_templates_render_complete_typed_inputs_as_readable_json() -> None:
-    """Keep every condition-blind scoring field explicit and lossless in each user template."""
+def test_scoring_templates_render_only_judge_facing_fields_as_readable_json() -> None:
+    """Keep pipeline metadata out of the minimal judge-facing payloads."""
     scenario = make_accepted_scenario()
     scoring_input = build_condition_blind_inputs(make_transcript(scenario), scenario, 7)[ScoredResponse.INITIAL]
+    fact = scoring_input.facts[0]
     contracts = [
-        (render_content_assessment_prompt, CONTENT_ASSESSMENT_SYSTEM_PROMPT, CONTENT_ASSESSMENT_PROMPT_SHA256),
-        (render_presentation_assessment_prompt, PRESENTATION_ASSESSMENT_SYSTEM_PROMPT, PRESENTATION_ASSESSMENT_PROMPT_SHA256),
-        (render_accuracy_assessment_prompt, ACCURACY_ASSESSMENT_SYSTEM_PROMPT, ACCURACY_ASSESSMENT_PROMPT_SHA256),
+        (render_content_assessment_prompt(scoring_input, fact), CONTENT_ASSESSMENT_SYSTEM_PROMPT, CONTENT_ASSESSMENT_PROMPT_SHA256, True),
+        (
+            render_presentation_assessment_prompt(scoring_input, fact),
+            PRESENTATION_ASSESSMENT_SYSTEM_PROMPT,
+            PRESENTATION_ASSESSMENT_PROMPT_SHA256,
+            False,
+        ),
     ]
-    for renderer, expected_system, expected_hash in contracts:
-        prompt = renderer(scoring_input)
+    for prompt, expected_system, expected_hash, includes_markers in contracts:
         assert prompt.system == expected_system
         assert prompt.template_sha256 == expected_hash
-        assert json.loads(prompt.user) == scoring_input.model_dump(mode="json")
-    assert len({contract[2] for contract in contracts}) == 3
+        payload = json.loads(prompt.user)
+        assert set(payload) == {"fact", "response"}
+        assert payload["response"] == {
+            "turn_index": scoring_input.agent_turn.turn_index,
+            "text": scoring_input.agent_turn.content,
+        }
+        expected_keys = {"fact_id", "fact_text", "specificity_markers"} if includes_markers else {"fact_id", "fact_text"}
+        assert set(payload["fact"]) == expected_keys
+        if includes_markers:
+            assert all(set(marker) == {"element_id", "marker_text"} for marker in payload["fact"]["specificity_markers"])
+        assert scoring_input.blind_conversation_id not in prompt.user
+        assert scoring_input.visible_facts_sha256 not in prompt.user
+        assert "randomised_fact_order_seed" not in prompt.user
+    accuracy_prompt = render_accuracy_assessment_prompt(scoring_input)
+    accuracy_payload = json.loads(accuracy_prompt.user)
+    assert set(accuracy_payload) == {"facts", "response"}
+    assert len(accuracy_payload["facts"]) == 4
+    assert accuracy_prompt.system == ACCURACY_ASSESSMENT_SYSTEM_PROMPT
+    assert accuracy_prompt.template_sha256 == ACCURACY_ASSESSMENT_PROMPT_SHA256
+    assert len({CONTENT_ASSESSMENT_PROMPT_SHA256, PRESENTATION_ASSESSMENT_PROMPT_SHA256, ACCURACY_ASSESSMENT_PROMPT_SHA256}) == 3

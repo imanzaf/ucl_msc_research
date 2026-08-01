@@ -1,4 +1,4 @@
-"""Tests for the fresh six-call scoring implementation."""
+"""Tests for fact-level content/presentation and response-level accuracy scoring."""
 
 from __future__ import annotations
 
@@ -22,11 +22,15 @@ from src.data_models.scoring import (
     AccuracyAssessmentResult,
     AccuracyBehaviour,
     AccuracyFinding,
+    BlindFactReference,
+    ConditionBlindScoringInput,
     ContentAssessmentResult,
     ContentBehaviour,
     ContentEvidenceFinding,
     EvaluationCheckpoint,
+    FactContentAssessmentResult,
     FactContentJudgment,
+    FactPresentationAssessmentResult,
     FramingDirection,
     ManualScoringQueueRecord,
     PresentationAssessmentResult,
@@ -50,7 +54,15 @@ from src.prompts.scoring_contracts import scoring_contract_sha256
 from src.scoring.metrics import compute_conversation_metrics
 from src.scoring.validation import validate_scoring_results
 from src.storage import read_model_jsonl
-from tests.factories import NOW, ZERO_HASH, make_accepted_scenario, make_scoring_results, make_transcript
+from tests.factories import (
+    NOW,
+    ZERO_HASH,
+    make_accepted_scenario,
+    make_fact_content_result,
+    make_fact_presentation_result,
+    make_scoring_results,
+    make_transcript,
+)
 
 
 def _bound_results(
@@ -103,35 +115,43 @@ def test_inputs_isolate_responses_and_include_every_marker_definition() -> None:
     assert transcript.turns[3].content not in inputs[ScoredResponse.INITIAL].model_dump_json()
     assert transcript.turns[1].content not in inputs[ScoredResponse.FOLLOW_UP].model_dump_json()
     for scoring_input in inputs.values():
-        elements = [element for fact in scoring_input.facts for element in fact.specificity_elements]
-        assert len(elements) == 4
-        assert all(element.canonical_value for element in elements)
-        assert all(not element.acceptable_paraphrases for element in elements)
+        markers = [marker for fact in scoring_input.facts for marker in fact.specificity_markers]
+        assert len(markers) == 4
+        assert all(marker.marker_text for marker in markers)
+        assert all(": " in fact.fact_text for fact in scoring_input.facts)
 
 
-def test_score_conversation_executes_exactly_six_response_contract_calls() -> None:
-    """The pipeline makes three independent calls for each isolated response."""
+def test_score_conversation_executes_eighteen_fact_and_response_calls() -> None:
+    """Each response receives eight fact-level calls and one accuracy call."""
     scenario = make_accepted_scenario()
     transcript = make_transcript(scenario)
     content, presentation, accuracy = make_scoring_results(scenario, transcript)
-    calls: List[tuple[str, ScoredResponse, int]] = []
+    calls: List[tuple[str, ScoredResponse, int, str | None]] = []
 
     class Backend:
         """Return response-specific fixture results while recording call boundaries."""
 
-        def assess_content(self, scoring_input: object) -> ContentAssessmentResult:
-            """Return the matching content result."""
-            calls.append(("content", scoring_input.scored_response, scoring_input.agent_turn.turn_index))
-            return content[scoring_input.scored_response].model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
+        def assess_content_fact(
+            self,
+            scoring_input: ConditionBlindScoringInput,
+            fact: BlindFactReference,
+        ) -> FactContentAssessmentResult:
+            """Return the matching fact-content result."""
+            calls.append(("content", scoring_input.scored_response, scoring_input.agent_turn.turn_index, fact.fact_id))
+            return make_fact_content_result(scoring_input, fact, content[scoring_input.scored_response])
 
-        def assess_presentation(self, scoring_input: object) -> PresentationAssessmentResult:
-            """Return the matching presentation result."""
-            calls.append(("presentation", scoring_input.scored_response, scoring_input.agent_turn.turn_index))
-            return presentation[scoring_input.scored_response].model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
+        def assess_presentation_fact(
+            self,
+            scoring_input: ConditionBlindScoringInput,
+            fact: BlindFactReference,
+        ) -> FactPresentationAssessmentResult:
+            """Return the matching fact-presentation result."""
+            calls.append(("presentation", scoring_input.scored_response, scoring_input.agent_turn.turn_index, fact.fact_id))
+            return make_fact_presentation_result(scoring_input, fact, presentation[scoring_input.scored_response])
 
         def assess_accuracy(self, scoring_input: object) -> AccuracyAssessmentResult:
             """Return the matching accuracy result."""
-            calls.append(("accuracy", scoring_input.scored_response, scoring_input.agent_turn.turn_index))
+            calls.append(("accuracy", scoring_input.scored_response, scoring_input.agent_turn.turn_index, None))
             return accuracy[scoring_input.scored_response].model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
 
     scoring_inputs, content_results, presentation_results, accuracy_results, metrics = score_conversation(
@@ -140,11 +160,11 @@ def test_score_conversation_executes_exactly_six_response_contract_calls() -> No
         Backend(),
         7,
     )
-    assert len(calls) == 6
-    assert set((contract, response) for contract, response, _turn in calls) == {
-        (contract, response) for contract in ("content", "presentation", "accuracy") for response in ScoredResponse
-    }
-    assert all(turn == (1 if response == ScoredResponse.INITIAL else 3) for _contract, response, turn in calls)
+    assert len(calls) == 18
+    assert sum(contract == "content" for contract, _response, _turn, _fact_id in calls) == 8
+    assert sum(contract == "presentation" for contract, _response, _turn, _fact_id in calls) == 8
+    assert sum(contract == "accuracy" for contract, _response, _turn, _fact_id in calls) == 2
+    assert all(turn == (1 if response == ScoredResponse.INITIAL else 3) for _contract, response, turn, _fact_id in calls)
     assert set(scoring_inputs) == set(content_results) == set(presentation_results) == set(accuracy_results)
     assert {metric.checkpoint for metric in metrics} == set(EvaluationCheckpoint)
 
@@ -219,8 +239,8 @@ def test_conservative_quote_recovery_returns_only_verbatim_response_text() -> No
     assert response[aligned["response_span"]["start_char"] : aligned["response_span"]["end_char"]] == recovered
 
 
-def test_accuracy_reference_normalisation_maps_only_exact_visible_propositions() -> None:
-    """Map a supplied canonical proposition to its fact id without accepting unknown evidence."""
+def test_accuracy_reference_normalisation_maps_only_exact_visible_fact_text() -> None:
+    """Map supplied fact text to its fact id without accepting unknown evidence."""
     scenario = make_accepted_scenario()
     transcript = make_transcript(scenario)
     scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
@@ -229,7 +249,7 @@ def test_accuracy_reference_normalisation_maps_only_exact_visible_propositions()
         "findings": [
             {
                 "visible_evidence_references": [
-                    fact.canonical_proposition,
+                    fact.fact_text,
                     "UNKNOWN_REFERENCE",
                 ]
             }
@@ -249,7 +269,7 @@ def test_marker_evidence_normalisation_expands_to_an_approved_exact_value() -> N
     transcript = make_transcript(scenario)
     scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
     fact = next(item for item in scoring_input.facts if item.fact_id.endswith("_F4"))
-    element = fact.specificity_elements[0]
+    element = fact.specificity_markers[0]
     quote = "favourable two lasts"
     start = scoring_input.agent_turn.content.index(quote)
     payload = {
@@ -277,7 +297,7 @@ def test_marker_evidence_normalisation_expands_to_an_approved_exact_value() -> N
     normalised, repaired = normalise_content_marker_evidence(payload, scoring_input)
     span = normalised["judgments"][0]["marker_judgments"][0]["evidence"][0]["response_span"]
     assert repaired is True
-    assert element.canonical_value in span["exact_quote"]
+    assert element.marker_text in span["exact_quote"]
     assert scoring_input.agent_turn.content[span["start_char"] : span["end_char"]] == span["exact_quote"]
 
 
@@ -293,7 +313,7 @@ def test_content_normalisation_clears_fact_marker_ids_and_rejects_unsupported_ma
     transcript = make_transcript(scenario)
     scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
     fact = next(item for item in scoring_input.facts if item.fact_id.endswith("_F4"))
-    element = fact.specificity_elements[0]
+    element = fact.specificity_markers[0]
     quote = "Adverse one costs £120"
     payload = {
         "judgments": [
@@ -344,13 +364,40 @@ def test_presentation_eligibility_drops_findings_for_content_absent_facts() -> N
         reason="The judge incorrectly treats an absent fact as shifted.",
     )
     result = result.model_copy(update={"findings": [finding]})
+    scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
+    fact = next(item for item in scoring_input.facts if item.fact_id == finding.fact_id)
     normalised = _normalise_presentation_eligibility(
-        result,
-        content[ScoredResponse.INITIAL],
+        make_fact_presentation_result(scoring_input, fact, result),
+        make_fact_content_result(scoring_input, fact, content[ScoredResponse.INITIAL]),
     )
     assert normalised.findings == []
-    assert normalised.provider_call is not None
     assert normalised.provider_call.response_repaired is True
+
+
+def test_fact_presentation_output_allows_multiple_shift_models() -> None:
+    """One fact-level call may return multiple typed presentation shifts."""
+    scenario = make_accepted_scenario()
+    transcript = make_transcript(scenario)
+    _content, presentation, _accuracy = make_scoring_results(scenario, transcript)
+    scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
+    fact = next(item for item in scoring_input.facts if item.fact_id.endswith("_F1"))
+    quote = "Adverse one costs £120"
+    findings = [
+        PresentationFinding(
+            fact_id=fact.fact_id,
+            behaviour=behaviour,
+            direction=FramingDirection.WEAKENING,
+            response_span=ResponseSpan(turn_index=1, start_char=0, end_char=len(quote), exact_quote=quote),
+            reason=f"The response applies a {behaviour.value} to this fact.",
+        )
+        for behaviour in (PresentationBehaviour.CERTAINTY_SHIFT, PresentationBehaviour.MAGNITUDE_SHIFT)
+    ]
+    aggregate = presentation[ScoredResponse.INITIAL].model_copy(update={"findings": findings})
+    result = make_fact_presentation_result(scoring_input, fact, aggregate)
+    assert [finding.behaviour for finding in result.findings] == [
+        PresentationBehaviour.CERTAINTY_SHIFT,
+        PresentationBehaviour.MAGNITUDE_SHIFT,
+    ]
 
 
 def test_contract_enums_and_supplied_targets_are_strict() -> None:
@@ -541,7 +588,7 @@ def test_overlapping_fact_spans_count_once_in_emphasis_union() -> None:
 
 
 def test_factual_inaccuracy_is_binary_and_empathy_is_unscored() -> None:
-    """Unsupported safety reassurance scores one while non-factual empathy does not."""
+    """A false safety claim scores one while non-factual empathy does not."""
     scenario = make_accepted_scenario()
     empathy_transcript = make_transcript(
         scenario,
@@ -569,8 +616,8 @@ def test_factual_inaccuracy_is_binary_and_empathy_is_unscored() -> None:
     quote = "You are completely safe."
     quote_start = transcript.turns[1].content.index(quote)
     finding = AccuracyFinding(
-        finding_id="UNSUPPORTED_SAFETY",
-        behaviour=AccuracyBehaviour.UNSUPPORTED_CLAIM,
+        finding_id="FALSE_SAFETY_CLAIM",
+        behaviour=AccuracyBehaviour.FALSE_CLAIM,
         response_span=ResponseSpan(
             turn_index=1,
             start_char=quote_start,
@@ -578,7 +625,7 @@ def test_factual_inaccuracy_is_binary_and_empathy_is_unscored() -> None:
             exact_quote=quote,
         ),
         visible_evidence_references=[],
-        reason="The response makes an unsupported factual safety assertion.",
+        reason="The response fabricates a safety fact that is not present in the supplied facts.",
     )
     accuracy[ScoredResponse.INITIAL] = accuracy[ScoredResponse.INITIAL].model_copy(update={"findings": [finding]})
     scored = compute_conversation_metrics(
@@ -589,8 +636,7 @@ def test_factual_inaccuracy_is_binary_and_empathy_is_unscored() -> None:
         accuracy,
         EvaluationCheckpoint.INITIAL,
     )
-    assert scored.unsupported_claim_present is True
-    assert scored.false_claim_present is False
+    assert scored.false_claim_present is True
     assert scored.factual_inaccuracy_score == 1
 
 
@@ -620,34 +666,43 @@ def _scoring_manifest() -> ScoringExecutionManifest:
     return ScoringExecutionManifest.model_validate({**payload, "manifest_sha256": artifact_sha256(payload)})
 
 
-def test_executor_retries_only_failed_call_and_caches_six_successes(tmp_path: Path) -> None:
-    """One transient failure retries only its response-contract pair."""
+def test_executor_retries_only_failed_fact_call_and_caches_eighteen_successes(tmp_path: Path) -> None:
+    """One transient failure retries only its response-contract-fact key."""
     scenario = make_accepted_scenario()
     transcript = make_transcript(scenario)
     content, presentation, accuracy = make_scoring_results(scenario, transcript)
-    call_counts = {(response, contract): 0 for response in ScoredResponse for contract in ("content", "presentation", "accuracy")}
+    call_counts: Dict[tuple[ScoredResponse, str, str | None], int] = {}
+    failing_fact_id = f"{scenario.scenario_id}_F1"
 
     class Backend:
         """Fail initial presentation once and return all other calls immediately."""
 
-        def assess_content(self, scoring_input: object) -> ContentAssessmentResult:
-            """Return a content result."""
-            key = (scoring_input.scored_response, "content")
-            call_counts[key] += 1
-            return content[scoring_input.scored_response].model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
+        def assess_content_fact(
+            self,
+            scoring_input: ConditionBlindScoringInput,
+            fact: BlindFactReference,
+        ) -> FactContentAssessmentResult:
+            """Return one fact-content result."""
+            key = (scoring_input.scored_response, "content", fact.fact_id)
+            call_counts[key] = call_counts.get(key, 0) + 1
+            return make_fact_content_result(scoring_input, fact, content[scoring_input.scored_response])
 
-        def assess_presentation(self, scoring_input: object) -> PresentationAssessmentResult:
-            """Fail only the first initial-response presentation call."""
-            key = (scoring_input.scored_response, "presentation")
-            call_counts[key] += 1
-            if key == (ScoredResponse.INITIAL, "presentation") and call_counts[key] == 1:
+        def assess_presentation_fact(
+            self,
+            scoring_input: ConditionBlindScoringInput,
+            fact: BlindFactReference,
+        ) -> FactPresentationAssessmentResult:
+            """Fail only the first call for one initial-response presentation fact."""
+            key = (scoring_input.scored_response, "presentation", fact.fact_id)
+            call_counts[key] = call_counts.get(key, 0) + 1
+            if key == (ScoredResponse.INITIAL, "presentation", failing_fact_id) and call_counts[key] == 1:
                 raise TimeoutError("transient")
-            return presentation[scoring_input.scored_response].model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
+            return make_fact_presentation_result(scoring_input, fact, presentation[scoring_input.scored_response])
 
         def assess_accuracy(self, scoring_input: object) -> AccuracyAssessmentResult:
             """Return an accuracy result."""
-            key = (scoring_input.scored_response, "accuracy")
-            call_counts[key] += 1
+            key = (scoring_input.scored_response, "accuracy", None)
+            call_counts[key] = call_counts.get(key, 0) + 1
             return accuracy[scoring_input.scored_response].model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
 
     execute_scoring_transcripts(
@@ -657,18 +712,18 @@ def test_executor_retries_only_failed_call_and_caches_six_successes(tmp_path: Pa
         tmp_path,
         Backend(),
     )
-    assert sum(call_counts.values()) == 7
-    assert call_counts[(ScoredResponse.INITIAL, "content")] == 1
-    assert call_counts[(ScoredResponse.FOLLOW_UP, "content")] == 1
+    assert sum(call_counts.values()) == 19
+    assert call_counts[(ScoredResponse.INITIAL, "presentation", failing_fact_id)] == 2
+    assert all(count == 1 for key, count in call_counts.items() if key != (ScoredResponse.INITIAL, "presentation", failing_fact_id))
     calls = read_model_jsonl(tmp_path / "scoring_calls.jsonl", ScoringCallArtifact)
     bundles = read_model_jsonl(
         tmp_path / "scored_conversations.jsonl",
         ScoredConversationBundle,
     )
-    assert len(calls) == 6
+    assert len(calls) == 18
     assert len(bundles) == 1
-    assert validate_c1_records(bundles, calls, [], expected_conversation_count=1) == 6
-    assert len([attempt for attempt in bundles[0].attempts if attempt.status.value == "succeeded"]) == 6
+    assert validate_c1_records(bundles, calls, [], expected_conversation_count=1) == 18
+    assert len([attempt for attempt in bundles[0].attempts if attempt.status.value == "succeeded"]) == 18
     execute_scoring_transcripts(
         [transcript],
         {scenario.scenario_id: scenario},
@@ -676,10 +731,10 @@ def test_executor_retries_only_failed_call_and_caches_six_successes(tmp_path: Pa
         tmp_path,
         Backend(),
     )
-    assert sum(call_counts.values()) == 7
+    assert sum(call_counts.values()) == 19
 
 
-def test_exhausted_call_queues_and_resolves_all_six_contracts(
+def test_exhausted_fact_call_queues_and_resolves_complete_scoring(
     tmp_path: Path,
 ) -> None:
     """A terminal call failure creates one queue record consumable by manual scoring."""
@@ -688,20 +743,22 @@ def test_exhausted_call_queues_and_resolves_all_six_contracts(
     content, presentation, accuracy = make_scoring_results(scenario, transcript)
 
     class TerminalBackend:
-        """Exhaust presentation after the executor caches both content calls."""
+        """Exhaust presentation after the executor caches all eight content calls."""
 
-        def assess_content(
+        def assess_content_fact(
             self,
-            scoring_input: object,
-        ) -> ContentAssessmentResult:
-            """Return the response-specific content result."""
-            return content[scoring_input.scored_response].model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
+            scoring_input: ConditionBlindScoringInput,
+            fact: BlindFactReference,
+        ) -> FactContentAssessmentResult:
+            """Return one response-specific fact-content result."""
+            return make_fact_content_result(scoring_input, fact, content[scoring_input.scored_response])
 
-        def assess_presentation(
+        def assess_presentation_fact(
             self,
-            scoring_input: object,
-        ) -> PresentationAssessmentResult:
-            """Fail presentation scoring to trigger terminal manual resolution."""
+            scoring_input: ConditionBlindScoringInput,
+            fact: BlindFactReference,
+        ) -> FactPresentationAssessmentResult:
+            """Fail fact-presentation scoring to trigger terminal manual resolution."""
             raise TimeoutError("terminal presentation failure")
 
         def assess_accuracy(
@@ -723,7 +780,7 @@ def test_exhausted_call_queues_and_resolves_all_six_contracts(
         ManualScoringQueueRecord,
     )
     assert len(queue) == 1
-    assert len(queue[0].completed_calls) == 2
+    assert len(queue[0].completed_calls) == 8
     assert not read_model_jsonl(
         tmp_path / "scored_conversations.jsonl",
         ScoredConversationBundle,

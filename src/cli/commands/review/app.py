@@ -8,10 +8,9 @@ from src.review_app import ReviewStore, run_streamlit_app
 
 
 def main() -> None:
-    """Render generated candidates, blinded inputs, and ignored review output storage."""
+    """Render generated candidates and blinded conversation inputs."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidate-root", type=Path, required=True)
-    parser.add_argument("--scenario-review-root", type=Path, required=True)
     parser.add_argument("--scoring-input-root", type=Path, default=REPO_ROOT / "data/outputs/review/evaluation_scoring_inputs")
     parser.add_argument(
         "--annotation-sample-manifest",
@@ -25,7 +24,6 @@ def main() -> None:
         scoring_input_root=args.scoring_input_root,
         output_root=args.output_root,
         annotation_sample_manifest_path=args.annotation_sample_manifest,
-        scenario_review_root=args.scenario_review_root,
     )
     run_streamlit_app(store)
 

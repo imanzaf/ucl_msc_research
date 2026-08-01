@@ -31,9 +31,10 @@ from src.data_models.manifests import (
     PromptReviewManifest,
     ScenarioManifestScope,
 )
-from src.data_models.scenarios import LoadedScenarioSeedSet, ScenarioHiddenDesign, SeedOptionId
+from src.data_models.scenarios import ComparisonScope, LoadedScenarioSeedSet, ScenarioHiddenDesign, SeedOptionId
 from src.data_models.study import PROMPT_PACKAGE_VERSION, ExpressedConcernCondition
 from src.llm.openrouter import OpenRouterClient, ProviderTextResponse
+from src.paths import ACTIVE_SCENARIO_INPUT_ROOT, ACTIVE_SCENARIO_SEED_VERSION
 from src.prompts.experiment import render_reviewed_user_request, validate_complete_request_reviews
 from src.scenarios.budgets import build_ample_pilot_summary, calculate_tight_word_limit, require_ample_pilot_gate, validate_evaluation_headroom
 from src.scenarios.seed_validation import (
@@ -48,7 +49,7 @@ from src.scenarios.word_count import count_words, tokenize_words
 from tests.factories import ZERO_HASH, make_accepted_scenario
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SEED_ROOT = REPO_ROOT / "data/inputs/scenarios/v2.0.0"
+SEED_ROOT = ACTIVE_SCENARIO_INPUT_ROOT
 
 
 def load_active_seed() -> LoadedScenarioSeedSet:
@@ -62,7 +63,7 @@ def load_active_seed() -> LoadedScenarioSeedSet:
 
 
 def test_active_seed_has_approved_bytes_and_exact_structure() -> None:
-    """Authenticate the only runtime-supported V2.0.0 scenario inputs."""
+    """Authenticate the only runtime-supported V3.0.0 scenario inputs."""
     hashes = validate_seed_hashes(
         SEED_ROOT / "scenario_generation_seeds.json",
         SEED_ROOT / "scenario_generation_seed_schema.json",
@@ -81,7 +82,7 @@ def test_active_seed_has_approved_bytes_and_exact_structure() -> None:
     assert all(len({replication.decision_type for replication in use_case.replications}) == 3 for use_case in seed.use_cases)
 
 
-def test_exported_seed_schemas_match_the_separate_v2_boundaries() -> None:
+def test_exported_seed_schemas_match_the_separate_active_boundaries() -> None:
     """Require exported schemas to enforce separate definition and query documents."""
     exported_schema = json.loads((REPO_ROOT / "schemas/scenario_seed_set.schema.json").read_text(encoding="utf-8"))
     exported_query_schema = json.loads((REPO_ROOT / "schemas/scenario_query_set.schema.json").read_text(encoding="utf-8"))
@@ -105,21 +106,18 @@ def test_exported_seed_schemas_match_the_separate_v2_boundaries() -> None:
     assert list(validator.iter_errors(active_payload))
 
 
-def test_v2_split_preserves_every_v1_scenario_field_and_query() -> None:
-    """Prove V2 changes only version identifiers and customer-query placement."""
-    v1_payload = json.loads((REPO_ROOT / "data/inputs/scenarios/v1.0.0/scenario_generation_seeds.json").read_text(encoding="utf-8"))
-    v2_payload = json.loads((SEED_ROOT / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
-    query_payload = json.loads((SEED_ROOT / "scenario_customer_queries.json").read_text(encoding="utf-8"))
-    query_by_scenario_id = {
-        scenario["scenario_id"]: scenario["customer_messages"] for family in query_payload["scenario_families"] for scenario in family["scenarios"]
-    }
-    reconstructed = json.loads(json.dumps(v2_payload))
-    reconstructed["schema_version"] = v1_payload["schema_version"]
-    reconstructed["scenario_set_id"] = v1_payload["scenario_set_id"]
-    for use_case in reconstructed["use_cases"]:
-        for replication in use_case["replications"]:
-            replication["customer_messages"] = query_by_scenario_id[replication["scenario_id"]]
-    assert reconstructed == v1_payload
+def test_active_seed_enforces_stage_specific_provider_relationships() -> None:
+    """Require R1 to compare internal options and R2 to identify one external alternative."""
+    seed = load_active_seed()
+    replications = [replication for use_case in seed.use_cases for replication in use_case.replications]
+    for replication in replications:
+        if replication.scenario_id.endswith("_R1"):
+            assert replication.comparison_scope == ComparisonScope.INTRA_PROVIDER
+            assert replication.external_option_id is None
+        if replication.scenario_id.endswith("_R2"):
+            assert replication.comparison_scope == ComparisonScope.PROVIDER_VS_EXTERNAL
+            assert replication.external_option_id is not None
+            assert replication.external_option_id != replication.owner_supporting_option
 
 
 def test_hidden_design_requires_one_owner_option_and_distinct_option_names() -> None:
@@ -135,7 +133,7 @@ def test_hidden_design_requires_one_owner_option_and_distinct_option_names() -> 
 def test_seed_tampering_is_rejected_before_use(tmp_path: Path) -> None:
     """Reject any changed byte in the active immutable seed."""
     root = SEED_ROOT
-    version_root = tmp_path / "v2.0.0"
+    version_root = tmp_path / ACTIVE_SCENARIO_SEED_VERSION
     version_root.mkdir()
     payload = json.loads((root / "scenario_generation_seeds.json").read_text(encoding="utf-8"))
     payload["use_cases"][0]["word_budget"] = 100
@@ -490,9 +488,9 @@ def test_successful_ample_pilot_attempt_recovers_only_from_matching_cache() -> N
         _recover_cached_success(CachedClient(), mismatched, ZERO_HASH)
 
 
-def test_accepted_manifest_rejects_unapproved_seed_hashes_before_publication() -> None:
-    """Prevent a self-hashed accepted set from blessing altered V2.0.0 input bytes."""
-    with pytest.raises(ValidationError, match="approved immutable V2.0.0 scenario inputs"):
+def test_accepted_manifest_treats_input_hashes_as_provenance_not_publication_gates() -> None:
+    """Allow changed authoring inputs while still requiring the selected downstream scope."""
+    with pytest.raises(ValidationError, match="exact scenario ids required by its scope"):
         AcceptedScenarioManifest(
             schema_version="3.0.0",
             scenario_set_id="customer_facing_risk_communication_v2.0.0",

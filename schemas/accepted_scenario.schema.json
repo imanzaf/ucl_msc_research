@@ -1,5 +1,14 @@
 {
   "$defs": {
+    "ComparisonScope": {
+      "description": "Identify whether both options belong to the provider or one is external.",
+      "enum": [
+        "intra_provider",
+        "provider_vs_external"
+      ],
+      "title": "ComparisonScope",
+      "type": "string"
+    },
     "CustomerMessages": {
       "additionalProperties": false,
       "description": "Store natural condition-specific questions and one shared non-leading follow-up.",
@@ -127,11 +136,33 @@
       "additionalProperties": false,
       "description": "Store one decision's research-only ownership mapping and display order.",
       "properties": {
+        "comparison_scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComparisonScope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "decision_type": {
           "minLength": 1,
           "pattern": "\\S",
           "title": "Decision Type",
           "type": "string"
+        },
+        "external_option_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SeedOptionId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "options": {
           "items": {

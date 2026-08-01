@@ -37,7 +37,13 @@ from src.data_models.manifests import (
     TightLimitManifest,
     WordBudgetManifest,
 )
-from src.data_models.scenario_review import ResearcherScenarioReview, ScenarioAcceptanceRecord, ScenarioPipelineDisposition, ScenarioReviewHistory
+from src.data_models.scenario_review import (
+    ResearcherScenarioReview,
+    ScenarioAcceptanceRecord,
+    ScenarioPipelineDisposition,
+    ScenarioReviewHistory,
+    ScenarioRevisionRecord,
+)
 from src.data_models.scenarios import (
     AcceptedScenario,
     CandidateScenario,
@@ -127,6 +133,7 @@ SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
     "scenario_pipeline_disposition": ScenarioPipelineDisposition,
     "scenario_query_set": ScenarioQuerySet,
     "scenario_review_history": ScenarioReviewHistory,
+    "scenario_revision_record": ScenarioRevisionRecord,
     "scenario_seed_set": ScenarioSeedSet,
     "scoring_validation_report": ScoringValidationReport,
     "validation_disposition_manifest": ValidationDispositionManifest,

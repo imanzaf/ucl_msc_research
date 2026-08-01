@@ -7,19 +7,12 @@ import shutil
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
+from typing import Tuple
 
 from src.data_models.common import artifact_sha256, validate_model_self_hash
-from src.data_models.scenario_review import (
-    ResearcherScenarioReview,
-    ReviewDecision,
-    ScenarioAcceptanceRecord,
-    ScenarioReviewHistory,
-    required_automated_review_kinds,
-)
+from src.data_models.scenario_review import ScenarioAcceptanceRecord, ScenarioReviewHistory
 from src.data_models.scenarios import AcceptedScenario, CandidateScenario
-from src.scenarios.researcher_edits import apply_researcher_fact_reviews
-from src.storage import write_model_json_atomic
+from src.storage import read_model_json, write_model_json_atomic
 
 
 def validate_candidate_scenario_hash(candidate: CandidateScenario) -> None:
@@ -32,19 +25,6 @@ def validate_accepted_scenario_hash(accepted: AcceptedScenario) -> None:
     validate_model_self_hash(accepted, "artifact_sha256")
 
 
-def _validated_researcher_review(
-    reviews: List[ResearcherScenarioReview],
-    candidate: CandidateScenario,
-) -> ResearcherScenarioReview:
-    """Require exactly one researcher review bound to the candidate proposed for acceptance."""
-    if len(reviews) != 1:
-        raise ValueError("acceptance requires exactly one researcher scenario review")
-    review = reviews[0]
-    if review.scenario_id != candidate.scenario_id or review.reviewed_artifact_sha256 != candidate.candidate_sha256:
-        raise ValueError("researcher review does not bind the accepted candidate")
-    return review
-
-
 def build_accepted_scenario(
     candidate: CandidateScenario,
     review_history: ScenarioReviewHistory,
@@ -52,27 +32,10 @@ def build_accepted_scenario(
     accepted_by: str,
     artifact_version: str = "v1",
 ) -> Tuple[ScenarioAcceptanceRecord, AcceptedScenario]:
-    """Build an acyclic acceptance record and immutable artifact after every review gate passes."""
+    """Build a published artifact directly from the researcher-selected candidate version."""
     validate_candidate_scenario_hash(candidate)
     if review_history.scenario_id != candidate.scenario_id:
         raise ValueError("review history does not match candidate scenario")
-    if review_history.revisions:
-        if review_history.revisions[-1].output_artifact_sha256 != candidate.candidate_sha256:
-            raise ValueError("final revision output does not match the candidate proposed for acceptance")
-    elif any(review.reviewed_artifact_sha256 != candidate.candidate_sha256 for review in review_history.automated_reviews):
-        raise ValueError("unrevised review history contains a review of a different candidate")
-    required_review_kinds = required_automated_review_kinds(candidate.scenario_id)
-    final_automated = {
-        review.review_kind: review for review in review_history.automated_reviews if review.reviewed_artifact_sha256 == candidate.candidate_sha256
-    }
-    if set(final_automated) != required_review_kinds:
-        raise ValueError("acceptance requires every stage-relevant automated review of the final candidate")
-    if any(review.decision != ReviewDecision.ACCEPT for review in final_automated.values()):
-        raise ValueError("acceptance requires every final automated review to pass")
-    researcher_review = _validated_researcher_review(review_history.researcher_reviews, candidate)
-    if researcher_review.decision != ReviewDecision.ACCEPT:
-        raise ValueError("acceptance requires an accepted researcher decision")
-    accepted_options = apply_researcher_fact_reviews(candidate, researcher_review.fact_reviews)
     review_history_sha256 = artifact_sha256(review_history)
     record_payload = {
         "schema_version": "3.0.0",
@@ -93,7 +56,7 @@ def build_accepted_scenario(
         "deployment_context": candidate.deployment_context,
         "customer_messages": candidate.customer_messages,
         "hidden_design": candidate.hidden_design,
-        "options": accepted_options,
+        "options": candidate.options,
         "review_history_sha256": review_history_sha256,
         "acceptance_record_sha256": acceptance_record.record_sha256,
         "accepted_at": accepted_at,
@@ -128,14 +91,16 @@ def publish_accepted_scenario(
     review_history: ScenarioReviewHistory,
     acceptance_record: ScenarioAcceptanceRecord,
     accepted_root: Path,
+    replace_existing: bool = False,
 ) -> None:
-    """Publish a complete accepted bundle with one atomic directory rename."""
+    """Publish a complete bundle, optionally archiving and replacing the current version."""
     validate_accepted_bundle(accepted, review_history, acceptance_record)
     accepted_root.mkdir(parents=True, exist_ok=True)
     scenario_dir = accepted_root / accepted.scenario_id
-    if scenario_dir.exists():
+    if scenario_dir.exists() and not replace_existing:
         raise FileExistsError(f"accepted scenario is immutable and already exists: {accepted.scenario_id}")
     temporary_dir = Path(tempfile.mkdtemp(prefix=f".{accepted.scenario_id}.", dir=accepted_root))
+    archived_dir = None
     try:
         write_model_json_atomic(temporary_dir / "review_history.json", review_history)
         write_model_json_atomic(temporary_dir / "acceptance_record.json", acceptance_record)
@@ -145,7 +110,19 @@ def publish_accepted_scenario(
             os.fsync(directory_descriptor)
         finally:
             os.close(directory_descriptor)
-        os.replace(temporary_dir, scenario_dir)
+        if scenario_dir.exists():
+            previous = read_model_json(scenario_dir / "accepted_scenario.json", AcceptedScenario)
+            archived_dir = accepted_root / "_history" / accepted.scenario_id / previous.artifact_sha256
+            archived_dir.parent.mkdir(parents=True, exist_ok=True)
+            if archived_dir.exists():
+                raise FileExistsError(f"published history already contains {previous.artifact_sha256}")
+            os.replace(scenario_dir, archived_dir)
+        try:
+            os.replace(temporary_dir, scenario_dir)
+        except Exception:
+            if archived_dir is not None and archived_dir.exists():
+                os.replace(archived_dir, scenario_dir)
+            raise
         root_descriptor = os.open(accepted_root, os.O_RDONLY)
         try:
             os.fsync(root_descriptor)

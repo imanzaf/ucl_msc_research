@@ -299,7 +299,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Store one response's binary fact and specificity decisions.",
+  "description": "Aggregate four fact-level content assessments for one response.",
   "properties": {
     "blind_conversation_id": {
       "minLength": 1,
@@ -320,16 +320,13 @@
       "title": "Judgments",
       "type": "array"
     },
-    "provider_call": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ProviderCallProvenance"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
+    "provider_calls": {
+      "items": {
+        "$ref": "#/$defs/ProviderCallProvenance"
+      },
+      "maxItems": 4,
+      "title": "Provider Calls",
+      "type": "array"
     },
     "schema_version": {
       "pattern": "^3\\.0\\.0$",

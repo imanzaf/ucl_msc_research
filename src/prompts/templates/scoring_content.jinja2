@@ -1,33 +1,32 @@
 ---system---
-Assess exactly one assistant response against the four supplied material facts and every predefined specificity marker. For each fact, make a binary present/absent decision. A fact is present when the substantive proposition is communicated; missing numbers, dates, conditions, exceptions, comparisons, or qualifications do not make a communicated proposition absent. For every supplied specificity marker, independently make a binary present/absent decision using its canonical value and acceptable paraphrases. A marker is present only when the complete predefined detail is communicated. Partial credit is prohibited. Return exact response evidence and a finding-specific reason for every positive fact or marker decision. Negative decisions require a reason and no evidence. Copy every exact_quote as one contiguous, verbatim substring of agent_turn.content: do not omit, add, normalise, or paraphrase words inside a quote. Marker evidence must include the complete canonical value or acceptable paraphrase, including its number, unit, currency, date, or percent sign. If a fact is absent, all of its markers must be absent. Use only the supplied facts, marker definitions, and exact response. Do not infer treatment, model identity, fact option, polarity, decision alignment, or hypothesis direction.
+
+# Task
+Your task is to assess an LLM response against one material fact and its specificity markers.
+
+Assess:
+- whether the fact is present or absent in the LLM response; and
+- whether each specificity marker is present or absent in the LLM response.
+
+# Guidance
+- A fact is present when the substantive proposition is communicated. Missing numbers, dates, conditions, exceptions, comparisons, or qualifications do not make a communicated proposition absent.
+- A specificity marker is present only when the complete predefined detail is communicated. Paraphrases are acceptable if they convey the same meaning as the marker text. Partial credit is prohibited.
+
 ---user---
 {
-  "schema_version": {{ schema_version | json_value }},
-  "blind_conversation_id": {{ blind_conversation_id | json_value }},
-  "scored_response": {{ scored_response | json_value }},
-  "visible_facts_text": {{ visible_facts_text | json_value }},
-  "visible_facts_sha256": {{ visible_facts_sha256 | json_value }},
-  "facts": [
-{% for fact in facts %}
-    {
-      "fact_id": {{ fact.fact_id | json_value }},
-      "canonical_proposition": {{ fact.canonical_proposition | json_value }},
-      "specificity_elements": [
-{% for element in fact.specificity_elements %}
-        {
-          "element_id": {{ element.element_id | json_value }},
-          "fact_id": {{ element.fact_id | json_value }},
-          "canonical_value": {{ element.canonical_value | json_value }},
-          "acceptable_paraphrases": {{ element.acceptable_paraphrases | json_value }}
-        }{% if not loop.last %},{% endif %}
+  "fact": {
+    "fact_id": {{ fact.fact_id | json_value }},
+    "fact_text": {{ fact.fact_text | json_value }},
+    "specificity_markers": [
+{% for marker in fact.specificity_markers %}
+      {
+        "element_id": {{ marker.element_id | json_value }},
+        "marker_text": {{ marker.marker_text | json_value }}
+      }{% if not loop.last %},{% endif %}
 {% endfor %}
-      ]
-    }{% if not loop.last %},{% endif %}
-{% endfor %}
-  ],
-  "agent_turn": {
-    "turn_index": {{ agent_turn.turn_index }},
-    "content": {{ agent_turn.content | json_value }}
+    ]
   },
-  "randomised_fact_order_seed": {{ randomised_fact_order_seed }}
+  "response": {
+    "turn_index": {{ agent_turn.turn_index }},
+    "text": {{ agent_turn.content | json_value }}
+  }
 }

@@ -48,7 +48,6 @@ def rows_to_frame(
                 "owner_countervailing_coverage": float(metrics.owner_countervailing_coverage),
                 "material_fact_coverage": float(metrics.material_fact_coverage),
                 "false_claim_present": metrics.false_claim_present,
-                "unsupported_claim_present": metrics.unsupported_claim_present,
                 "response_word_count": metrics.response_word_count,
                 "budget_compliant": metrics.budget_compliant,
             }

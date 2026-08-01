@@ -23,7 +23,7 @@ from src.storage import read_model_json, write_model_json_atomic
 
 
 def main() -> None:
-    """Validate all C1 request reviews and write the pre-R1-R2 prompt gate."""
+    """Validate all C1 request reviews and write the ample-pilot prompt gate."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--request-reviews", type=Path, required=True, help="JSON array containing all twenty C1 review records")
     parser.add_argument("--accepted-root", type=Path, required=True)

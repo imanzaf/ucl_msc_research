@@ -41,6 +41,14 @@ class ReviewPass(str, Enum):
     INITIAL = "initial"
 
 
+class RevisionOrigin(str, Enum):
+    """Identify whether a scenario revision was automated or applied manually."""
+
+    AUTOMATED = "automated"
+    MANUAL_FACT_EDIT = "manual_fact_edit"
+    MANUAL_QUERY_EDIT = "manual_query_edit"
+
+
 class FindingSeverity(str, Enum):
     """Classify review findings by protocol impact."""
 
@@ -121,11 +129,12 @@ class ControlledFieldChange(ImmutableModel):
 
 
 class RevisionCycleRecord(VersionedImmutableModel):
-    """Store one bounded automated revision and full dependency rebuild."""
+    """Store one hash-linked revision and full dependency rebuild."""
 
-    schema_version: str = Field(pattern=r"^3\.0\.0$")
+    schema_version: str = Field(pattern=r"^3\.[01]\.0$")
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
-    cycle_number: int = Field(ge=1, le=MAX_AUTOMATED_REVISION_CYCLES)
+    cycle_number: int = Field(ge=1)
+    origin: RevisionOrigin = Field(default=RevisionOrigin.AUTOMATED, exclude_if=lambda value: value == RevisionOrigin.AUTOMATED)
     changes: List[ControlledFieldChange] = Field(min_length=1)
     input_artifact_sha256: str
     output_artifact_sha256: str
@@ -149,17 +158,21 @@ class RevisionCycleRecord(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_required_reviews_rerun(self) -> "RevisionCycleRecord":
-        """Require every stage-relevant automated review after a revision."""
-        if set(self.rerun_review_sha256) != required_automated_review_kinds(self.scenario_id):
+        """Require complete rerun reviews for automated revisions and any completed manual rerun."""
+        required_reviews = required_automated_review_kinds(self.scenario_id)
+        if self.origin == RevisionOrigin.AUTOMATED and set(self.rerun_review_sha256) != required_reviews:
             raise ValueError("every revision cycle must rerun the stage-relevant automated reviews")
+        if self.origin != RevisionOrigin.AUTOMATED and self.rerun_review_sha256 and set(self.rerun_review_sha256) != required_reviews:
+            raise ValueError("a completed manual revision review must contain every stage-relevant review kind")
         current_dependencies = {"options"}
+        query_dependencies = {"customer_messages"}
         schema_eight_dependencies = {
             "option_descriptions",
             "material_facts",
             "specificity_elements",
         }
         schema_six_dependencies = {*schema_eight_dependencies, "fact_pairs"}
-        if set(self.rebuilt_dependency_sha256) not in (current_dependencies, schema_eight_dependencies, schema_six_dependencies):
+        if set(self.rebuilt_dependency_sha256) not in (current_dependencies, query_dependencies, schema_eight_dependencies, schema_six_dependencies):
             raise ValueError("every revision cycle must rebuild and hash all dependent scenario artifacts")
         return self
 
@@ -270,32 +283,32 @@ class ResearcherScenarioReview(VersionedImmutableModel):
 
 
 class ScenarioReviewHistory(VersionedImmutableModel):
-    """Collect complete automated, revision, and researcher review provenance."""
+    """Collect any optional review provenance retained with a published scenario."""
 
     schema_version: Literal["3.3.0", "3.4.0"]
     scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
-    automated_reviews: List[AutomatedScenarioReview] = Field(min_length=1)
-    revisions: List[RevisionCycleRecord] = Field(max_length=MAX_AUTOMATED_REVISION_CYCLES)
-    researcher_reviews: List[ResearcherScenarioReview] = Field(min_length=1)
+    automated_reviews: List[AutomatedScenarioReview] = Field(default_factory=list)
+    revisions: List[RevisionCycleRecord] = Field(default_factory=list)
+    researcher_reviews: List[ResearcherScenarioReview] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_review_history(self) -> "ScenarioReviewHistory":
         """Require stage-relevant reviews and a sequential, hash-linked revision history."""
-        required_kinds = required_automated_review_kinds(self.scenario_id)
         observed_kinds = {review.review_kind for review in self.automated_reviews}
-        if not required_kinds.issubset(observed_kinds):
-            raise ValueError("automated review history is missing a stage-relevant review kind")
-        if not observed_kinds.issubset(required_kinds):
+        if not observed_kinds.issubset(required_automated_review_kinds(self.scenario_id)):
             raise ValueError("automated review history contains a review kind that is not used at this stage")
         scenario_ids = {
             *{review.scenario_id for review in self.automated_reviews},
             *{revision.scenario_id for revision in self.revisions},
             *{review.scenario_id for review in self.researcher_reviews},
         }
-        if scenario_ids != {self.scenario_id}:
+        if scenario_ids and scenario_ids != {self.scenario_id}:
             raise ValueError("every review record must share the history scenario_id")
         if [revision.cycle_number for revision in self.revisions] != list(range(1, len(self.revisions) + 1)):
             raise ValueError("revision cycles must be sequential and ordered from one")
+        automated_revision_count = sum(revision.origin == RevisionOrigin.AUTOMATED for revision in self.revisions)
+        if automated_revision_count > MAX_AUTOMATED_REVISION_CYCLES:
+            raise ValueError("review history exceeds the automated revision-cycle limit")
         for index, revision in enumerate(self.revisions):
             if index and revision.input_artifact_sha256 != self.revisions[index - 1].output_artifact_sha256:
                 raise ValueError("revision candidate hashes must form one continuous chain")
@@ -305,6 +318,47 @@ class ScenarioReviewHistory(VersionedImmutableModel):
                 for kind, digest in revision.rerun_review_sha256.items()
             ):
                 raise ValueError("revision record does not bind the complete rerun review outputs")
+        return self
+
+
+class ScenarioRevisionRecord(VersionedImmutableModel):
+    """Record one freely edited candidate version without imposing review gates."""
+
+    schema_version: Literal["1.0.0"]
+    scenario_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])$")
+    revision_number: int = Field(ge=1)
+    parent_candidate_sha256: str
+    candidate_sha256: str
+    changed_fields: List[str] = Field(min_length=1)
+    edited_by: str = Field(min_length=1)
+    notes: str = Field(default="", max_length=2_000)
+    saved_at: datetime
+    record_sha256: str
+
+    @field_validator("parent_candidate_sha256", "candidate_sha256", "record_sha256")
+    @classmethod
+    def validate_revision_hashes(cls, value: str) -> str:
+        """Validate the parent, output, and self-hash digests."""
+        return validate_sha256(value)
+
+    @field_validator("changed_fields")
+    @classmethod
+    def validate_changed_fields(cls, values: List[str]) -> List[str]:
+        """Require unique, nonblank field paths in stable order."""
+        if len(values) != len(set(values)) or any(not value.strip() for value in values):
+            raise ValueError("changed_fields must contain unique nonblank field paths")
+        return values
+
+    @model_validator(mode="after")
+    def validate_revision_record(self) -> "ScenarioRevisionRecord":
+        """Require a real parent transition and bind the record to its content."""
+        if self.parent_candidate_sha256 == self.candidate_sha256:
+            raise ValueError("a saved revision must differ from its parent candidate")
+        if self.saved_at.tzinfo is None:
+            raise ValueError("revision saved_at must be timezone-aware")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"record_sha256"}))
+        if self.record_sha256 != expected_hash:
+            raise ValueError("scenario revision record hash does not match canonical content")
         return self
 
 

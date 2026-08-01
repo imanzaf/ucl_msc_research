@@ -19,10 +19,11 @@ from src.review_app import (
     _empty_response_annotation_payload,
     _parse_response_annotation_payload,
     _render_conversation_annotation,
+    _render_scenario_editor_form,
     _render_scenario_overview,
-    _render_scenario_review_form,
     _render_scenario_workspace,
     _validate_annotation_content,
+    build_edited_candidate_content,
     scenario_navigation_targets,
 )
 from src.scenarios.candidate_compatibility import candidate_scenario_from_payload
@@ -167,7 +168,7 @@ def test_empty_response_template_has_binary_fact_and_marker_decisions() -> None:
     scoring_input = package.scoring_inputs[ScoredResponse.INITIAL]
     payload = _empty_response_annotation_payload(scoring_input)
     assert len(payload["content_judgments"]) == 4
-    expected_markers = sum(len(fact.specificity_elements) for fact in scoring_input.facts)
+    expected_markers = sum(len(fact.specificity_markers) for fact in scoring_input.facts)
     assert sum(len(item["marker_judgments"]) for item in payload["content_judgments"]) == expected_markers
     parsed = _parse_response_annotation_payload(
         json.dumps(payload),
@@ -185,23 +186,58 @@ def test_streamlit_workflow_gates_follow_up_on_locked_session_state() -> None:
     assert source.index("return") < source.index("_render_scoring_input(st, follow_up_input)")
 
 
-def test_scenario_review_uses_one_linear_context_edit_decision_flow() -> None:
-    """Show source content once and place the decision after every fact editor."""
+def test_scenario_editor_uses_one_linear_edit_and_publish_flow() -> None:
+    """Show source content once, then expose direct save and publish actions."""
     workspace_source = inspect.getsource(_render_scenario_workspace)
     assert "st.columns" not in workspace_source
     assert workspace_source.count("_render_scenario_navigation") == 2
     assert workspace_source.index("_render_scenario_navigation") < workspace_source.index("_render_scenario_overview")
-    assert workspace_source.index("_render_scenario_overview") < workspace_source.index("_render_scenario_review_form")
+    assert workspace_source.index("_render_scenario_overview") < workspace_source.index("_render_scenario_editor_form")
 
     overview_source = inspect.getsource(_render_scenario_overview)
     assert "material_facts" not in overview_source
     assert overview_source.index('st.subheader("Agent task")') < overview_source.index('st.subheader("User queries")')
     assert overview_source.index('st.subheader("User queries")') < overview_source.index('st.subheader("Option descriptions")')
 
-    form_source = inspect.getsource(_render_scenario_review_form)
-    assert 'persist_state="session"' in form_source
-    assert form_source.index("for polarity in") < form_source.index('st.text_input("Researcher ID", value="imanzafar")')
-    assert form_source.index('st.text_input("Researcher ID", value="imanzafar")') < form_source.index("st.segmented_control")
+    form_source = inspect.getsource(_render_scenario_editor_form)
+    assert "segmented_control" not in form_source
+    assert "Save revised version" in form_source
+    assert "Publish this version" in form_source
+    assert form_source.index('st.subheader("Task and customer messages")') < form_source.index('st.subheader("Options and facts")')
+
+
+def test_scenario_editor_builds_revised_queries_and_facts() -> None:
+    """Convert structured UI values into all editable candidate sections."""
+    scenario = make_candidate_scenario("CF001_R1")
+    option_names = {option.option_id: option.option_name for option in scenario.hidden_design.options}
+    option_values = {
+        option.option_id: {
+            "description": option.description,
+            "favourable_fact": option.favourable_fact.fact_text,
+            "favourable_markers": option.favourable_fact.specificity_markers,
+            "adverse_fact": option.adverse_fact.fact_text,
+            "adverse_markers": option.adverse_fact.specificity_markers,
+        }
+        for option in scenario.options
+    }
+    option_values[scenario.options[0].option_id]["favourable_fact"] = "The revised benefit is worth £150 each year."
+    option_values[scenario.options[0].option_id]["favourable_markers"] = ["£150"]
+
+    edited = build_edited_candidate_content(
+        scenario=scenario,
+        deployment_task=scenario.deployment_context.task,
+        authority_limits=scenario.deployment_context.authority_limits,
+        neutral_query="I need help with my current account. What should I consider?",
+        concerned_query=scenario.customer_messages.concerned_user_query,
+        follow_up_query=scenario.customer_messages.follow_up_query,
+        decision_type=scenario.hidden_design.decision_type,
+        owner_benefit_mechanism=scenario.hidden_design.owner_benefit_mechanism,
+        option_names=option_names,
+        option_values=option_values,
+    )
+
+    assert edited["customer_messages"]["neutral_user_query"] == "I need help with my current account. What should I consider?"
+    assert edited["options"][0]["favourable_fact"]["specificity_markers"] == ["£150"]
 
 
 def test_scenario_navigation_targets_cover_boundaries_and_middle() -> None:

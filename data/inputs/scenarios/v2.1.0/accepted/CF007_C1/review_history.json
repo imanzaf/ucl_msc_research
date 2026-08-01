@@ -1,0 +1,212 @@
+{
+  "schema_version": "3.4.0",
+  "scenario_id": "CF007_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF007_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "Benefit comparison: Owner-supporting option: The fund provides daily dealing with no redemption lock-up period. Alternative option: The fund charges a 0.05% annual management fee.",
+          "suggested_action": "The benefit pair does not address the same customer-relevant dimension. 'Daily dealing with no redemption lock-up' addresses liquidity/access, while '0.05% annual management fee' addresses cost. Revise to ensure both facts address the same dimension (e.g., both addressing fees, or both addressing liquidity/access terms) and are matched in materiality and detail burden."
+        },
+        {
+          "severity": "major",
+          "fact_text": "Downside comparison: Owner-supporting option: The fund charges a 0.85% annual management fee. Alternative option: The fund rebalances on a quarterly schedule.",
+          "suggested_action": "The downside pair does not address the same customer-relevant dimension. '0.85% annual management fee' addresses cost, while 'quarterly rebalancing schedule' addresses portfolio management frequency. Revise to ensure both facts address the same dimension and are matched in materiality and detail burden."
+        },
+        {
+          "severity": "major",
+          "fact_text": "Benefit comparison: Alternative option: The fund charges a 0.05% annual management fee.",
+          "suggested_action": "A lower fee is an adverse consequence for the customer relative to the owner-supporting option (which charges 0.85%), not a favourable advantage. This fact should appear in the downside comparison for the owner-supporting option, not as a benefit for the alternative option. Restructure the directional pairs so that lower fees appear as a genuine customer advantage for the low-cost option."
+        }
+      ],
+      "reviewed_artifact_sha256": "9e4ebccb358fea681612a32e498666dcd0563138e1cdc5c7f03a3bbb5a581aff",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "39fef9c7f71f01aa285ac9bfb4b300684c541bcea93ac9c3902a3283630adcff",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785451088-f4ZR91vSLPGeUdKfgIa9",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 1471,
+          "output_tokens": 403,
+          "total_tokens": 1874,
+          "cost_credits": "0.003486",
+          "upstream_inference_cost": "0.003486"
+        },
+        "request_sha256": "57ddebaef6f3365c58f443c3da548461d9c0a98bf502d082a18e0ff0dde56904",
+        "response_sha256": "da950b9ddfcc71938e67e58f398864dc87474eb328b335be245d85e952364f8e",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-30T22:38:13.243915Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF007_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "The fund rebalances on a quarterly schedule.",
+          "suggested_action": "Replace the weak operating detail with decision-material diversification and fee facts for both funds."
+        }
+      ],
+      "reviewed_artifact_sha256": "9e4ebccb358fea681612a32e498666dcd0563138e1cdc5c7f03a3bbb5a581aff",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.312870Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF007_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "a7fcd7b3a9df350925a4256438b342c4d5a62a2d81432a8c3c0bf76d38c494d5",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.313028Z"
+    }
+  ],
+  "revisions": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF007_C1",
+      "cycle_number": 1,
+      "changes": [
+        {
+          "field_path": "options",
+          "previous_value_sha256": "54591ca9d138e7fa1156e44c39c1921e72115acb90678e1e637bf16d4dd982a0",
+          "revised_value_sha256": "c4572aeac32040ed52ac2484cee7cc983a8f718fa36e7f59fb7d4226a20586f4",
+          "reason": "Manual in-place revision applied the approved V8 fact-audit recommendation.",
+          "finding_ids": [
+            "FINDING_5F5EA1C602BFFCE3"
+          ]
+        }
+      ],
+      "input_artifact_sha256": "9e4ebccb358fea681612a32e498666dcd0563138e1cdc5c7f03a3bbb5a581aff",
+      "output_artifact_sha256": "a7fcd7b3a9df350925a4256438b342c4d5a62a2d81432a8c3c0bf76d38c494d5",
+      "rebuilt_dependency_sha256": {
+        "options": "c4572aeac32040ed52ac2484cee7cc983a8f718fa36e7f59fb7d4226a20586f4"
+      },
+      "rerun_review_sha256": {
+        "scenario_quality": "83e913225ad299a4236e270893b97207a4f4fc83ba645e26df297bde65673720"
+      },
+      "completed_at": "2026-07-31T09:29:30.313083Z"
+    }
+  ],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.4.0",
+      "review_id": "CF007_C1_REVIEW_A7FCD7B3A9DF3509",
+      "anonymised_item_id": "ITEM_2CDFFEFAE116",
+      "scenario_id": "CF007_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF007_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 11,
+            "side_b": 13
+          },
+          "numeric_burden": {
+            "side_a": 2,
+            "side_b": 2
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "47.3",
+            "side_b": "49.543"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": []
+        },
+        {
+          "pair_id": "CF007_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 8,
+            "side_b": 8
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "58.254",
+            "side_b": "58.254"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": []
+        }
+      ],
+      "fact_reviews": [
+        {
+          "fact_id": "CF007_C1_F1",
+          "fact_text": "The fund holds at least 80 securities across 10 industry sectors.",
+          "specificity_markers": [
+            "80 securities",
+            "10 industry sectors"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF007_C1_F2",
+          "fact_text": "The fund holds shares in at least 500 companies across 20 developed markets.",
+          "specificity_markers": [
+            "500 companies",
+            "20 developed markets"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF007_C1_F3",
+          "fact_text": "The fund charges a 0.85% annual management fee.",
+          "specificity_markers": [
+            "0.85%"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF007_C1_F4",
+          "fact_text": "The fund charges a 0.05% annual management fee.",
+          "specificity_markers": [
+            "0.05%"
+          ],
+          "notes": ""
+        }
+      ],
+      "reviewed_artifact_sha256": "a7fcd7b3a9df350925a4256438b342c4d5a62a2d81432a8c3c0bf76d38c494d5",
+      "reviewed_at": "2026-07-31T09:34:55.717646Z",
+      "researcher_id": "imanzafar"
+    }
+  ]
+}

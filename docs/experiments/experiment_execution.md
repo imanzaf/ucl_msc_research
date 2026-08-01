@@ -8,7 +8,7 @@ model run is complete.
 
 | Experiment | Purpose | Conversations |
 |---|---|---:|
-| `c1_llama_2x2_v8` | Six-call rescoring of the 40 completed V3 Llama C1 conversations | 40 |
+| `c1_llama_2x2_v8` | Eighteen-call rescoring of the 40 completed V3 Llama C1 conversations | 40 |
 | `risk_comm_calibration_v1` | Ten C1 scenarios × three models × the four primary cells | 120 |
 | `risk_comm_v1` | Twenty R1–R2 scenarios × three models × the four primary cells | 240 |
 | `material_priority_v1` | Twenty R1–R2 scenarios × three models × concise guidance × two seed-authored queries | 120 |
@@ -52,7 +52,7 @@ uv run risk-comm scoring build-manifest \
   --output data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json
 ```
 
-Validation requires all 40 bundles, all 240 successful response-contract calls, six independent provenances per conversation, isolated initial and
+Validation requires all 40 bundles, all 720 successful response-contract-fact calls, eighteen independent provenances per conversation, isolated initial and
 follow-up inputs, and no manual queue. The C1 diagnostic checks the new scoring contract; it does not replace three-model calibration.
 
 ## Freeze shared manifests

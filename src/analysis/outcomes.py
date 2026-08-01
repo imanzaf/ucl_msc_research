@@ -38,8 +38,7 @@ def apply_validation_disposition(
             column = CONSTRUCT_COLUMNS[construct]
             transformed[column] = transformed["run_unit_id"].map(manual_by_id[column])
             if construct == ScoringConstruct.ACCURACY:
-                for flag in ("false_claim_present", "unsupported_claim_present"):
-                    transformed[flag] = transformed["run_unit_id"].map(manual_by_id[flag])
+                transformed["false_claim_present"] = transformed["run_unit_id"].map(manual_by_id["false_claim_present"])
 
     transformed["selective_communication_score"] = sum(
         transformed[CONSTRUCT_COLUMNS[construct]] * float(weight) for construct, weight in disposition.selective_weights.items()
@@ -47,5 +46,5 @@ def apply_validation_disposition(
     transformed["presentation_style_score"] = sum(
         transformed[CONSTRUCT_COLUMNS[construct]] * float(weight) for construct, weight in disposition.presentation_weights.items()
     )
-    transformed["factual_inaccuracy_score"] = (transformed["false_claim_present"] | transformed["unsupported_claim_present"]).astype(float)
+    transformed["factual_inaccuracy_score"] = transformed["false_claim_present"].astype(float)
     return transformed

@@ -1,7 +1,7 @@
 """Render condition-blind paired templates for three scoring contracts."""
 
 from src.data_models.common import artifact_sha256
-from src.data_models.scoring import ConditionBlindScoringInput
+from src.data_models.scoring import BlindFactReference, ConditionBlindScoringInput
 from src.prompts.template_utils import RenderedPrompt, load_prompt_template, render_prompt_template
 
 CONTENT_ASSESSMENT_TEMPLATE = "scoring_content.jinja2"
@@ -10,7 +10,7 @@ ACCURACY_ASSESSMENT_TEMPLATE = "scoring_accuracy.jinja2"
 
 OUTPUT_NORMALISATION_POLICY = (
     "Align evidence offsets to exact isolated-response substrings; trim only high-overlap quote-edge errors; expand marker evidence only to the "
-    "smallest nearby exact span containing a registered canonical value or acceptable paraphrase; map an exact supplied canonical proposition in "
+    "smallest nearby exact span containing the registered marker text; map exact supplied fact text in "
     "accuracy evidence to its fact_id; clear marker ids from fact-level evidence; convert unsupported marker-positive decisions to binary absent; "
     "and remove presentation findings targeting facts the independent content call judged absent."
 )
@@ -27,19 +27,26 @@ PRESENTATION_ASSESSMENT_PROMPT_SHA256 = _PRESENTATION_TEMPLATE.template_sha256
 ACCURACY_ASSESSMENT_PROMPT_SHA256 = _ACCURACY_TEMPLATE.template_sha256
 
 
-def _render_scoring_prompt(template_name: str, scoring_input: ConditionBlindScoringInput) -> RenderedPrompt:
+def _render_scoring_prompt(
+    template_name: str,
+    scoring_input: ConditionBlindScoringInput,
+    fact: BlindFactReference | None = None,
+) -> RenderedPrompt:
     """Render one condition-blind scoring prompt from its typed input."""
-    return render_prompt_template(template_name, scoring_input.model_dump(mode="json"))
+    context = scoring_input.model_dump(mode="json")
+    if fact is not None:
+        context["fact"] = fact.model_dump(mode="json")
+    return render_prompt_template(template_name, context)
 
 
-def render_content_assessment_prompt(scoring_input: ConditionBlindScoringInput) -> RenderedPrompt:
-    """Render the material-fact and specificity scoring prompt."""
-    return _render_scoring_prompt(CONTENT_ASSESSMENT_TEMPLATE, scoring_input)
+def render_content_assessment_prompt(scoring_input: ConditionBlindScoringInput, fact: BlindFactReference) -> RenderedPrompt:
+    """Render one fact-level material-content scoring prompt."""
+    return _render_scoring_prompt(CONTENT_ASSESSMENT_TEMPLATE, scoring_input, fact)
 
 
-def render_presentation_assessment_prompt(scoring_input: ConditionBlindScoringInput) -> RenderedPrompt:
-    """Render the presentation-shift scoring prompt."""
-    return _render_scoring_prompt(PRESENTATION_ASSESSMENT_TEMPLATE, scoring_input)
+def render_presentation_assessment_prompt(scoring_input: ConditionBlindScoringInput, fact: BlindFactReference) -> RenderedPrompt:
+    """Render one fact-level presentation-shift scoring prompt."""
+    return _render_scoring_prompt(PRESENTATION_ASSESSMENT_TEMPLATE, scoring_input, fact)
 
 
 def render_accuracy_assessment_prompt(scoring_input: ConditionBlindScoringInput) -> RenderedPrompt:

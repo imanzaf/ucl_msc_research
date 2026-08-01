@@ -1,4 +1,4 @@
-"""Validate and join the immutable active V2.0.0 scenario inputs."""
+"""Validate and join the immutable active V3.0.0 scenario inputs."""
 
 from __future__ import annotations
 

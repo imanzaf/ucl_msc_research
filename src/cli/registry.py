@@ -16,20 +16,12 @@ class Command:
 
 COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
     "scenarios": {
-        "generate": Command("src.cli.commands.scenarios.generate", "Generate and review scenario candidates."),
-        "migrate-option-schema": Command(
-            "src.cli.commands.scenarios.migrate_option_schema",
-            "Migrate a schema-8 run to canonical option records in place.",
+        "generate": Command("src.cli.commands.scenarios.generate", "Generate initial scenario candidates."),
+        "save-revision": Command(
+            "src.cli.commands.scenarios.save_revision",
+            "Save freely edited scenario JSON as a new candidate version.",
         ),
-        "migrate-accepted-option-schema": Command(
-            "src.cli.commands.scenarios.migrate_accepted_option_schema",
-            "Migrate tracked accepted bundles to canonical option records.",
-        ),
-        "migrate-v8": Command("src.cli.commands.scenarios.migrate_v8", "Migrate approved flattened C1 outputs to the current schema."),
-        "publish": Command("src.cli.commands.scenarios.publish", "Publish a run's accepted scenarios and set manifest."),
-        "build-manifest": Command("src.cli.commands.scenarios.build_manifest", "Build the accepted-scenario manifest."),
-        "freeze-tight-limits": Command("src.cli.commands.scenarios.freeze_tight_limits", "Freeze tight word limits from pilot outputs."),
-        "finalize-word-budgets": Command("src.cli.commands.scenarios.finalize_word_budgets", "Finalize the word-budget manifest."),
+        "publish": Command("src.cli.commands.scenarios.publish", "Publish any selected current scenario versions."),
     },
     "calibration": {
         "dry-run-ample-pilot": Command(
@@ -41,6 +33,14 @@ COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
             "Record explicit ample-pilot cost approval.",
         ),
         "run-ample-pilot": Command("src.cli.commands.calibration.run_ample_pilot", "Run the ample-condition pilot."),
+        "freeze-tight-limits": Command(
+            "src.cli.commands.scenarios.freeze_tight_limits",
+            "Freeze evaluated-model response limits from pilot outputs.",
+        ),
+        "finalize-word-budgets": Command(
+            "src.cli.commands.scenarios.finalize_word_budgets",
+            "Finalize the evaluated-model word-budget manifest.",
+        ),
         "run-c1": Command("src.cli.commands.calibration.run_c1", "Run or resume the one-model C1 2×2 diagnostic."),
         "build-plan": Command("src.cli.commands.calibration.build_plan", "Build the calibration run plan."),
         "run": Command("src.cli.commands.calibration.run", "Run the calibration experiment."),

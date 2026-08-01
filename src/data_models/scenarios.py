@@ -1,4 +1,4 @@
-"""Strict V2.0.0 seed and option-information scenario models."""
+"""Strict V3.0.0 seed and option-information scenario models."""
 
 from __future__ import annotations
 
@@ -48,9 +48,9 @@ class ScenarioGenerationRunConfig(VersionedImmutableModel):
 
     schema_version: Literal["2.0.0"]
     run_id: str = Field(pattern=r"^[a-z][a-z0-9_]*_v[1-9][0-9]*$")
-    seed_version: Literal["v2.0.0"]
-    generation_protocol_version: Literal["v1.0.10"]
-    scenario_set_id: Literal["customer_facing_risk_communication_v2.0.0"]
+    seed_version: Literal["v2.1.0", "v3.0.0"]
+    generation_protocol_version: Literal["v1.0.11", "v1.1.0", "v1.1.1"]
+    scenario_set_id: Literal["customer_facing_risk_communication_v2.1.0", "customer_facing_risk_communication_v3.0.0"]
     seed_sha256: str
     seed_schema_sha256: str
     query_sha256: str
@@ -68,6 +68,9 @@ class ScenarioGenerationRunConfig(VersionedImmutableModel):
         """Require one timezone-aware creation timestamp for the named run."""
         if self.created_at.tzinfo is None:
             raise ValueError("run created_at must be timezone-aware")
+        expected_set_id = f"customer_facing_risk_communication_{self.seed_version}"
+        if self.scenario_set_id != expected_set_id:
+            raise ValueError("scenario generation run seed version and set identifier must match")
         return self
 
 
@@ -78,7 +81,7 @@ class ScenarioGenerationInvocationConfig(VersionedImmutableModel):
     run_id: str = Field(pattern=r"^[a-z][a-z0-9_]*_v[1-9][0-9]*$")
     invocation_id: str = Field(pattern=r"^\d{8}T\d{12}Z$")
     stage: ScenarioStage
-    scenario_ids: List[str] = Field(min_length=1, max_length=10)
+    scenario_ids: List[str] = Field(min_length=1, max_length=20)
     backend: str = Field(min_length=1, pattern=r"^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
     created_at: datetime
 
@@ -174,6 +177,13 @@ class SeedOptionId(str, Enum):
 
     OPTION_A = "OPTION_A"
     OPTION_B = "OPTION_B"
+
+
+class ComparisonScope(str, Enum):
+    """Identify whether both options belong to the provider or one is external."""
+
+    INTRA_PROVIDER = "intra_provider"
+    PROVIDER_VS_EXTERNAL = "provider_vs_external"
 
 
 def alternative_seed_option(owner_supporting_option: SeedOptionId) -> SeedOptionId:
@@ -318,6 +328,8 @@ class ScenarioHiddenDesign(ImmutableModel):
     owner_supporting_option: SeedOptionId
     owner_benefit_mechanism: str = Field(min_length=1, pattern=r"\S")
     presentation_order: List[SeedOptionId] = Field(min_length=2, max_length=2)
+    comparison_scope: Optional[ComparisonScope] = Field(default=None, exclude_if=lambda value: value is None)
+    external_option_id: Optional[SeedOptionId] = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def validate_options(self) -> "ScenarioHiddenDesign":
@@ -327,7 +339,18 @@ class ScenarioHiddenDesign(ImmutableModel):
         if len({option.option_name.casefold() for option in self.options}) != 2:
             raise ValueError("V2.0.0 option names must be distinct")
         if set(self.presentation_order) != set(SeedOptionId):
-            raise ValueError("V2.0.0 presentation_order must contain OPTION_A and OPTION_B exactly once")
+            raise ValueError("presentation_order must contain OPTION_A and OPTION_B exactly once")
+        if self.comparison_scope is None:
+            if self.external_option_id is not None:
+                raise ValueError("legacy hidden designs cannot identify an external option without a comparison scope")
+            return self
+        if self.comparison_scope == ComparisonScope.INTRA_PROVIDER and self.external_option_id is not None:
+            raise ValueError("intra-provider comparisons cannot identify an external option")
+        if self.comparison_scope == ComparisonScope.PROVIDER_VS_EXTERNAL:
+            if self.external_option_id is None:
+                raise ValueError("provider-versus-external comparisons must identify the external option")
+            if self.external_option_id == self.owner_supporting_option:
+                raise ValueError("the provider owner cannot benefit from the external option")
         return self
 
 
@@ -335,6 +358,17 @@ class ScenarioReplicationDefinition(ScenarioHiddenDesign):
     """Define one calibration or held-out decision without customer queries."""
 
     scenario_id: str = Field(pattern=SCENARIO_ID_REGEX)
+    comparison_scope: ComparisonScope
+    external_option_id: Optional[SeedOptionId]
+
+    @model_validator(mode="after")
+    def validate_stage_scope(self) -> "ScenarioReplicationDefinition":
+        """Require R1 to compare internal options and R2 to compare the provider with an external option."""
+        if self.scenario_id.endswith("_R1") and self.comparison_scope != ComparisonScope.INTRA_PROVIDER:
+            raise ValueError("R1 must compare two options from the same provider")
+        if self.scenario_id.endswith("_R2") and self.comparison_scope != ComparisonScope.PROVIDER_VS_EXTERNAL:
+            raise ValueError("R2 must compare the current provider with one external option")
+        return self
 
 
 class ScenarioUseCaseDefinition(ImmutableModel):
@@ -357,10 +391,10 @@ class ScenarioUseCaseDefinition(ImmutableModel):
 
 
 class ScenarioSeedSet(VersionedImmutableModel):
-    """Represent the complete active V2.0.0 scenario-definition document."""
+    """Represent the complete active V3.0.0 scenario-definition document."""
 
-    schema_version: Literal["2.0.0"]
-    scenario_set_id: Literal["customer_facing_risk_communication_v2.0.0"]
+    schema_version: Literal["3.0.0"]
+    scenario_set_id: Literal["customer_facing_risk_communication_v3.0.0"]
     use_cases: List[ScenarioUseCaseDefinition] = Field(min_length=10, max_length=10)
 
     @model_validator(mode="after")
@@ -416,10 +450,10 @@ class ScenarioFamilyQueries(ImmutableModel):
 
 
 class ScenarioQuerySet(VersionedImmutableModel):
-    """Represent the complete active V2.0.0 customer-query document."""
+    """Represent the complete active V3.0.0 customer-query document."""
 
-    schema_version: Literal["2.0.0"]
-    scenario_set_id: Literal["customer_facing_risk_communication_v2.0.0"]
+    schema_version: Literal["3.0.0"]
+    scenario_set_id: Literal["customer_facing_risk_communication_v3.0.0"]
     scenario_families: List[ScenarioFamilyQueries] = Field(min_length=10, max_length=10)
 
     @model_validator(mode="after")
@@ -610,7 +644,7 @@ def derived_specificity_elements(
 
 
 class CandidateScenario(VersionedImmutableModel):
-    """Represent one generated V2.0.0 scenario before researcher acceptance."""
+    """Represent one generated scenario before researcher publication."""
 
     schema_version: Literal["9.0.0"]
     scenario_id: str = Field(pattern=SCENARIO_ID_REGEX)

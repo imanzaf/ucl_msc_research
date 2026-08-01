@@ -1,169 +1,116 @@
-"""Test hash-linked researcher acceptance and atomic accepted-bundle publication."""
+"""Test direct selection-based scenario publication and bundle integrity."""
 
 from __future__ import annotations
 
 import json
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Tuple
 
 import pytest
 
-from src.cli.commands.scenarios import build_manifest as build_manifest_command
 from src.cli.commands.scenarios import publish as publish_command
-from src.cli.commands.scenarios.publish import validate_candidate_seed_ownership
-from src.data_models.common import artifact_sha256, validate_model_self_hash
-from src.data_models.manifests import AcceptedScenarioManifest, ScenarioManifestScope
-from src.data_models.scenario_review import (
-    AutomatedReviewKind,
-    AutomatedScenarioReview,
-    ResearcherFactReview,
-    ResearcherScenarioReview,
-    ReviewDecision,
-    ScenarioAcceptanceRecord,
-    ScenarioReviewHistory,
-)
-from src.data_models.scenarios import AcceptedScenario, CandidateScenario, ScenarioHiddenDesign, ScenarioUseCaseSeed
+from src.cli.commands.scenarios.generate import _run_config
+from src.data_models.common import artifact_sha256
+from src.data_models.scenario_review import ScenarioAcceptanceRecord, ScenarioReviewHistory
+from src.data_models.scenarios import AcceptedScenario, CandidateScenario, ScenarioGenerationRunConfig
 from src.scenarios.acceptance import build_accepted_scenario, publish_accepted_scenario, validate_accepted_bundle
-from src.scenarios.pair_diagnostics import build_pair_diagnostics
+from src.scenarios.revisions import build_revised_candidate, editable_candidate_content
 from src.scenarios.schema_migration import migrate_accepted_bundle
-from src.scenarios.seed_validation import load_and_validate_seed
 from src.storage import read_model_json, write_model_json_atomic
-from tests.factories import ZERO_HASH, make_candidate_scenario
+from tests.factories import flattened_candidate_content, make_candidate_scenario
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-
-
-def make_fact_reviews(candidate: CandidateScenario) -> list[ResearcherFactReview]:
-    """Copy candidate facts and generated markers into researcher review records."""
-    return [
-        ResearcherFactReview(
-            fact_id=fact.fact_id,
-            fact_text=fact.canonical_proposition,
-            specificity_markers=[element.canonical_value for element in candidate.specificity_elements if element.fact_id == fact.fact_id],
-        )
-        for fact in candidate.material_facts
-    ]
+PUBLISHED_AT = datetime(2026, 8, 1, 16, 0, tzinfo=timezone.utc)
 
 
-def make_acceptance_bundle(
-    scenario_id: str,
-) -> Tuple[AcceptedScenario, ScenarioReviewHistory, ScenarioAcceptanceRecord]:
-    """Build one complete accepted bundle for final-set publication tests."""
-    candidate = make_candidate_scenario(scenario_id)
-    accepted_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
-    automated = AutomatedScenarioReview(
-        schema_version="3.1.0",
-        scenario_id=scenario_id,
-        review_kind=AutomatedReviewKind.SCENARIO_QUALITY,
-        decision=ReviewDecision.ACCEPT,
-        findings=[],
-        reviewed_artifact_sha256=candidate.candidate_sha256,
-        reviewer_model_id="reviewer/scenario-quality",
-        reviewer_prompt_sha256=ZERO_HASH,
-        reviewed_at=accepted_at,
-    )
-    researcher = ResearcherScenarioReview(
-        schema_version="3.3.0",
-        review_id=f"{scenario_id}_REVIEW_ACCEPT",
-        anonymised_item_id=f"ITEM_{scenario_id}",
-        scenario_id=scenario_id,
-        decision=ReviewDecision.ACCEPT,
-        fact_reviews=make_fact_reviews(candidate),
-        reviewed_artifact_sha256=candidate.candidate_sha256,
-        reviewed_at=accepted_at,
-        researcher_id="researcher",
-    )
-    history = ScenarioReviewHistory(
-        schema_version="3.3.0",
-        scenario_id=scenario_id,
-        automated_reviews=[automated],
-        revisions=[],
-        researcher_reviews=[researcher],
-    )
-    acceptance_record, accepted = build_accepted_scenario(
+def _bundle(candidate: CandidateScenario, version: str = "v1") -> tuple[AcceptedScenario, ScenarioReviewHistory, ScenarioAcceptanceRecord]:
+    """Build a direct publication bundle with no review records."""
+    history = ScenarioReviewHistory(schema_version="3.4.0", scenario_id=candidate.scenario_id)
+    acceptance, accepted = build_accepted_scenario(
         candidate,
         history,
-        accepted_at=accepted_at,
+        accepted_at=PUBLISHED_AT,
         accepted_by="researcher",
+        artifact_version=version,
     )
-    return accepted, history, acceptance_record
+    return accepted, history, acceptance
 
 
-def test_acceptance_requires_one_researcher_review_and_publishes_complete_atomic_bundle(tmp_path: Path) -> None:
-    """Build and reload the acyclic three-file bundle after one researcher review passes."""
-    candidate = make_candidate_scenario()
-    automated = [
-        AutomatedScenarioReview(
-            schema_version="3.1.0",
-            scenario_id=candidate.scenario_id,
-            review_kind=kind,
-            decision=ReviewDecision.ACCEPT,
-            findings=[],
-            reviewed_artifact_sha256=candidate.candidate_sha256,
-            reviewer_model_id=f"reviewer/{kind.value}",
-            reviewer_prompt_sha256=ZERO_HASH,
-            reviewed_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
-        )
-        for kind in AutomatedReviewKind
-    ]
-    initial_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
-    fact_reviews = make_fact_reviews(candidate)
-    fact_reviews[0] = fact_reviews[0].model_copy(
-        update={
-            "fact_text": fact_reviews[0].fact_text.replace("£120", "£125"),
-            "specificity_markers": ["£125"],
-            "notes": "Corrected the generated amount.",
-        }
+def test_selected_candidate_publishes_without_automated_or_researcher_reviews(tmp_path: Path) -> None:
+    """Treat publication itself as the only required researcher action."""
+    candidate = make_candidate_scenario("CF001_R1")
+    accepted, history, acceptance = _bundle(candidate)
+
+    assert history.automated_reviews == []
+    assert history.researcher_reviews == []
+    assert accepted.options == candidate.options
+    publish_accepted_scenario(accepted, history, acceptance, tmp_path)
+    validate_accepted_bundle(
+        read_model_json(tmp_path / candidate.scenario_id / "accepted_scenario.json", AcceptedScenario),
+        read_model_json(tmp_path / candidate.scenario_id / "review_history.json", ScenarioReviewHistory),
+        read_model_json(tmp_path / candidate.scenario_id / "acceptance_record.json", ScenarioAcceptanceRecord),
     )
-    initial = ResearcherScenarioReview(
-        schema_version="3.3.0",
-        review_id="SCENARIO_INITIAL_ACCEPT",
-        anonymised_item_id="S-001",
-        scenario_id=candidate.scenario_id,
-        decision=ReviewDecision.ACCEPT,
-        pair_diagnostics=build_pair_diagnostics(candidate),
-        fact_reviews=fact_reviews,
-        reviewed_artifact_sha256=candidate.candidate_sha256,
-        reviewed_at=initial_at,
-        researcher_id="researcher",
+
+
+def test_republishing_archives_the_previous_bundle(tmp_path: Path) -> None:
+    """Replace the current publication while preserving the prior published bundle."""
+    parent = make_candidate_scenario("CF001_R1")
+    first_bundle = _bundle(parent)
+    publish_accepted_scenario(*first_bundle, accepted_root=tmp_path)
+    edited = editable_candidate_content(parent)
+    edited["options"][0]["favourable_fact"] = {
+        "fact_text": "The revised benefit is worth £150.",
+        "specificity_markers": ["£150"],
+    }
+    revised, _ = build_revised_candidate(parent, edited, "researcher", PUBLISHED_AT)
+    second_bundle = _bundle(revised, "v2")
+
+    publish_accepted_scenario(*second_bundle, accepted_root=tmp_path, replace_existing=True)
+
+    current = read_model_json(tmp_path / parent.scenario_id / "accepted_scenario.json", AcceptedScenario)
+    assert current.artifact_version == "v2"
+    assert (tmp_path / "_history" / parent.scenario_id / first_bundle[0].artifact_sha256 / "accepted_scenario.json").is_file()
+
+
+def test_publish_selected_candidates_uses_only_named_current_versions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Publish a subset without requiring seed ownership, reviews, or a complete set."""
+    run_root = tmp_path / "scenario_set_v1"
+    config = _run_config(run_root.name, PUBLISHED_AT).model_dump(mode="json")
+    config["query_sha256"] = "1" * 64
+    write_model_json_atomic(run_root / "run_config.json", ScenarioGenerationRunConfig.model_validate(config))
+    candidates = [make_candidate_scenario("CF001_R1"), make_candidate_scenario("CF001_R2")]
+    for index, candidate in enumerate(candidates, start=1):
+        round_id = f"20260801T16000{index}000000Z"
+        write_model_json_atomic(run_root / round_id / "scenarios" / candidate.scenario_id / "candidate.json", candidate)
+    accepted_root = tmp_path / "accepted"
+    monkeypatch.setattr(publish_command, "ACTIVE_SCENARIO_ACCEPTED_ROOT", accepted_root)
+
+    published, manifests = publish_command.publish_selected_candidates(
+        run_root,
+        ["CF001_R2"],
+        "researcher",
+        PUBLISHED_AT,
     )
-    history = ScenarioReviewHistory(
-        schema_version="3.3.0",
-        scenario_id=candidate.scenario_id,
-        automated_reviews=automated,
-        revisions=[],
-        researcher_reviews=[initial],
-    )
-    acceptance_record, accepted = build_accepted_scenario(
-        candidate,
-        history,
-        accepted_at=initial_at,
-        accepted_by="researcher",
-    )
-    assert "£125" in accepted.material_facts[0].canonical_proposition
-    assert accepted.specificity_elements[0].canonical_value == "£125"
-    publish_accepted_scenario(accepted, history, acceptance_record, tmp_path)
-    scenario_root = tmp_path / candidate.scenario_id
-    assert sorted(path.name for path in scenario_root.iterdir()) == [
-        "acceptance_record.json",
-        "accepted_scenario.json",
-        "review_history.json",
-    ]
-    reloaded_history = read_model_json(scenario_root / "review_history.json", ScenarioReviewHistory)
-    validate_accepted_bundle(accepted, reloaded_history, acceptance_record)
+
+    assert [item.scenario_id for item in published] == ["CF001_R2"]
+    assert manifests == []
+    assert (accepted_root / "CF001_R2" / "accepted_scenario.json").is_file()
+    assert not (accepted_root / "CF001_R1").exists()
 
 
 def test_schema_seven_accepted_bundle_migrates_without_redundant_fact_metadata(tmp_path: Path) -> None:
-    """Rebuild every dependent bundle hash while converting flattened facts to schema 9."""
-    accepted, history, acceptance_record = make_acceptance_bundle("CF001_C1")
+    """Retain compatibility with a previously published flattened bundle."""
+    accepted, history, acceptance = _bundle(make_candidate_scenario("CF001_C1"))
     source_root = tmp_path / "source"
     target_root = tmp_path / "target"
     previous_payload = accepted.model_dump(mode="json", exclude={"schema_version", "options", "artifact_sha256"})
-    previous_payload["option_descriptions"] = [description.model_dump(mode="json") for description in accepted.option_descriptions]
-    previous_payload["material_facts"] = [fact.model_dump(mode="json") for fact in accepted.material_facts]
-    previous_payload["specificity_elements"] = [element.model_dump(mode="json") for element in accepted.specificity_elements]
+    current_candidate = make_candidate_scenario("CF001_C1")
+    flattened = flattened_candidate_content(current_candidate)
+    previous_payload["option_descriptions"] = flattened["option_descriptions"]
+    previous_payload["material_facts"] = flattened["material_facts"]
+    previous_payload["specificity_elements"] = flattened["specificity_elements"]
     for fact in previous_payload["material_facts"]:
         fact["materiality_rationale"] = "The fact is relevant to the customer's choice."
         fact["required_in_complete_response"] = True
@@ -173,89 +120,13 @@ def test_schema_seven_accepted_bundle_migrates_without_redundant_fact_metadata(t
     source_root.mkdir()
     (source_root / "accepted_scenario.json").write_text(json.dumps(previous_payload), encoding="utf-8")
     write_model_json_atomic(source_root / "review_history.json", history)
-    write_model_json_atomic(source_root / "acceptance_record.json", acceptance_record)
+    write_model_json_atomic(source_root / "acceptance_record.json", acceptance)
 
     migrated = migrate_accepted_bundle(source_root, target_root)
 
-    migrated_history = read_model_json(target_root / "review_history.json", ScenarioReviewHistory)
-    migrated_acceptance = read_model_json(target_root / "acceptance_record.json", ScenarioAcceptanceRecord)
-    validate_accepted_bundle(migrated, migrated_history, migrated_acceptance)
+    validate_accepted_bundle(
+        migrated,
+        read_model_json(target_root / "review_history.json", ScenarioReviewHistory),
+        read_model_json(target_root / "acceptance_record.json", ScenarioAcceptanceRecord),
+    )
     assert migrated.schema_version == "9.0.0"
-    assert set(migrated.model_dump(mode="json")) >= {"options"}
-    assert not {"option_descriptions", "material_facts", "specificity_elements"} & set(migrated.model_dump(mode="json"))
-
-
-def test_publish_stages_bundles_and_calibration_manifest_as_one_final_set(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Publish ten staged C1 bundles and their self-hashed manifest together."""
-    input_root = tmp_path / "v2.0.0"
-    accepted_root = input_root / "accepted"
-    source_seed_root = REPO_ROOT / "data/inputs/scenarios/v2.0.0"
-    input_root.mkdir(parents=True)
-    for filename in [
-        "scenario_generation_seeds.json",
-        "scenario_generation_seed_schema.json",
-        "scenario_customer_queries.json",
-        "scenario_customer_queries_schema.json",
-    ]:
-        shutil.copy2(source_seed_root / filename, input_root / filename)
-    monkeypatch.setattr(publish_command, "ACTIVE_SCENARIO_INPUT_ROOT", input_root)
-    monkeypatch.setattr(publish_command, "ACTIVE_SCENARIO_ACCEPTED_ROOT", accepted_root)
-    monkeypatch.setattr(build_manifest_command, "ACTIVE_SCENARIO_INPUT_ROOT", input_root)
-    bundles = [make_acceptance_bundle(f"CF{index:03d}_C1") for index in range(1, 11)]
-    staging_root = input_root / ".scenario-publish.test"
-    staging_root.mkdir()
-    published_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
-
-    staged_manifest = publish_command._stage_final_set(
-        staging_root=staging_root,
-        bundles=bundles,
-        scope=ScenarioManifestScope.CALIBRATION,
-        published_at=published_at,
-        published_by="researcher",
-    )
-    manifest_output = build_manifest_command.accepted_manifest_output_path(ScenarioManifestScope.CALIBRATION)
-    publish_command._promote_final_set(staging_root, staged_manifest, bundles, manifest_output)
-
-    manifest = read_model_json(manifest_output, AcceptedScenarioManifest)
-    validate_model_self_hash(manifest, "manifest_sha256")
-    assert len(manifest.entries) == 10
-    assert {path.name for path in accepted_root.iterdir()} == {f"CF{index:03d}_C1" for index in range(1, 11)}
-
-
-def test_candidate_publication_requires_exact_seed_owned_metadata() -> None:
-    """Reject a hash-valid reviewed candidate whose researcher-owned task fields drift."""
-    seed_root = REPO_ROOT / "data/inputs/scenarios/v2.0.0"
-    seed = load_and_validate_seed(
-        seed_root / "scenario_generation_seeds.json",
-        seed_root / "scenario_generation_seed_schema.json",
-        seed_root / "scenario_customer_queries.json",
-        seed_root / "scenario_customer_queries_schema.json",
-    )
-    use_case = seed.use_cases[0]
-    assert isinstance(use_case, ScenarioUseCaseSeed)
-    replication = next(item for item in use_case.replications if item.scenario_id == "CF001_R1")
-    candidate = make_candidate_scenario("CF001_R1")
-    payload = candidate.model_dump(mode="json", exclude={"candidate_sha256"})
-    payload.update(
-        {
-            "deployment_context": use_case.deployment_context.model_dump(mode="json"),
-            "customer_messages": replication.customer_messages.model_dump(mode="json"),
-            "hidden_design": ScenarioHiddenDesign(
-                decision_type=replication.decision_type,
-                options=replication.options,
-                owner_supporting_option=replication.owner_supporting_option,
-                owner_benefit_mechanism=replication.owner_benefit_mechanism,
-                presentation_order=replication.presentation_order,
-            ).model_dump(mode="json"),
-        }
-    )
-    seed_bound = CandidateScenario.model_validate({**payload, "candidate_sha256": artifact_sha256(payload)})
-    validate_candidate_seed_ownership(seed_bound, seed)
-    tampered_payload = seed_bound.model_dump(mode="json", exclude={"candidate_sha256"})
-    tampered_payload["deployment_context"]["task"] = "promote the provider option"
-    tampered = CandidateScenario.model_validate({**tampered_payload, "candidate_sha256": artifact_sha256(tampered_payload)})
-    with pytest.raises(ValueError, match="seed-owned metadata"):
-        validate_candidate_seed_ownership(tampered, seed)

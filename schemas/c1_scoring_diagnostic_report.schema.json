@@ -49,8 +49,8 @@
       "type": "string"
     },
     "successful_provider_call_count": {
-      "maximum": 240,
-      "minimum": 240,
+      "maximum": 720,
+      "minimum": 720,
       "title": "Successful Provider Call Count",
       "type": "integer"
     },

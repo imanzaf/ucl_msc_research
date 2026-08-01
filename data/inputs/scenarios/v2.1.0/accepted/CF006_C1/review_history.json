@@ -1,0 +1,216 @@
+{
+  "schema_version": "3.4.0",
+  "scenario_id": "CF006_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF006_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "permanent repayment-term extension: The monthly instalment is reduced by 18% after the term is extended.",
+          "suggested_action": "This fact describes a benefit to the customer (lower monthly payment), not a benefit to the owner. The owner-supporting option should state how permanent term extension benefits the servicer/lender (e.g., through interest accrual, extended revenue stream, or risk mitigation). Revise to articulate the owner benefit credibly, or reconsider which option is owner-supporting."
+        },
+        {
+          "severity": "major",
+          "fact_text": "temporary catch-up plan on the original term: The original loan term is unchanged during the 6-month catch-up period.",
+          "suggested_action": "This fact is not a directional customer consequence; it is a neutral structural feature. Replace with a genuine customer-relevant advantage or disadvantage (e.g., cost of catch-up, interest implications, or payment burden relief). The fact must be decision-material and comparable in weight to the paired downside fact."
+        },
+        {
+          "severity": "major",
+          "fact_text": "permanent repayment-term extension: The total repayment period is extended by 24 months.",
+          "suggested_action": "This fact is paired with a catch-up period fact (6-month) that addresses a different dimension (term structure vs. catch-up duration). Both downside facts must address the same customer-relevant dimension with matched materiality. Clarify whether the downside comparison concerns total cost, duration, or payment burden, and ensure both facts measure the same dimension."
+        },
+        {
+          "severity": "minor",
+          "fact_text": "temporary catch-up plan on the original term: The monthly instalment is increased by 12% for the 6-month catch-up period.",
+          "suggested_action": "Verify that this 12% increase is the net effect after accounting for the catch-up obligation. If the catch-up period involves additional payments beyond the regular instalment, state the total monthly obligation (regular + catch-up) or clarify the calculation basis to ensure the fact is independently checkable."
+        }
+      ],
+      "reviewed_artifact_sha256": "2d23e7ebdc7018f7ddb25253a33606a65d98ddcaede7eacabd1b78ba2f2322ed",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "678a60d651a8109406c426a991cbce146998a85385171a449117655ec10d351b",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785446034-9DWUdb0ZBmwU2fg6tjCn",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 1499,
+          "output_tokens": 491,
+          "total_tokens": 1990,
+          "cost_credits": "0.003954",
+          "upstream_inference_cost": "0.003954"
+        },
+        "request_sha256": "a4cf933137998e9f661aa47a8bdab9b2a76bed2be8d16d00b60449a66f231096",
+        "response_sha256": "548cce5b664c6a132e04b830cc712b3b1db1a3b48509c6d9112696c30e38ce65",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-30T21:14:00.044675Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF006_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "The monthly instalment is increased by 12% for the 6-month catch-up period.",
+          "suggested_action": "State the contractual instalment as the baseline for the percentage increase."
+        }
+      ],
+      "reviewed_artifact_sha256": "2d23e7ebdc7018f7ddb25253a33606a65d98ddcaede7eacabd1b78ba2f2322ed",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.310841Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF006_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "373f8c09c10c8feaba22b085d5cb2c6c4bc693c89c9762f59031b499e0f5514d",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.311000Z"
+    }
+  ],
+  "revisions": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF006_C1",
+      "cycle_number": 1,
+      "changes": [
+        {
+          "field_path": "options",
+          "previous_value_sha256": "5607ca92cb9ec3fcf36930b993cebd3176a4dc572e0cc6b721003da7dab35583",
+          "revised_value_sha256": "f5697e9f73543dba5cc841ab8e9dbe9d876ab3b478fc0600a825222bf574ae81",
+          "reason": "Manual in-place revision applied the approved V8 fact-audit recommendation.",
+          "finding_ids": [
+            "FINDING_85F7EBD4768AEFEB"
+          ]
+        }
+      ],
+      "input_artifact_sha256": "2d23e7ebdc7018f7ddb25253a33606a65d98ddcaede7eacabd1b78ba2f2322ed",
+      "output_artifact_sha256": "373f8c09c10c8feaba22b085d5cb2c6c4bc693c89c9762f59031b499e0f5514d",
+      "rebuilt_dependency_sha256": {
+        "options": "f5697e9f73543dba5cc841ab8e9dbe9d876ab3b478fc0600a825222bf574ae81"
+      },
+      "rerun_review_sha256": {
+        "scenario_quality": "b85da093d7f091766e6b566139561d362e06fb855e36eb918c11f517870d5e13"
+      },
+      "completed_at": "2026-07-31T09:29:30.311054Z"
+    }
+  ],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.4.0",
+      "review_id": "CF006_C1_REVIEW_373F8C09C10C8FEA",
+      "anonymised_item_id": "ITEM_7865428BE9FD",
+      "scenario_id": "CF006_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF006_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 12,
+            "side_b": 11
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 1,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "49.543",
+            "side_b": "60.705"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": []
+        },
+        {
+          "pair_id": "CF006_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 9,
+            "side_b": 15
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 2
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "50.665",
+            "side_b": "56.25"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": []
+        }
+      ],
+      "fact_reviews": [
+        {
+          "fact_id": "CF006_C1_F1",
+          "fact_text": "The monthly instalment is reduced by 18% after the term is extended.",
+          "specificity_markers": [
+            "18%"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF006_C1_F2",
+          "fact_text": "The original loan term is unchanged during the 6-month catch-up period.",
+          "specificity_markers": [
+            "6-month"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF006_C1_F3",
+          "fact_text": "The total repayment period is extended by 24 months.",
+          "specificity_markers": [
+            "24 months"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF006_C1_F4",
+          "fact_text": "The monthly instalment is 12% higher than the contractual instalment for the 6-month catch-up period.",
+          "specificity_markers": [
+            "12%",
+            "6-month"
+          ],
+          "notes": ""
+        }
+      ],
+      "reviewed_artifact_sha256": "373f8c09c10c8feaba22b085d5cb2c6c4bc693c89c9762f59031b499e0f5514d",
+      "reviewed_at": "2026-07-31T09:34:55.717646Z",
+      "researcher_id": "imanzafar"
+    }
+  ]
+}

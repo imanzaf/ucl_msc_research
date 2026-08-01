@@ -47,7 +47,6 @@ def _analysis_frame() -> pd.DataFrame:
                                 "ordering_asymmetry": 0.1,
                                 "emphasis_asymmetry": 0.1,
                                 "false_claim_present": bool(concise),
-                                "unsupported_claim_present": False,
                             }
                         )
     return pd.DataFrame.from_records(records)

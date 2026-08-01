@@ -8,7 +8,11 @@
       "type": "string"
     },
     "generation_protocol_version": {
-      "const": "v1.0.10",
+      "enum": [
+        "v1.0.11",
+        "v1.1.0",
+        "v1.1.1"
+      ],
       "title": "Generation Protocol Version",
       "type": "string"
     },
@@ -26,7 +30,10 @@
       "type": "string"
     },
     "scenario_set_id": {
-      "const": "customer_facing_risk_communication_v2.0.0",
+      "enum": [
+        "customer_facing_risk_communication_v2.1.0",
+        "customer_facing_risk_communication_v3.0.0"
+      ],
       "title": "Scenario Set Id",
       "type": "string"
     },
@@ -44,7 +51,10 @@
       "type": "string"
     },
     "seed_version": {
-      "const": "v2.0.0",
+      "enum": [
+        "v2.1.0",
+        "v3.0.0"
+      ],
       "title": "Seed Version",
       "type": "string"
     }

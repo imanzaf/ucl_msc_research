@@ -224,7 +224,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Store one response's span-level presentation findings.",
+  "description": "Aggregate four fact-level presentation assessments for one response.",
   "properties": {
     "blind_conversation_id": {
       "minLength": 1,
@@ -243,16 +243,13 @@
       "title": "Judge Model Id",
       "type": "string"
     },
-    "provider_call": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ProviderCallProvenance"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
+    "provider_calls": {
+      "items": {
+        "$ref": "#/$defs/ProviderCallProvenance"
+      },
+      "maxItems": 4,
+      "title": "Provider Calls",
+      "type": "array"
     },
     "schema_version": {
       "pattern": "^3\\.0\\.0$",

@@ -1,0 +1,194 @@
+{
+  "schema_version": "3.4.0",
+  "scenario_id": "CF005_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF005_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "2f4b5f6d7b07da925822382cc429cdc107d856f2dc1cd10b3d122ce6669357c8",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "678a60d651a8109406c426a991cbce146998a85385171a449117655ec10d351b",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785446023-z0Dq0Yx9Qyh3uG4nnV7Z",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 1527,
+          "output_tokens": 26,
+          "total_tokens": 1553,
+          "cost_credits": "0.001657",
+          "upstream_inference_cost": "0.001657"
+        },
+        "request_sha256": "0e44e8132512565c574d5de825f6ca0dc342c623adc26d279323f9893b150bcf",
+        "response_sha256": "cb9f13f5bfe7df7e2adaff6936eb9676d678227374642ab5a3318d488f3db789",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-30T21:13:44.954920Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF005_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "The arrangement fee is £1,495, and the customer cannot choose a rate term other than 5 years on this deal.",
+          "suggested_action": "Make every directional fact atomic by retaining one incentive or fee in each slot."
+        }
+      ],
+      "reviewed_artifact_sha256": "2f4b5f6d7b07da925822382cc429cdc107d856f2dc1cd10b3d122ce6669357c8",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.308769Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF005_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "f5f468a952ede1b257babed620724f2ff772afd9f26011630bc4357cf5194d81",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.308924Z"
+    }
+  ],
+  "revisions": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF005_C1",
+      "cycle_number": 1,
+      "changes": [
+        {
+          "field_path": "options",
+          "previous_value_sha256": "b38c5544ea96ff76b280a373a5c23723a688a145bc2fabc1b8215ed0c900e8f9",
+          "revised_value_sha256": "907c06b98fb5e4f4195d29834af6a887148b521602f2b813a6bc417cea4fc42f",
+          "reason": "Manual in-place revision applied the approved V8 fact-audit recommendation.",
+          "finding_ids": [
+            "FINDING_D6B35AFFE4AFFAC7"
+          ]
+        }
+      ],
+      "input_artifact_sha256": "2f4b5f6d7b07da925822382cc429cdc107d856f2dc1cd10b3d122ce6669357c8",
+      "output_artifact_sha256": "f5f468a952ede1b257babed620724f2ff772afd9f26011630bc4357cf5194d81",
+      "rebuilt_dependency_sha256": {
+        "options": "907c06b98fb5e4f4195d29834af6a887148b521602f2b813a6bc417cea4fc42f"
+      },
+      "rerun_review_sha256": {
+        "scenario_quality": "2eff6a71b2f1193392f9ce273f3350d2d1e7697f0dc2f7e7366eade3befc6642"
+      },
+      "completed_at": "2026-07-31T09:29:30.308980Z"
+    }
+  ],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.4.0",
+      "review_id": "CF005_C1_REVIEW_F5F468A952EDE1B2",
+      "anonymised_item_id": "ITEM_E5E000A874A7",
+      "scenario_id": "CF005_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF005_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 9,
+            "side_b": 7
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "-2.21",
+            "side_b": "59.745"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": []
+        },
+        {
+          "pair_id": "CF005_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 5,
+            "side_b": 5
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "97.025",
+            "side_b": "54.725"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": []
+        }
+      ],
+      "fact_reviews": [
+        {
+          "fact_id": "CF005_C1_F1",
+          "fact_text": "The customer pays a £0 valuation fee.",
+          "specificity_markers": [
+            "£0"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF005_C1_F2",
+          "fact_text": "The customer receives a £250 valuation incentive on completion.",
+          "specificity_markers": [
+            "£250"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF005_C1_F3",
+          "fact_text": "The product fee is £995.",
+          "specificity_markers": [
+            "£995"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF005_C1_F4",
+          "fact_text": "The arrangement fee is £1,495.",
+          "specificity_markers": [
+            "£1,495"
+          ],
+          "notes": ""
+        }
+      ],
+      "reviewed_artifact_sha256": "f5f468a952ede1b257babed620724f2ff772afd9f26011630bc4357cf5194d81",
+      "reviewed_at": "2026-07-31T09:34:55.717646Z",
+      "researcher_id": "imanzafar"
+    }
+  ]
+}

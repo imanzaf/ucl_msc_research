@@ -81,6 +81,19 @@
       "default": null,
       "title": "Error Type"
     },
+    "fact_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fact Id"
+    },
     "request_sha256": {
       "title": "Request Sha256",
       "type": "string"

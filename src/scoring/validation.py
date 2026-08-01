@@ -8,11 +8,13 @@ from decimal import Decimal, InvalidOperation
 from typing import List
 
 from src.data_models.experiments import ConversationTranscript, MessageRole
-from src.data_models.scenarios import SpecificityElement
 from src.data_models.scoring import (
     AccuracyAssessmentResult,
+    BlindSpecificityMarker,
     ConditionBlindScoringInput,
     ContentAssessmentResult,
+    FactContentAssessmentResult,
+    FactPresentationAssessmentResult,
     PresentationAssessmentResult,
     ResponseSpan,
     ScoredResponse,
@@ -91,7 +93,7 @@ def validate_content_result(
 
     for fact_id, judgment in judgments.items():
         fact = fact_by_id[fact_id]
-        marker_by_id = {element.element_id: element for element in fact.specificity_elements}
+        marker_by_id = {marker.element_id: marker for marker in fact.specificity_markers}
         observed_marker_ids = {item.element_id for item in judgment.marker_judgments}
         if observed_marker_ids != set(marker_by_id):
             raise ValueError("content assessment must decide every predefined specificity marker")
@@ -108,6 +110,35 @@ def validate_content_result(
                 [finding.response_span for finding in marker_judgment.evidence],
             ):
                 raise ValueError("specificity presence is not supported by an accepted exact response value")
+
+
+def validate_content_fact_result(
+    scoring_input: ConditionBlindScoringInput,
+    transcript: ConversationTranscript,
+    result: FactContentAssessmentResult,
+) -> None:
+    """Validate one fact-level content result and its exact evidence."""
+    if result.blind_conversation_id != scoring_input.blind_conversation_id or result.scored_response != scoring_input.scored_response:
+        raise ValueError("fact-level content result does not match its isolated scoring input")
+    fact_by_id = {fact.fact_id: fact for fact in scoring_input.facts}
+    if result.fact_id not in fact_by_id or result.judgment.fact_id != result.fact_id:
+        raise ValueError("fact-level content result does not match a supplied fact")
+    fact = fact_by_id[result.fact_id]
+    marker_by_id = {marker.element_id: marker for marker in fact.specificity_markers}
+    if {item.element_id for item in result.judgment.marker_judgments} != set(marker_by_id):
+        raise ValueError("fact-level content result must decide every predefined marker")
+    for finding in result.judgment.evidence:
+        validate_response_span(finding.response_span, transcript, scoring_input.scored_response)
+    for marker_judgment in result.judgment.marker_judgments:
+        for finding in marker_judgment.evidence:
+            if finding.fact_id != result.fact_id:
+                raise ValueError("specificity evidence must identify its parent fact")
+            validate_response_span(finding.response_span, transcript, scoring_input.scored_response)
+        if marker_judgment.present and not specificity_value_is_supported(
+            marker_by_id[marker_judgment.element_id],
+            [finding.response_span for finding in marker_judgment.evidence],
+        ):
+            raise ValueError("specificity presence is not supported by the registered marker text")
 
 
 def validate_presentation_result(
@@ -129,6 +160,22 @@ def validate_presentation_result(
             raise ValueError("presentation finding references an unknown material fact")
         if not judgments[finding.fact_id].present:
             raise ValueError("presentation finding cannot target a fact judged absent")
+        validate_response_span(finding.response_span, transcript, scoring_input.scored_response)
+
+
+def validate_presentation_fact_result(
+    scoring_input: ConditionBlindScoringInput,
+    transcript: ConversationTranscript,
+    result: FactPresentationAssessmentResult,
+) -> None:
+    """Validate one fact-level presentation result and its exact evidence."""
+    if result.blind_conversation_id != scoring_input.blind_conversation_id or result.scored_response != scoring_input.scored_response:
+        raise ValueError("fact-level presentation result does not match its isolated scoring input")
+    if result.fact_id not in {fact.fact_id for fact in scoring_input.facts}:
+        raise ValueError("fact-level presentation result references an unknown fact")
+    if any(finding.fact_id != result.fact_id for finding in result.findings):
+        raise ValueError("fact-level presentation findings do not match their requested fact")
+    for finding in result.findings:
         validate_response_span(finding.response_span, transcript, scoring_input.scored_response)
 
 
@@ -211,9 +258,9 @@ def _range_specificity_is_supported(value: str, quote: str) -> bool:
     )
 
 
-def specificity_value_is_supported(element: SpecificityElement, spans: List[ResponseSpan]) -> bool:
-    """Require a positive marker decision to quote an approved value or paraphrase."""
-    acceptable_values = [element.canonical_value, *element.acceptable_paraphrases]
+def specificity_value_is_supported(element: BlindSpecificityMarker, spans: List[ResponseSpan]) -> bool:
+    """Require a positive marker decision to quote the registered marker text."""
+    acceptable_values = [element.marker_text]
     return any(
         (
             re.search(
@@ -233,6 +280,6 @@ def evidence_reference_ids(scoring_input: ConditionBlindScoringInput) -> List[st
     return sorted(
         {
             *{fact.fact_id for fact in scoring_input.facts},
-            *{element.element_id for fact in scoring_input.facts for element in fact.specificity_elements},
+            *{marker.element_id for fact in scoring_input.facts for marker in fact.specificity_markers},
         }
     )

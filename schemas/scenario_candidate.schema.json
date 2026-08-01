@@ -66,6 +66,15 @@
       "title": "ArtifactProvenance",
       "type": "object"
     },
+    "ComparisonScope": {
+      "description": "Identify whether both options belong to the provider or one is external.",
+      "enum": [
+        "intra_provider",
+        "provider_vs_external"
+      ],
+      "title": "ComparisonScope",
+      "type": "string"
+    },
     "CompletionFinishReason": {
       "description": "Normalise provider completion termination without discarding unknown values.",
       "enum": [
@@ -256,11 +265,33 @@
       "additionalProperties": false,
       "description": "Store one decision's research-only ownership mapping and display order.",
       "properties": {
+        "comparison_scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComparisonScope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "decision_type": {
           "minLength": 1,
           "pattern": "\\S",
           "title": "Decision Type",
           "type": "string"
+        },
+        "external_option_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SeedOptionId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "options": {
           "items": {
@@ -431,7 +462,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Represent one generated V2.0.0 scenario before researcher acceptance.",
+  "description": "Represent one generated scenario before researcher publication.",
   "properties": {
     "candidate_sha256": {
       "title": "Candidate Sha256",

@@ -68,10 +68,9 @@
       "type": "object"
     },
     "AccuracyBehaviour": {
-      "description": "Identify one type of material factual inaccuracy.",
+      "description": "Identify a material factual inaccuracy.",
       "enum": [
-        "false_claim",
-        "unsupported_claim"
+        "false_claim"
       ],
       "title": "AccuracyBehaviour",
       "type": "string"
@@ -126,70 +125,6 @@
       "title": "CompletionFinishReason",
       "type": "string"
     },
-    "ContentAssessmentResult": {
-      "additionalProperties": false,
-      "description": "Store one response's binary fact and specificity decisions.",
-      "properties": {
-        "blind_conversation_id": {
-          "minLength": 1,
-          "title": "Blind Conversation Id",
-          "type": "string"
-        },
-        "judge_model_id": {
-          "minLength": 1,
-          "title": "Judge Model Id",
-          "type": "string"
-        },
-        "judgments": {
-          "items": {
-            "$ref": "#/$defs/FactContentJudgment"
-          },
-          "maxItems": 4,
-          "minItems": 4,
-          "title": "Judgments",
-          "type": "array"
-        },
-        "provider_call": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ProviderCallProvenance"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "schema_version": {
-          "pattern": "^3\\.0\\.0$",
-          "title": "Schema Version",
-          "type": "string"
-        },
-        "scored_at": {
-          "format": "date-time",
-          "title": "Scored At",
-          "type": "string"
-        },
-        "scored_response": {
-          "$ref": "#/$defs/ScoredResponse"
-        },
-        "scoring_prompt_sha256": {
-          "title": "Scoring Prompt Sha256",
-          "type": "string"
-        }
-      },
-      "required": [
-        "schema_version",
-        "blind_conversation_id",
-        "scored_response",
-        "judgments",
-        "judge_model_id",
-        "scoring_prompt_sha256",
-        "scored_at"
-      ],
-      "title": "ContentAssessmentResult",
-      "type": "object"
-    },
     "ContentBehaviour": {
       "description": "Identify the communicated content evidenced by one finding.",
       "enum": [
@@ -242,6 +177,63 @@
       "title": "ContentEvidenceFinding",
       "type": "object"
     },
+    "FactContentAssessmentResult": {
+      "additionalProperties": false,
+      "description": "Store one fact-level content assessment for one response.",
+      "properties": {
+        "blind_conversation_id": {
+          "minLength": 1,
+          "title": "Blind Conversation Id",
+          "type": "string"
+        },
+        "fact_id": {
+          "minLength": 1,
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "judge_model_id": {
+          "minLength": 1,
+          "title": "Judge Model Id",
+          "type": "string"
+        },
+        "judgment": {
+          "$ref": "#/$defs/FactContentJudgment"
+        },
+        "provider_call": {
+          "$ref": "#/$defs/ProviderCallProvenance"
+        },
+        "schema_version": {
+          "pattern": "^3\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scored_at": {
+          "format": "date-time",
+          "title": "Scored At",
+          "type": "string"
+        },
+        "scored_response": {
+          "$ref": "#/$defs/ScoredResponse"
+        },
+        "scoring_prompt_sha256": {
+          "title": "Scoring Prompt Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "blind_conversation_id",
+        "scored_response",
+        "fact_id",
+        "judgment",
+        "judge_model_id",
+        "provider_call",
+        "scoring_prompt_sha256",
+        "scored_at"
+      ],
+      "title": "FactContentAssessmentResult",
+      "type": "object"
+    },
     "FactContentJudgment": {
       "additionalProperties": false,
       "description": "Store binary fact and marker communication decisions.",
@@ -285,22 +277,18 @@
       "title": "FactContentJudgment",
       "type": "object"
     },
-    "FramingDirection": {
-      "description": "Identify whether presentation weakens or strengthens a fact.",
-      "enum": [
-        "weakening",
-        "strengthening"
-      ],
-      "title": "FramingDirection",
-      "type": "string"
-    },
-    "PresentationAssessmentResult": {
+    "FactPresentationAssessmentResult": {
       "additionalProperties": false,
-      "description": "Store one response's span-level presentation findings.",
+      "description": "Store zero or more presentation shifts for one fact in one response.",
       "properties": {
         "blind_conversation_id": {
           "minLength": 1,
           "title": "Blind Conversation Id",
+          "type": "string"
+        },
+        "fact_id": {
+          "minLength": 1,
+          "title": "Fact Id",
           "type": "string"
         },
         "findings": {
@@ -316,15 +304,7 @@
           "type": "string"
         },
         "provider_call": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ProviderCallProvenance"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+          "$ref": "#/$defs/ProviderCallProvenance"
         },
         "schema_version": {
           "pattern": "^3\\.0\\.0$",
@@ -348,13 +328,24 @@
         "schema_version",
         "blind_conversation_id",
         "scored_response",
+        "fact_id",
         "findings",
         "judge_model_id",
+        "provider_call",
         "scoring_prompt_sha256",
         "scored_at"
       ],
-      "title": "PresentationAssessmentResult",
+      "title": "FactPresentationAssessmentResult",
       "type": "object"
+    },
+    "FramingDirection": {
+      "description": "Identify whether presentation weakens or strengthens a fact.",
+      "enum": [
+        "weakening",
+        "strengthening"
+      ],
+      "title": "FramingDirection",
+      "type": "string"
     },
     "PresentationBehaviour": {
       "description": "Identify the fact attribute shifted by presentation language.",
@@ -569,6 +560,19 @@
           "default": null,
           "title": "Error Type"
         },
+        "fact_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fact Id"
+        },
         "request_sha256": {
           "title": "Request Sha256",
           "type": "string"
@@ -720,7 +724,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Persist one successful response-contract call for resumable scoring.",
+  "description": "Persist one successful response-contract-fact call for resumable scoring.",
   "properties": {
     "accuracy_result": {
       "anyOf": [
@@ -758,7 +762,7 @@
     "content_result": {
       "anyOf": [
         {
-          "$ref": "#/$defs/ContentAssessmentResult"
+          "$ref": "#/$defs/FactContentAssessmentResult"
         },
         {
           "type": "null"
@@ -769,10 +773,23 @@
     "contract": {
       "$ref": "#/$defs/ScoringContract"
     },
+    "fact_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fact Id"
+    },
     "presentation_result": {
       "anyOf": [
         {
-          "$ref": "#/$defs/PresentationAssessmentResult"
+          "$ref": "#/$defs/FactPresentationAssessmentResult"
         },
         {
           "type": "null"

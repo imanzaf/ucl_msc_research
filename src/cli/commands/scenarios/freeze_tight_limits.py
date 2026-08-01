@@ -1,4 +1,4 @@
-"""Freeze C1-derived tight limits after the 60-output adequacy pilot."""
+"""Freeze evaluated-model response limits after the 60-output adequacy pilot."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ from src.storage import read_model_json, read_model_jsonl, write_model_json_atom
 
 
 def main() -> None:
-    """Authenticate ten C1 artifacts and freeze formula-derived limits before R1-R2 generation."""
+    """Authenticate ten C1 artifacts and freeze formula-derived evaluated-model limits."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--accepted-root", type=Path, required=True)
     parser.add_argument("--calibration-scenario-manifest", type=Path, required=True)
@@ -114,7 +114,7 @@ def main() -> None:
     }
     manifest = TightLimitManifest.model_validate({**payload, "manifest_sha256": artifact_sha256(payload)})
     write_model_json_atomic(args.output, manifest)
-    print(f"Wrote frozen pre-R1-R2 tight-limit manifest to {args.output}")
+    print(f"Wrote frozen evaluated-model tight-limit manifest to {args.output}")
 
 
 if __name__ == "__main__":

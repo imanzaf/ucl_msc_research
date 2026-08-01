@@ -37,10 +37,14 @@ from src.data_models.scenarios import (
 )
 from src.data_models.scoring import (
     AccuracyAssessmentResult,
+    BlindFactReference,
+    ConditionBlindScoringInput,
     ContentAssessmentResult,
     ContentBehaviour,
     ContentEvidenceFinding,
+    FactContentAssessmentResult,
     FactContentJudgment,
+    FactPresentationAssessmentResult,
     PresentationAssessmentResult,
     ResponseSpan,
     ScoredResponse,
@@ -375,12 +379,13 @@ def make_scoring_results(
         ),
     }
 
-    def provider_call(response: ScoredResponse, contract: str) -> StructuredCallProvenance:
-        """Return distinct fixture provenance for one response-contract call."""
+    def provider_call(response: ScoredResponse, contract: str, fact_id: str | None = None) -> StructuredCallProvenance:
+        """Return distinct fixture provenance for one response-contract-fact call."""
+        scope = fact_id or "response"
         return StructuredCallProvenance(
             requested_model_id="judge/model",
             returned_model_version="judge/model@2026-07-19",
-            provider_request_id=f"judge-{response.value}-{contract}",
+            provider_request_id=f"judge-{response.value}-{contract}-{scope}",
             finish_reason=CompletionFinishReason.STOP,
             usage=TokenUsage(input_tokens=10, output_tokens=10, total_tokens=20),
             request_sha256=ZERO_HASH,
@@ -454,7 +459,7 @@ def make_scoring_results(
             scored_response=response,
             judgments=judgments,
             judge_model_id="judge/model",
-            provider_call=provider_call(response, "content"),
+            provider_calls=[provider_call(response, "content", fact.fact_id) for fact in scenario.material_facts],
             scoring_prompt_sha256=ZERO_HASH,
             scored_at=NOW,
         )
@@ -464,7 +469,7 @@ def make_scoring_results(
             scored_response=response,
             findings=[],
             judge_model_id="judge/model",
-            provider_call=provider_call(response, "presentation"),
+            provider_calls=[provider_call(response, "presentation", fact.fact_id) for fact in scenario.material_facts],
             scoring_prompt_sha256=ZERO_HASH,
             scored_at=NOW,
         )
@@ -480,3 +485,44 @@ def make_scoring_results(
             scored_at=NOW,
         )
     return content_results, presentation_results, accuracy_results
+
+
+def make_fact_content_result(
+    scoring_input: ConditionBlindScoringInput,
+    fact: BlindFactReference,
+    aggregate: ContentAssessmentResult,
+) -> FactContentAssessmentResult:
+    """Extract one automated fact-content result from an aggregate fixture."""
+    provider_call = next(call for call in aggregate.provider_calls if fact.fact_id in call.provider_request_id)
+    judgment = next(item for item in aggregate.judgments if item.fact_id == fact.fact_id)
+    return FactContentAssessmentResult(
+        schema_version="3.0.0",
+        blind_conversation_id=scoring_input.blind_conversation_id,
+        scored_response=scoring_input.scored_response,
+        fact_id=fact.fact_id,
+        judgment=judgment,
+        judge_model_id=aggregate.judge_model_id,
+        provider_call=provider_call,
+        scoring_prompt_sha256=aggregate.scoring_prompt_sha256,
+        scored_at=aggregate.scored_at,
+    )
+
+
+def make_fact_presentation_result(
+    scoring_input: ConditionBlindScoringInput,
+    fact: BlindFactReference,
+    aggregate: PresentationAssessmentResult,
+) -> FactPresentationAssessmentResult:
+    """Extract one automated fact-presentation result from an aggregate fixture."""
+    provider_call = next(call for call in aggregate.provider_calls if fact.fact_id in call.provider_request_id)
+    return FactPresentationAssessmentResult(
+        schema_version="3.0.0",
+        blind_conversation_id=scoring_input.blind_conversation_id,
+        scored_response=scoring_input.scored_response,
+        fact_id=fact.fact_id,
+        findings=[finding for finding in aggregate.findings if finding.fact_id == fact.fact_id],
+        judge_model_id=aggregate.judge_model_id,
+        provider_call=provider_call,
+        scoring_prompt_sha256=aggregate.scoring_prompt_sha256,
+        scored_at=aggregate.scored_at,
+    )

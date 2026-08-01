@@ -271,10 +271,6 @@
             }
           ],
           "title": "Specificity Signed Gap"
-        },
-        "unsupported_claim_present": {
-          "title": "Unsupported Claim Present",
-          "type": "boolean"
         }
       },
       "required": [
@@ -298,7 +294,6 @@
         "owner_countervailing_coverage",
         "material_fact_coverage",
         "false_claim_present",
-        "unsupported_claim_present",
         "response_word_count"
       ],
       "title": "ConversationMetrics",

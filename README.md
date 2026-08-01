@@ -3,12 +3,18 @@
 This repository contains the dissertation and reproducible experiments for a controlled study of selective financial-risk communication under
 concise-response guidance and user-expressed concern.
 
-The canonical methodology is [RESEARCH_PLAN.md](docs/research-plan/RESEARCH_PLAN.md). The active scenario seed is V2.0.0 and generated/accepted
+The canonical methodology is [RESEARCH_PLAN.md](docs/research-plan/RESEARCH_PLAN.md). The active scenario seed is V3.0.0 and generated/published
 scenario artifacts use schema 9.0.0. Scenario definitions and customer queries are stored in separate, schema-validated JSON files joined by
-family and scenario IDs. Generation protocol V1.0.10 excludes all customer queries from initial and revision model calls and generates exact
-quantitative specificity markers with each fact. All seven active scenario, experiment, and scoring prompts are paired Jinja2 templates under
-`src/prompts/templates/`, loaded through shared utilities in `src/prompts/template_utils.py`; R1/R2 are processed independently. The local reviewer
-saves editable fact text, marker lists, and an optional note for every fact.
+family and scenario IDs. Generation protocol V1.1.1 makes one initial generation call per scenario, excludes all customer queries from that call,
+generates exact quantitative specificity markers with each fact, and freezes the R1 same-provider and R2 external-option relationships in the
+provider payload. For R1/R2, its example contains only the matching published C1's two option-information records.
+All five active scenario, experiment, and scoring prompts are paired Jinja2 templates under
+`src/prompts/templates/`, loaded through shared utilities in `src/prompts/template_utils.py`; R1/R2 are processed independently. The local scenario
+editor saves arbitrary wording changes as parent-linked candidate versions and can publish any selected current version directly.
+
+Scenario authoring has no automated-review, regeneration, acceptance-decision, model-freeze, prompt-review, pilot, or complete-batch gate. Those
+downstream evaluated-model controls remain separate. R1 generation always compares two options from the provider; R2 compares one provider option
+with one identified external option.
 
 ## Study at a glance
 
@@ -23,9 +29,9 @@ and form the only Holm-adjusted confirmatory family. `presentation_style_score` 
 outcomes. Follow-up-only and code-derived cumulative results for all three scores are secondary checkpoints. Power is calculated only for H1/H2;
 calibration supplies expected interval precision for the initial secondary contrasts.
 
-Scoring makes six successful LLM calls per conversation: content, presentation, and accuracy for the isolated initial response, then the same three
-contracts for the isolated follow-up. Facts and every predefined marker value are supplied to content scoring. Cumulative results require
-no additional LLM call.
+Scoring makes eighteen successful LLM calls per conversation. For each isolated response, content and presentation are each assessed in four
+independent fact-level calls, while accuracy is assessed once across the full fact list. The same nine-call pattern is used for the initial and
+follow-up responses. Cumulative results require no additional LLM call.
 
 | Experiment | Design | Conversations |
 |---|---|---:|
@@ -34,12 +40,12 @@ no additional LLM call.
 | `brevity_locus_v1` | 20 scenarios × 3 models × neutral query with user-requested brevity | 60 |
 
 Experiment artifacts live under `data/outputs/experiments/<experiment-name>/`. Scenario-generation histories live under
-`data/outputs/scenario_generation/v2.0.0/<run-id>/<round-id>/`; the run ID identifies one resumable logical run and timestamped rounds preserve each
-generation or revision attempt.
+`data/outputs/scenario_generation/v3.0.0/<run-id>/<round-id>/`; the run ID identifies one logical authoring set and timestamped rounds preserve each
+initial or manually revised candidate version.
 
 ## Workflows
 
-- [Scenario workflow](docs/experiments/scenario_workflow.md): generate, resume, review, revise, and publish scenarios.
+- [Scenario workflow](docs/experiments/scenario_workflow.md): generate initial candidates, edit/save versions, and publish selected scenarios.
 - [Experiment execution](docs/experiments/experiment_execution.md): run C1, calibration, confirmatory, and exploratory model calls.
 - [Scoring and validation](docs/experiments/scoring_and_validation.md): automated scoring, blinded annotation, validation, and contingencies.
 - [Analysis](docs/experiments/analysis.md): construct analysis inputs and run confirmatory or exploratory inference.

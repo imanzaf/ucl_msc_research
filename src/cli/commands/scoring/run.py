@@ -1,4 +1,4 @@
-"""Run resumable six-call condition-blind scoring with per-call retries."""
+"""Run resumable eighteen-call condition-blind scoring with per-call retries."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import argparse
 import importlib
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple, TypeVar, Union, cast
+from typing import Dict, List, Optional, Tuple, TypeVar, Union, cast
 
 from pydantic import BaseModel
 
@@ -16,11 +16,12 @@ from src.data_models.manifests import AcceptedScenarioManifest, EvaluatedModelSn
 from src.data_models.scenarios import AcceptedScenario
 from src.data_models.scoring import (
     AccuracyAssessmentResult,
+    BlindFactReference,
     ConditionBlindScoringInput,
-    ContentAssessmentResult,
     EvaluationCheckpoint,
+    FactContentAssessmentResult,
+    FactPresentationAssessmentResult,
     ManualScoringQueueRecord,
-    PresentationAssessmentResult,
     ScoredConversationBundle,
     ScoredResponse,
     ScoringAttemptStatus,
@@ -32,16 +33,21 @@ from src.data_models.study import EXPERIMENT_DIMENSIONS, ExperimentName
 from src.experiments.io import load_accepted_evaluation_scenarios
 from src.experiments.layout import validate_experiment_path
 from src.experiments.scenario_runner import validate_complete_run_plan, validate_exploratory_run_plan
-from src.experiments.scoring_pipeline import ConditionBlindScoringBackend, build_condition_blind_inputs
+from src.experiments.scoring_pipeline import (
+    ConditionBlindScoringBackend,
+    aggregate_content_fact_results,
+    aggregate_presentation_fact_results,
+    build_condition_blind_inputs,
+)
 from src.paths import REPO_ROOT
 from src.prompts.scoring_contracts import scoring_contract_sha256
 from src.scoring.metrics import compute_conversation_metrics
-from src.scoring.validation import validate_accuracy_result, validate_content_result, validate_presentation_result
+from src.scoring.validation import validate_accuracy_result, validate_content_fact_result, validate_presentation_fact_result
 from src.storage import append_model_jsonl_validated, read_model_json, read_model_jsonl
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
-ContractResult = Union[ContentAssessmentResult, PresentationAssessmentResult, AccuracyAssessmentResult]
-CallKey = Tuple[str, ScoredResponse, ScoringContract]
+ContractResult = Union[FactContentAssessmentResult, FactPresentationAssessmentResult, AccuracyAssessmentResult]
+CallKey = Tuple[str, ScoredResponse, ScoringContract, Optional[str]]
 
 
 def _load_backend(specification: str, judge_snapshot: EvaluatedModelSnapshot) -> ConditionBlindScoringBackend:
@@ -61,10 +67,13 @@ def _attempt_id(
     run_unit_id: str,
     scored_response: ScoredResponse,
     contract: ScoringContract,
+    fact_id: str | None,
     attempt_number: int,
 ) -> str:
     """Derive a stable identifier for one independently retryable call."""
-    digest = sha256_bytes(f"{run_unit_id}:{scored_response.value}:{contract.value}:{attempt_number}".encode("utf-8")).upper()[:16]
+    digest = sha256_bytes(f"{run_unit_id}:{scored_response.value}:{contract.value}:{fact_id or 'response'}:{attempt_number}".encode("utf-8")).upper()[
+        :16
+    ]
     return f"SCOREATTEMPT_{digest}"
 
 
@@ -83,9 +92,10 @@ def _call_key(
     run_unit_id: str,
     scored_response: ScoredResponse,
     contract: ScoringContract,
+    fact_id: str | None,
 ) -> CallKey:
     """Return the cache and retry identity for one scoring call."""
-    return run_unit_id, scored_response, contract
+    return run_unit_id, scored_response, contract, fact_id
 
 
 def _result_from_artifact(artifact: ScoringCallArtifact) -> ContractResult:
@@ -105,12 +115,19 @@ def _execute_contract(
     backend: ConditionBlindScoringBackend,
     contract: ScoringContract,
     scoring_input: ConditionBlindScoringInput,
+    fact: BlindFactReference | None,
 ) -> ContractResult:
-    """Execute exactly one scoring contract for one isolated response."""
+    """Execute one fact-level or response-level scoring call."""
     if contract == ScoringContract.CONTENT:
-        return backend.assess_content(scoring_input)
+        if fact is None:
+            raise ValueError("content scoring requires one fact")
+        return backend.assess_content_fact(scoring_input, fact)
     if contract == ScoringContract.PRESENTATION:
-        return backend.assess_presentation(scoring_input)
+        if fact is None:
+            raise ValueError("presentation scoring requires one fact")
+        return backend.assess_presentation_fact(scoring_input, fact)
+    if fact is not None:
+        raise ValueError("accuracy scoring is response-level and must not receive one fact")
     return backend.assess_accuracy(scoring_input)
 
 
@@ -119,20 +136,20 @@ def _validate_contract_result(
     scoring_input: ConditionBlindScoringInput,
     transcript: ConversationTranscript,
     result: ContractResult,
-    content_result: ContentAssessmentResult | None,
+    content_result: FactContentAssessmentResult | None,
 ) -> None:
     """Validate one call result using only its contract's required dependencies."""
     if contract == ScoringContract.CONTENT:
-        if not isinstance(result, ContentAssessmentResult):
+        if not isinstance(result, FactContentAssessmentResult):
             raise TypeError("content contract returned the wrong result type")
-        validate_content_result(scoring_input, transcript, result)
+        validate_content_fact_result(scoring_input, transcript, result)
         return
     if contract == ScoringContract.PRESENTATION:
-        if not isinstance(result, PresentationAssessmentResult):
+        if not isinstance(result, FactPresentationAssessmentResult):
             raise TypeError("presentation contract returned the wrong result type")
         if content_result is None:
             raise ValueError("presentation validation requires the cached content result for the same response")
-        validate_presentation_result(scoring_input, transcript, result, content_result)
+        validate_presentation_fact_result(scoring_input, transcript, result)
         return
     if not isinstance(result, AccuracyAssessmentResult):
         raise TypeError("accuracy contract returned the wrong result type")
@@ -152,22 +169,17 @@ def _validate_provider(
 
 
 def _normalise_presentation_eligibility(
-    result: PresentationAssessmentResult,
-    content_result: ContentAssessmentResult,
-) -> PresentationAssessmentResult:
-    """Remove presentation findings for facts the independent content call found absent."""
-    present_fact_ids = {judgment.fact_id for judgment in content_result.judgments if judgment.present}
-    eligible_findings = [finding for finding in result.findings if finding.fact_id in present_fact_ids]
-    if len(eligible_findings) == len(result.findings):
+    result: FactPresentationAssessmentResult,
+    content_result: FactContentAssessmentResult,
+) -> FactPresentationAssessmentResult:
+    """Remove presentation findings when the independent fact-content call found absence."""
+    if content_result.judgment.present or not result.findings:
         return result
-    provider_call = result.provider_call
-    if provider_call is None:
-        raise ValueError("automated presentation normalisation requires provider provenance")
-    return PresentationAssessmentResult.model_validate(
+    return FactPresentationAssessmentResult.model_validate(
         {
             **result.model_dump(mode="python"),
-            "findings": eligible_findings,
-            "provider_call": provider_call.model_copy(update={"response_repaired": True}),
+            "findings": [],
+            "provider_call": result.provider_call.model_copy(update={"response_repaired": True}),
         }
     )
 
@@ -176,6 +188,7 @@ def _build_call_artifact(
     run_unit_id: str,
     scoring_input: ConditionBlindScoringInput,
     contract: ScoringContract,
+    fact_id: str | None,
     scoring_manifest: ScoringExecutionManifest,
     result: ContractResult,
     attempts: List[ScoringExecutionAttempt],
@@ -192,6 +205,7 @@ def _build_call_artifact(
         "blind_conversation_id": scoring_input.blind_conversation_id,
         "scored_response": scoring_input.scored_response,
         "contract": contract,
+        "fact_id": fact_id,
         "scoring_input_sha256": artifact_sha256(scoring_input),
         "scoring_execution_manifest_sha256": scoring_manifest.manifest_sha256,
         **result_fields,
@@ -204,6 +218,7 @@ def _build_call_artifact(
 def _request_digest(
     scoring_input: ConditionBlindScoringInput,
     contract: ScoringContract,
+    fact_id: str | None,
     scoring_manifest: ScoringExecutionManifest,
 ) -> str:
     """Hash one independently retryable provider request boundary."""
@@ -211,6 +226,7 @@ def _request_digest(
         {
             "scoring_input": scoring_input,
             "contract": contract,
+            "fact_id": fact_id,
             "scoring_contract_sha256": scoring_manifest.scoring_contract_sha256,
             "judge_model_ids": scoring_manifest.judge_model_ids,
         }
@@ -221,8 +237,9 @@ def _run_or_resume_call(
     run_unit_id: str,
     scoring_input: ConditionBlindScoringInput,
     contract: ScoringContract,
+    fact: BlindFactReference | None,
     transcript: ConversationTranscript,
-    content_result: ContentAssessmentResult | None,
+    content_result: FactContentAssessmentResult | None,
     scoring_manifest: ScoringExecutionManifest,
     backend: ConditionBlindScoringBackend,
     cached_artifact: ScoringCallArtifact | None,
@@ -230,7 +247,8 @@ def _run_or_resume_call(
     call_path: Path,
     failure_path: Path,
 ) -> ScoringCallArtifact | None:
-    """Reuse one successful call or retry only that failed response-contract pair."""
+    """Reuse one successful call or retry only that failed response-contract-fact key."""
+    fact_id = fact.fact_id if fact is not None else None
     input_sha256 = artifact_sha256(scoring_input)
     if cached_artifact is not None:
         if (
@@ -247,7 +265,7 @@ def _run_or_resume_call(
         )
         return cached_artifact
 
-    request_sha256 = _request_digest(scoring_input, contract, scoring_manifest)
+    request_sha256 = _request_digest(scoring_input, contract, fact_id, scoring_manifest)
     failures = sorted(existing_failures, key=lambda item: item.attempt_number)
     if any(attempt.request_sha256 != request_sha256 for attempt in failures):
         raise ValueError("failed scoring attempts do not bind the active request")
@@ -257,9 +275,9 @@ def _run_or_resume_call(
         attempt_number = len(attempts) + 1
         started_at = utc_now()
         try:
-            result = _execute_contract(backend, contract, scoring_input)
+            result = _execute_contract(backend, contract, scoring_input, fact)
             if contract == ScoringContract.PRESENTATION:
-                if not isinstance(result, PresentationAssessmentResult) or content_result is None:
+                if not isinstance(result, FactPresentationAssessmentResult) or content_result is None:
                     raise TypeError("presentation normalisation requires typed presentation and content results")
                 result = _normalise_presentation_eligibility(result, content_result)
             _validate_contract_result(contract, scoring_input, transcript, result, content_result)
@@ -267,11 +285,12 @@ def _run_or_resume_call(
         except Exception as error:
             failed_attempt = ScoringExecutionAttempt(
                 schema_version="3.0.0",
-                attempt_id=_attempt_id(run_unit_id, scoring_input.scored_response, contract, attempt_number),
+                attempt_id=_attempt_id(run_unit_id, scoring_input.scored_response, contract, fact_id, attempt_number),
                 run_unit_id=run_unit_id,
                 blind_conversation_id=scoring_input.blind_conversation_id,
                 scored_response=scoring_input.scored_response,
                 contract=contract,
+                fact_id=fact_id,
                 attempt_number=attempt_number,
                 request_sha256=request_sha256,
                 status=ScoringAttemptStatus.FAILED,
@@ -290,11 +309,12 @@ def _run_or_resume_call(
 
         success_attempt = ScoringExecutionAttempt(
             schema_version="3.0.0",
-            attempt_id=_attempt_id(run_unit_id, scoring_input.scored_response, contract, attempt_number),
+            attempt_id=_attempt_id(run_unit_id, scoring_input.scored_response, contract, fact_id, attempt_number),
             run_unit_id=run_unit_id,
             blind_conversation_id=scoring_input.blind_conversation_id,
             scored_response=scoring_input.scored_response,
             contract=contract,
+            fact_id=fact_id,
             attempt_number=attempt_number,
             request_sha256=request_sha256,
             status=ScoringAttemptStatus.SUCCEEDED,
@@ -306,6 +326,7 @@ def _run_or_resume_call(
             run_unit_id,
             scoring_input,
             contract,
+            fact_id,
             scoring_manifest,
             result,
             [*attempts, success_attempt],
@@ -322,7 +343,7 @@ def execute_scoring_transcripts(
     results_dir: Path,
     backend: ConditionBlindScoringBackend,
 ) -> None:
-    """Resume six-call scoring and persist a bundle or manual queue record per conversation."""
+    """Resume eighteen-call scoring and persist a bundle or manual queue record per conversation."""
     transcript_ids = [transcript.run_unit.run_unit_id for transcript in transcripts]
     if len(transcript_ids) != len(set(transcript_ids)):
         raise ValueError("transcript results contain duplicate run-unit ids")
@@ -355,14 +376,14 @@ def execute_scoring_transcripts(
 
     cached_by_key: Dict[CallKey, ScoringCallArtifact] = {}
     for artifact in existing_calls:
-        key = _call_key(artifact.run_unit_id, artifact.scored_response, artifact.contract)
+        key = _call_key(artifact.run_unit_id, artifact.scored_response, artifact.contract, artifact.fact_id)
         if key in cached_by_key:
-            raise ValueError("successful scoring-call cache contains a duplicate response-contract pair")
+            raise ValueError("successful scoring-call cache contains a duplicate response-contract-fact key")
         cached_by_key[key] = artifact
     failures_by_key: Dict[CallKey, List[ScoringExecutionAttempt]] = {}
     for attempt in existing_failures:
         failures_by_key.setdefault(
-            _call_key(attempt.run_unit_id, attempt.scored_response, attempt.contract),
+            _call_key(attempt.run_unit_id, attempt.scored_response, attempt.contract, attempt.fact_id),
             [],
         ).append(attempt)
 
@@ -380,36 +401,45 @@ def execute_scoring_transcripts(
             scenario,
             _fact_order_seed(scoring_manifest.fact_order_seed, run_unit_id),
         )
-        completed: Dict[Tuple[ScoredResponse, ScoringContract], ScoringCallArtifact] = {}
+        completed: Dict[Tuple[ScoredResponse, ScoringContract, Optional[str]], ScoringCallArtifact] = {}
         exhausted = False
         for contract in ScoringContract:
             for response in ScoredResponse:
-                key = _call_key(run_unit_id, response, contract)
-                content_result = None
-                if contract == ScoringContract.PRESENTATION:
-                    content_artifact = completed[(response, ScoringContract.CONTENT)]
-                    content_value = _result_from_artifact(content_artifact)
-                    if not isinstance(content_value, ContentAssessmentResult):
-                        raise TypeError("cached content call contains the wrong result type")
-                    content_result = content_value
-                artifact = _run_or_resume_call(
-                    run_unit_id=run_unit_id,
-                    scoring_input=scoring_inputs[response],
-                    contract=contract,
-                    transcript=transcript,
-                    content_result=content_result,
-                    scoring_manifest=scoring_manifest,
-                    backend=backend,
-                    cached_artifact=cached_by_key.get(key),
-                    existing_failures=failures_by_key.get(key, []),
-                    call_path=call_path,
-                    failure_path=failure_path,
+                scoring_input = scoring_inputs[response]
+                facts: List[BlindFactReference | None] = (
+                    list(scoring_input.facts) if contract in {ScoringContract.CONTENT, ScoringContract.PRESENTATION} else [None]
                 )
-                if artifact is None:
-                    exhausted = True
+                for fact in facts:
+                    fact_id = fact.fact_id if fact is not None else None
+                    key = _call_key(run_unit_id, response, contract, fact_id)
+                    content_result = None
+                    if contract == ScoringContract.PRESENTATION:
+                        content_artifact = completed[(response, ScoringContract.CONTENT, fact_id)]
+                        content_value = _result_from_artifact(content_artifact)
+                        if not isinstance(content_value, FactContentAssessmentResult):
+                            raise TypeError("cached fact-content call contains the wrong result type")
+                        content_result = content_value
+                    artifact = _run_or_resume_call(
+                        run_unit_id=run_unit_id,
+                        scoring_input=scoring_input,
+                        contract=contract,
+                        fact=fact,
+                        transcript=transcript,
+                        content_result=content_result,
+                        scoring_manifest=scoring_manifest,
+                        backend=backend,
+                        cached_artifact=cached_by_key.get(key),
+                        existing_failures=failures_by_key.get(key, []),
+                        call_path=call_path,
+                        failure_path=failure_path,
+                    )
+                    if artifact is None:
+                        exhausted = True
+                        break
+                    completed[(response, contract, fact_id)] = artifact
+                    cached_by_key[key] = artifact
+                if exhausted:
                     break
-                completed[(response, contract)] = artifact
-                cached_by_key[key] = artifact
             if exhausted:
                 break
 
@@ -426,6 +456,7 @@ def execute_scoring_transcripts(
             key=lambda item: (
                 item.scored_response.value,
                 item.contract.value,
+                item.fact_id or "",
                 item.attempt_number,
             ),
         )
@@ -440,22 +471,40 @@ def execute_scoring_transcripts(
                 "completed_calls": list(completed.values()),
                 "attempts": attempts,
                 "queued_at": utc_now(),
-                "reason": "One response-contract call exhausted its frozen retry policy; blinded manual resolution is required.",
+                "reason": "One response-contract-fact call exhausted its frozen retry policy; blinded manual resolution is required.",
             }
             record = ManualScoringQueueRecord.model_validate({**queue_payload, "record_sha256": artifact_sha256(queue_payload)})
             _append_unique(queue_path, record, "run_unit_id")
             continue
 
         content_results = {
-            response: cast(ContentAssessmentResult, _result_from_artifact(completed[(response, ScoringContract.CONTENT)]))
+            response: aggregate_content_fact_results(
+                scoring_inputs[response],
+                [
+                    cast(
+                        FactContentAssessmentResult,
+                        _result_from_artifact(completed[(response, ScoringContract.CONTENT, fact.fact_id)]),
+                    )
+                    for fact in scoring_inputs[response].facts
+                ],
+            )
             for response in ScoredResponse
         }
         presentation_results = {
-            response: cast(PresentationAssessmentResult, _result_from_artifact(completed[(response, ScoringContract.PRESENTATION)]))
+            response: aggregate_presentation_fact_results(
+                scoring_inputs[response],
+                [
+                    cast(
+                        FactPresentationAssessmentResult,
+                        _result_from_artifact(completed[(response, ScoringContract.PRESENTATION, fact.fact_id)]),
+                    )
+                    for fact in scoring_inputs[response].facts
+                ],
+            )
             for response in ScoredResponse
         }
         accuracy_results = {
-            response: cast(AccuracyAssessmentResult, _result_from_artifact(completed[(response, ScoringContract.ACCURACY)]))
+            response: cast(AccuracyAssessmentResult, _result_from_artifact(completed[(response, ScoringContract.ACCURACY, None)]))
             for response in ScoredResponse
         }
         metrics = [
@@ -521,7 +570,7 @@ def main() -> None:
     if experiment_manifest.scoring_judge_model_ids != scoring_manifest.judge_model_ids:
         raise ValueError("experiment and scoring-execution manifests bind different judges")
     if scoring_manifest.scoring_contract_sha256 != scoring_contract_sha256():
-        raise ValueError("scoring manifest does not bind the active six-call contracts")
+        raise ValueError("scoring manifest does not bind the active eighteen-call contracts")
     scenarios = {scenario.scenario_id: scenario for scenario in load_accepted_evaluation_scenarios(args.accepted_root, accepted_manifest)}
     transcripts = read_model_jsonl(args.transcripts, ConversationTranscript)
     run_units = [transcript.run_unit for transcript in transcripts]
@@ -538,7 +587,7 @@ def main() -> None:
         results_dir=args.results_dir,
         backend=backend,
     )
-    print(f"Six-call scoring bundles and any manual queue records are under {args.results_dir}")
+    print(f"Eighteen-call scoring bundles and any manual queue records are under {args.results_dir}")
 
 
 if __name__ == "__main__":

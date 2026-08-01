@@ -42,9 +42,11 @@
       "type": "object"
     },
     "AcceptedScenarioSetId": {
-      "description": "Identify the active accepted scenario family.",
+      "description": "Identify an approved accepted scenario family.",
       "enum": [
-        "customer_facing_risk_communication_v2.0.0"
+        "customer_facing_risk_communication_v2.0.0",
+        "customer_facing_risk_communication_v2.1.0",
+        "customer_facing_risk_communication_v3.0.0"
       ],
       "title": "AcceptedScenarioSetId",
       "type": "string"

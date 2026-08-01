@@ -6,13 +6,14 @@ All notable changes to the active research implementation are recorded here. The
 
 ### Added
 
+- Added the active V3.0.0 seed snapshot with the latest definitions and queries plus ten rebuilt C1 publications using explicit comparison fields.
 - Added fresh 3.0.0 scoring and annotation contracts for six response-isolated calls: binary content, typed presentation shifts, and binary
-  false/unsupported accuracy findings. Positive findings require behavior, exact quote/offsets, and a finding-specific reason.
-- Added independently resumable response-contract call artifacts, six provider provenances per completed bundle, per-call retry/cache behavior, and
+  false-claim accuracy findings. Positive findings require behavior, exact quote/offsets, and a finding-specific reason.
+- Added independently resumable response-contract-fact call artifacts, eighteen provider provenances per completed bundle, per-call retry/cache behavior, and
   terminal manual resolution when any one call exhausts retries.
 - Added separate 0–1 `selective_communication_score`, `presentation_style_score`, and binary `factual_inaccuracy_score` outcomes, plus code-derived
   initial, follow-up, and cumulative checkpoints.
-- Added the versioned `c1_llama_2x2_v8` scoring diagnostic and a 40-bundle/240-call validation report required before the main scoring contract can freeze.
+- Added the versioned `c1_llama_2x2_v8` scoring diagnostic and a 40-bundle/720-call validation report required before the main scoring contract can freeze.
 - Added a hash-bound scoring-only rerun workflow that reuses the 40 completed Llama transcripts from `c1_llama_2x2_v3` without making new
   evaluated-model calls or altering historical experiment versions.
 - Added staged human annotation that validates and locks the initial response before revealing the follow-up, six-construct validation, and separate
@@ -33,12 +34,18 @@ All notable changes to the active research implementation are recorded here. The
 
 ### Changed
 
+- Simplified scenario authoring to one initial generation call, unrestricted parent-linked manual revisions, and researcher-selected publication.
+  Automated review, regeneration, acceptance decisions, model/prompt freeze checks, pilots, and complete-batch requirements no longer gate this pipeline.
+- Required R1/R2 generation examples to resolve exclusively from the matching currently published C1 record, independent of generation-run location.
+- Reduced each R1/R2 example to the two published C1 option-information records; C1 deployment, decision, option names, ownership mechanism,
+  comparison relationship, and queries are no longer rendered.
 - Made initial selective communication the sole primary outcome: equal-weight coverage and specificity asymmetry. Presentation style and factual
   inaccuracy are prespecified secondary outcomes and no longer enter the headline score.
-- Made fact, predefined-marker, false-claim, and unsupported-claim decisions binary. All marker definitions and canonical values are passed to both
-  content calls.
+- Made fact, predefined-marker, and false-claim decisions binary. Every marker's stable ID and plain text are passed to its fact-level content calls.
 - Replaced fact-level framing labels with span-level behavior enums (`certainty_shift`, `magnitude_shift`, `condition_shift`, `consequence_shift`,
   `qualification_shift`) plus weakening/strengthening direction. Ordering and emphasis are derived from exact content evidence.
+- Changed content and presentation scoring to four independent fact-level calls per response. Each presentation fact may return zero or more typed
+  shifts; accuracy remains one response-level call over all supplied facts.
 - Tightened judge grounding so evidence quotes are contiguous response substrings, accuracy evidence references supplied fact IDs, and alternative
   recommendations cannot be misclassified as weakening an omitted fact. Exact visible propositions are mapped deterministically to their fact IDs,
   high-overlap quote edge errors are trimmed to the stored verbatim response span, marker evidence expands only to the smallest nearby approved

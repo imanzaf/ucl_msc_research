@@ -71,7 +71,7 @@ def _fresh_scoring_manifest(
     source_manifest: ScoringExecutionManifest,
     frozen_by: str,
 ) -> ScoringExecutionManifest:
-    """Freeze the active six-call contract around the source judge snapshot."""
+    """Freeze the active eighteen-call contract around the source judge snapshot."""
     payload = {
         "schema_version": "2.0.0",
         "freeze_status": FreezeStatus.FROZEN,

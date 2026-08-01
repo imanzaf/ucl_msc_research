@@ -1,4 +1,4 @@
-"""Exercise offline run-plan, six-call scoring, and analysis boundaries."""
+"""Exercise offline run-plan, fact-level scoring, and analysis boundaries."""
 
 from __future__ import annotations
 
@@ -11,19 +11,28 @@ from src.data_models.experiments import RetryPolicy
 from src.data_models.scoring import (
     AccuracyAssessmentResult,
     AnalysisInputRow,
-    ContentAssessmentResult,
+    BlindFactReference,
+    ConditionBlindScoringInput,
     EvaluationCheckpoint,
-    PresentationAssessmentResult,
+    FactContentAssessmentResult,
+    FactPresentationAssessmentResult,
 )
 from src.data_models.study import ExperimentName
 from src.experiments.scenario_runner import build_brevity_locus_run_plan, build_material_priority_run_plan, build_run_plan, execute_run_unit
 from src.experiments.scoring_pipeline import score_conversation
 from src.llm.openrouter import ProviderTextResponse
-from tests.factories import make_accepted_scenario, make_models, make_scoring_results, make_transcript
+from tests.factories import (
+    make_accepted_scenario,
+    make_fact_content_result,
+    make_fact_presentation_result,
+    make_models,
+    make_scoring_results,
+    make_transcript,
+)
 
 
 def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
-    """Build every matrix and score one conversation with six local fixture calls."""
+    """Build every matrix and score one conversation with eighteen local fixture calls."""
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     created_at = datetime(2026, 7, 22, tzinfo=timezone.utc)
     models = make_models()
@@ -78,16 +87,21 @@ def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
     class OfflineScoringBackend:
         """Return deterministic fixture judgments without external calls."""
 
-        def assess_content(self, scoring_input: object) -> ContentAssessmentResult:
-            """Return content bound to the isolated blind identifier."""
-            return content[scoring_input.scored_response].model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
-
-        def assess_presentation(
+        def assess_content_fact(
             self,
-            scoring_input: object,
-        ) -> PresentationAssessmentResult:
-            """Return presentation findings for the selected response."""
-            return presentation[scoring_input.scored_response].model_copy(update={"blind_conversation_id": scoring_input.blind_conversation_id})
+            scoring_input: ConditionBlindScoringInput,
+            fact: BlindFactReference,
+        ) -> FactContentAssessmentResult:
+            """Return fact content bound to the isolated blind identifier."""
+            return make_fact_content_result(scoring_input, fact, content[scoring_input.scored_response])
+
+        def assess_presentation_fact(
+            self,
+            scoring_input: ConditionBlindScoringInput,
+            fact: BlindFactReference,
+        ) -> FactPresentationAssessmentResult:
+            """Return presentation findings for one fact in the selected response."""
+            return make_fact_presentation_result(scoring_input, fact, presentation[scoring_input.scored_response])
 
         def assess_accuracy(self, scoring_input: object) -> AccuracyAssessmentResult:
             """Return accuracy findings for the selected response."""

@@ -1,4 +1,4 @@
-"""Build the self-hashed 30-scenario V2.0.0 accepted-set manifest."""
+"""Build a self-hashed manifest from the currently published scenario versions."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def build_accepted_scenario_manifest(
     published_by: str,
     published_at: Optional[datetime] = None,
 ) -> AcceptedScenarioManifest:
-    """Authenticate accepted bundles and build their immutable set manifest."""
+    """Authenticate published bundles and build their current set manifest."""
     seed_root = ACTIVE_SCENARIO_INPUT_ROOT
     load_and_validate_seed(
         seed_path=seed_root / "scenario_generation_seeds.json",
@@ -71,7 +71,7 @@ def build_accepted_scenario_manifest(
 
 
 def main() -> None:
-    """Authenticate every published bundle and write the immutable accepted-set manifest."""
+    """Authenticate every published bundle and write the current accepted-set manifest."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--accepted-root", type=Path, required=True)
     parser.add_argument("--scope", choices=[scope.value for scope in ScenarioManifestScope], required=True)
@@ -81,12 +81,10 @@ def main() -> None:
 
     scope = ScenarioManifestScope(args.scope)
     if args.accepted_root.resolve() != ACTIVE_SCENARIO_ACCEPTED_ROOT.resolve():
-        raise ValueError("accepted-set manifests must read only the active V2.0.0 accepted root")
+        raise ValueError("accepted-set manifests must read only the active accepted root")
     expected_output = accepted_manifest_output_path(scope)
     if args.output.resolve() != expected_output.resolve():
         raise ValueError(f"{scope.value} accepted-set manifest must use {expected_output}")
-    if args.output.exists():
-        raise FileExistsError(f"accepted-set manifests are immutable and already exist: {args.output}")
     manifest = build_accepted_scenario_manifest(args.accepted_root, scope, args.published_by)
     write_model_json_atomic(args.output, manifest)
     print(f"Wrote {scope.value} accepted-set manifest for {len(manifest.entries)} scenarios to {args.output}")

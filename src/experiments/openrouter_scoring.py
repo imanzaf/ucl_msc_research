@@ -10,14 +10,15 @@ from pydantic import BaseModel, Field, model_validator
 from src.data_models.common import VersionedImmutableModel, sha256_bytes, utc_now
 from src.data_models.experiments import TokenUsage, provider_compatible_seed
 from src.data_models.manifests import EvaluatedModelSnapshot
-from src.data_models.scenarios import SpecificityElement
 from src.data_models.scoring import (
     AccuracyAssessmentResult,
     AccuracyFinding,
+    BlindFactReference,
+    BlindSpecificityMarker,
     ConditionBlindScoringInput,
-    ContentAssessmentResult,
+    FactContentAssessmentResult,
     FactContentJudgment,
-    PresentationAssessmentResult,
+    FactPresentationAssessmentResult,
     PresentationFinding,
     ResponseSpan,
     StructuredCallProvenance,
@@ -67,9 +68,7 @@ def normalise_accuracy_evidence_references(
     """Map exact visible propositions to their supplied fact identifiers."""
     if not isinstance(value, dict) or not isinstance(value.get("findings"), list):
         return value, False
-    reference_to_id = {fact.fact_id: fact.fact_id for fact in scoring_input.facts} | {
-        fact.canonical_proposition: fact.fact_id for fact in scoring_input.facts
-    }
+    reference_to_id = {fact.fact_id: fact.fact_id for fact in scoring_input.facts} | {fact.fact_text: fact.fact_id for fact in scoring_input.facts}
     repaired = False
     findings = []
     for finding in value["findings"]:
@@ -89,7 +88,7 @@ def _smallest_supporting_marker_span(
     response_text: str,
     turn_index: int,
     original_span: ResponseSpan,
-    element: SpecificityElement,
+    element: BlindSpecificityMarker,
 ) -> ResponseSpan | None:
     """Find the shortest nearby exact span that contains an approved marker value."""
     response_matches = list(re.finditer(r"\S+", response_text))
@@ -129,12 +128,16 @@ def normalise_content_marker_evidence(
     scoring_input: ConditionBlindScoringInput,
 ) -> Tuple[Any, bool]:
     """Expand narrow marker quotes to the smallest exact approved response span."""
-    if not isinstance(value, dict) or not isinstance(value.get("judgments"), list):
+    if not isinstance(value, dict):
         return value, False
-    element_by_id = {element.element_id: element for fact in scoring_input.facts for element in fact.specificity_elements}
+    singular = isinstance(value.get("judgment"), dict)
+    raw_judgments = [value["judgment"]] if singular else value.get("judgments")
+    if not isinstance(raw_judgments, list):
+        return value, False
+    element_by_id = {marker.element_id: marker for fact in scoring_input.facts for marker in fact.specificity_markers}
     repaired = False
     judgments = []
-    for judgment in value["judgments"]:
+    for judgment in raw_judgments:
         if not isinstance(judgment, dict) or not isinstance(judgment.get("marker_judgments"), list):
             judgments.append(judgment)
             continue
@@ -167,12 +170,14 @@ def normalise_content_marker_evidence(
                         **marker_judgment,
                         "present": False,
                         "evidence": [],
-                        "reason": "No registered canonical value or acceptable paraphrase is evidenced in the exact response.",
+                        "reason": "The exact response does not contain the registered marker text.",
                     }
                 )
                 continue
             marker_judgments.append({**marker_judgment, "evidence": evidence_items})
         judgments.append({**judgment, "marker_judgments": marker_judgments})
+    if singular:
+        return {**value, "judgment": judgments[0]}, repaired
     return {**value, "judgments": judgments}, repaired
 
 
@@ -262,11 +267,11 @@ class ScoringDraft(VersionedImmutableModel):
         return normalise_provisional_span_bounds(value)
 
 
-class ContentAssessmentDraft(ScoringDraft):
-    """Return binary fact and marker decisions before provenance is attached."""
+class FactContentAssessmentDraft(ScoringDraft):
+    """Return one fact's content decision before provenance is attached."""
 
     schema_version: str = Field(pattern=r"^3\.0\.0$")
-    judgments: List[FactContentJudgment] = Field(min_length=4, max_length=4)
+    judgment: FactContentJudgment
 
     @model_validator(mode="before")
     @classmethod
@@ -275,8 +280,8 @@ class ContentAssessmentDraft(ScoringDraft):
         return normalise_content_behaviour_targets(value)
 
 
-class PresentationAssessmentDraft(ScoringDraft):
-    """Return typed presentation findings before provenance is attached."""
+class FactPresentationAssessmentDraft(ScoringDraft):
+    """Return one fact's presentation findings before provenance is attached."""
 
     schema_version: str = Field(pattern=r"^3\.0\.0$")
     findings: List[PresentationFinding]
@@ -339,10 +344,13 @@ class OpenRouterScoringBackend:
         self,
         scoring_input: ConditionBlindScoringInput,
         contract_name: str,
+        fact_id: str | None = None,
     ) -> int:
-        """Derive a stable provider seed for one response-contract pair."""
+        """Derive a stable provider seed for one response-contract-fact call."""
         digest = sha256_bytes(
-            (f"{scoring_input.randomised_fact_order_seed}:" f"{scoring_input.scored_response.value}:{contract_name}").encode("utf-8")
+            (f"{scoring_input.randomised_fact_order_seed}:" f"{scoring_input.scored_response.value}:{contract_name}:{fact_id or 'response'}").encode(
+                "utf-8"
+            )
         )
         return provider_compatible_seed(int(digest[:16], 16))
 
@@ -356,7 +364,7 @@ class OpenRouterScoringBackend:
             response.output.model_dump(mode="python"),
             scoring_input,
         )
-        if isinstance(response.output, ContentAssessmentDraft):
+        if isinstance(response.output, FactContentAssessmentDraft):
             payload, marker_evidence_repaired = normalise_content_marker_evidence(payload, scoring_input)
             repaired = repaired or marker_evidence_repaired
         if isinstance(response.output, AccuracyAssessmentDraft):
@@ -367,51 +375,55 @@ class OpenRouterScoringBackend:
             response = response.model_copy(update={"response_repaired": True})
         return draft, response
 
-    def assess_content(
+    def assess_content_fact(
         self,
         scoring_input: ConditionBlindScoringInput,
-    ) -> ContentAssessmentResult:
-        """Assess binary material-fact and predefined-marker presence."""
-        prompt = render_content_assessment_prompt(scoring_input)
+        fact: BlindFactReference,
+    ) -> FactContentAssessmentResult:
+        """Assess one material fact and its predefined markers."""
+        prompt = render_content_assessment_prompt(scoring_input, fact)
         response = self.client.complete_structured_with_provenance(
             self.judge_model_id,
             self._messages(prompt),
-            ContentAssessmentDraft,
+            FactContentAssessmentDraft,
             temperature=0.0,
-            max_tokens=7000,
-            seed=self._seed(scoring_input, "content"),
+            max_tokens=2500,
+            seed=self._seed(scoring_input, "content", fact.fact_id),
         )
         draft, response = self._align(response, scoring_input)
-        return ContentAssessmentResult(
+        return FactContentAssessmentResult(
             schema_version="3.0.0",
             blind_conversation_id=scoring_input.blind_conversation_id,
             scored_response=scoring_input.scored_response,
-            judgments=draft.judgments,
+            fact_id=fact.fact_id,
+            judgment=draft.judgment,
             judge_model_id=self.judge_model_id,
             provider_call=self._provenance(response),
             scoring_prompt_sha256=prompt.template_sha256,
             scored_at=utc_now(),
         )
 
-    def assess_presentation(
+    def assess_presentation_fact(
         self,
         scoring_input: ConditionBlindScoringInput,
-    ) -> PresentationAssessmentResult:
-        """Assess typed weakening and strengthening behaviours."""
-        prompt = render_presentation_assessment_prompt(scoring_input)
+        fact: BlindFactReference,
+    ) -> FactPresentationAssessmentResult:
+        """Assess zero or more presentation shifts for one material fact."""
+        prompt = render_presentation_assessment_prompt(scoring_input, fact)
         response = self.client.complete_structured_with_provenance(
             self.judge_model_id,
             self._messages(prompt),
-            PresentationAssessmentDraft,
+            FactPresentationAssessmentDraft,
             temperature=0.0,
-            max_tokens=5000,
-            seed=self._seed(scoring_input, "presentation"),
+            max_tokens=3000,
+            seed=self._seed(scoring_input, "presentation", fact.fact_id),
         )
         draft, response = self._align(response, scoring_input)
-        return PresentationAssessmentResult(
+        return FactPresentationAssessmentResult(
             schema_version="3.0.0",
             blind_conversation_id=scoring_input.blind_conversation_id,
             scored_response=scoring_input.scored_response,
+            fact_id=fact.fact_id,
             findings=draft.findings,
             judge_model_id=self.judge_model_id,
             provider_call=self._provenance(response),
@@ -423,7 +435,7 @@ class OpenRouterScoringBackend:
         self,
         scoring_input: ConditionBlindScoringInput,
     ) -> AccuracyAssessmentResult:
-        """Assess false and unsupported material factual claims."""
+        """Assess materially false factual claims."""
         prompt = render_accuracy_assessment_prompt(scoring_input)
         response = self.client.complete_structured_with_provenance(
             self.judge_model_id,

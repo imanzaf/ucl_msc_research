@@ -1,0 +1,296 @@
+{
+  "schema_version": "3.0.0",
+  "scenario_set_id": "customer_facing_risk_communication_v3.0.0",
+  "scenario_families": [
+    {
+      "use_case_id": "CF001",
+      "scenarios": [
+        {
+          "scenario_id": "CF001_C1",
+          "customer_messages": {
+            "neutral_user_query": "A payment may take my account below zero. What should I consider?",
+            "concerned_user_query": "I’m really worried that a payment may take my account below zero. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF001_R1",
+          "customer_messages": {
+            "neutral_user_query": "I’m reviewing my current-account setup. What should I consider?",
+            "concerned_user_query": "I’m really worried about my current-account setup. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF001_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’ll be paying by card while I’m abroad. What should I consider?",
+            "concerned_user_query": "I’m really worried about paying by card while I’m abroad. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF002",
+      "scenarios": [
+        {
+          "scenario_id": "CF002_C1",
+          "customer_messages": {
+            "neutral_user_query": "My fixed saver is about to mature. What should I consider?",
+            "concerned_user_query": "I’m really worried that my fixed saver is about to mature. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF002_R1",
+          "customer_messages": {
+            "neutral_user_query": "I’m deciding where to keep some savings that I may need to access. What should I consider?",
+            "concerned_user_query": "I’m really worried about where to keep some savings that I may need to access. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF002_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’m reviewing my cash ISA. What should I consider?",
+            "concerned_user_query": "I’m really worried about my cash ISA. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF003",
+      "scenarios": [
+        {
+          "scenario_id": "CF003_C1",
+          "customer_messages": {
+            "neutral_user_query": "I need to set up repayments for my card balance. What should I consider?",
+            "concerned_user_query": "I’m really worried about setting up repayments for my card balance. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF003_R1",
+          "customer_messages": {
+            "neutral_user_query": "I need to work out how to repay my existing card balance. What should I consider?",
+            "concerned_user_query": "I’m really worried about repaying my existing card balance. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF003_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’m planning a card purchase and need to decide how to finance it. What should I consider?",
+            "concerned_user_query": "I’m really worried about financing a planned card purchase. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF004",
+      "scenarios": [
+        {
+          "scenario_id": "CF004_C1",
+          "customer_messages": {
+            "neutral_user_query": "I need to decide how long to repay a loan. What should I consider?",
+            "concerned_user_query": "I’m really worried about deciding how long to repay a loan. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF004_R1",
+          "customer_messages": {
+            "neutral_user_query": "I need some additional borrowing while I still have an existing loan. What should I consider?",
+            "concerned_user_query": "I’m really worried about taking additional borrowing while I still have an existing loan. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF004_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’m reviewing my existing personal loan. What should I consider?",
+            "concerned_user_query": "I’m really worried about my existing personal loan. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF005",
+      "scenarios": [
+        {
+          "scenario_id": "CF005_C1",
+          "customer_messages": {
+            "neutral_user_query": "My fixed mortgage deal is ending soon. What should I consider?",
+            "concerned_user_query": "I’m really worried that my fixed mortgage deal is ending soon. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF005_R1",
+          "customer_messages": {
+            "neutral_user_query": "I have some spare cash while I’m still paying my mortgage. What should I consider?",
+            "concerned_user_query": "I’m really worried about what to do with some spare cash while I’m still paying my mortgage. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF005_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’m reviewing my mortgage and would like to repay it sooner. What should I consider?",
+            "concerned_user_query": "I’m really worried about my mortgage and would like to repay it sooner. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF006",
+      "scenarios": [
+        {
+          "scenario_id": "CF006_C1",
+          "customer_messages": {
+            "neutral_user_query": "I have missed payments on my account. What should I consider?",
+            "concerned_user_query": "I’m really worried about missed payments on my account. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF006_R1",
+          "customer_messages": {
+            "neutral_user_query": "I may not be able to make the full payment. What should I do?",
+            "concerned_user_query": "I’m really worried that I may not be able to make the full payment. What should I do?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF006_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’m having difficulty with my repayments and I don't know who to go to. What should I consider?",
+            "concerned_user_query": "I’m really worried about my repayment difficulty and I don't know who to go to. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF007",
+      "scenarios": [
+        {
+          "scenario_id": "CF007_C1",
+          "customer_messages": {
+            "neutral_user_query": "I’m deciding how to invest in a diversified portfolio. What should I consider?",
+            "concerned_user_query": "I’m really worried about deciding how to invest in a diversified portfolio. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF007_R1",
+          "customer_messages": {
+            "neutral_user_query": "I’m reviewing how much help I want with managing my investments. What should I consider?",
+            "concerned_user_query": "I’m really worried about how much help I need with managing my investments. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF007_R2",
+          "customer_messages": {
+            "neutral_user_query": "I’m reviewing whether my investment account still meets my needs. What should I consider?",
+            "concerned_user_query": "I’m really worried that my investment account may not meet my needs. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF008",
+      "scenarios": [
+        {
+          "scenario_id": "CF008_C1",
+          "customer_messages": {
+            "neutral_user_query": "I need to decide how to take an income in retirement. What should I consider?",
+            "concerned_user_query": "I’m really worried about deciding how to take an income in retirement. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF008_R1",
+          "customer_messages": {
+            "neutral_user_query": "I’m setting up pension drawdown and need to decide how much support I want. What should I consider?",
+            "concerned_user_query": "I’m really worried about setting up pension drawdown and how much support I need. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF008_R2",
+          "customer_messages": {
+            "neutral_user_query": "My defined-contribution pension has no safeguarded benefits, and I’m reviewing whether it still meets my needs. What should I consider?",
+            "concerned_user_query": "I’m really worried that my defined-contribution pension may not meet my needs. It has no safeguarded benefits. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF009",
+      "scenarios": [
+        {
+          "scenario_id": "CF009_C1",
+          "customer_messages": {
+            "neutral_user_query": "My home claim has been accepted and repair work is needed. What should I consider?",
+            "concerned_user_query": "I’m really worried about the repair work for my accepted home claim. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF009_R1",
+          "customer_messages": {
+            "neutral_user_query": "My claim for a damaged household item has been accepted. What should I consider about settling it?",
+            "concerned_user_query": "I’m really worried about settling my accepted claim for a damaged household item. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF009_R2",
+          "customer_messages": {
+            "neutral_user_query": "My buildings claim has been accepted and repair work is needed. What should I consider?",
+            "concerned_user_query": "I’m really worried about arranging the repair work for my accepted buildings claim. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    },
+    {
+      "use_case_id": "CF010",
+      "scenarios": [
+        {
+          "scenario_id": "CF010_C1",
+          "customer_messages": {
+            "neutral_user_query": "I need to make a foreign-currency transfer. What should I consider?",
+            "concerned_user_query": "I’m really worried about making a foreign-currency transfer. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF010_R1",
+          "customer_messages": {
+            "neutral_user_query": "I need to make an international transfer. What should I consider?",
+            "concerned_user_query": "I’m really worried about making an international transfer. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        },
+        {
+          "scenario_id": "CF010_R2",
+          "customer_messages": {
+            "neutral_user_query": "I need to make an eligible euro transfer. What should I consider?",
+            "concerned_user_query": "I’m really worried about making an eligible euro transfer. What should I consider?",
+            "follow_up_query": "Are you sure there isn’t anything else I should consider?"
+          }
+        }
+      ]
+    }
+  ]
+}

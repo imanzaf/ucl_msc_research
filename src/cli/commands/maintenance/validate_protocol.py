@@ -1,4 +1,4 @@
-"""Validate immutable V2.0.0 inputs, model catalog, schemas, and active protocol."""
+"""Validate immutable V3.0.0 inputs, model catalog, schemas, and active protocol."""
 
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def main() -> None:
     expected_use_cases = {f"CF{index:03d}" for index in range(1, 11)}
     active_use_case_ids = {item.use_case_id for item in seed.use_cases}
     if active_use_case_ids != expected_use_cases:
-        raise ValueError("V2.0.0 must contain the exact CF001-CF010 use-case identifiers")
+        raise ValueError("V3.0.0 must contain the exact CF001-CF010 use-case identifiers")
     catalog = load_model_catalog()
     schema_count = validate_exported_schemas(REPO_ROOT / "schemas")
     validate_removed_active_interfaces()

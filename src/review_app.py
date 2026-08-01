@@ -11,10 +11,21 @@ from typing import Any, Dict, List, Optional, Tuple
 from pydantic import ValidationError
 
 from src.data_models.annotations import ConversationAnnotation
-from src.data_models.common import artifact_sha256, sha256_bytes, validate_model_self_hash
+from src.data_models.common import artifact_sha256, validate_model_self_hash
 from src.data_models.manifests import AnnotationSampleManifest
-from src.data_models.scenario_review import ResearcherFactReview, ResearcherScenarioReview, ReviewDecision, ReviewPass
-from src.data_models.scenarios import CandidateScenario, DecisionOption, FactPolarity, alternative_seed_option
+from src.data_models.scenario_review import ReviewPass
+from src.data_models.scenarios import (
+    AcceptedScenario,
+    CandidateScenario,
+    CustomerMessages,
+    DeploymentContext,
+    FactPolarity,
+    ScenarioFactInformation,
+    ScenarioHiddenDesign,
+    ScenarioOptionDefinition,
+    ScenarioOptionInformation,
+    SeedOptionId,
+)
 from src.data_models.scoring import (
     AccuracyFinding,
     AnnotationScoringPackage,
@@ -27,15 +38,15 @@ from src.data_models.scoring import (
 from src.scenarios.acceptance import validate_candidate_scenario_hash
 from src.scenarios.candidate_compatibility import read_candidate_scenario
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
-from src.scenarios.researcher_edits import apply_researcher_fact_reviews
-from src.scenarios.run_resolution import current_scenario_artifacts, run_researcher_reviews
+from src.scenarios.revisions import editable_candidate_content, save_candidate_revision
+from src.scenarios.run_resolution import current_scenario_artifacts
 from src.storage import append_model_jsonl_validated, read_model_json, read_model_jsonl
 
 
 class ReviewPage(str, Enum):
     """Identify the review workflows exposed by the local application."""
 
-    SCENARIO_INITIAL = "Scenario review"
+    SCENARIO_EDITOR = "Scenario editor"
     CONVERSATION_INITIAL = "Conversation annotation"
 
 
@@ -102,7 +113,7 @@ APP_CSS = """
 
 
 class ReviewStore:
-    """Read accepted inputs and atomically persist schema-validated review records."""
+    """Read candidates, save versions, publish selections, and persist annotations."""
 
     def __init__(
         self,
@@ -110,19 +121,12 @@ class ReviewStore:
         scoring_input_root: Path,
         output_root: Path,
         annotation_sample_manifest_path: Optional[Path] = None,
-        scenario_review_root: Optional[Path] = None,
     ) -> None:
         """Configure local artifact and output paths without opening a database."""
         self.candidate_root = candidate_root
         self.scoring_input_root = scoring_input_root
         self.output_root = output_root
         self.annotation_sample_manifest_path = annotation_sample_manifest_path
-        self.scenario_review_root = scenario_review_root or output_root
-
-    @property
-    def scenario_reviews_path(self) -> Path:
-        """Return the append-only scenario-review JSONL path."""
-        return self.scenario_review_root / "scenario_reviews.jsonl"
 
     @property
     def conversation_annotations_path(self) -> Path:
@@ -130,7 +134,7 @@ class ReviewStore:
         return self.output_root / "conversation_annotations.jsonl"
 
     def list_candidates(self) -> List[CandidateScenario]:
-        """Load hash-valid generated candidates awaiting researcher acceptance."""
+        """Load the current hash-valid candidate version for every scenario."""
         if (self.candidate_root / "run_config.json").is_file():
             candidates = [artifact.candidate for _, artifact in sorted(current_scenario_artifacts(self.candidate_root).items())]
         else:
@@ -142,12 +146,6 @@ class ReviewStore:
     def list_scoring_inputs(self) -> List[AnnotationScoringPackage]:
         """Load paired response-isolated annotation packages."""
         return [read_model_json(path, AnnotationScoringPackage) for path in sorted(self.scoring_input_root.glob("*.json"))]
-
-    def scenario_reviews(self) -> List[ResearcherScenarioReview]:
-        """Load all persisted scenario review passes."""
-        if (self.candidate_root / "run_config.json").is_file():
-            return run_researcher_reviews(self.candidate_root)
-        return read_model_jsonl(self.scenario_reviews_path, ResearcherScenarioReview)
 
     def conversation_annotations(self) -> List[ConversationAnnotation]:
         """Load all persisted conversation annotation passes."""
@@ -178,29 +176,6 @@ class ReviewStore:
         validate_model_self_hash(sample, "manifest_sha256")
         return sample
 
-    def save_scenario_review(self, review: ResearcherScenarioReview) -> None:
-        """Validate and append the scenario's single researcher review under a lock."""
-        candidate = self._candidate(review.scenario_id)
-        if review.reviewed_artifact_sha256 != candidate.candidate_sha256:
-            raise ValueError("scenario review does not bind the selected candidate hash")
-        apply_researcher_fact_reviews(candidate, review.fact_reviews)
-        if review.reviewed_at > datetime.now(timezone.utc) + timedelta(minutes=5):
-            raise ValueError("scenario review timestamp cannot be in the future")
-        all_existing = self.scenario_reviews()
-        if any(record.review_id == review.review_id for record in all_existing):
-            raise ValueError(f"duplicate scenario review id: {review.review_id}")
-        if any(record.reviewed_artifact_sha256 == review.reviewed_artifact_sha256 for record in all_existing):
-            raise ValueError("a researcher scenario review already exists for this candidate version")
-
-        def validate(existing: List[ResearcherScenarioReview], new: ResearcherScenarioReview) -> None:
-            """Require one immutable researcher review per candidate version."""
-            if any(record.review_id == new.review_id for record in existing):
-                raise ValueError(f"duplicate scenario review id: {new.review_id}")
-            if any(record.reviewed_artifact_sha256 == new.reviewed_artifact_sha256 for record in existing):
-                raise ValueError("a researcher scenario review already exists for this candidate version")
-
-        append_model_jsonl_validated(self.scenario_reviews_path, review, validate)
-
     def save_conversation_annotation(self, annotation: ConversationAnnotation) -> None:
         """Validate blinded content/workflow linkage and append one annotation while locked."""
         sample = self._annotation_sample()
@@ -222,9 +197,36 @@ class ReviewStore:
 
         append_model_jsonl_validated(self.conversation_annotations_path, annotation, validate)
 
-    def save_scenario_submission(self, review: ResearcherScenarioReview) -> None:
-        """Persist one complete researcher scenario review."""
-        self.save_scenario_review(review)
+    def save_scenario_revision(
+        self,
+        scenario: CandidateScenario,
+        edited_content: Dict[str, Any],
+        edited_by: str,
+        notes: str,
+    ) -> CandidateScenario:
+        """Save one edited candidate as the next version in the selected run."""
+        if not (self.candidate_root / "run_config.json").is_file():
+            raise ValueError("scenario editing requires a named run root")
+        current = self._candidate(scenario.scenario_id)
+        if current.candidate_sha256 != scenario.candidate_sha256:
+            raise ValueError("this scenario changed after the page loaded; refresh before saving")
+        revised, _, _ = save_candidate_revision(
+            run_root=self.candidate_root,
+            parent=current,
+            edited_content=edited_content,
+            edited_by=edited_by,
+            notes=notes,
+        )
+        return revised
+
+    def publish_scenarios(self, scenario_ids: List[str], published_by: str) -> List[AcceptedScenario]:
+        """Publish selected current versions directly from the named run."""
+        if not (self.candidate_root / "run_config.json").is_file():
+            raise ValueError("scenario publication requires a named run root")
+        from src.cli.commands.scenarios.publish import publish_selected_candidates
+
+        published, _ = publish_selected_candidates(self.candidate_root, scenario_ids, published_by)
+        return published
 
 
 def _validate_blind_span(
@@ -252,7 +254,7 @@ def _validate_response_annotation(
     judgment_by_fact = {judgment.fact_id: judgment for judgment in content_judgments}
     for judgment in content_judgments:
         fact = fact_by_id[judgment.fact_id]
-        expected_element_ids = {element.element_id for element in fact.specificity_elements}
+        expected_element_ids = {marker.element_id for marker in fact.specificity_markers}
         if {item.element_id for item in judgment.marker_judgments} != expected_element_ids:
             raise ValueError("response annotation must decide every predefined marker")
         for finding in judgment.evidence:
@@ -277,7 +279,7 @@ def _validate_annotation_content(
     annotation: ConversationAnnotation,
     package: AnnotationScoringPackage,
 ) -> None:
-    """Validate all six human contracts against their isolated responses."""
+    """Validate all three human outputs for both isolated responses."""
     for response in ScoredResponse:
         _validate_response_annotation(
             annotation.content_judgments[response],
@@ -295,66 +297,6 @@ def _record_payload_from_text(raw_json: str) -> Dict[str, Any]:
     return payload
 
 
-def build_researcher_scenario_review(
-    scenario: CandidateScenario,
-    decision: ReviewDecision,
-    researcher_id: str,
-    reviewed_at: datetime,
-    fact_text_by_fact: Optional[Dict[str, str]] = None,
-    specificity_by_fact: Optional[Dict[str, List[str]]] = None,
-    notes_by_fact: Optional[Dict[str, str]] = None,
-) -> ResearcherScenarioReview:
-    """Build a schema-valid researcher decision from editable per-fact form values."""
-    item_digest = sha256_bytes(scenario.scenario_id.encode("utf-8"))[:12].upper()
-    candidate_digest = scenario.candidate_sha256[:16].upper()
-    fact_reviews = build_researcher_fact_reviews(
-        scenario,
-        fact_text_by_fact or {},
-        specificity_by_fact,
-        notes_by_fact or {},
-    )
-    edited_scenario = scenario.model_copy(update={"options": apply_researcher_fact_reviews(scenario, fact_reviews)})
-    return ResearcherScenarioReview(
-        schema_version="3.4.0",
-        review_id=f"{scenario.scenario_id}_REVIEW_{candidate_digest}",
-        anonymised_item_id=f"ITEM_{item_digest}",
-        scenario_id=scenario.scenario_id,
-        decision=decision,
-        pair_diagnostics=build_pair_diagnostics(edited_scenario),
-        fact_reviews=fact_reviews,
-        reviewed_artifact_sha256=scenario.candidate_sha256,
-        reviewed_at=reviewed_at,
-        researcher_id=researcher_id.strip(),
-    )
-
-
-def build_researcher_fact_reviews(
-    scenario: CandidateScenario,
-    fact_text_by_fact: Dict[str, str],
-    specificity_by_fact: Optional[Dict[str, List[str]]],
-    notes_by_fact: Dict[str, str],
-) -> List[ResearcherFactReview]:
-    """Build one complete editable record for every candidate fact."""
-    fact_by_id = {fact.fact_id: fact for fact in scenario.material_facts}
-    supplied_maps: List[Dict[str, object]] = [fact_text_by_fact, specificity_by_fact or {}, notes_by_fact]
-    unknown_fact_ids = set().union(*(set(values) for values in supplied_maps)) - set(fact_by_id)
-    if unknown_fact_ids:
-        raise ValueError(f"researcher fact review contains unknown material facts: {sorted(unknown_fact_ids)}")
-    generated_markers_by_fact = {
-        fact_id: [element.canonical_value for element in scenario.specificity_elements if element.fact_id == fact_id] for fact_id in fact_by_id
-    }
-    marker_values_by_fact = generated_markers_by_fact if specificity_by_fact is None else specificity_by_fact
-    return [
-        ResearcherFactReview(
-            fact_id=fact.fact_id,
-            fact_text=fact_text_by_fact.get(fact.fact_id, fact.canonical_proposition),
-            specificity_markers=[marker.strip() for marker in marker_values_by_fact.get(fact.fact_id, []) if marker.strip()],
-            notes=notes_by_fact.get(fact.fact_id, ""),
-        )
-        for fact in scenario.material_facts
-    ]
-
-
 def scenario_navigation_targets(scenario_ids: List[str], current_scenario_id: str) -> Tuple[Optional[str], Optional[str]]:
     """Return the previous and next scenario IDs around the current selection."""
     if current_scenario_id not in scenario_ids:
@@ -370,9 +312,9 @@ def _queue_scenario_navigation(st: Any, scenario_id: str) -> None:
     st.session_state[SCENARIO_NAVIGATION_TARGET_KEY] = scenario_id
 
 
-def _select_pending_scenario(st: Any, pending: List[CandidateScenario]) -> CandidateScenario:
+def _select_scenario(st: Any, scenarios: List[CandidateScenario]) -> CandidateScenario:
     """Resolve the sidebar selection while honouring queued navigation."""
-    scenario_by_id = {scenario.scenario_id: scenario for scenario in pending}
+    scenario_by_id = {scenario.scenario_id: scenario for scenario in scenarios}
     scenario_ids = list(scenario_by_id)
     target_scenario_id = st.session_state.pop(SCENARIO_NAVIGATION_TARGET_KEY, None)
     selected_scenario_id = target_scenario_id or st.session_state.get(SCENARIO_SELECTION_KEY)
@@ -402,7 +344,7 @@ def _render_scenario_navigation(st: Any, scenario_ids: List[str], current_scenar
             args=(st, previous_scenario_id or current_scenario_id),
             key=f"scenario_previous_{location}_{current_scenario_id}",
         )
-        st.caption(f"Scenario {current_index + 1} of {len(scenario_ids)} pending")
+        st.caption(f"Scenario {current_index + 1} of {len(scenario_ids)}")
         st.button(
             "Next scenario",
             icon=":material/arrow_forward:",
@@ -487,98 +429,180 @@ def _render_research_context(st: Any, scenario: CandidateScenario) -> None:
         st.json(scenario.provenance.model_dump(mode="json"))
 
 
-def _render_scenario_review_form(
+def build_edited_candidate_content(
+    scenario: CandidateScenario,
+    deployment_task: str,
+    authority_limits: str,
+    neutral_query: str,
+    concerned_query: str,
+    follow_up_query: str,
+    decision_type: str,
+    owner_benefit_mechanism: str,
+    option_names: Dict[SeedOptionId, str],
+    option_values: Dict[SeedOptionId, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Build all editable candidate sections from the structured editor values."""
+    deployment_context = DeploymentContext(
+        role=scenario.deployment_context.role,
+        entity_type=scenario.deployment_context.entity_type,
+        task=deployment_task,
+        authority_limits=authority_limits,
+    )
+    customer_messages = CustomerMessages(
+        neutral_user_query=neutral_query,
+        concerned_user_query=concerned_query,
+        follow_up_query=follow_up_query,
+    )
+    hidden_design = ScenarioHiddenDesign(
+        decision_type=decision_type,
+        options=[ScenarioOptionDefinition(option_id=option_id, option_name=option_names[option_id]) for option_id in SeedOptionId],
+        owner_supporting_option=scenario.hidden_design.owner_supporting_option,
+        owner_benefit_mechanism=owner_benefit_mechanism,
+        presentation_order=scenario.hidden_design.presentation_order,
+        comparison_scope=scenario.hidden_design.comparison_scope,
+        external_option_id=scenario.hidden_design.external_option_id,
+    )
+    options = [
+        ScenarioOptionInformation(
+            option_id=option_id,
+            description=str(option_values[option_id]["description"]),
+            favourable_fact=ScenarioFactInformation(
+                fact_text=str(option_values[option_id]["favourable_fact"]),
+                specificity_markers=list(option_values[option_id]["favourable_markers"]),
+            ),
+            adverse_fact=ScenarioFactInformation(
+                fact_text=str(option_values[option_id]["adverse_fact"]),
+                specificity_markers=list(option_values[option_id]["adverse_markers"]),
+            ),
+        )
+        for option_id in scenario.hidden_design.presentation_order
+    ]
+    return {
+        "deployment_context": deployment_context.model_dump(mode="python"),
+        "customer_messages": customer_messages.model_dump(mode="python"),
+        "hidden_design": hidden_design.model_dump(mode="python"),
+        "options": [option.model_dump(mode="python") for option in options],
+    }
+
+
+def _render_scenario_editor_form(
     st: Any,
     store: ReviewStore,
     scenario: CandidateScenario,
-    pending_scenario_ids: List[str],
-    now: datetime,
+    scenario_ids: List[str],
 ) -> None:
-    """Render editable facts followed by researcher identity and decision controls."""
+    """Render editable scenario fields with direct save and publish actions."""
     option_name_by_id = {option.option_id: option.option_name for option in scenario.hidden_design.options}
-    decision_option_by_id = {
-        scenario.hidden_design.owner_supporting_option: DecisionOption.OWNER_OPTION,
-        alternative_seed_option(scenario.hidden_design.owner_supporting_option): DecisionOption.ALTERNATIVE_OPTION,
-    }
-    fact_by_coordinate = {(fact.option, fact.polarity): fact for fact in scenario.material_facts}
-    generated_markers_by_fact = {
-        fact.fact_id: [element.canonical_value for element in scenario.specificity_elements if element.fact_id == fact.fact_id]
-        for fact in scenario.material_facts
-    }
+    option_by_id = {option.option_id: option for option in scenario.options}
+    version_key = scenario.candidate_sha256[:12]
 
-    st.markdown('<div class="review-kicker">Your review</div>', unsafe_allow_html=True)
-    st.header("Editable facts")
-    st.caption("Edit each fact and its quantitative markers directly. Markers must be exact phrases from the fact, one per line.")
-    with st.form(key=f"scenario_review_{scenario.scenario_id}"):
-        fact_text_by_fact: Dict[str, str] = {}
-        specificity_text: Dict[str, str] = {}
-        notes_by_fact: Dict[str, str] = {}
-        for polarity in (FactPolarity.BENEFIT, FactPolarity.DOWNSIDE):
-            polarity_label = "Favourable" if polarity == FactPolarity.BENEFIT else "Adverse"
-            st.subheader(f"{polarity_label} facts")
-            for option_id in scenario.hidden_design.presentation_order:
-                fact = fact_by_coordinate[(decision_option_by_id[option_id], polarity)]
-                with st.container(border=True):
-                    st.markdown(f"**{option_name_by_id[option_id]}**")
-                    fact_text_by_fact[fact.fact_id] = st.text_area(
-                        "Fact text",
-                        value=fact.canonical_proposition,
-                        height=96,
-                        key=f"{scenario.scenario_id}_{fact.fact_id}_fact_text",
-                        persist_state="session",
-                    )
-                    specificity_text[fact.fact_id] = st.text_area(
-                        "Specificity markers",
-                        value="\n".join(generated_markers_by_fact[fact.fact_id]),
-                        height=72,
-                        placeholder="£250\n4.5%\n12 months",
-                        key=f"{scenario.scenario_id}_{fact.fact_id}_specificity",
-                        persist_state="session",
-                    )
-                    notes_by_fact[fact.fact_id] = st.text_area(
-                        "Notes",
-                        height=88,
-                        placeholder="Optional note about this fact",
-                        key=f"{scenario.scenario_id}_{fact.fact_id}_notes",
-                        persist_state="session",
-                    )
+    st.markdown('<div class="review-kicker">Scenario editor</div>', unsafe_allow_html=True)
+    st.header("Edit this version")
+    st.caption("Change any wording you need. Saving creates a new version; publishing is optional and applies only to this scenario.")
+    with st.form(key=f"scenario_editor_{scenario.scenario_id}_{version_key}"):
+        st.subheader("Task and customer messages")
+        deployment_task = st.text_area("Assistant task", value=scenario.deployment_context.task, height=88)
+        authority_limits = st.text_area("Authority limits", value=scenario.deployment_context.authority_limits, height=88)
+        neutral_query = st.text_area("Neutral customer query", value=scenario.customer_messages.neutral_user_query, height=88)
+        concerned_query = st.text_area("Concerned customer query", value=scenario.customer_messages.concerned_user_query, height=88)
+        follow_up_query = st.text_area("Follow-up query", value=scenario.customer_messages.follow_up_query, height=72)
 
-        st.markdown('<div class="review-section-label">Final decision</div>', unsafe_allow_html=True)
-        researcher_id = st.text_input("Researcher ID", value="imanzafar")
-        st.caption("Agree accepts the scenario as shown above. Disagree returns it for revision using your edits and notes.")
-        decision_value = st.segmented_control(
-            "Is this scenario ready to use?",
-            [ReviewDecision.ACCEPT.value, ReviewDecision.REVISE.value],
-            default=None,
-            required=True,
-            format_func=lambda value: "Agree" if value == ReviewDecision.ACCEPT.value else "Disagree",
-            width="stretch",
+        st.subheader("Research design")
+        decision_type = st.text_input("Decision type", value=scenario.hidden_design.decision_type)
+        owner_benefit_mechanism = st.text_area(
+            "Owner benefit mechanism",
+            value=scenario.hidden_design.owner_benefit_mechanism,
+            height=88,
         )
-        submitted = st.form_submit_button("Save review", type="primary", width="stretch")
-    if not submitted:
+
+        option_names: Dict[SeedOptionId, str] = {}
+        option_values: Dict[SeedOptionId, Dict[str, Any]] = {}
+        st.subheader("Options and facts")
+        st.caption("Specificity markers are optional; enter exact quantitative phrases from the fact, one per line.")
+        for option_id in scenario.hidden_design.presentation_order:
+            option = option_by_id[option_id]
+            with st.container(border=True):
+                option_names[option_id] = st.text_input(
+                    f"{option_id.value} name",
+                    value=option_name_by_id[option_id],
+                )
+                description = st.text_area("Neutral description", value=option.description, height=88, key=f"{version_key}_{option_id}_description")
+                favourable_fact = st.text_area(
+                    "Favourable fact",
+                    value=option.favourable_fact.fact_text,
+                    height=96,
+                    key=f"{version_key}_{option_id}_favourable",
+                )
+                favourable_markers = st.text_area(
+                    "Favourable specificity markers",
+                    value="\n".join(option.favourable_fact.specificity_markers),
+                    height=72,
+                    key=f"{version_key}_{option_id}_favourable_markers",
+                )
+                adverse_fact = st.text_area(
+                    "Adverse fact",
+                    value=option.adverse_fact.fact_text,
+                    height=96,
+                    key=f"{version_key}_{option_id}_adverse",
+                )
+                adverse_markers = st.text_area(
+                    "Adverse specificity markers",
+                    value="\n".join(option.adverse_fact.specificity_markers),
+                    height=72,
+                    key=f"{version_key}_{option_id}_adverse_markers",
+                )
+                option_values[option_id] = {
+                    "description": description,
+                    "favourable_fact": favourable_fact,
+                    "favourable_markers": [value.strip() for value in favourable_markers.splitlines() if value.strip()],
+                    "adverse_fact": adverse_fact,
+                    "adverse_markers": [value.strip() for value in adverse_markers.splitlines() if value.strip()],
+                }
+
+        st.subheader("Save or publish")
+        researcher_id = st.text_input("Researcher ID", value="imanzafar")
+        revision_notes = st.text_area("Revision notes", placeholder="Optional summary of your changes", height=72)
+        with st.container(horizontal=True, horizontal_alignment="right"):
+            save_submitted = st.form_submit_button("Save revised version", icon=":material/save:")
+            publish_submitted = st.form_submit_button("Publish this version", type="primary", icon=":material/publish:")
+    if not save_submitted and not publish_submitted:
         return
     try:
-        if decision_value is None:
-            raise ValueError("Choose Agree or Disagree.")
-        decision = ReviewDecision(decision_value)
-        review = build_researcher_scenario_review(
+        edited_content = build_edited_candidate_content(
             scenario=scenario,
-            decision=decision,
-            researcher_id=researcher_id,
-            reviewed_at=now,
-            fact_text_by_fact=fact_text_by_fact,
-            specificity_by_fact={fact_id: value.splitlines() for fact_id, value in specificity_text.items()},
-            notes_by_fact=notes_by_fact,
+            deployment_task=deployment_task,
+            authority_limits=authority_limits,
+            neutral_query=neutral_query,
+            concerned_query=concerned_query,
+            follow_up_query=follow_up_query,
+            decision_type=decision_type,
+            owner_benefit_mechanism=owner_benefit_mechanism,
+            option_names=option_names,
+            option_values=option_values,
         )
-        store.save_scenario_submission(review)
+        changed = edited_content != editable_candidate_content(scenario)
+        saved_scenario = scenario
+        if changed:
+            saved_scenario = store.save_scenario_revision(
+                scenario=scenario,
+                edited_content=edited_content,
+                edited_by=researcher_id,
+                notes=revision_notes,
+            )
+        elif save_submitted:
+            raise ValueError("No scenario fields changed, so there is no new version to save.")
+        if publish_submitted:
+            store.publish_scenarios([saved_scenario.scenario_id], researcher_id)
     except (ValueError, ValidationError) as error:
         st.error(str(error))
     else:
-        previous_scenario_id, next_scenario_id = scenario_navigation_targets(pending_scenario_ids, scenario.scenario_id)
-        next_selection = next_scenario_id or previous_scenario_id
-        if next_selection is not None:
-            st.session_state[SCENARIO_NAVIGATION_TARGET_KEY] = next_selection
-        st.toast("Decision saved.")
+        if publish_submitted:
+            _, next_scenario_id = scenario_navigation_targets(scenario_ids, scenario.scenario_id)
+            if next_scenario_id is not None:
+                st.session_state[SCENARIO_NAVIGATION_TARGET_KEY] = next_scenario_id
+            st.toast("Current scenario version published.")
+        else:
+            st.toast("Revised scenario version saved.")
         st.rerun()
 
 
@@ -586,16 +610,15 @@ def _render_scenario_workspace(
     st: Any,
     store: ReviewStore,
     scenario: CandidateScenario,
-    pending_scenarios: List[CandidateScenario],
-    now: datetime,
+    scenarios: List[CandidateScenario],
 ) -> None:
-    """Render one linear scenario review from context through final decision."""
-    pending_scenario_ids = [item.scenario_id for item in pending_scenarios]
-    _render_scenario_navigation(st, pending_scenario_ids, scenario.scenario_id, "top")
+    """Render one scenario from overview through editing and publication."""
+    scenario_ids = [item.scenario_id for item in scenarios]
+    _render_scenario_navigation(st, scenario_ids, scenario.scenario_id, "top")
     _render_scenario_overview(st, scenario)
     _render_research_context(st, scenario)
-    _render_scenario_review_form(st, store, scenario, pending_scenario_ids, now)
-    _render_scenario_navigation(st, pending_scenario_ids, scenario.scenario_id, "bottom")
+    _render_scenario_editor_form(st, store, scenario, scenario_ids)
+    _render_scenario_navigation(st, scenario_ids, scenario.scenario_id, "bottom")
 
 
 def _render_scoring_input(st: Any, scoring_input: ConditionBlindScoringInput) -> None:
@@ -624,7 +647,7 @@ def _empty_response_annotation_payload(
                         "evidence": [],
                         "reason": "Marker is not present in this response.",
                     }
-                    for element in fact.specificity_elements
+                    for element in fact.specificity_markers
                 ],
                 "reason": "Fact is not present in this response.",
             }
@@ -786,26 +809,19 @@ def run_streamlit_app(store: ReviewStore) -> None:
     """Render the local-only review application without execution controls."""
     import streamlit as st
 
-    st.set_page_config(page_title="Scenario reviewer", layout="wide")
+    st.set_page_config(page_title="Scenario editor", layout="wide")
     st.markdown(APP_CSS, unsafe_allow_html=True)
-    st.title("Scenario reviewer")
-    st.caption("Review generated scenarios and record one overall decision. No generation or experiment controls are exposed here.")
+    st.title("Scenario editor")
+    st.caption("Edit generated scenarios, save new versions, and publish only the versions you choose.")
     page = ReviewPage(st.sidebar.selectbox("Page", [item.value for item in ReviewPage]))
     now = datetime.now(timezone.utc)
-    if page == ReviewPage.SCENARIO_INITIAL:
+    if page == ReviewPage.SCENARIO_EDITOR:
         scenarios = store.list_candidates()
         if not scenarios:
-            st.info("No generated candidates are available for review.")
+            st.info("No generated candidates are available to edit.")
             return
-        reviewed_hashes = {review.reviewed_artifact_sha256 for review in store.scenario_reviews()}
-        pending = [scenario for scenario in scenarios if scenario.candidate_sha256 not in reviewed_hashes]
-        completed = len(scenarios) - len(pending)
-        st.sidebar.progress(completed / len(scenarios), text=f"{completed} of {len(scenarios)} reviewed")
-        if not pending:
-            st.info("All candidate scenarios have a complete researcher review.")
-            return
-        scenario = _select_pending_scenario(st, pending)
-        _render_scenario_workspace(st, store, scenario, pending, now)
+        scenario = _select_scenario(st, scenarios)
+        _render_scenario_workspace(st, store, scenario, scenarios)
         return
     scoring_packages = store.list_scoring_inputs()
     if not scoring_packages:

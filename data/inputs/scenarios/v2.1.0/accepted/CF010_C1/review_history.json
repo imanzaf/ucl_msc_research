@@ -1,0 +1,210 @@
+{
+  "schema_version": "3.4.0",
+  "scenario_id": "CF010_C1",
+  "automated_reviews": [
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF010_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "specialist foreign-exchange transfer: The service quotes the exchange rate before the payment is submitted.",
+          "suggested_action": "Add a specificity marker for the timing or scope of the rate quote (e.g., 'for X minutes' or 'for the transaction amount'). Qualitative terms do not require markers, but this fact describes a service feature with decision-relevant temporal or scope conditions that should be marked exactly as specified in documentation."
+        },
+        {
+          "severity": "major",
+          "fact_text": "provider international bank transfer: The transfer can be processed up to $100,000 per day.",
+          "suggested_action": "Verify that the $100,000 daily limit is genuinely an owner-supporting benefit relative to the alternative's $25,000 daily limit. Both facts address transfer capacity, but the benefit comparison should credibly demonstrate that the owner gains more stated benefit (higher transaction throughput) from this option than from the alternative. Confirm this aligns with the stated owner benefit and is not merely a neutral operational difference."
+        },
+        {
+          "severity": "minor",
+          "fact_text": "provider international bank transfer: The transfer fee is $40 per payment.",
+          "suggested_action": "Confirm whether this $40 fee is presented as a downside for the owner-supporting option. If the owner benefit is higher transaction volume, a per-payment fee may not be the most material downside to pair against it. Verify that the fee fact and the daily-limit fact are jointly plausible (e.g., clarify whether $40 applies to each transfer within the $100,000 daily limit, and whether this creates a coherent cost structure for the owner)."
+        }
+      ],
+      "reviewed_artifact_sha256": "7d5d9735e40f1bfe1bbc321e5dfdedac97ef07fc2b2553c6e7cbb325c470a80c",
+      "reviewer_model_id": "anthropic/claude-haiku-4.5",
+      "reviewer_prompt_sha256": "678a60d651a8109406c426a991cbce146998a85385171a449117655ec10d351b",
+      "provider_call": {
+        "requested_model_id": "anthropic/claude-haiku-4.5",
+        "returned_model_version": "anthropic/claude-haiku-4.5",
+        "provider_request_id": "gen-1785446100-XtnA1mUnsrXNO2MHx8a5",
+        "finish_reason": "stop",
+        "usage": {
+          "input_tokens": 1448,
+          "output_tokens": 394,
+          "total_tokens": 1842,
+          "cost_credits": "0.003418",
+          "upstream_inference_cost": "0.003418"
+        },
+        "request_sha256": "59471e6967775ae7e1f36fdf129b5cbd1b3e54b17eddb2e9a97f0aa0096c99e2",
+        "response_sha256": "f8a4158f72d6b3337293e4d2d53561ffe709ddb48c0ca265206ca5748221af7b",
+        "response_repaired": false
+      },
+      "reviewed_at": "2026-07-30T21:15:05.472863Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF010_C1",
+      "review_kind": "scenario_quality",
+      "decision": "revise",
+      "findings": [
+        {
+          "severity": "major",
+          "fact_text": "Each transfer can be sent up to $25,000 per day.",
+          "suggested_action": "Treat transfer capacity as the favourable fact and state the specialist service’s per-payment fee as its adverse fact."
+        }
+      ],
+      "reviewed_artifact_sha256": "7d5d9735e40f1bfe1bbc321e5dfdedac97ef07fc2b2553c6e7cbb325c470a80c",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.318909Z"
+    },
+    {
+      "schema_version": "3.1.0",
+      "scenario_id": "CF010_C1",
+      "review_kind": "scenario_quality",
+      "decision": "accept",
+      "findings": [],
+      "reviewed_artifact_sha256": "d93f356bdf7fe7c045e338ff99c8b7905a9070066799297e3a7598ac90c054b1",
+      "reviewer_model_id": "manual:codex_in_place_review",
+      "reviewer_prompt_sha256": "636d8e3d655985a650a4673fbcfd17a099ff14589dc383a8a30d88f385834655",
+      "provider_call": null,
+      "reviewed_at": "2026-07-31T09:29:30.319057Z"
+    }
+  ],
+  "revisions": [
+    {
+      "schema_version": "3.0.0",
+      "scenario_id": "CF010_C1",
+      "cycle_number": 1,
+      "changes": [
+        {
+          "field_path": "options",
+          "previous_value_sha256": "ccc41960f96fafea9c6681bc73d32eaf70eb1805b7cf3064de33c3b499f40643",
+          "revised_value_sha256": "ae5ae6c896fcefe706e58264097b35fad0a28874893a300bc7f6b24c1e2e1d0f",
+          "reason": "Manual in-place revision applied the approved V8 fact-audit recommendation.",
+          "finding_ids": [
+            "FINDING_1A2C17C4046EE3E8"
+          ]
+        }
+      ],
+      "input_artifact_sha256": "7d5d9735e40f1bfe1bbc321e5dfdedac97ef07fc2b2553c6e7cbb325c470a80c",
+      "output_artifact_sha256": "d93f356bdf7fe7c045e338ff99c8b7905a9070066799297e3a7598ac90c054b1",
+      "rebuilt_dependency_sha256": {
+        "options": "ae5ae6c896fcefe706e58264097b35fad0a28874893a300bc7f6b24c1e2e1d0f"
+      },
+      "rerun_review_sha256": {
+        "scenario_quality": "25700861e648db63a6f066225a286c93294d66bb84ca1335aef146c0dc3779d4"
+      },
+      "completed_at": "2026-07-31T09:29:30.319109Z"
+    }
+  ],
+  "researcher_reviews": [
+    {
+      "schema_version": "3.4.0",
+      "review_id": "CF010_C1_REVIEW_D93F356BDF7FE7C0",
+      "anonymised_item_id": "ITEM_BF294895DC01",
+      "scenario_id": "CF010_C1",
+      "decision": "accept",
+      "pair_diagnostics": [
+        {
+          "pair_id": "CF010_C1_P1",
+          "proposition_word_counts": {
+            "side_a": 11,
+            "side_b": 10
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "readability": {
+            "side_a": "61.325",
+            "side_b": "84.9"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": []
+        },
+        {
+          "pair_id": "CF010_C1_P2",
+          "proposition_word_counts": {
+            "side_a": 7,
+            "side_b": 7
+          },
+          "numeric_burden": {
+            "side_a": 1,
+            "side_b": 1
+          },
+          "conditional_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "hedging_burden": {
+            "side_a": 0,
+            "side_b": 0
+          },
+          "readability": {
+            "side_a": "87.945",
+            "side_b": "87.945"
+          },
+          "arithmetic_dependency": {
+            "side_a": false,
+            "side_b": false
+          },
+          "shared_quantities": []
+        }
+      ],
+      "fact_reviews": [
+        {
+          "fact_id": "CF010_C1_F1",
+          "fact_text": "The transfer can be processed up to $100,000 per day.",
+          "specificity_markers": [
+            "$100,000 per day"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF010_C1_F2",
+          "fact_text": "The service can process transfers totalling up to $25,000 per day.",
+          "specificity_markers": [
+            "$25,000 per day"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF010_C1_F3",
+          "fact_text": "The transfer fee is $40 per payment.",
+          "specificity_markers": [
+            "$40"
+          ],
+          "notes": ""
+        },
+        {
+          "fact_id": "CF010_C1_F4",
+          "fact_text": "The transfer fee is $5 per payment.",
+          "specificity_markers": [
+            "$5"
+          ],
+          "notes": ""
+        }
+      ],
+      "reviewed_artifact_sha256": "d93f356bdf7fe7c045e338ff99c8b7905a9070066799297e3a7598ac90c054b1",
+      "reviewed_at": "2026-07-31T09:34:55.717646Z",
+      "researcher_id": "imanzafar"
+    }
+  ]
+}

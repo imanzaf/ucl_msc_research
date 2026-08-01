@@ -20,13 +20,7 @@ from src.data_models.study import (
     ExperimentName,
     ExpressedConcernCondition,
 )
-from src.paths import (
-    ACTIVE_SCENARIO_QUERY_SCHEMA_SHA256,
-    ACTIVE_SCENARIO_QUERY_SHA256,
-    ACTIVE_SCENARIO_SEED_SCHEMA_SHA256,
-    ACTIVE_SCENARIO_SEED_SHA256,
-    ACTIVE_SCENARIO_SET_ID,
-)
+from src.paths import ACTIVE_SCENARIO_SET_ID
 from src.scenarios.word_count import count_words
 
 
@@ -419,7 +413,7 @@ class WordBudgetManifest(VersionedImmutableModel):
 
 
 class TightLimitManifest(VersionedImmutableModel):
-    """Freeze C1-derived limits after the model adequacy pilot and before R1-R2."""
+    """Freeze C1-derived evaluated-model limits after the model adequacy pilot."""
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
     freeze_status: FreezeStatus
@@ -572,9 +566,11 @@ class ScenarioManifestScope(str, Enum):
 
 
 class AcceptedScenarioSetId(str, Enum):
-    """Identify the active accepted scenario family."""
+    """Identify an approved accepted scenario family."""
 
-    V2_0_0 = ACTIVE_SCENARIO_SET_ID
+    V2_0_0 = "customer_facing_risk_communication_v2.0.0"
+    V2_1_0 = "customer_facing_risk_communication_v2.1.0"
+    V3_0_0 = ACTIVE_SCENARIO_SET_ID
 
 
 class AcceptedScenarioManifest(VersionedImmutableModel):
@@ -600,15 +596,7 @@ class AcceptedScenarioManifest(VersionedImmutableModel):
 
     @model_validator(mode="after")
     def validate_complete_scenario_set(self) -> "AcceptedScenarioManifest":
-        """Require exactly C1, R1, and R2 for every one of the ten use cases."""
-        approved_hashes = (
-            ACTIVE_SCENARIO_SEED_SHA256,
-            ACTIVE_SCENARIO_SEED_SCHEMA_SHA256,
-            ACTIVE_SCENARIO_QUERY_SHA256,
-            ACTIVE_SCENARIO_QUERY_SCHEMA_SHA256,
-        )
-        if (self.seed_sha256, self.seed_schema_sha256, self.query_sha256, self.query_schema_sha256) != approved_hashes:
-            raise ValueError("accepted-scenario manifest must bind all approved immutable V2.0.0 scenario inputs")
+        """Require exactly the scenario identifiers needed by the selected downstream scope."""
         calibration_ids = {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
         evaluation_ids = {f"CF{use_case:03d}_R{replication}" for use_case in range(1, 11) for replication in range(1, 3)}
         expected_ids = calibration_ids if self.manifest_scope == ScenarioManifestScope.CALIBRATION else calibration_ids | evaluation_ids

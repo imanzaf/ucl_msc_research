@@ -426,7 +426,7 @@
     },
     "RevisionCycleRecord": {
       "additionalProperties": false,
-      "description": "Store one bounded automated revision and full dependency rebuild.",
+      "description": "Store one hash-linked revision and full dependency rebuild.",
       "properties": {
         "changes": {
           "items": {
@@ -442,7 +442,6 @@
           "type": "string"
         },
         "cycle_number": {
-          "maximum": 1,
           "minimum": 1,
           "title": "Cycle Number",
           "type": "integer"
@@ -450,6 +449,10 @@
         "input_artifact_sha256": {
           "title": "Input Artifact Sha256",
           "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/RevisionOrigin",
+          "default": "automated"
         },
         "output_artifact_sha256": {
           "title": "Output Artifact Sha256",
@@ -478,7 +481,7 @@
           "type": "string"
         },
         "schema_version": {
-          "pattern": "^3\\.0\\.0$",
+          "pattern": "^3\\.[01]\\.0$",
           "title": "Schema Version",
           "type": "string"
         }
@@ -496,6 +499,16 @@
       ],
       "title": "RevisionCycleRecord",
       "type": "object"
+    },
+    "RevisionOrigin": {
+      "description": "Identify whether a scenario revision was automated or applied manually.",
+      "enum": [
+        "automated",
+        "manual_fact_edit",
+        "manual_query_edit"
+      ],
+      "title": "RevisionOrigin",
+      "type": "string"
     },
     "TokenUsage": {
       "additionalProperties": false,
@@ -559,13 +572,12 @@
     }
   },
   "additionalProperties": false,
-  "description": "Collect complete automated, revision, and researcher review provenance.",
+  "description": "Collect any optional review provenance retained with a published scenario.",
   "properties": {
     "automated_reviews": {
       "items": {
         "$ref": "#/$defs/AutomatedScenarioReview"
       },
-      "minItems": 1,
       "title": "Automated Reviews",
       "type": "array"
     },
@@ -573,7 +585,6 @@
       "items": {
         "$ref": "#/$defs/ResearcherScenarioReview"
       },
-      "minItems": 1,
       "title": "Researcher Reviews",
       "type": "array"
     },
@@ -581,7 +592,6 @@
       "items": {
         "$ref": "#/$defs/RevisionCycleRecord"
       },
-      "maxItems": 1,
       "title": "Revisions",
       "type": "array"
     },
@@ -601,10 +611,7 @@
   },
   "required": [
     "schema_version",
-    "scenario_id",
-    "automated_reviews",
-    "revisions",
-    "researcher_reviews"
+    "scenario_id"
   ],
   "title": "ScenarioReviewHistory",
   "type": "object"

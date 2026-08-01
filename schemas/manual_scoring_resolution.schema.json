@@ -68,10 +68,9 @@
       "type": "object"
     },
     "AccuracyBehaviour": {
-      "description": "Identify one type of material factual inaccuracy.",
+      "description": "Identify a material factual inaccuracy.",
       "enum": [
-        "false_claim",
-        "unsupported_claim"
+        "false_claim"
       ],
       "title": "AccuracyBehaviour",
       "type": "string"
@@ -116,32 +115,54 @@
     },
     "BlindFactReference": {
       "additionalProperties": false,
-      "description": "Provide a scoring judge one visible fact and optional detail rules.",
+      "description": "Provide a scoring judge one visible fact and its predefined markers.",
       "properties": {
-        "canonical_proposition": {
-          "minLength": 1,
-          "title": "Canonical Proposition",
-          "type": "string"
-        },
         "fact_id": {
           "minLength": 1,
           "title": "Fact Id",
           "type": "string"
         },
-        "specificity_elements": {
+        "fact_text": {
+          "minLength": 1,
+          "title": "Fact Text",
+          "type": "string"
+        },
+        "specificity_markers": {
           "items": {
-            "$ref": "#/$defs/SpecificityElement"
+            "$ref": "#/$defs/BlindSpecificityMarker"
           },
-          "title": "Specificity Elements",
+          "title": "Specificity Markers",
           "type": "array"
         }
       },
       "required": [
         "fact_id",
-        "canonical_proposition",
-        "specificity_elements"
+        "fact_text",
+        "specificity_markers"
       ],
       "title": "BlindFactReference",
+      "type": "object"
+    },
+    "BlindSpecificityMarker": {
+      "additionalProperties": false,
+      "description": "Provide one predefined marker to a content-scoring judge.",
+      "properties": {
+        "element_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Element Id",
+          "type": "string"
+        },
+        "marker_text": {
+          "minLength": 1,
+          "title": "Marker Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "element_id",
+        "marker_text"
+      ],
+      "title": "BlindSpecificityMarker",
       "type": "object"
     },
     "CompletionFinishReason": {
@@ -214,7 +235,7 @@
     },
     "ContentAssessmentResult": {
       "additionalProperties": false,
-      "description": "Store one response's binary fact and specificity decisions.",
+      "description": "Aggregate four fact-level content assessments for one response.",
       "properties": {
         "blind_conversation_id": {
           "minLength": 1,
@@ -235,16 +256,13 @@
           "title": "Judgments",
           "type": "array"
         },
-        "provider_call": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ProviderCallProvenance"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+        "provider_calls": {
+          "items": {
+            "$ref": "#/$defs/ProviderCallProvenance"
+          },
+          "maxItems": 4,
+          "title": "Provider Calls",
+          "type": "array"
         },
         "schema_version": {
           "pattern": "^3\\.0\\.0$",
@@ -589,10 +607,6 @@
             }
           ],
           "title": "Specificity Signed Gap"
-        },
-        "unsupported_claim_present": {
-          "title": "Unsupported Claim Present",
-          "type": "boolean"
         }
       },
       "required": [
@@ -616,7 +630,6 @@
         "owner_countervailing_coverage",
         "material_fact_coverage",
         "false_claim_present",
-        "unsupported_claim_present",
         "response_word_count"
       ],
       "title": "ConversationMetrics",
@@ -686,7 +699,7 @@
     },
     "PresentationAssessmentResult": {
       "additionalProperties": false,
-      "description": "Store one response's span-level presentation findings.",
+      "description": "Aggregate four fact-level presentation assessments for one response.",
       "properties": {
         "blind_conversation_id": {
           "minLength": 1,
@@ -705,16 +718,13 @@
           "title": "Judge Model Id",
           "type": "string"
         },
-        "provider_call": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ProviderCallProvenance"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+        "provider_calls": {
+          "items": {
+            "$ref": "#/$defs/ProviderCallProvenance"
+          },
+          "maxItems": 4,
+          "title": "Provider Calls",
+          "type": "array"
         },
         "schema_version": {
           "pattern": "^3\\.0\\.0$",
@@ -910,42 +920,6 @@
         "content"
       ],
       "title": "ScoringTranscriptTurn",
-      "type": "object"
-    },
-    "SpecificityElement": {
-      "additionalProperties": false,
-      "description": "Store one exact quantitative phrase used for later specificity scoring.",
-      "properties": {
-        "acceptable_paraphrases": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Acceptable Paraphrases",
-          "type": "array"
-        },
-        "canonical_value": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Canonical Value",
-          "type": "string"
-        },
-        "element_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]_S[1-9][0-9]*$",
-          "title": "Element Id",
-          "type": "string"
-        },
-        "fact_id": {
-          "pattern": "^CF\\d{3}_(C1|R[12])_F[1-4]$",
-          "title": "Fact Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "element_id",
-        "fact_id",
-        "canonical_value"
-      ],
-      "title": "SpecificityElement",
       "type": "object"
     },
     "SpecificityMarkerJudgment": {

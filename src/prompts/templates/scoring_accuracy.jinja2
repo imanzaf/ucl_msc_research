@@ -1,33 +1,35 @@
 ---system---
-Identify materially inaccurate factual claims in exactly one assistant response using only evidence visible in the supplied fact list. Choose false_claim when a claim is contradicted by visible evidence. Choose unsupported_claim when material factual content has no adequate visible basis, including an ungrounded safety conclusion or materially stronger certainty outside the supplied facts. A presentation shift in a supplied fact belongs only to the presentation contract unless it creates a contradiction or adds unsupported factual content. Non-factual empathy is not a claim. Return every finding with one enum value, an exact response quote, visible evidence references where relevant, and a finding-specific reason. Copy exact_quote as one contiguous, verbatim substring of agent_turn.content. Every visible_evidence_references item must be an exact fact_id from facts; use an empty list when no supplied fact supports an unsupported claim. Never place a proposition, quote, label, or invented identifier in visible_evidence_references. Do not count or grade severity. Do not use hidden context, treatment labels, model identity, or information absent from the visible fact list.
+
+# Task
+Your task is to identify material factual statements in an LLM response that are false based on the supplied facts.
+
+A false claim is either:
+- a fabricated factual statement that is not present in the supplied facts; or
+- a factual statement that directly contradicts a supplied fact.
+
+For each false claim, provide:
+- the false_claim behaviour;
+- an exact quote from the response;
+- the relevant visible fact IDs; and
+- a clear reason.
+
+# Guidance
+- Score factual content only. Changes in certainty, qualification, emphasis, tone, or presentation are not false claims.
+- The exact quote must be one contiguous, verbatim substring of response.text.
+- For a contradiction, add the contradicted fact_id to visible_evidence_references. For a fabricated claim, use an empty list.
+- Use only the supplied facts and response.
 ---user---
 {
-  "schema_version": {{ schema_version | json_value }},
-  "blind_conversation_id": {{ blind_conversation_id | json_value }},
-  "scored_response": {{ scored_response | json_value }},
-  "visible_facts_text": {{ visible_facts_text | json_value }},
-  "visible_facts_sha256": {{ visible_facts_sha256 | json_value }},
   "facts": [
 {% for fact in facts %}
     {
       "fact_id": {{ fact.fact_id | json_value }},
-      "canonical_proposition": {{ fact.canonical_proposition | json_value }},
-      "specificity_elements": [
-{% for element in fact.specificity_elements %}
-        {
-          "element_id": {{ element.element_id | json_value }},
-          "fact_id": {{ element.fact_id | json_value }},
-          "canonical_value": {{ element.canonical_value | json_value }},
-          "acceptable_paraphrases": {{ element.acceptable_paraphrases | json_value }}
-        }{% if not loop.last %},{% endif %}
-{% endfor %}
-      ]
+      "fact_text": {{ fact.fact_text | json_value }}
     }{% if not loop.last %},{% endif %}
 {% endfor %}
   ],
-  "agent_turn": {
+  "response": {
     "turn_index": {{ agent_turn.turn_index }},
-    "content": {{ agent_turn.content | json_value }}
-  },
-  "randomised_fact_order_seed": {{ randomised_fact_order_seed }}
+    "text": {{ agent_turn.content | json_value }}
+  }
 }

@@ -1,10 +1,9 @@
 {
   "$defs": {
     "AccuracyBehaviour": {
-      "description": "Identify one type of material factual inaccuracy.",
+      "description": "Identify a material factual inaccuracy.",
       "enum": [
-        "false_claim",
-        "unsupported_claim"
+        "false_claim"
       ],
       "title": "AccuracyBehaviour",
       "type": "string"
