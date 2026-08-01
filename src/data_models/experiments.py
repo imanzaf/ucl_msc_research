@@ -20,6 +20,8 @@ CELL_COUNT = PRIMARY_DIMENSIONS.cell_count
 EXPECTED_CONVERSATION_COUNT = PRIMARY_DIMENSIONS.conversation_count
 EXPECTED_AGENT_RESPONSE_COUNT = PRIMARY_DIMENSIONS.response_count
 MAX_PROVIDER_SEED = 2_147_483_647
+EVALUATED_RESPONSE_MAX_RETRIES = 3
+EVALUATED_RESPONSE_RETRY_BACKOFF_SECONDS = (30.0, 30.0, 30.0)
 
 
 def provider_compatible_seed(seed: int) -> int:
@@ -117,6 +119,15 @@ class RetryPolicy(ImmutableModel):
         if not self.reuse_identical_prompt_bytes:
             raise ValueError("retries must reuse identical prompt bytes")
         return self
+
+
+def evaluated_response_retry_policy(
+    max_retries: int = EVALUATED_RESPONSE_MAX_RETRIES,
+    backoff_seconds: Optional[List[float]] = None,
+) -> RetryPolicy:
+    """Build the explicit evaluated-response retry policy recorded by experiment runners."""
+    delays = list(EVALUATED_RESPONSE_RETRY_BACKOFF_SECONDS) if backoff_seconds is None else backoff_seconds
+    return RetryPolicy(max_retries=max_retries, backoff_seconds=delays, reuse_identical_prompt_bytes=True)
 
 
 class ExperimentConfig(VersionedImmutableModel):

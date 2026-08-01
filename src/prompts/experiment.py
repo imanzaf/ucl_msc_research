@@ -37,7 +37,7 @@ def prompt_package_sha256() -> str:
             "entity_vowel_initials": VOWEL_INITIALS,
             "condition_query_source": "accepted_scenario.customer_messages.<condition>_user_query",
             "follow_up_source": "accepted_scenario.customer_messages.follow_up_query",
-            "visible_fact_group_source": "accepted_scenario.hidden_design.presentation_order + derived material_facts",
+            "visible_fact_group_source": "accepted_scenario.hidden_design.presentation_order + accepted_scenario.options",
         }
     )
 

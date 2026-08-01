@@ -38,7 +38,7 @@ class ExperimentModelSpec(ImmutableModel):
 
 
 class ExperimentModelCatalog(VersionedImmutableModel):
-    """Describe evaluated candidates and independent generation/review/scoring roles."""
+    """Describe evaluated candidates and independent generation and scoring roles."""
 
     schema_version: str = Field(pattern=r"^2\.0\.0$")
     description: str = Field(min_length=1)
@@ -46,11 +46,10 @@ class ExperimentModelCatalog(VersionedImmutableModel):
     evaluated_models: List[ExperimentModelSpec] = Field(min_length=3, max_length=3)
     scoring_models: List[ExperimentModelSpec] = Field(min_length=1)
     scenario_generator_model: ExperimentModelSpec
-    scenario_reviewer_model: ExperimentModelSpec
 
     @model_validator(mode="after")
     def validate_role_independence(self) -> "ExperimentModelCatalog":
-        """Require model diversity and independent generation, review, and scoring roles."""
+        """Require model diversity and an independent scoring role."""
         evaluated_ids = [model.model_id for model in self.evaluated_models]
         if len(evaluated_ids) != len(set(evaluated_ids)):
             raise ValueError("evaluated model ids must be unique")
@@ -60,8 +59,6 @@ class ExperimentModelCatalog(VersionedImmutableModel):
             raise ValueError("evaluated candidates must span at least two providers")
         if not any(model.weight_type == ModelWeightType.OPEN for model in self.evaluated_models):
             raise ValueError("evaluated candidates require at least one open-weight family")
-        if self.scenario_generator_model.model_id == self.scenario_reviewer_model.model_id:
-            raise ValueError("scenario generator and reviewer must be different models")
         if not any(model.model_id not in set(evaluated_ids) for model in self.scoring_models):
             raise ValueError("evaluated models cannot be their own sole scoring judge")
         return self
@@ -94,11 +91,6 @@ def resolve_evaluated_model_ids(
 def default_scenario_generator_model_id(path: Path = DEFAULT_MODEL_CATALOG_PATH) -> str:
     """Return the configured scenario-generator model id."""
     return load_model_catalog(path).scenario_generator_model.model_id
-
-
-def default_scenario_reviewer_model_id(path: Path = DEFAULT_MODEL_CATALOG_PATH) -> str:
-    """Return the configured independent scenario-reviewer model id."""
-    return load_model_catalog(path).scenario_reviewer_model.model_id
 
 
 def fetch_openrouter_models(

@@ -10,6 +10,7 @@ from typing import Any, Dict, List
 import pytest
 from pydantic import Field
 
+from src.cli.commands.experiment.run_responses import _selected_model_specs
 from src.data_models.common import VersionedImmutableModel
 from src.data_models.experiments import ProviderRouting, provider_request_sha256
 from src.data_models.manifests import FreezeStatus
@@ -96,6 +97,28 @@ def test_ci_paid_call_switch_fails_before_client_construction() -> None:
         OpenRouterClient.from_settings(settings, ModelSettings(), OpenRouterCredentialRole.AGENT)
 
 
+def test_recorded_call_roles_disable_hidden_sdk_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep evaluated and scoring retries visible while retaining scenario-generation resilience."""
+    constructor_calls: List[Dict[str, Any]] = []
+
+    class FakeOpenAI:
+        """Capture OpenAI-compatible client construction arguments."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            """Store one constructor call."""
+            constructor_calls.append(kwargs)
+
+    monkeypatch.setattr("src.llm.openrouter.OpenAI", FakeOpenAI)
+    settings = APISettings(**api_values())
+    model_settings = ModelSettings(MAX_GENERATION_RETRIES=2)
+
+    OpenRouterClient.from_settings(settings, model_settings, OpenRouterCredentialRole.AGENT)
+    OpenRouterClient.from_settings(settings, model_settings, OpenRouterCredentialRole.SCORING)
+    OpenRouterClient.from_settings(settings, model_settings, OpenRouterCredentialRole.SCENARIO_GENERATION)
+
+    assert [call["max_retries"] for call in constructor_calls] == [0, 0, 2]
+
+
 def test_model_catalog_is_deliberately_draft_and_blocked_before_calibration() -> None:
     """Require exactly three diverse candidates but prevent use until snapshots freeze."""
     catalog = load_model_catalog()
@@ -104,10 +127,19 @@ def test_model_catalog_is_deliberately_draft_and_blocked_before_calibration() ->
     assert len(catalog.evaluated_models) == 3
     assert len({model.provider for model in catalog.evaluated_models}) >= 2
     assert any(model.weight_type.value == "open" for model in catalog.evaluated_models)
-    assert catalog.scenario_generator_model.model_id != catalog.scenario_reviewer_model.model_id
     assert any(model.model_id not in {item.model_id for item in catalog.evaluated_models} for model in catalog.scoring_models)
     with pytest.raises(ValueError, match="must be frozen"):
         resolve_evaluated_model_ids(catalog, None)
+
+
+def test_response_runner_defaults_to_all_three_models_and_accepts_an_explicit_subset() -> None:
+    """Resolve all catalogued models only when the response command omits model ids."""
+    catalog = load_model_catalog()
+    all_models = _selected_model_specs(catalog, None)
+    explicit = _selected_model_specs(catalog, [catalog.evaluated_models[1].model_id])
+
+    assert [model.model_id for model in all_models] == [model.model_id for model in catalog.evaluated_models]
+    assert [model.model_id for model in explicit] == [catalog.evaluated_models[1].model_id]
 
 
 def test_text_requests_cache_by_exact_bytes_and_do_not_repeat_provider_call(tmp_path: Path) -> None:

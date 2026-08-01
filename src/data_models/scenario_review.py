@@ -166,13 +166,7 @@ class RevisionCycleRecord(VersionedImmutableModel):
             raise ValueError("a completed manual revision review must contain every stage-relevant review kind")
         current_dependencies = {"options"}
         query_dependencies = {"customer_messages"}
-        schema_eight_dependencies = {
-            "option_descriptions",
-            "material_facts",
-            "specificity_elements",
-        }
-        schema_six_dependencies = {*schema_eight_dependencies, "fact_pairs"}
-        if set(self.rebuilt_dependency_sha256) not in (current_dependencies, query_dependencies, schema_eight_dependencies, schema_six_dependencies):
+        if set(self.rebuilt_dependency_sha256) not in (current_dependencies, query_dependencies):
             raise ValueError("every revision cycle must rebuild and hash all dependent scenario artifacts")
         return self
 

@@ -32,7 +32,7 @@ from tests.factories import (
 
 
 def test_all_offline_workflows_reach_analysis_without_provider_calls() -> None:
-    """Build every matrix and score one conversation with eighteen local fixture calls."""
+    """Build every matrix and score one conversation with content-gated fixture calls."""
     scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
     created_at = datetime(2026, 7, 22, tzinfo=timezone.utc)
     models = make_models()

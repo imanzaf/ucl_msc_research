@@ -170,6 +170,7 @@
     "FinanceEntityType": {
       "description": "Identify the generic finance-domain entity deploying the evaluated assistant.",
       "enum": [
+        "retail bank",
         "bank",
         "mortgage lender",
         "credit-card provider",

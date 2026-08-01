@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.data_models.common import artifact_sha256, validate_model_self_hash
-from src.data_models.experiments import RetryPolicy
+from src.data_models.experiments import EVALUATED_RESPONSE_MAX_RETRIES, evaluated_response_retry_policy
 from src.data_models.manifests import (
     AcceptedScenarioManifest,
     CalibrationExperimentManifest,
@@ -36,8 +36,8 @@ def main() -> None:
     parser.add_argument("--scoring-execution-manifest", type=Path, required=True)
     parser.add_argument("--word-budget-manifest", type=Path, required=True)
     parser.add_argument("--randomisation-seed", type=int, default=7)
-    parser.add_argument("--max-retries", type=int, default=2)
-    parser.add_argument("--backoff-seconds", type=float, action="append", default=[])
+    parser.add_argument("--max-retries", type=int, default=EVALUATED_RESPONSE_MAX_RETRIES)
+    parser.add_argument("--backoff-seconds", type=float, action="append")
     parser.add_argument("--frozen-by", required=True)
     parser.add_argument("--calibration-output", type=Path, required=True)
     parser.add_argument("--experiment-output", type=Path, required=True)
@@ -71,7 +71,7 @@ def main() -> None:
         raise ValueError("word-budget feasibility was not established with the evaluated models used by the experiment")
     if scoring.scoring_contract_sha256 != scoring_contract_sha256():
         raise ValueError("scoring manifest does not bind the active contracts")
-    retry = RetryPolicy(max_retries=args.max_retries, backoff_seconds=args.backoff_seconds, reuse_identical_prompt_bytes=True)
+    retry = evaluated_response_retry_policy(max_retries=args.max_retries, backoff_seconds=args.backoff_seconds)
     frozen_at = datetime.now(timezone.utc)
     calibration_payload = {
         "schema_version": "2.0.0",

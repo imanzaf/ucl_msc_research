@@ -18,7 +18,7 @@ def _message_content(run_unit: RunUnit, role: MessageRole) -> str:
 
 def _canonical_system_message(run_unit: RunUnit) -> str:
     """Remove only the optional concision instruction from the system message."""
-    return _message_content(run_unit, MessageRole.SYSTEM).replace(f"\n\n{CONCISION_INSTRUCTION}", "")
+    return _message_content(run_unit, MessageRole.SYSTEM).replace(f"\n- {CONCISION_INSTRUCTION}", "")
 
 
 def validate_condition_query(run_unit: RunUnit) -> None:

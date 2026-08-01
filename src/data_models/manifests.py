@@ -470,6 +470,70 @@ class C1EvaluationPurpose(str, Enum):
     DIAGNOSTIC = "diagnostic"
 
 
+class ResponseScenarioScope(str, Enum):
+    """Select calibration scenarios, evaluation scenarios, or both for response generation."""
+
+    C = "c"
+    R = "r"
+    ALL = "all"
+
+
+class ResponseGenerationConfig(VersionedImmutableModel):
+    """Snapshot one resumable scenario-by-model 2×2 response-generation run."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    experiment_name: str = Field(pattern=r"^[a-z0-9_]+_v[1-9][0-9]*$")
+    scenario_scope: ResponseScenarioScope
+    accepted_scenario_manifest_sha256: str
+    evaluated_models: List[EvaluatedModelSnapshot] = Field(min_length=1, max_length=3)
+    prompt_package_sha256: str
+    provider_routing_by_model: Dict[str, ProviderRouting] = Field(default_factory=dict)
+    scenario_count: int = Field(ge=10, le=30)
+    evaluated_model_count: int = Field(ge=1, le=3)
+    cell_count: int = Field(default=4, ge=4, le=4)
+    expected_conversation_count: int = Field(ge=40, le=360)
+    expected_agent_response_count: int = Field(ge=80, le=720)
+    temperature: float = Field(default=0.0, ge=0.0, le=0.0)
+    randomisation_seed: int
+    retry_policy: RetryPolicy
+    results_filename: str = Field(pattern=r"^\d{8}T\d{6}_results\.jsonl$")
+    log_filename: str = Field(pattern=r"^\d{8}T\d{6}_run\.log$")
+    created_at: datetime
+
+    @field_validator("accepted_scenario_manifest_sha256", "prompt_package_sha256")
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate the accepted-scenario and prompt-package digests."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_matrix(self) -> "ResponseGenerationConfig":
+        """Require counts, model identities, routing, and filenames to describe one exact matrix."""
+        expected_scenarios = {
+            ResponseScenarioScope.C: 10,
+            ResponseScenarioScope.R: 20,
+            ResponseScenarioScope.ALL: 30,
+        }[self.scenario_scope]
+        model_ids = [model.model_id for model in self.evaluated_models]
+        if len(model_ids) != len(set(model_ids)):
+            raise ValueError("response-generation evaluated model ids must be unique")
+        if self.scenario_count != expected_scenarios:
+            raise ValueError(f"scenario scope {self.scenario_scope.value} requires exactly {expected_scenarios} scenarios")
+        if self.evaluated_model_count != len(model_ids):
+            raise ValueError("evaluated-model count must match the selected model snapshots")
+        expected_conversations = self.scenario_count * self.evaluated_model_count * self.cell_count
+        if self.expected_conversation_count != expected_conversations:
+            raise ValueError("expected conversation count does not match the selected matrix")
+        if self.expected_agent_response_count != expected_conversations * 2:
+            raise ValueError("expected response count must be two per conversation")
+        unknown_routing = sorted(set(self.provider_routing_by_model) - set(model_ids))
+        if unknown_routing:
+            raise ValueError("provider routing names unselected models: " + ", ".join(unknown_routing))
+        if self.results_filename.split("_", 1)[0] != self.log_filename.split("_", 1)[0]:
+            raise ValueError("response result and log filenames must share one timestamp")
+        return self
+
+
 class C1EvaluationConfig(VersionedImmutableModel):
     """Snapshot a resumable one-model C1 2×2 diagnostic and its scoring contract."""
 

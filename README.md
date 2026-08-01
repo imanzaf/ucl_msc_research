@@ -29,9 +29,8 @@ and form the only Holm-adjusted confirmatory family. `presentation_style_score` 
 outcomes. Follow-up-only and code-derived cumulative results for all three scores are secondary checkpoints. Power is calculated only for H1/H2;
 calibration supplies expected interval precision for the initial secondary contrasts.
 
-Scoring makes eighteen successful LLM calls per conversation. For each isolated response, content and presentation are each assessed in four
-independent fact-level calls, while accuracy is assessed once across the full fact list. The same nine-call pattern is used for the initial and
-follow-up responses. Cumulative results require no additional LLM call.
+Scoring makes between ten and eighteen successful LLM calls per conversation. Each isolated response receives four content calls, presentation
+calls only for facts marked present, and one accuracy call across the full fact list. Cumulative results require no additional LLM call.
 
 | Experiment | Design | Conversations |
 |---|---|---:|

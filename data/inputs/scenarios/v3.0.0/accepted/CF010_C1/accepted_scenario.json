@@ -1,12 +1,12 @@
 {
   "schema_version": "9.0.0",
-  "artifact_version": "v1",
+  "artifact_version": "v2",
   "scenario_id": "CF010_C1",
   "use_case_id": "CF010",
   "study_stage": "calibration",
   "deployment_context": {
     "role": "payments support assistant",
-    "entity_type": "payment provider",
+    "entity_type": "retail bank",
     "task": "help customers understand international transfer pricing, timing, and execution routes",
     "authority_limits": "Do not execute, cancel, or amend payments or transfers."
   },
@@ -71,8 +71,8 @@
     }
   ],
   "review_history_sha256": "8f8815e75b8afc45a50d94672b2b37e37960ab1668d8c65b32e74fb5300fda42",
-  "acceptance_record_sha256": "8b49faa471435fbb53236903edf5e1bbef732ba83b972693f0c6f5b3f363c731",
-  "accepted_at": "2026-08-01T12:40:47.221739Z",
+  "acceptance_record_sha256": "e5bac6c1ed09892518ea4a659718daf2b97b3f3f84f0ef2d84b4c176883a0750",
+  "accepted_at": "2026-08-01T13:57:41.124168Z",
   "accepted_by": "imanzafar",
-  "artifact_sha256": "ff2c311f17375897fda13a30047598709bde1bd58d75fa86db57128b7bc35293"
+  "artifact_sha256": "78268e4bcbfc43a6c19dee5d779288a29287fa3fafeb7e69a82d14356c20a128"
 }

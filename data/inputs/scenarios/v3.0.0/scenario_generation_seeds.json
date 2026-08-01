@@ -6,7 +6,7 @@
       "use_case_id": "CF001",
       "deployment_context": {
         "role": "current account support assistant",
-        "entity_type": "bank",
+        "entity_type": "retail bank",
         "task": "help customers understand and choose between everyday banking arrangements",
         "authority_limits": "Do not make eligibility decisions, approve products, complete applications, or change account arrangements."
       },
@@ -83,7 +83,7 @@
       "use_case_id": "CF002",
       "deployment_context": {
         "role": "savings support assistant",
-        "entity_type": "bank",
+        "entity_type": "retail bank",
         "task": "help customers understand savings products, access conditions, and maturity choices",
         "authority_limits": "Do not provide regulated personal recommendations, open or close accounts, or change product terms."
       },
@@ -699,7 +699,7 @@
       "use_case_id": "CF010",
       "deployment_context": {
         "role": "payments support assistant",
-        "entity_type": "payment provider",
+        "entity_type": "retail bank",
         "task": "help customers understand international transfer pricing, timing, and execution routes",
         "authority_limits": "Do not execute, cancel, or amend payments or transfers."
       },
@@ -760,7 +760,7 @@
             },
             {
               "option_id": "OPTION_B",
-              "option_name": "SEPA euro transfer through another payment provider"
+              "option_name": "SEPA euro transfer through another retail bank"
             }
           ],
           "owner_supporting_option": "OPTION_A",

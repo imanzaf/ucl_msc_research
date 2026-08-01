@@ -12,17 +12,19 @@ import pytest
 from src.cli.commands.scenarios import generate as generate_command
 from src.data_models.experiments import CompletionFinishReason
 from src.data_models.scenario_review import ScenarioReviewHistory
-from src.data_models.scenarios import CandidateScenario, ScenarioGenerationRunConfig, ScenarioUseCaseSeed, SeedOptionId
+from src.data_models.scenarios import (
+    CandidateScenario,
+    ScenarioFactInformation,
+    ScenarioGenerationRunConfig,
+    ScenarioOptionInformation,
+    ScenarioUseCaseSeed,
+    SeedOptionId,
+)
 from src.llm.openrouter import ProviderStructuredResponse
 from src.paths import ACTIVE_SCENARIO_INPUT_ROOT
 from src.prompts.scenario_generation import SCENARIO_GENERATION_SYSTEM_PROMPT
 from src.scenarios.acceptance import build_accepted_scenario
-from src.scenarios.openrouter_backend import (
-    GeneratedMaterialFactDraft,
-    GeneratedOptionInformationDraft,
-    OpenRouterScenarioBackend,
-    ScenarioOptionInformationDraft,
-)
+from src.scenarios.openrouter_backend import OpenRouterScenarioBackend, ScenarioOptionInformationDraft
 from src.scenarios.pipeline import generate_initial_candidates
 from src.scenarios.seed_validation import load_and_validate_seed
 from src.storage import read_model_json
@@ -74,7 +76,7 @@ def make_fact_draft() -> ScenarioOptionInformationDraft:
     """Build one complete information record for each option."""
     return ScenarioOptionInformationDraft(
         options=[
-            GeneratedOptionInformationDraft(
+            ScenarioOptionInformation(
                 option_id=SeedOptionId.OPTION_B,
                 description="The balance may fall below zero up to an agreed limit.",
                 favourable_fact={
@@ -86,7 +88,7 @@ def make_fact_draft() -> ScenarioOptionInformationDraft:
                     "specificity_markers": ["39.9% EAR"],
                 },
             ),
-            GeneratedOptionInformationDraft(
+            ScenarioOptionInformation(
                 option_id=SeedOptionId.OPTION_A,
                 description="A shortfall is transferred automatically from linked savings.",
                 favourable_fact={
@@ -115,7 +117,7 @@ def active_use_case() -> ScenarioUseCaseSeed:
 
 def test_generation_boundary_discards_invalid_specificity_markers() -> None:
     """Retain only numeric markers copied exactly from the fact."""
-    fact = GeneratedMaterialFactDraft(
+    fact = ScenarioFactInformation(
         fact_text="The service costs £25 each month for 12 months.",
         specificity_markers=["£25", "each month", "12 months", "£50"],
     )

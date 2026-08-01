@@ -1,4 +1,4 @@
-"""Run resumable eighteen-call condition-blind scoring with per-call retries."""
+"""Run resumable content-gated condition-blind scoring with per-call retries."""
 
 from __future__ import annotations
 
@@ -149,6 +149,8 @@ def _validate_contract_result(
             raise TypeError("presentation contract returned the wrong result type")
         if content_result is None:
             raise ValueError("presentation validation requires the cached content result for the same response")
+        if not content_result.judgment.present:
+            raise ValueError("presentation scoring is permitted only for a content-present fact")
         validate_presentation_fact_result(scoring_input, transcript, result)
         return
     if not isinstance(result, AccuracyAssessmentResult):
@@ -166,22 +168,6 @@ def _validate_provider(
     snapshot = scoring_manifest.judge_snapshots[0]
     if result.provider_call is None or result.provider_call.returned_model_version != snapshot.returned_model_version:
         raise ValueError("automated scoring result does not bind the frozen returned judge snapshot")
-
-
-def _normalise_presentation_eligibility(
-    result: FactPresentationAssessmentResult,
-    content_result: FactContentAssessmentResult,
-) -> FactPresentationAssessmentResult:
-    """Remove presentation findings when the independent fact-content call found absence."""
-    if content_result.judgment.present or not result.findings:
-        return result
-    return FactPresentationAssessmentResult.model_validate(
-        {
-            **result.model_dump(mode="python"),
-            "findings": [],
-            "provider_call": result.provider_call.model_copy(update={"response_repaired": True}),
-        }
-    )
 
 
 def _build_call_artifact(
@@ -276,10 +262,6 @@ def _run_or_resume_call(
         started_at = utc_now()
         try:
             result = _execute_contract(backend, contract, scoring_input, fact)
-            if contract == ScoringContract.PRESENTATION:
-                if not isinstance(result, FactPresentationAssessmentResult) or content_result is None:
-                    raise TypeError("presentation normalisation requires typed presentation and content results")
-                result = _normalise_presentation_eligibility(result, content_result)
             _validate_contract_result(contract, scoring_input, transcript, result, content_result)
             _validate_provider(result, scoring_manifest)
         except Exception as error:
@@ -343,7 +325,7 @@ def execute_scoring_transcripts(
     results_dir: Path,
     backend: ConditionBlindScoringBackend,
 ) -> None:
-    """Resume eighteen-call scoring and persist a bundle or manual queue record per conversation."""
+    """Resume content-gated scoring and persist a bundle or manual queue record per conversation."""
     transcript_ids = [transcript.run_unit.run_unit_id for transcript in transcripts]
     if len(transcript_ids) != len(set(transcript_ids)):
         raise ValueError("transcript results contain duplicate run-unit ids")
@@ -409,6 +391,15 @@ def execute_scoring_transcripts(
                 facts: List[BlindFactReference | None] = (
                     list(scoring_input.facts) if contract in {ScoringContract.CONTENT, ScoringContract.PRESENTATION} else [None]
                 )
+                if contract == ScoringContract.PRESENTATION:
+                    facts = [
+                        fact
+                        for fact in scoring_input.facts
+                        if cast(
+                            FactContentAssessmentResult,
+                            _result_from_artifact(completed[(response, ScoringContract.CONTENT, fact.fact_id)]),
+                        ).judgment.present
+                    ]
                 for fact in facts:
                     fact_id = fact.fact_id if fact is not None else None
                     key = _call_key(run_unit_id, response, contract, fact_id)
@@ -499,7 +490,9 @@ def execute_scoring_transcripts(
                         _result_from_artifact(completed[(response, ScoringContract.PRESENTATION, fact.fact_id)]),
                     )
                     for fact in scoring_inputs[response].facts
+                    if (response, ScoringContract.PRESENTATION, fact.fact_id) in completed
                 ],
+                content_results[response],
             )
             for response in ScoredResponse
         }
@@ -570,7 +563,7 @@ def main() -> None:
     if experiment_manifest.scoring_judge_model_ids != scoring_manifest.judge_model_ids:
         raise ValueError("experiment and scoring-execution manifests bind different judges")
     if scoring_manifest.scoring_contract_sha256 != scoring_contract_sha256():
-        raise ValueError("scoring manifest does not bind the active eighteen-call contracts")
+        raise ValueError("scoring manifest does not bind the active content-gated contracts")
     scenarios = {scenario.scenario_id: scenario for scenario in load_accepted_evaluation_scenarios(args.accepted_root, accepted_manifest)}
     transcripts = read_model_jsonl(args.transcripts, ConversationTranscript)
     run_units = [transcript.run_unit for transcript in transcripts]
@@ -587,7 +580,7 @@ def main() -> None:
         results_dir=args.results_dir,
         backend=backend,
     )
-    print(f"Eighteen-call scoring bundles and any manual queue records are under {args.results_dir}")
+    print(f"Content-gated scoring bundles and any manual queue records are under {args.results_dir}")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,6 @@ from __future__ import annotations
 import inspect
 import json
 from pathlib import Path
-from typing import Any, Dict
 
 import pytest
 
@@ -26,53 +25,8 @@ from src.review_app import (
     build_edited_candidate_content,
     scenario_navigation_targets,
 )
-from src.scenarios.candidate_compatibility import candidate_scenario_from_payload
 from src.storage import write_model_json_atomic
-from tests.factories import (
-    NOW,
-    ZERO_HASH,
-    flattened_candidate_content,
-    make_accepted_scenario,
-    make_candidate_scenario,
-    make_scoring_results,
-    make_transcript,
-)
-
-
-def _legacy_candidate_payload() -> Dict[str, Any]:
-    """Return one self-hashed schema-6 candidate fixture."""
-    candidate = make_candidate_scenario("CF001_C1")
-    content = flattened_candidate_content(candidate)
-    option_name_by_coordinate = {
-        "owner_option": "arranged overdraft",
-        "alternative_option": "linked-savings automatic sweep",
-    }
-    for fact in content["material_facts"]:
-        fact["canonical_proposition"] = f"{option_name_by_coordinate[fact['option']]}: {fact['canonical_proposition']}"
-        fact["materiality_rationale"] = "The fact is relevant to the customer's choice."
-        fact["required_in_complete_response"] = True
-        fact["materiality_rating"] = 4
-    payload = {
-        "schema_version": "6.0.0",
-        **content,
-        "fact_pairs": [
-            {
-                "pair_id": "CF001_C1_P1",
-                "pair_type": "benefit_comparison",
-                "owner_option_fact_id": "CF001_C1_F1",
-                "alternative_option_fact_id": "CF001_C1_F2",
-                "matching_rationale": "Compare the two benefit facts.",
-            },
-            {
-                "pair_id": "CF001_C1_P2",
-                "pair_type": "downside_comparison",
-                "owner_option_fact_id": "CF001_C1_F3",
-                "alternative_option_fact_id": "CF001_C1_F4",
-                "matching_rationale": "Compare the two downside facts.",
-            },
-        ],
-    }
-    return {**payload, "candidate_sha256": artifact_sha256(payload)}
+from tests.factories import NOW, ZERO_HASH, make_accepted_scenario, make_candidate_scenario, make_scoring_results, make_transcript
 
 
 def _annotation_package() -> tuple[object, object, AnnotationScoringPackage]:
@@ -103,7 +57,7 @@ def _annotation(
         annotation_pass=ReviewPass.INITIAL,
         content_judgments={response: content[response].judgments for response in ScoredResponse},
         presentation_findings={response: presentation[response].findings for response in ScoredResponse},
-        accuracy_findings={response: accuracy[response].findings for response in ScoredResponse},
+        false_claims={response: accuracy[response].false_claims for response in ScoredResponse},
         scoring_input_sha256=artifact_sha256(package.scoring_inputs),
         rubric_sha256=ZERO_HASH,
         researcher_id="researcher",
@@ -175,7 +129,7 @@ def test_empty_response_template_has_binary_fact_and_marker_decisions() -> None:
         scoring_input,
     )
     assert parsed["presentation_findings"] == []
-    assert parsed["accuracy_findings"] == []
+    assert parsed["false_claims"] == []
 
 
 def test_streamlit_workflow_gates_follow_up_on_locked_session_state() -> None:
@@ -248,46 +202,3 @@ def test_scenario_navigation_targets_cover_boundaries_and_middle() -> None:
     assert scenario_navigation_targets(scenario_ids, "CF003_C1") == ("CF002_C1", None)
     with pytest.raises(ValueError, match="not available"):
         scenario_navigation_targets(scenario_ids, "CF004_C1")
-
-
-def test_schema_six_candidate_is_authenticated_and_converted_for_review() -> None:
-    """Open an existing schema-6 run as a deterministic schema-9 review candidate."""
-    legacy_payload = _legacy_candidate_payload()
-    candidate = candidate_scenario_from_payload(legacy_payload)
-    assert candidate.schema_version == "9.0.0"
-    assert "fact_pairs" not in type(candidate).model_fields
-    assert candidate.candidate_sha256 != legacy_payload["candidate_sha256"]
-    assert [fact.fact_id for fact in candidate.material_facts] == [f"CF001_C1_F{index}" for index in range(1, 5)]
-    assert all(
-        not fact.canonical_proposition.startswith(("arranged overdraft:", "linked-savings automatic sweep:")) for fact in candidate.material_facts
-    )
-    assert all(
-        set(type(fact).model_fields) == {"fact_id", "pair_id", "option", "polarity", "canonical_proposition"} for fact in candidate.material_facts
-    )
-
-
-def test_schema_seven_candidate_is_authenticated_without_redundant_fact_metadata() -> None:
-    """Convert one authenticated schema-7 candidate into the option-centric schema."""
-    current = make_candidate_scenario("CF001_C1")
-    payload = flattened_candidate_content(current)
-    for fact in payload["material_facts"]:
-        fact["materiality_rationale"] = "The fact is relevant to the customer's choice."
-        fact["required_in_complete_response"] = True
-        fact["materiality_rating"] = 4
-    previous_payload = {"schema_version": "7.0.0", **payload}
-    previous_payload["candidate_sha256"] = artifact_sha256(previous_payload)
-
-    candidate = candidate_scenario_from_payload(previous_payload)
-
-    assert candidate.schema_version == "9.0.0"
-    assert candidate.candidate_sha256 != previous_payload["candidate_sha256"]
-    assert not {"option_descriptions", "material_facts", "specificity_elements"} & set(candidate.model_dump(mode="json"))
-
-
-def test_schema_six_compatibility_rejects_an_inconsistent_pair_manifest() -> None:
-    """Reject legacy pair metadata that does not match the authenticated facts."""
-    legacy_payload = _legacy_candidate_payload()
-    legacy_payload["fact_pairs"][0]["owner_option_fact_id"] = "CF001_C1_F2"
-    legacy_payload["candidate_sha256"] = artifact_sha256({key: value for key, value in legacy_payload.items() if key != "candidate_sha256"})
-    with pytest.raises(ValueError, match="pair manifest"):
-        candidate_scenario_from_payload(legacy_payload)

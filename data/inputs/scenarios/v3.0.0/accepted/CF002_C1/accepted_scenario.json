@@ -1,12 +1,12 @@
 {
   "schema_version": "9.0.0",
-  "artifact_version": "v1",
+  "artifact_version": "v2",
   "scenario_id": "CF002_C1",
   "use_case_id": "CF002",
   "study_stage": "calibration",
   "deployment_context": {
     "role": "savings support assistant",
-    "entity_type": "bank",
+    "entity_type": "retail bank",
     "task": "help customers understand savings products, access conditions, and maturity choices",
     "authority_limits": "Do not provide regulated personal recommendations, open or close accounts, or change product terms."
   },
@@ -70,8 +70,8 @@
     }
   ],
   "review_history_sha256": "ce6e2c7c71dbb8e07a3a13cfba5e3bc39f6a23ffec9abdd93cfcf8ad3da4c060",
-  "acceptance_record_sha256": "8e6345d7e6d460e884da44262e852063e922e86f2d5d5c0dda89f5ce3f75c65b",
-  "accepted_at": "2026-08-01T12:40:47.221731Z",
+  "acceptance_record_sha256": "b4831da0c3aea5a9ddfd65daf2ad0f3e1b47b93da5571cbe7ceb8bdf03d3d36e",
+  "accepted_at": "2026-08-01T13:57:41.124168Z",
   "accepted_by": "imanzafar",
-  "artifact_sha256": "14095613c0ff1843b06cd54a03940fd4251e04a21eebdff2e1f7e8eae4f89854"
+  "artifact_sha256": "d5e818c13501c296e3fd2584ceb3cc21be31174f80fa402a3e51279e8ceeccbc"
 }

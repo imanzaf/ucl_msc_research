@@ -25,18 +25,18 @@ from src.data_models.scenarios import (
     ScenarioOptionDefinition,
     ScenarioOptionInformation,
     SeedOptionId,
+    scenario_fact_items,
 )
 from src.data_models.scoring import (
-    AccuracyFinding,
     AnnotationScoringPackage,
     ConditionBlindScoringInput,
     FactContentJudgment,
+    FalseClaim,
     PresentationFinding,
     ResponseSpan,
     ScoredResponse,
 )
 from src.scenarios.acceptance import validate_candidate_scenario_hash
-from src.scenarios.candidate_compatibility import read_candidate_scenario
 from src.scenarios.pair_diagnostics import build_pair_diagnostics
 from src.scenarios.revisions import editable_candidate_content, save_candidate_revision
 from src.scenarios.run_resolution import current_scenario_artifacts
@@ -138,7 +138,7 @@ class ReviewStore:
         if (self.candidate_root / "run_config.json").is_file():
             candidates = [artifact.candidate for _, artifact in sorted(current_scenario_artifacts(self.candidate_root).items())]
         else:
-            candidates = [read_candidate_scenario(path) for path in sorted(self.candidate_root.glob("*/candidate.json"))]
+            candidates = [read_model_json(path, CandidateScenario) for path in sorted(self.candidate_root.glob("*/candidate.json"))]
         for candidate in candidates:
             validate_candidate_scenario_hash(candidate)
         return candidates
@@ -244,7 +244,7 @@ def _validate_blind_span(
 def _validate_response_annotation(
     content_judgments: List[FactContentJudgment],
     presentation_findings: List[PresentationFinding],
-    accuracy_findings: List[AccuracyFinding],
+    false_claims: List[FalseClaim],
     scoring_input: ConditionBlindScoringInput,
 ) -> None:
     """Validate one response's three human scoring contracts."""
@@ -257,22 +257,18 @@ def _validate_response_annotation(
         expected_element_ids = {marker.element_id for marker in fact.specificity_markers}
         if {item.element_id for item in judgment.marker_judgments} != expected_element_ids:
             raise ValueError("response annotation must decide every predefined marker")
-        for finding in judgment.evidence:
-            _validate_blind_span(finding.response_span, scoring_input)
-        for marker in judgment.marker_judgments:
-            for finding in marker.evidence:
-                _validate_blind_span(finding.response_span, scoring_input)
+        for span in judgment.evidence:
+            _validate_blind_span(span, scoring_input)
     for finding in presentation_findings:
         if finding.fact_id not in fact_by_id:
             raise ValueError("presentation finding references an unknown fact")
         if not judgment_by_fact[finding.fact_id].present:
             raise ValueError("presentation finding cannot target a fact annotated absent")
-        _validate_blind_span(finding.response_span, scoring_input)
-    visible_source_ids = {fact.fact_id for fact in scoring_input.facts}
-    for finding in accuracy_findings:
-        if not set(finding.visible_evidence_references).issubset(visible_source_ids):
-            raise ValueError("accuracy finding cites evidence outside the visible facts")
-        _validate_blind_span(finding.response_span, scoring_input)
+        if finding.evidence not in scoring_input.agent_turn.content:
+            raise ValueError("presentation evidence does not match the exact response text")
+    for claim in false_claims:
+        if claim.evidence not in scoring_input.agent_turn.content:
+            raise ValueError("false-claim evidence does not match the exact response text")
 
 
 def _validate_annotation_content(
@@ -284,7 +280,7 @@ def _validate_annotation_content(
         _validate_response_annotation(
             annotation.content_judgments[response],
             annotation.presentation_findings[response],
-            annotation.accuracy_findings[response],
+            annotation.false_claims[response],
             package.scoring_inputs[response],
         )
 
@@ -359,7 +355,7 @@ def _render_scenario_navigation(st: Any, scenario_ids: List[str], current_scenar
 def _render_scenario_overview(st: Any, scenario: CandidateScenario) -> None:
     """Display the task, user queries, and option descriptions once."""
     option_name_by_id = {option.option_id: option.option_name for option in scenario.hidden_design.options}
-    description_by_id = {description.option_id: description.description for description in scenario.option_descriptions}
+    description_by_id = {option.option_id: option.description for option in scenario.options}
 
     st.markdown('<div class="review-kicker">Candidate scenario</div>', unsafe_allow_html=True)
     st.header(scenario.scenario_id)
@@ -408,7 +404,7 @@ def _render_research_context(st: Any, scenario: CandidateScenario) -> None:
         for criterion in SCENARIO_REVIEW_GUIDANCE:
             st.markdown(f"- {criterion}")
         st.caption("Descriptive only. Use these to compare detail burden; there is no automatic threshold.")
-        polarity_by_pair_id = {fact.pair_id: fact.polarity for fact in scenario.material_facts}
+        polarity_by_pair_id = {coordinate.pair_id: coordinate.polarity for coordinate, _ in scenario_fact_items(scenario)}
         rows = []
         for diagnostic in build_pair_diagnostics(scenario):
             pair_name = "Favourable facts" if polarity_by_pair_id[diagnostic.pair_id] == FactPolarity.BENEFIT else "Adverse facts"
@@ -644,17 +640,15 @@ def _empty_response_annotation_payload(
                     {
                         "element_id": element.element_id,
                         "present": False,
-                        "evidence": [],
-                        "reason": "Marker is not present in this response.",
                     }
                     for element in fact.specificity_markers
                 ],
-                "reason": "Fact is not present in this response.",
+                "reasoning": "Fact is not present in this response.",
             }
             for fact in scoring_input.facts
         ],
         "presentation_findings": [],
-        "accuracy_findings": [],
+        "false_claims": [],
     }
 
 
@@ -667,22 +661,22 @@ def _parse_response_annotation_payload(
     if set(payload) != {
         "content_judgments",
         "presentation_findings",
-        "accuracy_findings",
+        "false_claims",
     }:
-        raise ValueError("response JSON requires content_judgments, presentation_findings, and accuracy_findings")
+        raise ValueError("response JSON requires content_judgments, presentation_findings, and false_claims")
     content = [FactContentJudgment.model_validate(item) for item in payload["content_judgments"]]
     presentation = [PresentationFinding.model_validate(item) for item in payload["presentation_findings"]]
-    accuracy = [AccuracyFinding.model_validate(item) for item in payload["accuracy_findings"]]
+    false_claims = [FalseClaim.model_validate(item) for item in payload["false_claims"]]
     _validate_response_annotation(
         content,
         presentation,
-        accuracy,
+        false_claims,
         scoring_input,
     )
     return {
         "content_judgments": [item.model_dump(mode="json") for item in content],
         "presentation_findings": [item.model_dump(mode="json") for item in presentation],
-        "accuracy_findings": [item.model_dump(mode="json") for item in accuracy],
+        "false_claims": [item.model_dump(mode="json") for item in false_claims],
     }
 
 
@@ -787,9 +781,9 @@ def _render_conversation_annotation(
                 ScoredResponse.INITIAL: locked["payload"]["presentation_findings"],
                 ScoredResponse.FOLLOW_UP: follow_up_payload["presentation_findings"],
             },
-            accuracy_findings={
-                ScoredResponse.INITIAL: locked["payload"]["accuracy_findings"],
-                ScoredResponse.FOLLOW_UP: follow_up_payload["accuracy_findings"],
+            false_claims={
+                ScoredResponse.INITIAL: locked["payload"]["false_claims"],
+                ScoredResponse.FOLLOW_UP: follow_up_payload["false_claims"],
             },
             scoring_input_sha256=artifact_sha256(package.scoring_inputs),
             rubric_sha256=locked["rubric_sha256"],
@@ -801,7 +795,7 @@ def _render_conversation_annotation(
         st.error(str(error))
     else:
         del st.session_state[state_key]
-        st.toast("Complete six-contract annotation saved.")
+        st.toast("Complete three-contract annotation saved.")
         st.rerun()
 
 
@@ -833,7 +827,7 @@ def run_streamlit_app(store: ReviewStore) -> None:
         }
         pending_packages = [item for item in scoring_packages if item.blind_conversation_id not in annotated_ids]
         if not pending_packages:
-            st.info("All sampled conversations have a complete six-contract annotation.")
+            st.info("All sampled conversations have a complete three-contract annotation.")
             return
         package = st.selectbox(
             "Conversation",

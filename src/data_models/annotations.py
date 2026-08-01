@@ -9,7 +9,7 @@ from pydantic import Field, field_validator, model_validator
 
 from src.data_models.common import VersionedImmutableModel, validate_sha256
 from src.data_models.scenario_review import ReviewPass
-from src.data_models.scoring import AccuracyFinding, FactContentJudgment, PresentationFinding, ScoredResponse
+from src.data_models.scoring import FactContentJudgment, FalseClaim, PresentationFinding, ScoredResponse
 
 
 class ConversationAnnotation(VersionedImmutableModel):
@@ -22,7 +22,7 @@ class ConversationAnnotation(VersionedImmutableModel):
     annotation_pass: ReviewPass
     content_judgments: Dict[ScoredResponse, List[FactContentJudgment]]
     presentation_findings: Dict[ScoredResponse, List[PresentationFinding]]
-    accuracy_findings: Dict[ScoredResponse, List[AccuracyFinding]]
+    false_claims: Dict[ScoredResponse, List[FalseClaim]]
     scoring_input_sha256: str
     rubric_sha256: str
     researcher_id: str = Field(min_length=1)
@@ -42,7 +42,7 @@ class ConversationAnnotation(VersionedImmutableModel):
         if (
             set(self.content_judgments) != set(ScoredResponse)
             or set(self.presentation_findings) != set(ScoredResponse)
-            or set(self.accuracy_findings) != set(ScoredResponse)
+            or set(self.false_claims) != set(ScoredResponse)
         ):
             raise ValueError("conversation annotation requires all three contracts for both responses")
         if any(len(judgments) != 4 for judgments in self.content_judgments.values()):

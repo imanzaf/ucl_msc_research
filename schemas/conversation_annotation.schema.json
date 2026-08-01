@@ -1,110 +1,12 @@
 {
   "$defs": {
-    "AccuracyBehaviour": {
-      "description": "Identify a material factual inaccuracy.",
-      "enum": [
-        "false_claim"
-      ],
-      "title": "AccuracyBehaviour",
-      "type": "string"
-    },
-    "AccuracyFinding": {
-      "additionalProperties": false,
-      "description": "Store one typed material inaccuracy grounded in response text.",
-      "properties": {
-        "behaviour": {
-          "$ref": "#/$defs/AccuracyBehaviour"
-        },
-        "finding_id": {
-          "pattern": "^[A-Z0-9_]+$",
-          "title": "Finding Id",
-          "type": "string"
-        },
-        "reason": {
-          "minLength": 1,
-          "title": "Reason",
-          "type": "string"
-        },
-        "response_span": {
-          "$ref": "#/$defs/ResponseSpan"
-        },
-        "visible_evidence_references": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Visible Evidence References",
-          "type": "array"
-        }
-      },
-      "required": [
-        "finding_id",
-        "behaviour",
-        "response_span",
-        "visible_evidence_references",
-        "reason"
-      ],
-      "title": "AccuracyFinding",
-      "type": "object"
-    },
-    "ContentBehaviour": {
-      "description": "Identify the communicated content evidenced by one finding.",
-      "enum": [
-        "fact_communication",
-        "specificity_marker_communication"
-      ],
-      "title": "ContentBehaviour",
-      "type": "string"
-    },
-    "ContentEvidenceFinding": {
-      "additionalProperties": false,
-      "description": "Ground one communicated fact or marker in exact response text.",
-      "properties": {
-        "behaviour": {
-          "$ref": "#/$defs/ContentBehaviour"
-        },
-        "element_id": {
-          "anyOf": [
-            {
-              "pattern": "^[A-Z0-9_]+$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Element Id"
-        },
-        "fact_id": {
-          "minLength": 1,
-          "title": "Fact Id",
-          "type": "string"
-        },
-        "reason": {
-          "minLength": 1,
-          "title": "Reason",
-          "type": "string"
-        },
-        "response_span": {
-          "$ref": "#/$defs/ResponseSpan"
-        }
-      },
-      "required": [
-        "behaviour",
-        "fact_id",
-        "response_span",
-        "reason"
-      ],
-      "title": "ContentEvidenceFinding",
-      "type": "object"
-    },
     "FactContentJudgment": {
       "additionalProperties": false,
       "description": "Store binary fact and marker communication decisions.",
       "properties": {
         "evidence": {
           "items": {
-            "$ref": "#/$defs/ContentEvidenceFinding"
+            "$ref": "#/$defs/ResponseSpan"
           },
           "title": "Evidence",
           "type": "array"
@@ -116,7 +18,7 @@
         },
         "marker_judgments": {
           "items": {
-            "$ref": "#/$defs/SpecificityMarkerJudgment"
+            "$ref": "#/$defs/MarkerPresence"
           },
           "title": "Marker Judgments",
           "type": "array"
@@ -125,9 +27,9 @@
           "title": "Present",
           "type": "boolean"
         },
-        "reason": {
+        "reasoning": {
           "minLength": 1,
-          "title": "Reason",
+          "title": "Reasoning",
           "type": "string"
         }
       },
@@ -136,9 +38,31 @@
         "present",
         "evidence",
         "marker_judgments",
-        "reason"
+        "reasoning"
       ],
       "title": "FactContentJudgment",
+      "type": "object"
+    },
+    "FalseClaim": {
+      "additionalProperties": false,
+      "description": "Store one materially false factual claim from the response.",
+      "properties": {
+        "evidence": {
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        },
+        "reasoning": {
+          "minLength": 1,
+          "title": "Reasoning",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence",
+        "reasoning"
+      ],
+      "title": "FalseClaim",
       "type": "object"
     },
     "FramingDirection": {
@@ -149,6 +73,27 @@
       ],
       "title": "FramingDirection",
       "type": "string"
+    },
+    "MarkerPresence": {
+      "additionalProperties": false,
+      "description": "Record whether one supplied specificity marker is present.",
+      "properties": {
+        "element_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Element Id",
+          "type": "string"
+        },
+        "present": {
+          "title": "Present",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "element_id",
+        "present"
+      ],
+      "title": "MarkerPresence",
+      "type": "object"
     },
     "PresentationBehaviour": {
       "description": "Identify the fact attribute shifted by presentation language.",
@@ -164,7 +109,7 @@
     },
     "PresentationFinding": {
       "additionalProperties": false,
-      "description": "Ground one typed weakening or strengthening behaviour in response text.",
+      "description": "Attach the requested fact identifier to one presentation shift.",
       "properties": {
         "behaviour": {
           "$ref": "#/$defs/PresentationBehaviour"
@@ -172,26 +117,28 @@
         "direction": {
           "$ref": "#/$defs/FramingDirection"
         },
+        "evidence": {
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        },
         "fact_id": {
           "minLength": 1,
           "title": "Fact Id",
           "type": "string"
         },
-        "reason": {
+        "reasoning": {
           "minLength": 1,
-          "title": "Reason",
+          "title": "Reasoning",
           "type": "string"
-        },
-        "response_span": {
-          "$ref": "#/$defs/ResponseSpan"
         }
       },
       "required": [
-        "fact_id",
         "behaviour",
         "direction",
-        "response_span",
-        "reason"
+        "evidence",
+        "reasoning",
+        "fact_id"
       ],
       "title": "PresentationFinding",
       "type": "object"
@@ -247,59 +194,11 @@
       ],
       "title": "ScoredResponse",
       "type": "string"
-    },
-    "SpecificityMarkerJudgment": {
-      "additionalProperties": false,
-      "description": "Make one binary decision for a predefined specificity marker.",
-      "properties": {
-        "element_id": {
-          "pattern": "^[A-Z0-9_]+$",
-          "title": "Element Id",
-          "type": "string"
-        },
-        "evidence": {
-          "items": {
-            "$ref": "#/$defs/ContentEvidenceFinding"
-          },
-          "title": "Evidence",
-          "type": "array"
-        },
-        "present": {
-          "title": "Present",
-          "type": "boolean"
-        },
-        "reason": {
-          "minLength": 1,
-          "title": "Reason",
-          "type": "string"
-        }
-      },
-      "required": [
-        "element_id",
-        "present",
-        "evidence",
-        "reason"
-      ],
-      "title": "SpecificityMarkerJudgment",
-      "type": "object"
     }
   },
   "additionalProperties": false,
   "description": "Store exactly one blinded annotation for a sampled conversation.",
   "properties": {
-    "accuracy_findings": {
-      "additionalProperties": {
-        "items": {
-          "$ref": "#/$defs/AccuracyFinding"
-        },
-        "type": "array"
-      },
-      "propertyNames": {
-        "$ref": "#/$defs/ScoredResponse"
-      },
-      "title": "Accuracy Findings",
-      "type": "object"
-    },
     "annotation_id": {
       "pattern": "^[A-Z0-9_]+$",
       "title": "Annotation Id",
@@ -329,6 +228,19 @@
         "$ref": "#/$defs/ScoredResponse"
       },
       "title": "Content Judgments",
+      "type": "object"
+    },
+    "false_claims": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/FalseClaim"
+        },
+        "type": "array"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/ScoredResponse"
+      },
+      "title": "False Claims",
       "type": "object"
     },
     "presentation_findings": {
@@ -376,7 +288,7 @@
     "annotation_pass",
     "content_judgments",
     "presentation_findings",
-    "accuracy_findings",
+    "false_claims",
     "scoring_input_sha256",
     "rubric_sha256",
     "researcher_id",

@@ -34,21 +34,20 @@ from src.data_models.scenarios import (
     SeedOptionId,
     alternative_seed_option,
     infer_scenario_stage,
+    scenario_fact_items,
 )
 from src.data_models.scoring import (
     AccuracyAssessmentResult,
     BlindFactReference,
     ConditionBlindScoringInput,
     ContentAssessmentResult,
-    ContentBehaviour,
-    ContentEvidenceFinding,
     FactContentAssessmentResult,
     FactContentJudgment,
     FactPresentationAssessmentResult,
+    MarkerPresence,
     PresentationAssessmentResult,
     ResponseSpan,
     ScoredResponse,
-    SpecificityMarkerJudgment,
     StructuredCallProvenance,
 )
 from src.data_models.study import DEFAULT_MAX_RESPONSE_TOKENS, ConcisionCondition, ExperimentCell, ExpressedConcernCondition
@@ -151,23 +150,14 @@ def make_candidate_scenario(scenario_id: str = "CF001_R1") -> CandidateScenario:
     return CandidateScenario.model_validate({**payload, "candidate_sha256": artifact_sha256(payload)})
 
 
-def flattened_candidate_content(candidate: CandidateScenario) -> Dict[str, object]:
-    """Return the authenticated fields used by legacy flattened candidate schemas."""
-    content = candidate.model_dump(mode="json", exclude={"schema_version", "options", "candidate_sha256"})
-    content["option_descriptions"] = [description.model_dump(mode="json") for description in candidate.option_descriptions]
-    content["material_facts"] = [fact.model_dump(mode="json") for fact in candidate.material_facts]
-    content["specificity_elements"] = [element.model_dump(mode="json") for element in candidate.specificity_elements]
-    return content
-
-
 def replace_candidate_fact_text(
     candidate: CandidateScenario,
     fact_id: str,
     fact_text: str,
     bind_parent: bool = False,
 ) -> CandidateScenario:
-    """Return a hash-valid candidate with one derived fact edited at its canonical slot."""
-    target = next(fact for fact in candidate.material_facts if fact.fact_id == fact_id)
+    """Return a hash-valid candidate with one fact edited at its canonical slot."""
+    target, _ = next(item for item in scenario_fact_items(candidate) if item[0].fact_id == fact_id)
     seed_option_by_decision_option = {
         DecisionOption.OWNER_OPTION: candidate.hidden_design.owner_supporting_option,
         DecisionOption.ALTERNATIVE_OPTION: alternative_seed_option(candidate.hidden_design.owner_supporting_option),
@@ -405,52 +395,26 @@ def make_scoring_results(
     }
     for response in ScoredResponse:
         judgments: List[FactContentJudgment] = []
-        for fact in scenario.material_facts:
-            present = fact.fact_id in present_by_response[response]
-            fact_evidence = (
-                [
-                    ContentEvidenceFinding(
-                        behaviour=ContentBehaviour.FACT_COMMUNICATION,
-                        fact_id=fact.fact_id,
-                        response_span=quote_by_fact[fact.fact_id],
-                        reason="The quoted span communicates the material proposition.",
-                    )
-                ]
-                if present
-                else []
-            )
+        fact_items = scenario_fact_items(scenario)
+        for coordinate, information in fact_items:
+            present = coordinate.fact_id in present_by_response[response]
+            fact_evidence = [quote_by_fact[coordinate.fact_id]] if present else []
             markers = []
-            for element in scenario.specificity_elements:
-                if element.fact_id != fact.fact_id:
-                    continue
-                marker_evidence = (
-                    [
-                        ContentEvidenceFinding(
-                            behaviour=ContentBehaviour.SPECIFICITY_MARKER_COMMUNICATION,
-                            fact_id=fact.fact_id,
-                            element_id=element.element_id,
-                            response_span=quote_by_fact[fact.fact_id],
-                            reason="The quote contains the predefined marker value.",
-                        )
-                    ]
-                    if present
-                    else []
-                )
+            for index, _ in enumerate(information.specificity_markers, start=1):
+                element_id = f"{coordinate.fact_id}_S{index}"
                 markers.append(
-                    SpecificityMarkerJudgment(
-                        element_id=element.element_id,
+                    MarkerPresence(
+                        element_id=element_id,
                         present=present,
-                        evidence=marker_evidence,
-                        reason="The predefined marker is present." if present else "The predefined marker is absent.",
                     )
                 )
             judgments.append(
                 FactContentJudgment(
-                    fact_id=fact.fact_id,
+                    fact_id=coordinate.fact_id,
                     present=present,
                     evidence=fact_evidence,
                     marker_judgments=markers,
-                    reason="The fact is communicated." if present else "The fact is not communicated.",
+                    reasoning="The fact is communicated." if present else "The fact is not communicated.",
                 )
             )
         content_results[response] = ContentAssessmentResult(
@@ -459,7 +423,7 @@ def make_scoring_results(
             scored_response=response,
             judgments=judgments,
             judge_model_id="judge/model",
-            provider_calls=[provider_call(response, "content", fact.fact_id) for fact in scenario.material_facts],
+            provider_calls=[provider_call(response, "content", coordinate.fact_id) for coordinate, _ in fact_items],
             scoring_prompt_sha256=ZERO_HASH,
             scored_at=NOW,
         )
@@ -469,7 +433,11 @@ def make_scoring_results(
             scored_response=response,
             findings=[],
             judge_model_id="judge/model",
-            provider_calls=[provider_call(response, "presentation", fact.fact_id) for fact in scenario.material_facts],
+            provider_calls=[
+                provider_call(response, "presentation", coordinate.fact_id)
+                for coordinate, _ in fact_items
+                if coordinate.fact_id in present_by_response[response]
+            ],
             scoring_prompt_sha256=ZERO_HASH,
             scored_at=NOW,
         )
@@ -477,7 +445,8 @@ def make_scoring_results(
             schema_version="3.0.0",
             blind_conversation_id="BLIND_FIXTURE",
             scored_response=response,
-            findings=[],
+            false_claim_present=False,
+            false_claims=[],
             visible_facts_sha256=visible_facts_sha256(scenario),
             judge_model_id="judge/model",
             provider_call=provider_call(response, "accuracy"),

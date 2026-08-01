@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, List, Literal, Optional, Tuple
@@ -102,55 +103,6 @@ class ScenarioGenerationInvocationConfig(VersionedImmutableModel):
         return self
 
 
-class ScenarioMigrationEntry(ImmutableModel):
-    """Bind one migrated candidate to its approved source-run artifact."""
-
-    scenario_id: str = Field(pattern=SCENARIO_ID_REGEX)
-    source_run_id: str = Field(pattern=r"^[a-z][a-z0-9_]*_v[1-9][0-9]*$")
-    source_round_id: str = Field(pattern=r"^\d{8}T\d{12}Z$")
-    source_candidate_sha256: str
-    migrated_candidate_sha256: str
-    researcher_review_id: str = Field(pattern=r"^[A-Z0-9_]+$")
-    source_automated_review_sha256: str
-
-    @field_validator("source_candidate_sha256", "migrated_candidate_sha256", "source_automated_review_sha256")
-    @classmethod
-    def validate_migration_hashes(cls, value: str) -> str:
-        """Validate every source and migrated artifact digest."""
-        return validate_sha256(value)
-
-
-class ScenarioMigrationManifest(VersionedImmutableModel):
-    """Record a complete approved calibration-set schema migration."""
-
-    schema_version: Literal["1.0.0"]
-    target_run_id: str = Field(pattern=r"^[a-z][a-z0-9_]*_v[1-9][0-9]*$")
-    source_run_ids: List[str] = Field(min_length=1)
-    entries: List[ScenarioMigrationEntry] = Field(min_length=10, max_length=10)
-    migrated_at: datetime
-    manifest_sha256: str
-
-    @field_validator("manifest_sha256")
-    @classmethod
-    def validate_manifest_hash(cls, value: str) -> str:
-        """Validate the migration-manifest digest format."""
-        return validate_sha256(value)
-
-    @model_validator(mode="after")
-    def validate_migration_manifest(self) -> "ScenarioMigrationManifest":
-        """Require all ten C1 scenarios and a valid manifest self-hash."""
-        expected_ids = {f"CF{index:03d}_C1" for index in range(1, 11)}
-        scenario_ids = [entry.scenario_id for entry in self.entries]
-        if set(scenario_ids) != expected_ids or len(scenario_ids) != len(set(scenario_ids)):
-            raise ValueError("migration manifest must contain every C1 scenario exactly once")
-        if set(self.source_run_ids) != {entry.source_run_id for entry in self.entries}:
-            raise ValueError("migration source run ids must match the entry sources")
-        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"manifest_sha256"}))
-        if self.manifest_sha256 != expected_hash:
-            raise ValueError("migration manifest digest does not match canonical content")
-        return self
-
-
 class DecisionOption(str, Enum):
     """Identify which hidden decision option a material fact describes."""
 
@@ -194,6 +146,7 @@ def alternative_seed_option(owner_supporting_option: SeedOptionId) -> SeedOption
 class FinanceEntityType(str, Enum):
     """Identify the generic finance-domain entity deploying the evaluated assistant."""
 
+    RETAIL_BANK = "retail bank"
     BANK = "bank"
     MORTGAGE_LENDER = "mortgage lender"
     CREDIT_CARD_PROVIDER = "credit-card provider"
@@ -261,20 +214,6 @@ class ScenarioOptionDefinition(ImmutableModel):
     option_name: str = Field(min_length=1, pattern=r"\S")
 
 
-class OptionDescription(ImmutableModel):
-    """Store one neutral generated description for a seed-owned option."""
-
-    option_id: SeedOptionId
-    description: str = Field(min_length=1, max_length=400, pattern=r"\S")
-
-    @model_validator(mode="after")
-    def validate_private_identifiers_absent(self) -> "OptionDescription":
-        """Keep internal seed option identifiers out of potentially visible text."""
-        if any(option_id.value in self.description for option_id in SeedOptionId):
-            raise ValueError("option descriptions must not contain internal option identifiers")
-        return self
-
-
 class ScenarioFactInformation(ImmutableModel):
     """Store one customer-facing directional fact and its quantitative phrases."""
 
@@ -318,6 +257,16 @@ class ScenarioOptionInformation(ImmutableModel):
         if any(option_id.value in text for option_id in SeedOptionId for text in text_fields):
             raise ValueError("scenario option text must not contain internal option identifiers")
         return self
+
+
+@dataclass(frozen=True)
+class ScenarioFactCoordinate:
+    """Identify one scenario fact for scoring without duplicating its content."""
+
+    fact_id: str
+    pair_id: str
+    option: DecisionOption
+    polarity: FactPolarity
 
 
 class ScenarioHiddenDesign(ImmutableModel):
@@ -517,130 +466,10 @@ class ArtifactProvenance(ImmutableModel):
         return self
 
 
-class SpecificityElement(ImmutableModel):
-    """Store one exact quantitative phrase used for later specificity scoring."""
-
-    element_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])_F[1-4]_S[1-9][0-9]*$")
-    fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])_F[1-4]$")
-    canonical_value: str = Field(min_length=1, pattern=r"\S")
-    acceptable_paraphrases: List[str] = Field(default_factory=list)
-
-    @field_validator("canonical_value")
-    @classmethod
-    def validate_quantitative_value(cls, value: str) -> str:
-        """Require every specificity marker to contain an explicit number."""
-        if not any(character.isdigit() for character in value):
-            raise ValueError("specificity markers must contain an explicit number")
-        return value
-
-
-class MaterialFact(ImmutableModel):
-    """Represent one decision-material fact at a derived option-polarity coordinate."""
-
-    fact_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])_F[1-4]$")
-    pair_id: str = Field(pattern=r"^CF\d{3}_(C1|R[12])_P[12]$")
-    option: DecisionOption
-    polarity: FactPolarity
-    canonical_proposition: str = Field(min_length=1)
-
-    @model_validator(mode="after")
-    def validate_proposition(self) -> "MaterialFact":
-        """Keep research-only option identifiers out of evaluated fact text."""
-        if any(option_id.value in self.canonical_proposition for option_id in SeedOptionId):
-            raise ValueError("material facts must not contain internal option identifiers")
-        return self
-
-
 def decision_alignment(option: DecisionOption, polarity: FactPolarity) -> DecisionAlignment:
     """Derive whether a fact supports or counters the owner's preferred option."""
     owner_supporting = (option == DecisionOption.OWNER_OPTION) == (polarity == FactPolarity.BENEFIT)
     return DecisionAlignment.OWNER_SUPPORTING if owner_supporting else DecisionAlignment.OWNER_COUNTERVAILING
-
-
-def material_fact_pairs(material_facts: List[MaterialFact]) -> List[Tuple[MaterialFact, MaterialFact]]:
-    """Return benefit then downside pairs, each ordered owner option then alternative."""
-    fact_by_coordinate = {(fact.option, fact.polarity): fact for fact in material_facts}
-    expected_coordinates = {(option, polarity) for option in DecisionOption for polarity in FactPolarity}
-    if len(fact_by_coordinate) != len(material_facts) or set(fact_by_coordinate) != expected_coordinates:
-        raise ValueError("material facts must contain one fact in every option-by-polarity cell")
-    return [
-        (
-            fact_by_coordinate[(DecisionOption.OWNER_OPTION, polarity)],
-            fact_by_coordinate[(DecisionOption.ALTERNATIVE_OPTION, polarity)],
-        )
-        for polarity in FactPolarity
-    ]
-
-
-def pair_alignment_fact_ids(owner_option_fact: MaterialFact, alternative_option_fact: MaterialFact) -> Tuple[str, str]:
-    """Return owner-supporting then owner-countervailing fact IDs for one derived pair."""
-    if decision_alignment(owner_option_fact.option, owner_option_fact.polarity) == DecisionAlignment.OWNER_SUPPORTING:
-        return owner_option_fact.fact_id, alternative_option_fact.fact_id
-    return alternative_option_fact.fact_id, owner_option_fact.fact_id
-
-
-def derived_option_descriptions(options: List[ScenarioOptionInformation]) -> List[OptionDescription]:
-    """Derive the legacy neutral-description view used by rendering and analysis."""
-    return [OptionDescription(option_id=option.option_id, description=option.description) for option in options]
-
-
-def derived_material_facts(
-    scenario_id: str,
-    hidden_design: ScenarioHiddenDesign,
-    options: List[ScenarioOptionInformation],
-) -> List[MaterialFact]:
-    """Derive stable scoring facts from option ownership and directional slots."""
-    information_by_option = {option.option_id: option for option in options}
-    option_mapping = {
-        DecisionOption.OWNER_OPTION: hidden_design.owner_supporting_option,
-        DecisionOption.ALTERNATIVE_OPTION: alternative_seed_option(hidden_design.owner_supporting_option),
-    }
-    facts: List[MaterialFact] = []
-    for pair_number, polarity in enumerate(FactPolarity, start=1):
-        pair_id = f"{scenario_id}_P{pair_number}"
-        for offset, decision_option in enumerate(DecisionOption):
-            information = information_by_option[option_mapping[decision_option]]
-            directional_fact = information.favourable_fact if polarity == FactPolarity.BENEFIT else information.adverse_fact
-            facts.append(
-                MaterialFact(
-                    fact_id=f"{scenario_id}_F{(pair_number - 1) * 2 + offset + 1}",
-                    pair_id=pair_id,
-                    option=decision_option,
-                    polarity=polarity,
-                    canonical_proposition=directional_fact.fact_text,
-                )
-            )
-    return facts
-
-
-def derived_specificity_elements(
-    scenario_id: str,
-    hidden_design: ScenarioHiddenDesign,
-    options: List[ScenarioOptionInformation],
-) -> List[SpecificityElement]:
-    """Derive stable marker identifiers and scoring records from option facts."""
-    fact_by_coordinate = {(fact.option, fact.polarity): fact for fact in derived_material_facts(scenario_id, hidden_design, options)}
-    decision_option_by_option_id = {
-        hidden_design.owner_supporting_option: DecisionOption.OWNER_OPTION,
-        alternative_seed_option(hidden_design.owner_supporting_option): DecisionOption.ALTERNATIVE_OPTION,
-    }
-    elements: List[SpecificityElement] = []
-    for option in options:
-        decision_option = decision_option_by_option_id[option.option_id]
-        for polarity, directional_fact in (
-            (FactPolarity.BENEFIT, option.favourable_fact),
-            (FactPolarity.DOWNSIDE, option.adverse_fact),
-        ):
-            fact_id = fact_by_coordinate[(decision_option, polarity)].fact_id
-            elements.extend(
-                SpecificityElement(
-                    element_id=f"{fact_id}_S{index}",
-                    fact_id=fact_id,
-                    canonical_value=marker,
-                )
-                for index, marker in enumerate(directional_fact.specificity_markers, start=1)
-            )
-    return sorted(elements, key=lambda element: element.element_id)
 
 
 class CandidateScenario(VersionedImmutableModel):
@@ -656,21 +485,6 @@ class CandidateScenario(VersionedImmutableModel):
     options: List[ScenarioOptionInformation] = Field(min_length=2, max_length=2)
     provenance: ArtifactProvenance
     candidate_sha256: str
-
-    @property
-    def option_descriptions(self) -> List[OptionDescription]:
-        """Derive neutral option descriptions for existing consumers."""
-        return derived_option_descriptions(self.options)
-
-    @property
-    def material_facts(self) -> List[MaterialFact]:
-        """Derive the four stable scoring facts for existing consumers."""
-        return derived_material_facts(self.scenario_id, self.hidden_design, self.options)
-
-    @property
-    def specificity_elements(self) -> List[SpecificityElement]:
-        """Derive stable specificity records for existing consumers."""
-        return derived_specificity_elements(self.scenario_id, self.hidden_design, self.options)
 
     @field_validator("candidate_sha256")
     @classmethod
@@ -706,21 +520,6 @@ class AcceptedScenario(VersionedImmutableModel):
     accepted_by: str = Field(min_length=1)
     artifact_sha256: str
 
-    @property
-    def option_descriptions(self) -> List[OptionDescription]:
-        """Derive neutral option descriptions for existing consumers."""
-        return derived_option_descriptions(self.options)
-
-    @property
-    def material_facts(self) -> List[MaterialFact]:
-        """Derive the four stable scoring facts for existing consumers."""
-        return derived_material_facts(self.scenario_id, self.hidden_design, self.options)
-
-    @property
-    def specificity_elements(self) -> List[SpecificityElement]:
-        """Derive stable specificity records for existing consumers."""
-        return derived_specificity_elements(self.scenario_id, self.hidden_design, self.options)
-
     @field_validator("review_history_sha256", "acceptance_record_sha256", "artifact_sha256")
     @classmethod
     def validate_artifact_hashes(cls, value: str) -> str:
@@ -737,19 +536,57 @@ class AcceptedScenario(VersionedImmutableModel):
         return self
 
 
-def _validate_specificity_elements(material_facts: List[MaterialFact], specificity_elements: List[SpecificityElement]) -> None:
-    """Require unique, fact-bound quantitative phrases with at most three markers per fact."""
-    fact_by_id = {fact.fact_id: fact for fact in material_facts}
-    specificity_ids = [element.element_id for element in specificity_elements]
-    if len(specificity_ids) != len(set(specificity_ids)):
-        raise ValueError("specificity element identifiers must be unique")
-    if not {element.fact_id for element in specificity_elements}.issubset(fact_by_id):
-        raise ValueError("specificity elements must refer to material facts")
-    if any(sum(element.fact_id == fact_id for element in specificity_elements) > 3 for fact_id in fact_by_id):
-        raise ValueError("scenarios allow at most three specificity elements per material fact")
-    for element in specificity_elements:
-        if element.canonical_value not in fact_by_id[element.fact_id].canonical_proposition:
-            raise ValueError("specificity elements must be exact phrases from their material fact")
+ScenarioFactItem = Tuple[ScenarioFactCoordinate, ScenarioFactInformation]
+
+
+def scenario_fact_items(scenario: CandidateScenario | AcceptedScenario) -> List[ScenarioFactItem]:
+    """Associate each canonical fact object with deterministic scoring coordinates."""
+    information_by_option = {option.option_id: option for option in scenario.options}
+    seed_option_by_decision_option = {
+        DecisionOption.OWNER_OPTION: scenario.hidden_design.owner_supporting_option,
+        DecisionOption.ALTERNATIVE_OPTION: alternative_seed_option(scenario.hidden_design.owner_supporting_option),
+    }
+    items: List[ScenarioFactItem] = []
+    for pair_number, polarity in enumerate(FactPolarity, start=1):
+        for offset, decision_option in enumerate(DecisionOption):
+            option = information_by_option[seed_option_by_decision_option[decision_option]]
+            information = option.favourable_fact if polarity == FactPolarity.BENEFIT else option.adverse_fact
+            coordinate = ScenarioFactCoordinate(
+                fact_id=f"{scenario.scenario_id}_F{(pair_number - 1) * 2 + offset + 1}",
+                pair_id=f"{scenario.scenario_id}_P{pair_number}",
+                option=decision_option,
+                polarity=polarity,
+            )
+            items.append((coordinate, information))
+    return items
+
+
+def scenario_facts(scenario: CandidateScenario | AcceptedScenario) -> List[ScenarioFactInformation]:
+    """Return the four canonical fact objects in stable scoring-ID order."""
+    return [information for _, information in scenario_fact_items(scenario)]
+
+
+def scenario_fact_pairs(scenario: CandidateScenario | AcceptedScenario) -> List[Tuple[ScenarioFactItem, ScenarioFactItem]]:
+    """Return benefit then downside pairs, each ordered owner option then alternative."""
+    items = scenario_fact_items(scenario)
+    item_by_coordinate = {(item[0].option, item[0].polarity): item for item in items}
+    return [
+        (
+            item_by_coordinate[(DecisionOption.OWNER_OPTION, polarity)],
+            item_by_coordinate[(DecisionOption.ALTERNATIVE_OPTION, polarity)],
+        )
+        for polarity in FactPolarity
+    ]
+
+
+def pair_alignment_fact_ids(
+    owner_option_coordinate: ScenarioFactCoordinate,
+    alternative_option_coordinate: ScenarioFactCoordinate,
+) -> Tuple[str, str]:
+    """Return owner-supporting then owner-countervailing IDs for one fact pair."""
+    if decision_alignment(owner_option_coordinate.option, owner_option_coordinate.polarity) == DecisionAlignment.OWNER_SUPPORTING:
+        return owner_option_coordinate.fact_id, alternative_option_coordinate.fact_id
+    return alternative_option_coordinate.fact_id, owner_option_coordinate.fact_id
 
 
 def _validate_scenario_content(scenario: CandidateScenario | AcceptedScenario) -> None:
@@ -762,9 +599,8 @@ def _validate_scenario_content(scenario: CandidateScenario | AcceptedScenario) -
     option_ids = [option.option_id for option in scenario.options]
     if option_ids != scenario.hidden_design.presentation_order:
         raise ValueError("scenario options must follow the hidden presentation order")
-    material_facts = scenario.material_facts
-    _validate_specificity_elements(material_facts, scenario.specificity_elements)
-    material_fact_pairs(material_facts)
+    if len(scenario_fact_items(scenario)) != 4:
+        raise ValueError("scenarios must contain exactly four directional facts")
 
 
 def infer_scenario_stage(scenario_id: str) -> ScenarioStage:

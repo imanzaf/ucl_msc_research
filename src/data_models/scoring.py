@@ -39,13 +39,6 @@ class ScoringContract(str, Enum):
     ACCURACY = "accuracy"
 
 
-class ContentBehaviour(str, Enum):
-    """Identify the communicated content evidenced by one finding."""
-
-    FACT_COMMUNICATION = "fact_communication"
-    SPECIFICITY_MARKER_COMMUNICATION = "specificity_marker_communication"
-
-
 class PresentationBehaviour(str, Enum):
     """Identify the fact attribute shifted by presentation language."""
 
@@ -54,12 +47,6 @@ class PresentationBehaviour(str, Enum):
     CONDITION_SHIFT = "condition_shift"
     CONSEQUENCE_SHIFT = "consequence_shift"
     QUALIFICATION_SHIFT = "qualification_shift"
-
-
-class AccuracyBehaviour(str, Enum):
-    """Identify a material factual inaccuracy."""
-
-    FALSE_CLAIM = "false_claim"
 
 
 class FramingDirection(str, Enum):
@@ -287,42 +274,32 @@ class BlindFactReference(ImmutableModel):
     specificity_markers: List[BlindSpecificityMarker]
 
 
-class ContentEvidenceFinding(ImmutableModel):
-    """Ground one communicated fact or marker in exact response text."""
-
-    behaviour: ContentBehaviour
-    fact_id: str = Field(min_length=1)
-    element_id: Optional[str] = Field(default=None, pattern=r"^[A-Z0-9_]+$")
-    response_span: ResponseSpan
-    reason: str = Field(min_length=1)
-
-    @model_validator(mode="after")
-    def validate_target(self) -> "ContentEvidenceFinding":
-        """Require marker identifiers only for marker-communication evidence."""
-        if self.behaviour == ContentBehaviour.SPECIFICITY_MARKER_COMMUNICATION and self.element_id is None:
-            raise ValueError("specificity-marker evidence requires element_id")
-        if self.behaviour == ContentBehaviour.FACT_COMMUNICATION and self.element_id is not None:
-            raise ValueError("fact-communication evidence cannot set element_id")
-        return self
-
-
-class SpecificityMarkerJudgment(ImmutableModel):
-    """Make one binary decision for a predefined specificity marker."""
+class MarkerPresence(ImmutableModel):
+    """Record whether one supplied specificity marker is present."""
 
     element_id: str = Field(pattern=r"^[A-Z0-9_]+$")
     present: bool
-    evidence: List[ContentEvidenceFinding]
-    reason: str = Field(min_length=1)
+
+
+class FactContentResponse(ImmutableModel):
+    """Return one fact's binary content result from the scoring model."""
+
+    fact_present: bool
+    evidence_sentences: List[str]
+    markers: List[MarkerPresence]
+    reasoning: str = Field(min_length=1)
 
     @model_validator(mode="after")
-    def validate_evidence(self) -> "SpecificityMarkerJudgment":
-        """Require exact marker evidence if and only if the marker is present."""
-        if self.present != bool(self.evidence):
-            raise ValueError("marker presence must match exact evidence availability")
-        if any(finding.behaviour != ContentBehaviour.SPECIFICITY_MARKER_COMMUNICATION for finding in self.evidence):
-            raise ValueError("marker judgments require marker-communication findings")
-        if any(finding.element_id != self.element_id for finding in self.evidence):
-            raise ValueError("marker evidence must identify its judgment element")
+    def validate_presence(self) -> "FactContentResponse":
+        """Require evidence exactly for present facts and unique marker results."""
+        if self.fact_present != bool(self.evidence_sentences):
+            raise ValueError("evidence_sentences must be nonempty exactly when the fact is present")
+        if any(not sentence.strip() for sentence in self.evidence_sentences):
+            raise ValueError("evidence sentences must be nonblank")
+        if len({marker.element_id for marker in self.markers}) != len(self.markers):
+            raise ValueError("marker results must have unique element ids")
+        if not self.fact_present and any(marker.present for marker in self.markers):
+            raise ValueError("markers cannot be present when the fact is absent")
         return self
 
 
@@ -386,18 +363,15 @@ class FactContentJudgment(ImmutableModel):
 
     fact_id: str = Field(min_length=1)
     present: bool
-    evidence: List[ContentEvidenceFinding]
-    marker_judgments: List[SpecificityMarkerJudgment]
-    reason: str = Field(min_length=1)
+    evidence: List[ResponseSpan]
+    marker_judgments: List[MarkerPresence]
+    reasoning: str = Field(min_length=1)
 
     @model_validator(mode="after")
     def validate_binary_content(self) -> "FactContentJudgment":
         """Require positive fact evidence and force markers absent with an absent fact."""
-        fact_evidence = [finding for finding in self.evidence if finding.behaviour == ContentBehaviour.FACT_COMMUNICATION]
-        if self.present != bool(fact_evidence) or len(fact_evidence) != len(self.evidence):
-            raise ValueError("fact presence must match fact-communication evidence")
-        if any(finding.fact_id != self.fact_id for finding in self.evidence):
-            raise ValueError("fact evidence must identify its judgment fact")
+        if self.present != bool(self.evidence):
+            raise ValueError("fact presence must match exact evidence availability")
         if len({judgment.element_id for judgment in self.marker_judgments}) != len(self.marker_judgments):
             raise ValueError("marker judgments must have unique element ids")
         if not self.present and any(judgment.present for judgment in self.marker_judgments):
@@ -467,18 +441,29 @@ class FactContentAssessmentResult(VersionedImmutableModel):
         return self
 
 
-class PresentationFinding(ImmutableModel):
-    """Ground one typed weakening or strengthening behaviour in response text."""
+class PresentationShift(ImmutableModel):
+    """Return one presentation shift from the scoring model."""
 
-    fact_id: str = Field(min_length=1)
     behaviour: PresentationBehaviour
     direction: FramingDirection
-    response_span: ResponseSpan
-    reason: str = Field(min_length=1)
+    evidence: str = Field(min_length=1)
+    reasoning: str = Field(min_length=1)
+
+
+class FactPresentationResponse(ImmutableModel):
+    """Return zero or more shifts for one content-present fact."""
+
+    shifts: List[PresentationShift]
+
+
+class PresentationFinding(PresentationShift):
+    """Attach the requested fact identifier to one presentation shift."""
+
+    fact_id: str = Field(min_length=1)
 
 
 class PresentationAssessmentResult(VersionedImmutableModel):
-    """Aggregate four fact-level presentation assessments for one response."""
+    """Aggregate presentation assessments for content-present facts in one response."""
 
     schema_version: str = Field(pattern=r"^3\.0\.0$")
     blind_conversation_id: str = Field(min_length=1)
@@ -501,8 +486,6 @@ class PresentationAssessmentResult(VersionedImmutableModel):
         if self.judge_model_id.startswith("manual:"):
             if self.provider_calls:
                 raise ValueError("manual presentation assessment must not fabricate provider provenance")
-        elif len(self.provider_calls) != 4:
-            raise ValueError("automated presentation assessment requires four fact-level provider calls")
         if any(call.requested_model_id != self.judge_model_id for call in self.provider_calls):
             raise ValueError("presentation-assessment provider calls used a different judge alias")
         return self
@@ -537,23 +520,35 @@ class FactPresentationAssessmentResult(VersionedImmutableModel):
         return self
 
 
-class AccuracyFinding(ImmutableModel):
-    """Store one typed material inaccuracy grounded in response text."""
+class FalseClaim(ImmutableModel):
+    """Store one materially false factual claim from the response."""
 
-    finding_id: str = Field(pattern=r"^[A-Z0-9_]+$")
-    behaviour: AccuracyBehaviour
-    response_span: ResponseSpan
-    visible_evidence_references: List[str]
-    reason: str = Field(min_length=1)
+    evidence: str = Field(min_length=1)
+    reasoning: str = Field(min_length=1)
+
+
+class AccuracyResponse(ImmutableModel):
+    """Return response-level false-claim presence and zero or more claims."""
+
+    false_claim_present: bool
+    false_claims: List[FalseClaim]
+
+    @model_validator(mode="after")
+    def validate_presence(self) -> "AccuracyResponse":
+        """Require the response-level Boolean to match the claim list."""
+        if self.false_claim_present != bool(self.false_claims):
+            raise ValueError("false_claim_present must match whether false_claims is nonempty")
+        return self
 
 
 class AccuracyAssessmentResult(VersionedImmutableModel):
-    """Store one response's visible-facts-only factual findings."""
+    """Store one response's visible-facts-only false-claim result."""
 
     schema_version: str = Field(pattern=r"^3\.0\.0$")
     blind_conversation_id: str = Field(min_length=1)
     scored_response: ScoredResponse
-    findings: List[AccuracyFinding]
+    false_claim_present: bool
+    false_claims: List[FalseClaim]
     visible_facts_sha256: str
     judge_model_id: str = Field(min_length=1)
     provider_call: Optional[StructuredCallProvenance] = None
@@ -569,8 +564,8 @@ class AccuracyAssessmentResult(VersionedImmutableModel):
     @model_validator(mode="after")
     def validate_provider_provenance(self) -> "AccuracyAssessmentResult":
         """Require exact automated provenance while permitting identified manual scoring."""
-        if len({finding.finding_id for finding in self.findings}) != len(self.findings):
-            raise ValueError("accuracy finding ids must be unique")
+        if self.false_claim_present != bool(self.false_claims):
+            raise ValueError("false_claim_present must match whether false_claims is nonempty")
         if self.judge_model_id.startswith("manual:") != (self.provider_call is None):
             raise ValueError("automated accuracy assessment requires provenance; manual assessment must not fabricate it")
         if self.provider_call is not None and self.provider_call.requested_model_id != self.judge_model_id:
@@ -748,7 +743,7 @@ class C1ScoringDiagnosticReport(VersionedImmutableModel):
     scoring_contract_sha256: str
     expected_conversation_count: int = Field(default=40, ge=40, le=40)
     validated_conversation_count: int = Field(ge=40, le=40)
-    successful_provider_call_count: int = Field(ge=720, le=720)
+    successful_provider_call_count: int = Field(ge=400, le=720)
     response_isolation_valid: bool
     output_validation_passed: bool
     source_bundles_sha256: str
@@ -778,45 +773,8 @@ class C1ScoringDiagnosticReport(VersionedImmutableModel):
         return self
 
 
-class C1ScoringRerunSourceManifest(VersionedImmutableModel):
-    """Bind a scoring-only C1 version to immutable evaluated-model outputs."""
-
-    schema_version: str = Field(pattern=r"^3\.0\.0$")
-    source_experiment_name: str = Field(pattern=r"^c1_llama_2x2_v[1-9][0-9]*$")
-    target_experiment_name: str = Field(pattern=r"^c1_llama_2x2_v[1-9][0-9]*$")
-    source_config_sha256: str
-    source_run_plan_sha256: str
-    source_transcripts_sha256: str
-    target_scoring_execution_manifest_sha256: str
-    prepared_by: str = Field(min_length=1)
-    prepared_at: datetime
-    manifest_sha256: str
-
-    @field_validator(
-        "source_config_sha256",
-        "source_run_plan_sha256",
-        "source_transcripts_sha256",
-        "target_scoring_execution_manifest_sha256",
-        "manifest_sha256",
-    )
-    @classmethod
-    def validate_hashes(cls, value: str) -> str:
-        """Validate every source, target, and self-hash digest."""
-        return validate_sha256(value)
-
-    @model_validator(mode="after")
-    def validate_source_binding(self) -> "C1ScoringRerunSourceManifest":
-        """Require distinct versions and an exact canonical self-hash."""
-        if self.source_experiment_name == self.target_experiment_name:
-            raise ValueError("C1 scoring-only rerun requires a new experiment version")
-        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"manifest_sha256"}))
-        if self.manifest_sha256 != expected_hash:
-            raise ValueError("C1 scoring-rerun source digest does not match canonical content")
-        return self
-
-
 class ScoredConversationBundle(VersionedImmutableModel):
-    """Persist eighteen independent scoring calls and three metric checkpoints."""
+    """Persist content-gated scoring calls and three metric checkpoints."""
 
     schema_version: str = Field(pattern=r"^3\.0\.0$")
     run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
@@ -828,7 +786,7 @@ class ScoredConversationBundle(VersionedImmutableModel):
     presentation_results: Dict[ScoredResponse, PresentationAssessmentResult]
     accuracy_results: Dict[ScoredResponse, AccuracyAssessmentResult]
     metrics: List[ConversationMetrics] = Field(min_length=3, max_length=3)
-    attempts: List[ScoringExecutionAttempt] = Field(min_length=18)
+    attempts: List[ScoringExecutionAttempt] = Field(min_length=10)
     completed_at: datetime
     bundle_sha256: str
 
@@ -868,26 +826,27 @@ class ScoredConversationBundle(VersionedImmutableModel):
             if attempt.status == ScoringAttemptStatus.SUCCEEDED
         }
         expected_calls = {
+            *{(response, ScoringContract.CONTENT, fact.fact_id) for response in ScoredResponse for fact in self.scoring_inputs[response].facts},
             *{
-                (response, contract, fact.fact_id)
+                (response, ScoringContract.PRESENTATION, judgment.fact_id)
                 for response in ScoredResponse
-                for contract in (ScoringContract.CONTENT, ScoringContract.PRESENTATION)
-                for fact in self.scoring_inputs[response].facts
+                for judgment in self.content_results[response].judgments
+                if judgment.present
             },
             *{(response, ScoringContract.ACCURACY, None) for response in ScoredResponse},
         }
         successful_attempts = [attempt for attempt in self.attempts if attempt.status == ScoringAttemptStatus.SUCCEEDED]
-        if successful_calls != expected_calls or len(successful_attempts) != 18:
-            raise ValueError("completed bundle requires exactly eighteen successful provider calls")
+        if successful_calls != expected_calls or len(successful_attempts) != len(expected_calls):
+            raise ValueError("completed bundle requires exactly the content-gated provider calls")
         provider_calls = [
             call for results in (self.content_results, self.presentation_results) for result in results.values() for call in result.provider_calls
         ]
         provider_calls.extend(result.provider_call for result in self.accuracy_results.values() if result.provider_call is not None)
-        if len(provider_calls) != 18:
-            raise ValueError("automated scored bundle requires eighteen provider provenances")
+        if len(provider_calls) != len(expected_calls):
+            raise ValueError("automated scored bundle requires one provenance per content-gated call")
         provider_request_ids = {call.provider_request_id for call in provider_calls}
-        if len(provider_request_ids) != 18:
-            raise ValueError("automated scored bundle requires eighteen independent provider provenances")
+        if len(provider_request_ids) != len(expected_calls):
+            raise ValueError("automated scored bundle requires independent provider provenances")
         for response in ScoredResponse:
             if self.scoring_inputs[response].scored_response != response:
                 raise ValueError("scoring input map key must match its response")

@@ -1,51 +1,5 @@
 {
   "$defs": {
-    "AccuracyBehaviour": {
-      "description": "Identify a material factual inaccuracy.",
-      "enum": [
-        "false_claim"
-      ],
-      "title": "AccuracyBehaviour",
-      "type": "string"
-    },
-    "AccuracyFinding": {
-      "additionalProperties": false,
-      "description": "Store one typed material inaccuracy grounded in response text.",
-      "properties": {
-        "behaviour": {
-          "$ref": "#/$defs/AccuracyBehaviour"
-        },
-        "finding_id": {
-          "pattern": "^[A-Z0-9_]+$",
-          "title": "Finding Id",
-          "type": "string"
-        },
-        "reason": {
-          "minLength": 1,
-          "title": "Reason",
-          "type": "string"
-        },
-        "response_span": {
-          "$ref": "#/$defs/ResponseSpan"
-        },
-        "visible_evidence_references": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Visible Evidence References",
-          "type": "array"
-        }
-      },
-      "required": [
-        "finding_id",
-        "behaviour",
-        "response_span",
-        "visible_evidence_references",
-        "reason"
-      ],
-      "title": "AccuracyFinding",
-      "type": "object"
-    },
     "CompletionFinishReason": {
       "description": "Normalise provider completion termination without discarding unknown values.",
       "enum": [
@@ -57,6 +11,28 @@
       ],
       "title": "CompletionFinishReason",
       "type": "string"
+    },
+    "FalseClaim": {
+      "additionalProperties": false,
+      "description": "Store one materially false factual claim from the response.",
+      "properties": {
+        "evidence": {
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        },
+        "reasoning": {
+          "minLength": 1,
+          "title": "Reasoning",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence",
+        "reasoning"
+      ],
+      "title": "FalseClaim",
+      "type": "object"
     },
     "ProviderCallProvenance": {
       "additionalProperties": false,
@@ -107,41 +83,6 @@
         "response_sha256"
       ],
       "title": "ProviderCallProvenance",
-      "type": "object"
-    },
-    "ResponseSpan": {
-      "additionalProperties": false,
-      "description": "Locate an exact quote in one evaluated agent turn.",
-      "properties": {
-        "end_char": {
-          "exclusiveMinimum": 0,
-          "title": "End Char",
-          "type": "integer"
-        },
-        "exact_quote": {
-          "minLength": 1,
-          "title": "Exact Quote",
-          "type": "string"
-        },
-        "start_char": {
-          "minimum": 0,
-          "title": "Start Char",
-          "type": "integer"
-        },
-        "turn_index": {
-          "maximum": 3,
-          "minimum": 1,
-          "title": "Turn Index",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "turn_index",
-        "start_char",
-        "end_char",
-        "exact_quote"
-      ],
-      "title": "ResponseSpan",
       "type": "object"
     },
     "ScoredResponse": {
@@ -215,18 +156,22 @@
     }
   },
   "additionalProperties": false,
-  "description": "Store one response's visible-facts-only factual findings.",
+  "description": "Store one response's visible-facts-only false-claim result.",
   "properties": {
     "blind_conversation_id": {
       "minLength": 1,
       "title": "Blind Conversation Id",
       "type": "string"
     },
-    "findings": {
+    "false_claim_present": {
+      "title": "False Claim Present",
+      "type": "boolean"
+    },
+    "false_claims": {
       "items": {
-        "$ref": "#/$defs/AccuracyFinding"
+        "$ref": "#/$defs/FalseClaim"
       },
-      "title": "Findings",
+      "title": "False Claims",
       "type": "array"
     },
     "judge_model_id": {
@@ -271,7 +216,8 @@
     "schema_version",
     "blind_conversation_id",
     "scored_response",
-    "findings",
+    "false_claim_present",
+    "false_claims",
     "visible_facts_sha256",
     "judge_model_id",
     "scoring_prompt_sha256",

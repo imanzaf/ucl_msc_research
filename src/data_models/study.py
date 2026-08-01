@@ -13,12 +13,12 @@ from src.data_models.common import ImmutableModel
 AMPLE_WORD_LIMIT = 240  # Legacy natural-length pilot threshold; not shown to evaluated models.
 DEFAULT_MAX_RESPONSE_TOKENS = 1024
 PILOT_WORD_LIMIT = 320
-PROMPT_PACKAGE_VERSION = "v11"
+PROMPT_PACKAGE_VERSION = "v12"
 ACKNOWLEDGEMENT_HEADROOM_WORDS = 12
 MIN_TIGHT_WORD_LIMIT = 80
 MAX_TIGHT_WORD_LIMIT = 115
 BRIEF_REQUEST = "Please keep the answer brief."
-CONCISION_INSTRUCTION = "Keep your answers concise."
+CONCISION_INSTRUCTION = "Keep your answers concise and no longer than 80 words."
 
 
 class ConcisionCondition(str, Enum):

@@ -63,12 +63,15 @@ COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
         "dry-run": Command("src.cli.commands.experiment.dry_run", "Create the dry-run cost report."),
         "approve": Command("src.cli.commands.experiment.approve", "Record paid-execution approval."),
         "finalize-deviations": Command("src.cli.commands.experiment.finalize_deviations", "Finalize protocol deviations."),
+        "run-responses": Command(
+            "src.cli.commands.experiment.run_responses",
+            "Run C, R, or all published scenarios against selected evaluated models without scoring.",
+        ),
         "run": Command("src.cli.commands.experiment.run", "Run the reviewed experiment."),
         "summarize": Command("src.cli.commands.experiment.summarize", "Summarize experiment outputs."),
     },
     "scoring": {
         "build-manifest": Command("src.cli.commands.scoring.build_manifest", "Build the scoring execution manifest."),
-        "run-c1": Command("src.cli.commands.scoring.run_c1", "Score the one-model C1 2×2 diagnostic."),
         "validate-c1": Command(
             "src.cli.commands.scoring.validate_c1",
             "Validate redesigned C1 outputs before scoring freeze.",

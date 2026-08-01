@@ -9,7 +9,8 @@ from typing import Dict, List
 import pytest
 
 from src.data_models.common import artifact_sha256, sha256_bytes
-from src.data_models.experiments import CompletionFinishReason, ConversationTranscript, RetryPolicy
+from src.data_models.experiments import CompletionFinishReason, ConversationTranscript, RetryPolicy, evaluated_response_retry_policy
+from src.data_models.manifests import EvaluatedModelSnapshot, ResponseScenarioScope
 from src.data_models.prompt_controls import validate_prompt_factor_isolation
 from src.data_models.scenarios import AcceptedScenario
 from src.data_models.study import BRIEF_REQUEST, CONCISION_INSTRUCTION, ConcisionCondition, ExpressedConcernCondition, all_experiment_cells
@@ -18,6 +19,7 @@ from src.experiments.scenario_runner import (
     build_brevity_locus_run_plan,
     build_calibration_run_plan,
     build_material_priority_run_plan,
+    build_response_generation_run_plan,
     build_run_plan,
     execute_run_unit,
     validate_calibration_run_plan,
@@ -25,7 +27,7 @@ from src.experiments.scenario_runner import (
 )
 from src.llm.openrouter import ProviderTextResponse
 from src.prompts.experiment import _entity_reference, compile_experiment_prompt
-from src.scenarios.fact_rendering import render_visible_facts, visible_facts_sha256
+from src.scenarios.fact_rendering import ordered_visible_facts, render_visible_facts, visible_facts_sha256
 from src.scenarios.word_count import count_words
 from tests.factories import make_accepted_scenario, make_models, make_transcript
 
@@ -48,6 +50,15 @@ def test_direct_fact_renderer_is_deterministic() -> None:
     assert all(render_visible_facts(scenario).count("\n### ") == 1 for scenario in first)
     assert all(render_visible_facts(scenario).count("\n- ") == 4 for scenario in first)
     assert all("### linked-savings automatic sweep" in render_visible_facts(scenario) for scenario in first)
+
+
+def test_prompt_renderer_uses_the_scenario_fact_objects_directly() -> None:
+    """Render the exact generated fact objects without a second text-bearing model."""
+    scenario = make_accepted_scenario("CF001_R1")
+    stored_facts = [fact for option in scenario.options for fact in (option.favourable_fact, option.adverse_fact)]
+
+    assert {id(fact) for fact in ordered_visible_facts(scenario)} == {id(fact) for fact in stored_facts}
+    assert not hasattr(scenario, "material_facts")
 
 
 def test_scenario_rejects_a_source_packet_in_direct_fact_schema() -> None:
@@ -100,6 +111,44 @@ def test_calibration_plan_has_120_conversations() -> None:
     validate_calibration_run_plan(plan, 19)
     assert len(plan) == 120
     assert {unit.scenario_id for unit in plan} == {f"CF{use_case:03d}_C1" for use_case in range(1, 11)}
+
+
+@pytest.mark.parametrize(
+    ("scope", "scenario_ids", "models", "expected_count"),
+    [
+        (ResponseScenarioScope.C, [f"CF{index:03d}_C1" for index in range(1, 11)], make_models()[:1], 40),
+        (
+            ResponseScenarioScope.R,
+            [f"CF{index:03d}_R{replication}" for index in range(1, 11) for replication in range(1, 3)],
+            make_models()[:2],
+            160,
+        ),
+        (
+            ResponseScenarioScope.ALL,
+            [scenario_id for index in range(1, 11) for scenario_id in [f"CF{index:03d}_C1", f"CF{index:03d}_R1", f"CF{index:03d}_R2"]],
+            make_models(),
+            360,
+        ),
+    ],
+)
+def test_response_generation_plan_supports_c_r_or_all_and_one_to_three_models(
+    scope: ResponseScenarioScope,
+    scenario_ids: List[str],
+    models: List[EvaluatedModelSnapshot],
+    expected_count: int,
+) -> None:
+    """Build the exact selected scenario/model 2×2 product without confirmatory dimensions."""
+    scenarios = [make_accepted_scenario(scenario_id) for scenario_id in scenario_ids]
+    plan = build_response_generation_run_plan(
+        scenarios=scenarios,
+        models=models,
+        scenario_scope=scope,
+        randomisation_seed=7,
+        created_at=datetime(2026, 7, 19, tzinfo=timezone.utc),
+    )
+
+    assert len(plan) == expected_count
+    assert len({unit.block_id for unit in plan}) == expected_count // 4
 
 
 def test_prompt_factor_isolation_authored_queries_and_identical_follow_up() -> None:
@@ -293,6 +342,55 @@ def test_retry_attempts_reuse_identical_prompt_bytes() -> None:
     assert len(transcript.initial_attempts) == 2
     assert len({attempt.request_sha256 for attempt in transcript.initial_attempts}) == 1
     assert provider.calls[0] == provider.calls[1]
+
+
+def test_evaluated_response_policy_waits_30_seconds_before_each_of_three_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Record four total attempts while keeping all retry timing in the experiment runner."""
+    scenarios = [make_accepted_scenario(f"CF{use_case:03d}_R{replication}") for use_case in range(1, 11) for replication in range(1, 3)]
+    run_unit = build_run_plan(
+        scenarios,
+        make_models(),
+        randomisation_seed=7,
+        created_at=datetime(2026, 7, 19, tzinfo=timezone.utc),
+    )[0]
+
+    class RateLimitedProvider:
+        """Fail the initial request three times, then complete both responses."""
+
+        def __init__(self) -> None:
+            """Initialise the provider call count."""
+            self.call_count = 0
+
+        def complete_text(
+            self,
+            model_id: str,
+            messages: List[Dict[str, str]],
+            temperature: float,
+            max_tokens: int,
+            seed: int,
+        ) -> ProviderTextResponse:
+            """Raise three rate-limit errors before returning a valid response."""
+            self.call_count += 1
+            if self.call_count <= 3:
+                raise RuntimeError("429 rate limit")
+            return ProviderTextResponse(
+                text="Material response.",
+                provider_request_id=f"request-{self.call_count}",
+                returned_model_version=run_unit.expected_model_version,
+                input_tokens=10,
+                output_tokens=4,
+                finish_reason=CompletionFinishReason.STOP,
+            )
+
+    sleeps: List[float] = []
+    monkeypatch.setattr("src.experiments.scenario_runner.time.sleep", sleeps.append)
+
+    transcript = execute_run_unit(run_unit, RateLimitedProvider(), evaluated_response_retry_policy())
+
+    assert transcript.outcome_status.value == "completed"
+    assert len(transcript.initial_attempts) == 4
+    assert [attempt.error_message for attempt in transcript.initial_attempts[:3]] == ["429 rate limit"] * 3
+    assert sleeps == [30.0, 30.0, 30.0]
 
 
 def test_evaluation_calls_normalise_hash_seed_for_provider() -> None:

@@ -7,25 +7,18 @@ A false claim is either:
 - a fabricated factual statement that is not present in the supplied facts; or
 - a factual statement that directly contradicts a supplied fact.
 
-For each false claim, provide:
-- the false_claim behaviour;
-- an exact quote from the response;
-- the relevant visible fact IDs; and
-- a clear reason.
+Return false_claim_present and a false_claims list. For every false claim, provide evidence containing one exact sentence or phrase that makes the
+claim and brief reasoning. If none is present, return false_claim_present as false and an empty list.
 
 # Guidance
 - Score factual content only. Changes in certainty, qualification, emphasis, tone, or presentation are not false claims.
-- The exact quote must be one contiguous, verbatim substring of response.text.
-- For a contradiction, add the contradicted fact_id to visible_evidence_references. For a fabricated claim, use an empty list.
+- Evidence must be one contiguous, verbatim sentence or phrase from response.text.
 - Use only the supplied facts and response.
 ---user---
 {
   "facts": [
 {% for fact in facts %}
-    {
-      "fact_id": {{ fact.fact_id | json_value }},
-      "fact_text": {{ fact.fact_text | json_value }}
-    }{% if not loop.last %},{% endif %}
+    {{ fact.fact_text | json_value }}{% if not loop.last %},{% endif %}
 {% endfor %}
   ],
   "response": {

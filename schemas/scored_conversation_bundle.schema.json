@@ -2,18 +2,22 @@
   "$defs": {
     "AccuracyAssessmentResult": {
       "additionalProperties": false,
-      "description": "Store one response's visible-facts-only factual findings.",
+      "description": "Store one response's visible-facts-only false-claim result.",
       "properties": {
         "blind_conversation_id": {
           "minLength": 1,
           "title": "Blind Conversation Id",
           "type": "string"
         },
-        "findings": {
+        "false_claim_present": {
+          "title": "False Claim Present",
+          "type": "boolean"
+        },
+        "false_claims": {
           "items": {
-            "$ref": "#/$defs/AccuracyFinding"
+            "$ref": "#/$defs/FalseClaim"
           },
-          "title": "Findings",
+          "title": "False Claims",
           "type": "array"
         },
         "judge_model_id": {
@@ -58,59 +62,14 @@
         "schema_version",
         "blind_conversation_id",
         "scored_response",
-        "findings",
+        "false_claim_present",
+        "false_claims",
         "visible_facts_sha256",
         "judge_model_id",
         "scoring_prompt_sha256",
         "scored_at"
       ],
       "title": "AccuracyAssessmentResult",
-      "type": "object"
-    },
-    "AccuracyBehaviour": {
-      "description": "Identify a material factual inaccuracy.",
-      "enum": [
-        "false_claim"
-      ],
-      "title": "AccuracyBehaviour",
-      "type": "string"
-    },
-    "AccuracyFinding": {
-      "additionalProperties": false,
-      "description": "Store one typed material inaccuracy grounded in response text.",
-      "properties": {
-        "behaviour": {
-          "$ref": "#/$defs/AccuracyBehaviour"
-        },
-        "finding_id": {
-          "pattern": "^[A-Z0-9_]+$",
-          "title": "Finding Id",
-          "type": "string"
-        },
-        "reason": {
-          "minLength": 1,
-          "title": "Reason",
-          "type": "string"
-        },
-        "response_span": {
-          "$ref": "#/$defs/ResponseSpan"
-        },
-        "visible_evidence_references": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Visible Evidence References",
-          "type": "array"
-        }
-      },
-      "required": [
-        "finding_id",
-        "behaviour",
-        "response_span",
-        "visible_evidence_references",
-        "reason"
-      ],
-      "title": "AccuracyFinding",
       "type": "object"
     },
     "BlindFactReference": {
@@ -292,58 +251,6 @@
         "scored_at"
       ],
       "title": "ContentAssessmentResult",
-      "type": "object"
-    },
-    "ContentBehaviour": {
-      "description": "Identify the communicated content evidenced by one finding.",
-      "enum": [
-        "fact_communication",
-        "specificity_marker_communication"
-      ],
-      "title": "ContentBehaviour",
-      "type": "string"
-    },
-    "ContentEvidenceFinding": {
-      "additionalProperties": false,
-      "description": "Ground one communicated fact or marker in exact response text.",
-      "properties": {
-        "behaviour": {
-          "$ref": "#/$defs/ContentBehaviour"
-        },
-        "element_id": {
-          "anyOf": [
-            {
-              "pattern": "^[A-Z0-9_]+$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Element Id"
-        },
-        "fact_id": {
-          "minLength": 1,
-          "title": "Fact Id",
-          "type": "string"
-        },
-        "reason": {
-          "minLength": 1,
-          "title": "Reason",
-          "type": "string"
-        },
-        "response_span": {
-          "$ref": "#/$defs/ResponseSpan"
-        }
-      },
-      "required": [
-        "behaviour",
-        "fact_id",
-        "response_span",
-        "reason"
-      ],
-      "title": "ContentEvidenceFinding",
       "type": "object"
     },
     "ConversationMetrics": {
@@ -651,7 +558,7 @@
       "properties": {
         "evidence": {
           "items": {
-            "$ref": "#/$defs/ContentEvidenceFinding"
+            "$ref": "#/$defs/ResponseSpan"
           },
           "title": "Evidence",
           "type": "array"
@@ -663,7 +570,7 @@
         },
         "marker_judgments": {
           "items": {
-            "$ref": "#/$defs/SpecificityMarkerJudgment"
+            "$ref": "#/$defs/MarkerPresence"
           },
           "title": "Marker Judgments",
           "type": "array"
@@ -672,9 +579,9 @@
           "title": "Present",
           "type": "boolean"
         },
-        "reason": {
+        "reasoning": {
           "minLength": 1,
-          "title": "Reason",
+          "title": "Reasoning",
           "type": "string"
         }
       },
@@ -683,9 +590,31 @@
         "present",
         "evidence",
         "marker_judgments",
-        "reason"
+        "reasoning"
       ],
       "title": "FactContentJudgment",
+      "type": "object"
+    },
+    "FalseClaim": {
+      "additionalProperties": false,
+      "description": "Store one materially false factual claim from the response.",
+      "properties": {
+        "evidence": {
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        },
+        "reasoning": {
+          "minLength": 1,
+          "title": "Reasoning",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence",
+        "reasoning"
+      ],
+      "title": "FalseClaim",
       "type": "object"
     },
     "FramingDirection": {
@@ -697,9 +626,30 @@
       "title": "FramingDirection",
       "type": "string"
     },
+    "MarkerPresence": {
+      "additionalProperties": false,
+      "description": "Record whether one supplied specificity marker is present.",
+      "properties": {
+        "element_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Element Id",
+          "type": "string"
+        },
+        "present": {
+          "title": "Present",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "element_id",
+        "present"
+      ],
+      "title": "MarkerPresence",
+      "type": "object"
+    },
     "PresentationAssessmentResult": {
       "additionalProperties": false,
-      "description": "Aggregate four fact-level presentation assessments for one response.",
+      "description": "Aggregate presentation assessments for content-present facts in one response.",
       "properties": {
         "blind_conversation_id": {
           "minLength": 1,
@@ -770,7 +720,7 @@
     },
     "PresentationFinding": {
       "additionalProperties": false,
-      "description": "Ground one typed weakening or strengthening behaviour in response text.",
+      "description": "Attach the requested fact identifier to one presentation shift.",
       "properties": {
         "behaviour": {
           "$ref": "#/$defs/PresentationBehaviour"
@@ -778,26 +728,28 @@
         "direction": {
           "$ref": "#/$defs/FramingDirection"
         },
+        "evidence": {
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        },
         "fact_id": {
           "minLength": 1,
           "title": "Fact Id",
           "type": "string"
         },
-        "reason": {
+        "reasoning": {
           "minLength": 1,
-          "title": "Reason",
+          "title": "Reasoning",
           "type": "string"
-        },
-        "response_span": {
-          "$ref": "#/$defs/ResponseSpan"
         }
       },
       "required": [
-        "fact_id",
         "behaviour",
         "direction",
-        "response_span",
-        "reason"
+        "evidence",
+        "reasoning",
+        "fact_id"
       ],
       "title": "PresentationFinding",
       "type": "object"
@@ -1061,41 +1013,6 @@
       "title": "ScoringTranscriptTurn",
       "type": "object"
     },
-    "SpecificityMarkerJudgment": {
-      "additionalProperties": false,
-      "description": "Make one binary decision for a predefined specificity marker.",
-      "properties": {
-        "element_id": {
-          "pattern": "^[A-Z0-9_]+$",
-          "title": "Element Id",
-          "type": "string"
-        },
-        "evidence": {
-          "items": {
-            "$ref": "#/$defs/ContentEvidenceFinding"
-          },
-          "title": "Evidence",
-          "type": "array"
-        },
-        "present": {
-          "title": "Present",
-          "type": "boolean"
-        },
-        "reason": {
-          "minLength": 1,
-          "title": "Reason",
-          "type": "string"
-        }
-      },
-      "required": [
-        "element_id",
-        "present",
-        "evidence",
-        "reason"
-      ],
-      "title": "SpecificityMarkerJudgment",
-      "type": "object"
-    },
     "TokenUsage": {
       "additionalProperties": false,
       "description": "Store provider-reported token usage and billed cost for one response.",
@@ -1158,7 +1075,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Persist eighteen independent scoring calls and three metric checkpoints.",
+  "description": "Persist content-gated scoring calls and three metric checkpoints.",
   "properties": {
     "accuracy_results": {
       "additionalProperties": {
@@ -1174,7 +1091,7 @@
       "items": {
         "$ref": "#/$defs/ScoringExecutionAttempt"
       },
-      "minItems": 18,
+      "minItems": 10,
       "title": "Attempts",
       "type": "array"
     },

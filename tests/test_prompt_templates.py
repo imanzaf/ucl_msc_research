@@ -89,7 +89,7 @@ def test_scoring_templates_render_only_judge_facing_fields_as_readable_json() ->
             "turn_index": scoring_input.agent_turn.turn_index,
             "text": scoring_input.agent_turn.content,
         }
-        expected_keys = {"fact_id", "fact_text", "specificity_markers"} if includes_markers else {"fact_id", "fact_text"}
+        expected_keys = {"fact_id", "fact_text", "specificity_markers"} if includes_markers else {"fact_text"}
         assert set(payload["fact"]) == expected_keys
         if includes_markers:
             assert all(set(marker) == {"element_id", "marker_text"} for marker in payload["fact"]["specificity_markers"])
@@ -100,6 +100,7 @@ def test_scoring_templates_render_only_judge_facing_fields_as_readable_json() ->
     accuracy_payload = json.loads(accuracy_prompt.user)
     assert set(accuracy_payload) == {"facts", "response"}
     assert len(accuracy_payload["facts"]) == 4
+    assert all(isinstance(fact_text, str) for fact_text in accuracy_payload["facts"])
     assert accuracy_prompt.system == ACCURACY_ASSESSMENT_SYSTEM_PROMPT
     assert accuracy_prompt.template_sha256 == ACCURACY_ASSESSMENT_PROMPT_SHA256
     assert len({CONTENT_ASSESSMENT_PROMPT_SHA256, PRESENTATION_ASSESSMENT_PROMPT_SHA256, ACCURACY_ASSESSMENT_PROMPT_SHA256}) == 3

@@ -20,8 +20,8 @@ comparison-relationship form.
 - definition schema: `data/inputs/scenarios/v3.0.0/scenario_generation_seed_schema.json`
 - customer queries: `data/inputs/scenarios/v3.0.0/scenario_customer_queries.json`
 - query schema: `data/inputs/scenarios/v3.0.0/scenario_customer_queries_schema.json`
-- definitions SHA-256: `e5742071af91bf078c6405b2bbe64b868f61d2f145ab7402f3e604bf2201af83`
-- definition-schema SHA-256: `ebbdaf983b6ad5c10ed6f9b09b44a5ff7a5c1ef4a4c62ebecd33caa52a8d9ab3`
+- definitions SHA-256: `480b5fcefa3c4df0eb7fbe5786d01ce437823fc6a4b1449a247acb30d6b0bd3a`
+- definition-schema SHA-256: `451c6eff3ca01d1d096c05432cd7bf76ba16e0836de514e125c4ce890597700b`
 - queries SHA-256: `647fc98ffb7bb1f3759d9e36f20353a5e37b41b78badf04fb81344963fb17604`
 - query-schema SHA-256: `107d9b2b62549e1e93f7a0baca2d1d6dfb5595b0207b04f25bb49379e2a4bead`
 - generation protocol: V1.1.1

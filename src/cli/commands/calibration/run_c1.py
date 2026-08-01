@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict
 
 from src.data_models.common import artifact_sha256, validate_model_self_hash
-from src.data_models.experiments import ProviderRouting, RetryPolicy, RunUnit
+from src.data_models.experiments import EVALUATED_RESPONSE_MAX_RETRIES, ProviderRouting, RetryPolicy, RunUnit, evaluated_response_retry_policy
 from src.data_models.manifests import (
     AcceptedScenarioManifest,
     C1EvaluationConfig,
@@ -32,7 +32,7 @@ from src.settings.api_settings import OpenRouterCredentialRole, get_api_settings
 from src.settings.model_settings import get_model_settings
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic, write_models_jsonl_atomic
 
-DEFAULT_EXPERIMENT_NAME = "c1_llama_2x2_v8"
+DEFAULT_EXPERIMENT_NAME = "c1_llama_2x2_v9"
 DEFAULT_AGENT_MODEL_ID = "meta-llama/llama-3.3-70b-instruct"
 DEFAULT_SCORING_MODEL_ID = "google/gemini-3.1-flash-lite"
 MODEL_CATALOG_PATH = REPO_ROOT / "src/settings/models.json"
@@ -130,7 +130,8 @@ def main() -> None:
     parser.add_argument("--scoring-model-id", default=DEFAULT_SCORING_MODEL_ID)
     parser.add_argument("--returned-scoring-model-version", default=DEFAULT_SCORING_MODEL_ID)
     parser.add_argument("--frozen-by", required=True)
-    parser.add_argument("--retry-backoff-seconds", nargs=2, type=float, default=[1.0, 2.0])
+    parser.add_argument("--max-retries", type=int, default=EVALUATED_RESPONSE_MAX_RETRIES)
+    parser.add_argument("--retry-backoff-seconds", nargs="+", type=float)
     parser.add_argument("--agent-provider-only", nargs="+")
     parser.add_argument("--execute-paid", action="store_true")
     args = parser.parse_args()
@@ -162,10 +163,9 @@ def main() -> None:
             judge_model_id=args.scoring_model_id,
             returned_judge_version=args.returned_scoring_model_version,
             frozen_by=args.frozen_by,
-            retry_policy=RetryPolicy(
-                max_retries=2,
+            retry_policy=evaluated_response_retry_policy(
+                max_retries=args.max_retries,
                 backoff_seconds=args.retry_backoff_seconds,
-                reuse_identical_prompt_bytes=True,
             ),
             provider_routing=provider_routing,
         )

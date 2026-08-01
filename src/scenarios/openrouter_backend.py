@@ -16,7 +16,6 @@ from src.data_models.scenarios import (
     CandidateScenario,
     ComparisonScope,
     FinanceEntityType,
-    ScenarioFactInformation,
     ScenarioHiddenDesign,
     ScenarioOptionDefinition,
     ScenarioOptionInformation,
@@ -87,10 +86,6 @@ class ScenarioGenerationInput(ImmutableModel):
     deployment: GenerationDeploymentInput
     decision: GenerationDecisionInput
     c1_example: GenerationExampleInput | None = None
-
-
-GeneratedMaterialFactDraft = ScenarioFactInformation
-GeneratedOptionInformationDraft = ScenarioOptionInformation
 
 
 class ScenarioOptionInformationDraft(ImmutableModel):

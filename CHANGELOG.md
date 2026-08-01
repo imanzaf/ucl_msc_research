@@ -34,6 +34,7 @@ All notable changes to the active research implementation are recorded here. The
 
 ### Changed
 
+- Reclassified the CF001, CF002, and CF010 deploying entities as retail banks and made CF010's external SEPA route another retail-bank option.
 - Simplified scenario authoring to one initial generation call, unrestricted parent-linked manual revisions, and researcher-selected publication.
   Automated review, regeneration, acceptance decisions, model/prompt freeze checks, pilots, and complete-batch requirements no longer gate this pipeline.
 - Required R1/R2 generation examples to resolve exclusively from the matching currently published C1 record, independent of generation-run location.

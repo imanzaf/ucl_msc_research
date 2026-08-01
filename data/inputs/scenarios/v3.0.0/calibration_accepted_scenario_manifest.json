@@ -2,8 +2,8 @@
   "schema_version": "3.0.0",
   "scenario_set_id": "customer_facing_risk_communication_v3.0.0",
   "manifest_scope": "calibration",
-  "seed_sha256": "e5742071af91bf078c6405b2bbe64b868f61d2f145ab7402f3e604bf2201af83",
-  "seed_schema_sha256": "ebbdaf983b6ad5c10ed6f9b09b44a5ff7a5c1ef4a4c62ebecd33caa52a8d9ab3",
+  "seed_sha256": "480b5fcefa3c4df0eb7fbe5786d01ce437823fc6a4b1449a247acb30d6b0bd3a",
+  "seed_schema_sha256": "451c6eff3ca01d1d096c05432cd7bf76ba16e0836de514e125c4ce890597700b",
   "query_sha256": "647fc98ffb7bb1f3759d9e36f20353a5e37b41b78badf04fb81344963fb17604",
   "query_schema_sha256": "107d9b2b62549e1e93f7a0baca2d1d6dfb5595b0207b04f25bb49379e2a4bead",
   "entries": [
@@ -11,17 +11,17 @@
       "scenario_id": "CF001_C1",
       "study_stage": "calibration",
       "artifact_path": "CF001_C1/accepted_scenario.json",
-      "artifact_sha256": "bf52f191dae33f84694e5f7ac50011fc1be84f547ff66aad891a80a83f9187a9",
+      "artifact_sha256": "f165fdeb6334275d52232726018d37ce098bcb428bebbee64bc6de2abc9074eb",
       "review_history_sha256": "97bcf661139eeb9f51cd9d692f4b768a390a26bb510c8edf03247733f70c9593",
-      "acceptance_record_sha256": "40cd4185070938f5e089d1e128b7576ef650b8b3c75eaecb035f47206b18eedf"
+      "acceptance_record_sha256": "1ddbc1d894bc0df038d8b74c268c4811b98c17183aad5ce8e06e8be23df8eabc"
     },
     {
       "scenario_id": "CF002_C1",
       "study_stage": "calibration",
       "artifact_path": "CF002_C1/accepted_scenario.json",
-      "artifact_sha256": "14095613c0ff1843b06cd54a03940fd4251e04a21eebdff2e1f7e8eae4f89854",
+      "artifact_sha256": "d5e818c13501c296e3fd2584ceb3cc21be31174f80fa402a3e51279e8ceeccbc",
       "review_history_sha256": "ce6e2c7c71dbb8e07a3a13cfba5e3bc39f6a23ffec9abdd93cfcf8ad3da4c060",
-      "acceptance_record_sha256": "8e6345d7e6d460e884da44262e852063e922e86f2d5d5c0dda89f5ce3f75c65b"
+      "acceptance_record_sha256": "b4831da0c3aea5a9ddfd65daf2ad0f3e1b47b93da5571cbe7ceb8bdf03d3d36e"
     },
     {
       "scenario_id": "CF003_C1",
@@ -83,12 +83,12 @@
       "scenario_id": "CF010_C1",
       "study_stage": "calibration",
       "artifact_path": "CF010_C1/accepted_scenario.json",
-      "artifact_sha256": "ff2c311f17375897fda13a30047598709bde1bd58d75fa86db57128b7bc35293",
+      "artifact_sha256": "78268e4bcbfc43a6c19dee5d779288a29287fa3fafeb7e69a82d14356c20a128",
       "review_history_sha256": "8f8815e75b8afc45a50d94672b2b37e37960ab1668d8c65b32e74fb5300fda42",
-      "acceptance_record_sha256": "8b49faa471435fbb53236903edf5e1bbef732ba83b972693f0c6f5b3f363c731"
+      "acceptance_record_sha256": "e5bac6c1ed09892518ea4a659718daf2b97b3f3f84f0ef2d84b4c176883a0750"
     }
   ],
-  "published_at": "2026-08-01T12:40:47.221740Z",
+  "published_at": "2026-08-01T13:57:41.460083Z",
   "published_by": "imanzafar",
-  "manifest_sha256": "de9c5450cfe779a22ab0e840c769ba35a6fbb50e2913a961cf2a05c2cabeab53"
+  "manifest_sha256": "bcec5d6226c73fc5e90d41f9659f588b1bc9f481f3dfd274d95ba215621bd1a5"
 }

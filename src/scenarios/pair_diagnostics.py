@@ -8,7 +8,7 @@ from typing import List, Set
 
 from src.data_models.common import sha256_bytes
 from src.data_models.scenario_review import PairDiagnostics
-from src.data_models.scenarios import AcceptedScenario, CandidateScenario, MaterialFact, material_fact_pairs
+from src.data_models.scenarios import AcceptedScenario, CandidateScenario, ScenarioFactInformation, scenario_fact_pairs
 from src.scenarios.word_count import count_words
 
 NUMBER_PATTERN = re.compile(r"(?:£|\$|€)?\d+(?:[.,]\d+)?%?")
@@ -27,14 +27,18 @@ def _readability(text: str) -> Decimal:
     return Decimal(str(round(value, 3)))
 
 
-def _quantities(fact: MaterialFact) -> Set[str]:
+def _quantities(fact: ScenarioFactInformation) -> Set[str]:
     """Return literal number-like strings present in one visible fact."""
-    return set(NUMBER_PATTERN.findall(fact.canonical_proposition))
+    return set(NUMBER_PATTERN.findall(fact.fact_text))
 
 
-def _blinded_pair_facts(pair_id: str, provider_fact: MaterialFact, customer_fact: MaterialFact) -> List[MaterialFact]:
-    """Assign provider/customer option facts to opaque sides without a fixed mapping."""
-    facts = [provider_fact, customer_fact]
+def _blinded_pair_facts(
+    pair_id: str,
+    owner_option_fact: ScenarioFactInformation,
+    alternative_option_fact: ScenarioFactInformation,
+) -> List[ScenarioFactInformation]:
+    """Assign the two option facts to opaque sides without a fixed mapping."""
+    facts = [owner_option_fact, alternative_option_fact]
     if int(sha256_bytes(f"pair-diagnostic-v1:{pair_id}".encode("utf-8"))[:2], 16) % 2:
         facts.reverse()
     return facts
@@ -43,18 +47,20 @@ def _blinded_pair_facts(pair_id: str, provider_fact: MaterialFact, customer_fact
 def build_pair_diagnostics(scenario: CandidateScenario | AcceptedScenario) -> List[PairDiagnostics]:
     """Build both diagnostics without applying an automatic balance threshold."""
     diagnostics: List[PairDiagnostics] = []
-    for owner_option_fact, alternative_option_fact in material_fact_pairs(scenario.material_facts):
+    for owner_item, alternative_item in scenario_fact_pairs(scenario):
+        owner_coordinate, owner_option_fact = owner_item
+        _, alternative_option_fact = alternative_item
         facts = _blinded_pair_facts(
-            owner_option_fact.pair_id,
+            owner_coordinate.pair_id,
             owner_option_fact,
             alternative_option_fact,
         )
         keys = ["side_a", "side_b"]
-        visible_text = [fact.canonical_proposition for fact in facts]
+        visible_text = [fact.fact_text for fact in facts]
         diagnostics.append(
             PairDiagnostics(
-                pair_id=owner_option_fact.pair_id,
-                proposition_word_counts={key: count_words(fact.canonical_proposition) for key, fact in zip(keys, facts)},
+                pair_id=owner_coordinate.pair_id,
+                proposition_word_counts={key: count_words(fact.fact_text) for key, fact in zip(keys, facts)},
                 numeric_burden={key: len(NUMBER_PATTERN.findall(text)) for key, text in zip(keys, visible_text)},
                 conditional_burden={key: len(CONDITION_PATTERN.findall(text)) for key, text in zip(keys, visible_text)},
                 hedging_burden={key: len(HEDGING_PATTERN.findall(text)) for key, text in zip(keys, visible_text)},

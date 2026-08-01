@@ -18,6 +18,7 @@ from src.data_models.manifests import (
     TightLimitManifest,
 )
 from src.data_models.scenario_review import ScenarioAcceptanceRecord
+from src.data_models.scenarios import scenario_facts
 from src.experiments.io import load_accepted_calibration_scenarios
 from src.paths import (
     ACTIVE_SCENARIO_ACCEPTED_ROOT,
@@ -26,7 +27,7 @@ from src.paths import (
     AMPLE_PILOT_RECORDS_PATH,
     EVALUATED_MODEL_MANIFEST_PATH,
 )
-from src.scenarios.budgets import build_ample_pilot_summary, calculate_tight_word_limit, material_fact_text_sha256, material_fact_word_count
+from src.scenarios.budgets import build_ample_pilot_summary, calculate_tight_word_limit, scenario_fact_text_sha256, scenario_fact_word_count
 from src.scenarios.word_count import WORD_COUNTER_VERSION
 from src.storage import read_model_json, read_model_jsonl, write_model_json_atomic
 
@@ -87,17 +88,17 @@ def main() -> None:
         scenario = scenario_by_id.get(record.scenario_id)
         if scenario is None or record.scenario_artifact_sha256 != scenario.artifact_sha256:
             raise ValueError("pilot record does not bind its accepted C1 scenario")
-    all_fact_lists_fit = all(material_fact_word_count(scenario.material_facts) <= 240 for scenario in scenarios)
+    all_fact_lists_fit = all(scenario_fact_word_count(scenario_facts(scenario)) <= 240 for scenario in scenarios)
     pilot_summary = build_ample_pilot_summary(pilot_records, all_fact_lists_fit)
     budgets = [
         CalibrationUseCaseBudget(
             use_case_id=scenario.use_case_id,
             calibration_scenario_id=scenario.scenario_id,
-            calibration_fact_word_count=material_fact_word_count(scenario.material_facts),
-            tight_word_limit=calculate_tight_word_limit(material_fact_word_count(scenario.material_facts)),
+            calibration_fact_word_count=scenario_fact_word_count(scenario_facts(scenario)),
+            tight_word_limit=calculate_tight_word_limit(scenario_fact_word_count(scenario_facts(scenario))),
             calibration_candidate_sha256=candidate_hash_by_id[scenario.scenario_id],
-            calibration_material_facts_sha256=artifact_sha256(scenario.material_facts),
-            calibration_fact_text_sha256=material_fact_text_sha256(scenario.material_facts),
+            calibration_material_facts_sha256=artifact_sha256(scenario_facts(scenario)),
+            calibration_fact_text_sha256=scenario_fact_text_sha256(scenario_facts(scenario)),
         )
         for scenario in sorted(scenarios, key=lambda item: item.use_case_id)
     ]

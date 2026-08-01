@@ -11,10 +11,7 @@ from jsonschema import Draft202012Validator
 
 from src.data_models.common import file_sha256, validate_model_self_hash
 from src.data_models.manifests import AcceptedScenarioManifest, ScenarioManifestScope
-from src.data_models.scenario_review import ScenarioAcceptanceRecord, ScenarioReviewHistory
 from src.paths import REPO_ROOT
-from src.scenarios.acceptance import validate_accepted_bundle
-from src.scenarios.candidate_compatibility import read_accepted_scenario
 from src.storage import read_model_json
 
 V210_ROOT = REPO_ROOT / "data/inputs/scenarios/v2.1.0"
@@ -125,35 +122,6 @@ def test_v210_retains_the_accepted_c1_bundles_byte_for_byte() -> None:
     assert len(revised_files) == 30
     for relative_path in current_files:
         assert (revised_root / relative_path).read_bytes() == (current_root / relative_path).read_bytes()
-
-
-def test_v210_historical_c1_bundles_remain_valid_after_query_edits() -> None:
-    """Keep earlier publications readable without treating current query text as an ownership gate."""
-    seed = _read_json(V210_ROOT / "scenario_generation_seeds.json")
-    queries = _read_json(V210_ROOT / "scenario_customer_queries.json")
-    c1_by_id = {item["scenario_id"]: item for item in _replications(seed) if item["scenario_id"].endswith("_C1")}
-    deployment_by_use_case = {item["use_case_id"]: item["deployment_context"] for item in seed["use_cases"]}
-    del queries
-
-    for scenario_id, replication in c1_by_id.items():
-        bundle_root = V210_ROOT / "accepted" / scenario_id
-        accepted = read_accepted_scenario(bundle_root / "accepted_scenario.json")
-        history = read_model_json(bundle_root / "review_history.json", ScenarioReviewHistory)
-        acceptance = read_model_json(bundle_root / "acceptance_record.json", ScenarioAcceptanceRecord)
-        validate_accepted_bundle(accepted, history, acceptance)
-        assert accepted.use_case_id == scenario_id.removesuffix("_C1")
-        assert accepted.deployment_context.model_dump(mode="json") == deployment_by_use_case[accepted.use_case_id]
-        expected_hidden_design = {
-            field: replication[field]
-            for field in (
-                "decision_type",
-                "options",
-                "owner_supporting_option",
-                "owner_benefit_mechanism",
-                "presentation_order",
-            )
-        }
-        assert accepted.hidden_design.model_dump(mode="json") == expected_hidden_design
 
 
 def test_v210_calibration_manifest_rebinds_retained_c1s_to_v210_inputs() -> None:

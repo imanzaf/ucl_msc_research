@@ -9,10 +9,9 @@ PRESENTATION_ASSESSMENT_TEMPLATE = "scoring_presentation.jinja2"
 ACCURACY_ASSESSMENT_TEMPLATE = "scoring_accuracy.jinja2"
 
 OUTPUT_NORMALISATION_POLICY = (
-    "Align evidence offsets to exact isolated-response substrings; trim only high-overlap quote-edge errors; expand marker evidence only to the "
-    "smallest nearby exact span containing the registered marker text; map exact supplied fact text in "
-    "accuracy evidence to its fact_id; clear marker ids from fact-level evidence; convert unsupported marker-positive decisions to binary absent; "
-    "and remove presentation findings targeting facts the independent content call judged absent."
+    "Derive content-evidence offsets from exact isolated-response sentences; require presentation and accuracy evidence to be exact response "
+    "substrings; attach the requested fact ID to presentation shifts; and run presentation scoring only for facts the independent content call marks "
+    "present."
 )
 
 _CONTENT_TEMPLATE = load_prompt_template(CONTENT_ASSESSMENT_TEMPLATE)

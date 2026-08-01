@@ -11,7 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.cli.commands.scoring.resolve_manual import build_manual_resolution
-from src.cli.commands.scoring.run import _normalise_presentation_eligibility, execute_scoring_transcripts
+from src.cli.commands.scoring.run import execute_scoring_transcripts
 from src.cli.commands.scoring.validate_c1 import validate_c1_records
 from src.data_models.annotations import ConversationAnnotation
 from src.data_models.common import artifact_sha256
@@ -20,35 +20,31 @@ from src.data_models.manifests import EvaluatedModelSnapshot, FreezeStatus, Mode
 from src.data_models.scenario_review import ReviewPass
 from src.data_models.scoring import (
     AccuracyAssessmentResult,
-    AccuracyBehaviour,
-    AccuracyFinding,
+    AccuracyResponse,
     BlindFactReference,
     ConditionBlindScoringInput,
     ContentAssessmentResult,
-    ContentBehaviour,
-    ContentEvidenceFinding,
     EvaluationCheckpoint,
     FactContentAssessmentResult,
     FactContentJudgment,
+    FactContentResponse,
     FactPresentationAssessmentResult,
+    FactPresentationResponse,
+    FalseClaim,
     FramingDirection,
     ManualScoringQueueRecord,
+    MarkerPresence,
     PresentationAssessmentResult,
     PresentationBehaviour,
     PresentationFinding,
+    PresentationShift,
     ResponseSpan,
     ScoredConversationBundle,
     ScoredResponse,
     ScoringCallArtifact,
     StructuredCallProvenance,
 )
-from src.experiments.openrouter_scoring import (
-    _recover_exact_quote,
-    align_response_span_offsets,
-    normalise_accuracy_evidence_references,
-    normalise_content_behaviour_targets,
-    normalise_content_marker_evidence,
-)
+from src.experiments.openrouter_scoring import derive_content_judgment, derive_presentation_findings, validate_accuracy_response
 from src.experiments.scoring_pipeline import build_condition_blind_inputs, score_conversation
 from src.prompts.scoring_contracts import scoring_contract_sha256
 from src.scoring.metrics import compute_conversation_metrics
@@ -121,8 +117,43 @@ def test_inputs_isolate_responses_and_include_every_marker_definition() -> None:
         assert all(": " in fact.fact_text for fact in scoring_input.facts)
 
 
-def test_score_conversation_executes_eighteen_fact_and_response_calls() -> None:
-    """Each response receives eight fact-level calls and one accuracy call."""
+def test_content_response_schema_contains_only_requested_llm_fields() -> None:
+    """Keep metadata, offsets, and marker evidence out of the content LLM response."""
+    schema = FactContentResponse.model_json_schema()
+    assert set(schema["properties"]) == {"fact_present", "evidence_sentences", "markers", "reasoning"}
+    marker_properties = schema["$defs"]["MarkerPresence"]["properties"]
+    assert set(marker_properties) == {"element_id", "present"}
+    schema_text = str(schema)
+    assert "schema_version" not in schema_text
+    assert "turn_index" not in schema_text
+    assert "start_char" not in schema_text
+    assert "end_char" not in schema_text
+
+
+def test_other_response_schemas_contain_only_requested_llm_fields() -> None:
+    """Keep identifiers, versions, and offsets out of presentation and accuracy output."""
+    presentation_schema = FactPresentationResponse.model_json_schema()
+    accuracy_schema = AccuracyResponse.model_json_schema()
+    assert set(presentation_schema["properties"]) == {"shifts"}
+    assert set(presentation_schema["$defs"]["PresentationShift"]["properties"]) == {
+        "behaviour",
+        "direction",
+        "evidence",
+        "reasoning",
+    }
+    assert set(accuracy_schema["properties"]) == {"false_claim_present", "false_claims"}
+    assert set(accuracy_schema["$defs"]["FalseClaim"]["properties"]) == {"evidence", "reasoning"}
+    for schema in (presentation_schema, accuracy_schema):
+        schema_text = str(schema)
+        assert "schema_version" not in schema_text
+        assert "fact_id" not in schema_text
+        assert "response_span" not in schema_text
+        assert "finding_id" not in schema_text
+        assert "visible_evidence_references" not in schema_text
+
+
+def test_score_conversation_runs_presentation_only_for_present_facts() -> None:
+    """Each response receives content, gated presentation, and one accuracy call."""
     scenario = make_accepted_scenario()
     transcript = make_transcript(scenario)
     content, presentation, accuracy = make_scoring_results(scenario, transcript)
@@ -160,9 +191,9 @@ def test_score_conversation_executes_eighteen_fact_and_response_calls() -> None:
         Backend(),
         7,
     )
-    assert len(calls) == 18
+    assert len(calls) == 14
     assert sum(contract == "content" for contract, _response, _turn, _fact_id in calls) == 8
-    assert sum(contract == "presentation" for contract, _response, _turn, _fact_id in calls) == 8
+    assert sum(contract == "presentation" for contract, _response, _turn, _fact_id in calls) == 4
     assert sum(contract == "accuracy" for contract, _response, _turn, _fact_id in calls) == 2
     assert all(turn == (1 if response == ScoredResponse.INITIAL else 3) for _contract, response, turn, _fact_id in calls)
     assert set(scoring_inputs) == set(content_results) == set(presentation_results) == set(accuracy_results)
@@ -195,13 +226,10 @@ def test_binary_content_invariants_and_exact_quote_alignment() -> None:
             present=False,
             evidence=[],
             marker_judgments=[marker.model_copy(update={"present": True}) for marker in fact.marker_judgments],
-            reason="Absent.",
+            reasoning="Absent.",
         )
-    bad_span = fact.evidence[0].response_span.model_copy(
-        update={"exact_quote": "wrong quote", "end_char": fact.evidence[0].response_span.start_char + 11}
-    )
-    bad_finding = fact.evidence[0].model_copy(update={"response_span": bad_span})
-    bad_fact = fact.model_copy(update={"evidence": [bad_finding]})
+    bad_span = fact.evidence[0].model_copy(update={"exact_quote": "wrong quote", "end_char": fact.evidence[0].start_char + 11})
+    bad_fact = fact.model_copy(update={"evidence": [bad_span]})
     bad_content = _replace_content_fact(content[ScoredResponse.INITIAL], bad_fact)
     with pytest.raises(ValueError, match="does not match exact"):
         validate_scoring_results(
@@ -213,165 +241,94 @@ def test_binary_content_invariants_and_exact_quote_alignment() -> None:
         )
 
 
-def test_conservative_quote_recovery_returns_only_verbatim_response_text() -> None:
-    """Trim a high-overlap edge error while rejecting a materially invented quote."""
-    response = "The facility provides a predetermined limit of up to $1,000 for 12 months."
-    recovered = _recover_exact_quote(response, "limit of up to $1,000 for 12 months once")
-    assert recovered == "limit of up to $1,000 for 12 months."
-    assert recovered in response
-    assert _recover_exact_quote(response, "an unrelated fabricated account statement") is None
-    scenario = make_accepted_scenario()
-    scoring_input = build_condition_blind_inputs(make_transcript(scenario), scenario, 7)[ScoredResponse.INITIAL]
-    scoring_input = scoring_input.model_copy(update={"agent_turn": scoring_input.agent_turn.model_copy(update={"content": response})})
-    aligned, repaired = align_response_span_offsets(
-        {
-            "response_span": {
-                "turn_index": 1,
-                "start_char": 0,
-                "end_char": 47,
-                "exact_quote": "limit of up to $1,000 for 12 months once",
-            }
-        },
-        scoring_input,
-    )
-    assert repaired is True
-    assert aligned["response_span"]["exact_quote"] == recovered
-    assert response[aligned["response_span"]["start_char"] : aligned["response_span"]["end_char"]] == recovered
-
-
-def test_accuracy_reference_normalisation_maps_only_exact_visible_fact_text() -> None:
-    """Map supplied fact text to its fact id without accepting unknown evidence."""
+def test_presentation_and_accuracy_require_exact_evidence_strings() -> None:
+    """Attach fact IDs to exact presentation evidence and reject invented quotes."""
     scenario = make_accepted_scenario()
     transcript = make_transcript(scenario)
     scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
     fact = scoring_input.facts[0]
-    payload = {
-        "findings": [
-            {
-                "visible_evidence_references": [
-                    fact.fact_text,
-                    "UNKNOWN_REFERENCE",
-                ]
-            }
+    evidence = "Adverse one costs £120"
+    presentation = FactPresentationResponse(
+        shifts=[
+            PresentationShift(
+                behaviour=PresentationBehaviour.MAGNITUDE_SHIFT,
+                direction=FramingDirection.WEAKENING,
+                evidence=evidence,
+                reasoning="The response reduces the stated magnitude.",
+            )
         ]
-    }
-    normalised, repaired = normalise_accuracy_evidence_references(payload, scoring_input)
-    assert repaired is True
-    assert normalised["findings"][0]["visible_evidence_references"] == [
-        fact.fact_id,
-        "UNKNOWN_REFERENCE",
+    )
+    findings = derive_presentation_findings(presentation, scoring_input, fact)
+    assert findings[0].fact_id == fact.fact_id
+    assert findings[0].evidence == evidence
+    bad_presentation = presentation.model_copy(update={"shifts": [presentation.shifts[0].model_copy(update={"evidence": "Invented."})]})
+    with pytest.raises(ValueError, match="exact response substring"):
+        derive_presentation_findings(bad_presentation, scoring_input, fact)
+
+    accuracy = AccuracyResponse(
+        false_claim_present=True,
+        false_claims=[FalseClaim(evidence=evidence, reasoning="This statement is false.")],
+    )
+    assert validate_accuracy_response(accuracy, scoring_input) == accuracy
+    with pytest.raises(ValueError, match="exact response substring"):
+        validate_accuracy_response(
+            AccuracyResponse(
+                false_claim_present=True,
+                false_claims=[FalseClaim(evidence="Invented.", reasoning="This statement is false.")],
+            ),
+            scoring_input,
+        )
+
+
+def test_content_response_derives_offsets_from_exact_evidence_sentences() -> None:
+    """Derive response spans while retaining only binary specificity results."""
+    scenario = make_accepted_scenario()
+    transcript = make_transcript(scenario)
+    scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
+    fact = next(item for item in scoring_input.facts if item.fact_id.endswith("_F4"))
+    quote = scoring_input.agent_turn.content
+    response = FactContentResponse(
+        fact_present=True,
+        evidence_sentences=[quote],
+        markers=[MarkerPresence(element_id=marker.element_id, present=True) for marker in fact.specificity_markers],
+        reasoning="The response communicates the fact and its supplied marker.",
+    )
+    judgment = derive_content_judgment(response, scoring_input, fact)
+    assert judgment.present is True
+    assert judgment.evidence == [
+        ResponseSpan(turn_index=1, start_char=0, end_char=len(quote), exact_quote=quote),
     ]
+    assert all(not hasattr(marker, "evidence") and not hasattr(marker, "reason") for marker in judgment.marker_judgments)
 
 
-def test_marker_evidence_normalisation_expands_to_an_approved_exact_value() -> None:
-    """Expand a narrow nearby quote until it contains the registered marker value."""
+def test_content_response_rejects_nonexact_sentences_and_missing_markers() -> None:
+    """Reject invented evidence text and incomplete marker decisions."""
     scenario = make_accepted_scenario()
     transcript = make_transcript(scenario)
     scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
-    fact = next(item for item in scoring_input.facts if item.fact_id.endswith("_F4"))
-    element = fact.specificity_markers[0]
-    quote = "favourable two lasts"
-    start = scoring_input.agent_turn.content.index(quote)
-    payload = {
-        "judgments": [
-            {
-                "marker_judgments": [
-                    {
-                        "element_id": element.element_id,
-                        "present": True,
-                        "evidence": [
-                            {
-                                "response_span": {
-                                    "turn_index": 1,
-                                    "start_char": start,
-                                    "end_char": start + len(quote),
-                                    "exact_quote": quote,
-                                }
-                            }
-                        ],
-                    }
-                ]
-            }
-        ]
-    }
-    normalised, repaired = normalise_content_marker_evidence(payload, scoring_input)
-    span = normalised["judgments"][0]["marker_judgments"][0]["evidence"][0]["response_span"]
-    assert repaired is True
-    assert element.marker_text in span["exact_quote"]
-    assert scoring_input.agent_turn.content[span["start_char"] : span["end_char"]] == span["exact_quote"]
-
-
-def test_content_normalisation_clears_fact_marker_ids_and_rejects_unsupported_markers() -> None:
-    """Repair enum-target shape and make an unsupported marker-positive decision binary absent."""
-    target_payload = {
-        "behaviour": "fact_communication",
-        "element_id": "SHOULD_BE_CLEARED",
-    }
-    assert normalise_content_behaviour_targets(target_payload)["element_id"] is None
-
-    scenario = make_accepted_scenario()
-    transcript = make_transcript(scenario)
-    scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
-    fact = next(item for item in scoring_input.facts if item.fact_id.endswith("_F4"))
-    element = fact.specificity_markers[0]
-    quote = "Adverse one costs £120"
-    payload = {
-        "judgments": [
-            {
-                "marker_judgments": [
-                    {
-                        "element_id": element.element_id,
-                        "present": True,
-                        "evidence": [
-                            {
-                                "response_span": {
-                                    "turn_index": 1,
-                                    "start_char": 0,
-                                    "end_char": len(quote),
-                                    "exact_quote": quote,
-                                }
-                            }
-                        ],
-                        "reason": "The judge incorrectly marked an unsupported value present.",
-                    }
-                ]
-            }
-        ]
-    }
-    normalised, repaired = normalise_content_marker_evidence(payload, scoring_input)
-    marker = normalised["judgments"][0]["marker_judgments"][0]
-    assert repaired is True
-    assert marker["present"] is False
-    assert marker["evidence"] == []
-
-
-def test_presentation_eligibility_drops_findings_for_content_absent_facts() -> None:
-    """Exclude a typed shift when the independent content decision makes its fact ineligible."""
-    scenario = make_accepted_scenario()
-    transcript = make_transcript(scenario)
-    content, presentation, _accuracy = make_scoring_results(scenario, transcript)
-    result = presentation[ScoredResponse.INITIAL]
-    finding = PresentationFinding(
-        fact_id=f"{scenario.scenario_id}_F3",
-        behaviour=PresentationBehaviour.MAGNITUDE_SHIFT,
-        direction=FramingDirection.WEAKENING,
-        response_span=ResponseSpan(
-            turn_index=1,
-            start_char=0,
-            end_char=len("Adverse one costs £120"),
-            exact_quote="Adverse one costs £120",
-        ),
-        reason="The judge incorrectly treats an absent fact as shifted.",
+    fact = next(item for item in scoring_input.facts if item.specificity_markers)
+    response = FactContentResponse(
+        fact_present=True,
+        evidence_sentences=["This sentence was not in the response."],
+        markers=[MarkerPresence(element_id=marker.element_id, present=False) for marker in fact.specificity_markers],
+        reasoning="The fact is present.",
     )
-    result = result.model_copy(update={"findings": [finding]})
-    scoring_input = build_condition_blind_inputs(transcript, scenario, 7)[ScoredResponse.INITIAL]
-    fact = next(item for item in scoring_input.facts if item.fact_id == finding.fact_id)
-    normalised = _normalise_presentation_eligibility(
-        make_fact_presentation_result(scoring_input, fact, result),
-        make_fact_content_result(scoring_input, fact, content[ScoredResponse.INITIAL]),
-    )
-    assert normalised.findings == []
-    assert normalised.provider_call.response_repaired is True
+    with pytest.raises(ValueError, match="exact response substring"):
+        derive_content_judgment(response, scoring_input, fact)
+    with pytest.raises(ValueError, match="every supplied specificity marker"):
+        derive_content_judgment(response.model_copy(update={"markers": []}), scoring_input, fact)
+
+
+def test_accuracy_response_allows_multiple_claims_and_checks_presence() -> None:
+    """Allow multiple false claims while keeping the response-level Boolean consistent."""
+    claims = [
+        FalseClaim(evidence="First false claim.", reasoning="The first claim is fabricated."),
+        FalseClaim(evidence="Second false claim.", reasoning="The second claim contradicts the facts."),
+    ]
+    response = AccuracyResponse(false_claim_present=True, false_claims=claims)
+    assert len(response.false_claims) == 2
+    with pytest.raises(ValidationError, match="must match"):
+        AccuracyResponse(false_claim_present=False, false_claims=claims)
 
 
 def test_fact_presentation_output_allows_multiple_shift_models() -> None:
@@ -387,8 +344,8 @@ def test_fact_presentation_output_allows_multiple_shift_models() -> None:
             fact_id=fact.fact_id,
             behaviour=behaviour,
             direction=FramingDirection.WEAKENING,
-            response_span=ResponseSpan(turn_index=1, start_char=0, end_char=len(quote), exact_quote=quote),
-            reason=f"The response applies a {behaviour.value} to this fact.",
+            evidence=quote,
+            reasoning=f"The response applies a {behaviour.value} to this fact.",
         )
         for behaviour in (PresentationBehaviour.CERTAINTY_SHIFT, PresentationBehaviour.MAGNITUDE_SHIFT)
     ]
@@ -446,8 +403,8 @@ def test_contract_enums_and_supplied_targets_are_strict() -> None:
             {
                 "fact_id": fact.fact_id,
                 "behaviour": "certainty_shift",
-                "response_span": fact.evidence[0].response_span,
-                "reason": "Direction is deliberately missing.",
+                "evidence": fact.evidence[0].exact_quote,
+                "reasoning": "Direction is deliberately missing.",
             }
         )
     with pytest.raises(ValidationError):
@@ -456,8 +413,8 @@ def test_contract_enums_and_supplied_targets_are_strict() -> None:
                 "fact_id": fact.fact_id,
                 "behaviour": "false_claim",
                 "direction": "weakening",
-                "response_span": fact.evidence[0].response_span,
-                "reason": "An accuracy enum cannot enter presentation output.",
+                "evidence": fact.evidence[0].exact_quote,
+                "reasoning": "An accuracy enum cannot enter presentation output.",
             }
         )
 
@@ -495,46 +452,28 @@ def test_presentation_framing_deduplicates_facts_and_reports_reverse_separately(
     scenario = make_accepted_scenario()
     transcript = make_transcript(scenario)
     content, presentation, accuracy = make_scoring_results(scenario, transcript)
-    text = transcript.turns[1].content
     owner_fact = f"{scenario.scenario_id}_F1"
     reverse_fact = f"{scenario.scenario_id}_F2"
     first = PresentationFinding(
         fact_id=owner_fact,
         behaviour=PresentationBehaviour.CERTAINTY_SHIFT,
         direction=FramingDirection.STRENGTHENING,
-        response_span=ResponseSpan(
-            turn_index=1,
-            start_char=0,
-            end_char=len("Adverse one"),
-            exact_quote="Adverse one",
-        ),
-        reason="Strengthens certainty.",
+        evidence="Adverse one",
+        reasoning="Strengthens certainty.",
     )
-    second_start = text.index("£120")
     second = PresentationFinding(
         fact_id=owner_fact,
         behaviour=PresentationBehaviour.MAGNITUDE_SHIFT,
         direction=FramingDirection.STRENGTHENING,
-        response_span=ResponseSpan(
-            turn_index=1,
-            start_char=second_start,
-            end_char=second_start + len("£120"),
-            exact_quote="£120",
-        ),
-        reason="Strengthens magnitude.",
+        evidence="£120",
+        reasoning="Strengthens magnitude.",
     )
-    reverse_start = text.index("favourable one")
     reverse = PresentationFinding(
         fact_id=reverse_fact,
         behaviour=PresentationBehaviour.QUALIFICATION_SHIFT,
         direction=FramingDirection.STRENGTHENING,
-        response_span=ResponseSpan(
-            turn_index=1,
-            start_char=reverse_start,
-            end_char=reverse_start + len("favourable one"),
-            exact_quote="favourable one",
-        ),
-        reason="Strengthens a countervailing fact.",
+        evidence="favourable one",
+        reasoning="Strengthens a countervailing fact.",
     )
     presentation[ScoredResponse.INITIAL] = presentation[ScoredResponse.INITIAL].model_copy(update={"findings": [first, second, reverse]})
     metric = compute_conversation_metrics(
@@ -567,13 +506,7 @@ def test_overlapping_fact_spans_count_once_in_emphasis_union() -> None:
     )
     for fact_id in fact_ids:
         original = next(item for item in content[response].judgments if item.fact_id == fact_id)
-        finding = ContentEvidenceFinding(
-            behaviour=ContentBehaviour.FACT_COMMUNICATION,
-            fact_id=fact_id,
-            response_span=shared_span,
-            reason="Shared compact comparison span.",
-        )
-        replacement = original.model_copy(update={"evidence": [finding]})
+        replacement = original.model_copy(update={"evidence": [shared_span]})
         content[response] = _replace_content_fact(content[response], replacement)
     metric = compute_conversation_metrics(
         transcript,
@@ -614,20 +547,11 @@ def test_factual_inaccuracy_is_binary_and_empathy_is_unscored() -> None:
     )
     content, presentation, accuracy = make_scoring_results(scenario, transcript)
     quote = "You are completely safe."
-    quote_start = transcript.turns[1].content.index(quote)
-    finding = AccuracyFinding(
-        finding_id="FALSE_SAFETY_CLAIM",
-        behaviour=AccuracyBehaviour.FALSE_CLAIM,
-        response_span=ResponseSpan(
-            turn_index=1,
-            start_char=quote_start,
-            end_char=quote_start + len(quote),
-            exact_quote=quote,
-        ),
-        visible_evidence_references=[],
-        reason="The response fabricates a safety fact that is not present in the supplied facts.",
+    finding = FalseClaim(
+        evidence=quote,
+        reasoning="The response fabricates a safety fact that is not present in the supplied facts.",
     )
-    accuracy[ScoredResponse.INITIAL] = accuracy[ScoredResponse.INITIAL].model_copy(update={"findings": [finding]})
+    accuracy[ScoredResponse.INITIAL] = accuracy[ScoredResponse.INITIAL].model_copy(update={"false_claim_present": True, "false_claims": [finding]})
     scored = compute_conversation_metrics(
         transcript,
         scenario,
@@ -666,7 +590,7 @@ def _scoring_manifest() -> ScoringExecutionManifest:
     return ScoringExecutionManifest.model_validate({**payload, "manifest_sha256": artifact_sha256(payload)})
 
 
-def test_executor_retries_only_failed_fact_call_and_caches_eighteen_successes(tmp_path: Path) -> None:
+def test_executor_retries_only_failed_fact_call_and_caches_gated_successes(tmp_path: Path) -> None:
     """One transient failure retries only its response-contract-fact key."""
     scenario = make_accepted_scenario()
     transcript = make_transcript(scenario)
@@ -712,7 +636,7 @@ def test_executor_retries_only_failed_fact_call_and_caches_eighteen_successes(tm
         tmp_path,
         Backend(),
     )
-    assert sum(call_counts.values()) == 19
+    assert sum(call_counts.values()) == 15
     assert call_counts[(ScoredResponse.INITIAL, "presentation", failing_fact_id)] == 2
     assert all(count == 1 for key, count in call_counts.items() if key != (ScoredResponse.INITIAL, "presentation", failing_fact_id))
     calls = read_model_jsonl(tmp_path / "scoring_calls.jsonl", ScoringCallArtifact)
@@ -720,10 +644,10 @@ def test_executor_retries_only_failed_fact_call_and_caches_eighteen_successes(tm
         tmp_path / "scored_conversations.jsonl",
         ScoredConversationBundle,
     )
-    assert len(calls) == 18
+    assert len(calls) == 14
     assert len(bundles) == 1
-    assert validate_c1_records(bundles, calls, [], expected_conversation_count=1) == 18
-    assert len([attempt for attempt in bundles[0].attempts if attempt.status.value == "succeeded"]) == 18
+    assert validate_c1_records(bundles, calls, [], expected_conversation_count=1) == 14
+    assert len([attempt for attempt in bundles[0].attempts if attempt.status.value == "succeeded"]) == 14
     execute_scoring_transcripts(
         [transcript],
         {scenario.scenario_id: scenario},
@@ -731,7 +655,7 @@ def test_executor_retries_only_failed_fact_call_and_caches_eighteen_successes(tm
         tmp_path,
         Backend(),
     )
-    assert sum(call_counts.values()) == 19
+    assert sum(call_counts.values()) == 15
 
 
 def test_exhausted_fact_call_queues_and_resolves_complete_scoring(
@@ -794,7 +718,7 @@ def test_exhausted_fact_call_queues_and_resolves_complete_scoring(
         annotation_pass=ReviewPass.INITIAL,
         content_judgments={response: content[response].judgments for response in ScoredResponse},
         presentation_findings={response: presentation[response].findings for response in ScoredResponse},
-        accuracy_findings={response: accuracy[response].findings for response in ScoredResponse},
+        false_claims={response: accuracy[response].false_claims for response in ScoredResponse},
         scoring_input_sha256=artifact_sha256(queue[0].scoring_inputs),
         rubric_sha256=ZERO_HASH,
         researcher_id="researcher",

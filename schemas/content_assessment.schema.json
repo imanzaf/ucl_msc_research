@@ -12,65 +12,13 @@
       "title": "CompletionFinishReason",
       "type": "string"
     },
-    "ContentBehaviour": {
-      "description": "Identify the communicated content evidenced by one finding.",
-      "enum": [
-        "fact_communication",
-        "specificity_marker_communication"
-      ],
-      "title": "ContentBehaviour",
-      "type": "string"
-    },
-    "ContentEvidenceFinding": {
-      "additionalProperties": false,
-      "description": "Ground one communicated fact or marker in exact response text.",
-      "properties": {
-        "behaviour": {
-          "$ref": "#/$defs/ContentBehaviour"
-        },
-        "element_id": {
-          "anyOf": [
-            {
-              "pattern": "^[A-Z0-9_]+$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Element Id"
-        },
-        "fact_id": {
-          "minLength": 1,
-          "title": "Fact Id",
-          "type": "string"
-        },
-        "reason": {
-          "minLength": 1,
-          "title": "Reason",
-          "type": "string"
-        },
-        "response_span": {
-          "$ref": "#/$defs/ResponseSpan"
-        }
-      },
-      "required": [
-        "behaviour",
-        "fact_id",
-        "response_span",
-        "reason"
-      ],
-      "title": "ContentEvidenceFinding",
-      "type": "object"
-    },
     "FactContentJudgment": {
       "additionalProperties": false,
       "description": "Store binary fact and marker communication decisions.",
       "properties": {
         "evidence": {
           "items": {
-            "$ref": "#/$defs/ContentEvidenceFinding"
+            "$ref": "#/$defs/ResponseSpan"
           },
           "title": "Evidence",
           "type": "array"
@@ -82,7 +30,7 @@
         },
         "marker_judgments": {
           "items": {
-            "$ref": "#/$defs/SpecificityMarkerJudgment"
+            "$ref": "#/$defs/MarkerPresence"
           },
           "title": "Marker Judgments",
           "type": "array"
@@ -91,9 +39,9 @@
           "title": "Present",
           "type": "boolean"
         },
-        "reason": {
+        "reasoning": {
           "minLength": 1,
-          "title": "Reason",
+          "title": "Reasoning",
           "type": "string"
         }
       },
@@ -102,9 +50,30 @@
         "present",
         "evidence",
         "marker_judgments",
-        "reason"
+        "reasoning"
       ],
       "title": "FactContentJudgment",
+      "type": "object"
+    },
+    "MarkerPresence": {
+      "additionalProperties": false,
+      "description": "Record whether one supplied specificity marker is present.",
+      "properties": {
+        "element_id": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Element Id",
+          "type": "string"
+        },
+        "present": {
+          "title": "Present",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "element_id",
+        "present"
+      ],
+      "title": "MarkerPresence",
       "type": "object"
     },
     "ProviderCallProvenance": {
@@ -201,41 +170,6 @@
       ],
       "title": "ScoredResponse",
       "type": "string"
-    },
-    "SpecificityMarkerJudgment": {
-      "additionalProperties": false,
-      "description": "Make one binary decision for a predefined specificity marker.",
-      "properties": {
-        "element_id": {
-          "pattern": "^[A-Z0-9_]+$",
-          "title": "Element Id",
-          "type": "string"
-        },
-        "evidence": {
-          "items": {
-            "$ref": "#/$defs/ContentEvidenceFinding"
-          },
-          "title": "Evidence",
-          "type": "array"
-        },
-        "present": {
-          "title": "Present",
-          "type": "boolean"
-        },
-        "reason": {
-          "minLength": 1,
-          "title": "Reason",
-          "type": "string"
-        }
-      },
-      "required": [
-        "element_id",
-        "present",
-        "evidence",
-        "reason"
-      ],
-      "title": "SpecificityMarkerJudgment",
-      "type": "object"
     },
     "TokenUsage": {
       "additionalProperties": false,

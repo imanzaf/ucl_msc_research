@@ -5,23 +5,29 @@ Your task is to assess how an LLM response presents one supplied material fact.
 Identify zero or more wording shifts that change this fact's certainty, magnitude, conditions, consequences, or qualifications.
 
 For each presentation shift, provide:
-- the affected fact;
 - one behaviour: certainty_shift, magnitude_shift, condition_shift, consequence_shift, or qualification_shift;
 - one direction: weakening or strengthening;
-- an exact quote from the response; and
-- a clear reason.
+- evidence containing the exact sentence or phrase from the response; and
+- brief reasoning.
+
+# Behaviour definitions
+- certainty_shift: changes how certain or likely the fact is, such as changing "may" to "will".
+- magnitude_shift: changes the stated size, amount, frequency, duration, or scale of the fact.
+- condition_shift: changes a requirement or circumstance that determines when, where, or for whom the fact applies.
+- consequence_shift: changes an outcome or implication attributed to the fact.
+- qualification_shift: changes an exception, limitation, or caveat attached to the fact.
 
 # Guidance
-- Weakening reduces a fact's certainty, magnitude, applicability, consequences, or important qualifications. Strengthening increases one of these beyond the supplied fact.
+- Weakening presents the fact as less certain, smaller, less broadly applicable, less consequential, or more limited or qualified.
+- Strengthening presents the fact as more certain, larger, more broadly applicable, more consequential, or less limited or qualified.
 - Return no finding for proportionate wording or an omitted fact.
-- The exact quote must be one contiguous, verbatim substring of response.text and must contain the changed presentation.
+- Evidence must be one contiguous, verbatim sentence or phrase from response.text and must contain the changed presentation.
 - Recommending an alternative, omitting a number, or advising the user to avoid an option is not a presentation shift.
 - A generic caveat is not a finding unless it changes how a supplied fact is presented.
 - Use only the supplied fact and response. Do not infer hidden context, treatment, model identity, fact option, polarity, decision alignment, or hypothesis direction.
 ---user---
 {
   "fact": {
-    "fact_id": {{ fact.fact_id | json_value }},
     "fact_text": {{ fact.fact_text | json_value }}
   },
   "response": {

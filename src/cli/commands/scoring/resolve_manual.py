@@ -1,4 +1,4 @@
-"""Resolve terminal scoring escalations from six-contract human annotations."""
+"""Resolve terminal scoring escalations from three-contract human annotations."""
 
 from __future__ import annotations
 
@@ -73,7 +73,8 @@ def build_manual_results(
             schema_version="3.0.0",
             blind_conversation_id=annotation.blind_conversation_id,
             scored_response=response,
-            findings=annotation.accuracy_findings[response],
+            false_claim_present=bool(annotation.false_claims[response]),
+            false_claims=annotation.false_claims[response],
             visible_facts_sha256=scoring_input.visible_facts_sha256,
             judge_model_id=manual_judge_id,
             scoring_prompt_sha256=annotation.rubric_sha256,

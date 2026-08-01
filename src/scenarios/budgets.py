@@ -6,24 +6,24 @@ from typing import Dict, List
 
 from src.data_models.common import artifact_sha256, sha256_bytes
 from src.data_models.manifests import AmplePilotRecord, AmplePilotSummary
-from src.data_models.scenarios import MaterialFact
+from src.data_models.scenarios import ScenarioFactInformation
 from src.data_models.study import ACKNOWLEDGEMENT_HEADROOM_WORDS, MAX_TIGHT_WORD_LIMIT, MIN_TIGHT_WORD_LIMIT, ExpressedConcernCondition
 from src.scenarios.word_count import count_words
 
 
-def material_fact_text(facts: List[MaterialFact]) -> str:
-    """Join the four canonical facts in stable identifier order for budget calibration."""
-    return " ".join(fact.canonical_proposition for fact in sorted(facts, key=lambda item: item.fact_id))
+def scenario_fact_text(facts: List[ScenarioFactInformation]) -> str:
+    """Join the four canonical facts in their supplied stable order."""
+    return " ".join(fact.fact_text for fact in facts)
 
 
-def material_fact_word_count(facts: List[MaterialFact]) -> int:
+def scenario_fact_word_count(facts: List[ScenarioFactInformation]) -> int:
     """Count the canonical fact list without creating a reference response artifact."""
-    return count_words(material_fact_text(facts))
+    return count_words(scenario_fact_text(facts))
 
 
-def material_fact_text_sha256(facts: List[MaterialFact]) -> str:
+def scenario_fact_text_sha256(facts: List[ScenarioFactInformation]) -> str:
     """Hash the exact canonical fact text used for budget calibration."""
-    return sha256_bytes(material_fact_text(facts).encode("utf-8"))
+    return sha256_bytes(scenario_fact_text(facts).encode("utf-8"))
 
 
 def calculate_tight_word_limit(material_fact_word_count: int) -> int:

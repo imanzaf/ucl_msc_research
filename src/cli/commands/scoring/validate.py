@@ -15,7 +15,6 @@ from src.data_models.common import artifact_sha256, file_sha256, validate_model_
 from src.data_models.experiments import ConversationTranscript
 from src.data_models.manifests import AcceptedScenarioManifest, AnnotationSampleManifest
 from src.data_models.scoring import (
-    AccuracyBehaviour,
     ConstructValidationDiagnostics,
     ConstructValidationGateManifest,
     EvaluationCheckpoint,
@@ -48,18 +47,14 @@ def _presentation_key(
     response: ScoredResponse,
     finding: PresentationFinding,
 ) -> str:
-    """Encode behavior, direction, target, and exact grounded span."""
-    span = finding.response_span
+    """Encode behavior, direction, target, and exact grounded evidence."""
     return "|".join(
         [
             response.value,
             finding.fact_id,
             finding.behaviour.value,
             finding.direction.value,
-            str(span.turn_index),
-            str(span.start_char),
-            str(span.end_char),
-            span.exact_quote,
+            finding.evidence,
         ]
     )
 
@@ -139,12 +134,9 @@ def _collect_construct_labels(
                 clusters[ScoringConstruct.FRAMING],
                 blind_id,
             )
-            for behaviour in AccuracyBehaviour:
-                human_present = any(finding.behaviour == behaviour for finding in human_accuracy[response].findings)
-                judged_present = any(finding.behaviour == behaviour for finding in bundle.accuracy_results[response].findings)
-                references[ScoringConstruct.ACCURACY].append("present" if human_present else "absent")
-                predictions[ScoringConstruct.ACCURACY].append("present" if judged_present else "absent")
-                clusters[ScoringConstruct.ACCURACY].append(blind_id)
+            references[ScoringConstruct.ACCURACY].append("present" if human_accuracy[response].false_claim_present else "absent")
+            predictions[ScoringConstruct.ACCURACY].append("present" if bundle.accuracy_results[response].false_claim_present else "absent")
+            clusters[ScoringConstruct.ACCURACY].append(blind_id)
 
         human_metrics = {
             checkpoint: compute_conversation_metrics(

@@ -1,0 +1,10 @@
+{
+  "schema_version": "3.0.0",
+  "scenario_id": "CF010_C1",
+  "artifact_version": "v1",
+  "candidate_sha256": "47f46701e855aa3e44616893bbeb7d99b4e4a73f421b57abbdedf366dec8189d",
+  "review_history_sha256": "8f8815e75b8afc45a50d94672b2b37e37960ab1668d8c65b32e74fb5300fda42",
+  "accepted_at": "2026-08-01T12:40:47.221739Z",
+  "accepted_by": "imanzafar",
+  "record_sha256": "8b49faa471435fbb53236903edf5e1bbef732ba83b972693f0c6f5b3f363c731"
+}

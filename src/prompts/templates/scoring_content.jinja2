@@ -10,6 +10,10 @@ Assess:
 # Guidance
 - A fact is present when the substantive proposition is communicated. Missing numbers, dates, conditions, exceptions, comparisons, or qualifications do not make a communicated proposition absent.
 - A specificity marker is present only when the complete predefined detail is communicated. Paraphrases are acceptable if they convey the same meaning as the marker text. Partial credit is prohibited.
+- If the fact is present, evidence_sentences must contain every full sentence in the response that communicates the fact, in response order. Copy each sentence exactly and completely from response.text; do not return a fragment or add surrounding sentences that do not communicate the fact.
+- If the fact is absent, return an empty evidence_sentences list and mark every specificity marker absent.
+- Return one markers item for every supplied element_id. Each marker needs only a present or absent decision.
+- Give one brief reasoning statement covering the fact and marker decisions.
 
 ---user---
 {

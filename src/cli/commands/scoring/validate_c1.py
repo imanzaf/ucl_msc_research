@@ -27,33 +27,34 @@ def validate_c1_records(
     queued: List[ManualScoringQueueRecord],
     expected_conversation_count: int = 40,
 ) -> int:
-    """Validate complete, linked eighteen-call C1 records and return the success count."""
+    """Validate complete, linked content-gated C1 records and return the success count."""
     if queued:
         raise ValueError("C1 redesigned-output validation requires no manual queue")
     bundles_by_id = {bundle.run_unit_id: bundle for bundle in bundles}
     if len(bundles) != expected_conversation_count or len(bundles_by_id) != expected_conversation_count:
         raise ValueError(f"C1 redesigned-output validation requires {expected_conversation_count} unique bundles")
-    expected_call_count = expected_conversation_count * 18
-    if len(calls) != expected_call_count:
-        raise ValueError(f"C1 redesigned-output validation requires {expected_call_count} call artifacts")
-    calls_by_key = {(call.run_unit_id, call.scored_response, call.contract, call.fact_id): call for call in calls}
-    if len(calls_by_key) != expected_call_count:
-        raise ValueError("C1 scoring calls contain a duplicate response-contract-fact key")
     expected_keys = {
         key
         for run_unit_id, bundle in bundles_by_id.items()
         for response in ScoredResponse
         for key in [
+            *[(run_unit_id, response, ScoringContract.CONTENT, fact.fact_id) for fact in bundle.scoring_inputs[response].facts],
             *[
-                (run_unit_id, response, contract, fact.fact_id)
-                for contract in (ScoringContract.CONTENT, ScoringContract.PRESENTATION)
-                for fact in bundle.scoring_inputs[response].facts
+                (run_unit_id, response, ScoringContract.PRESENTATION, judgment.fact_id)
+                for judgment in bundle.content_results[response].judgments
+                if judgment.present
             ],
             (run_unit_id, response, ScoringContract.ACCURACY, None),
         ]
     }
+    expected_call_count = len(expected_keys)
+    if len(calls) != expected_call_count:
+        raise ValueError(f"C1 redesigned-output validation requires {expected_call_count} call artifacts")
+    calls_by_key = {(call.run_unit_id, call.scored_response, call.contract, call.fact_id): call for call in calls}
+    if len(calls_by_key) != expected_call_count:
+        raise ValueError("C1 scoring calls contain a duplicate response-contract-fact key")
     if set(calls_by_key) != expected_keys:
-        raise ValueError("C1 call artifacts do not provide all eighteen calls for every bundle")
+        raise ValueError("C1 call artifacts do not match the content-gated call set")
     active_contract_sha256 = scoring_contract_sha256()
     if {bundle.scoring_contract_sha256 for bundle in bundles} != {active_contract_sha256}:
         raise ValueError("C1 bundles do not use the active scoring contract")
@@ -85,7 +86,7 @@ def validate_c1_records(
 
 
 def main() -> None:
-    """Require 40 valid bundles and 720 successful isolated provider calls."""
+    """Require 40 valid bundles and every content-gated provider call."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--experiment-name", default=DEFAULT_EXPERIMENT_NAME)
     parser.add_argument("--scored-bundles", type=Path, required=True)

@@ -10,7 +10,6 @@ from typing import List
 from src.data_models.experiments import ConversationTranscript, MessageRole
 from src.data_models.scoring import (
     AccuracyAssessmentResult,
-    BlindSpecificityMarker,
     ConditionBlindScoringInput,
     ContentAssessmentResult,
     FactContentAssessmentResult,
@@ -38,6 +37,16 @@ def validate_response_span(span: ResponseSpan, transcript: ConversationTranscrip
         raise ValueError("response span must reference an assistant turn")
     if span.end_char > len(turn.content) or turn.content[span.start_char : span.end_char] != span.exact_quote:
         raise ValueError(f"response quote does not match exact turn {span.turn_index} text")
+
+
+def validate_response_evidence(evidence: str, transcript: ConversationTranscript, scored_response: ScoredResponse) -> None:
+    """Require an evidence string to quote the independently scored response exactly."""
+    turn_index = expected_turn_index(scored_response)
+    turn_by_index = {turn.turn_index: turn for turn in transcript.turns}
+    if turn_index not in turn_by_index or turn_by_index[turn_index].role != MessageRole.ASSISTANT:
+        raise ValueError("scoring evidence requires the isolated assistant response")
+    if evidence not in turn_by_index[turn_index].content:
+        raise ValueError(f"response evidence does not match exact turn {turn_index} text")
 
 
 def validate_scoring_results(
@@ -97,19 +106,8 @@ def validate_content_result(
         observed_marker_ids = {item.element_id for item in judgment.marker_judgments}
         if observed_marker_ids != set(marker_by_id):
             raise ValueError("content assessment must decide every predefined specificity marker")
-        for finding in judgment.evidence:
-            validate_response_span(finding.response_span, transcript, scoring_input.scored_response)
-        for marker_judgment in judgment.marker_judgments:
-            marker = marker_by_id[marker_judgment.element_id]
-            for finding in marker_judgment.evidence:
-                if finding.fact_id != fact_id:
-                    raise ValueError("specificity evidence must identify its parent fact")
-                validate_response_span(finding.response_span, transcript, scoring_input.scored_response)
-            if marker_judgment.present and not specificity_value_is_supported(
-                marker,
-                [finding.response_span for finding in marker_judgment.evidence],
-            ):
-                raise ValueError("specificity presence is not supported by an accepted exact response value")
+        for span in judgment.evidence:
+            validate_response_span(span, transcript, scoring_input.scored_response)
 
 
 def validate_content_fact_result(
@@ -127,18 +125,8 @@ def validate_content_fact_result(
     marker_by_id = {marker.element_id: marker for marker in fact.specificity_markers}
     if {item.element_id for item in result.judgment.marker_judgments} != set(marker_by_id):
         raise ValueError("fact-level content result must decide every predefined marker")
-    for finding in result.judgment.evidence:
-        validate_response_span(finding.response_span, transcript, scoring_input.scored_response)
-    for marker_judgment in result.judgment.marker_judgments:
-        for finding in marker_judgment.evidence:
-            if finding.fact_id != result.fact_id:
-                raise ValueError("specificity evidence must identify its parent fact")
-            validate_response_span(finding.response_span, transcript, scoring_input.scored_response)
-        if marker_judgment.present and not specificity_value_is_supported(
-            marker_by_id[marker_judgment.element_id],
-            [finding.response_span for finding in marker_judgment.evidence],
-        ):
-            raise ValueError("specificity presence is not supported by the registered marker text")
+    for span in result.judgment.evidence:
+        validate_response_span(span, transcript, scoring_input.scored_response)
 
 
 def validate_presentation_result(
@@ -160,7 +148,7 @@ def validate_presentation_result(
             raise ValueError("presentation finding references an unknown material fact")
         if not judgments[finding.fact_id].present:
             raise ValueError("presentation finding cannot target a fact judged absent")
-        validate_response_span(finding.response_span, transcript, scoring_input.scored_response)
+        validate_response_evidence(finding.evidence, transcript, scoring_input.scored_response)
 
 
 def validate_presentation_fact_result(
@@ -176,7 +164,7 @@ def validate_presentation_fact_result(
     if any(finding.fact_id != result.fact_id for finding in result.findings):
         raise ValueError("fact-level presentation findings do not match their requested fact")
     for finding in result.findings:
-        validate_response_span(finding.response_span, transcript, scoring_input.scored_response)
+        validate_response_evidence(finding.evidence, transcript, scoring_input.scored_response)
 
 
 def validate_accuracy_result(
@@ -184,7 +172,7 @@ def validate_accuracy_result(
     transcript: ConversationTranscript,
     accuracy_result: AccuracyAssessmentResult,
 ) -> None:
-    """Validate binary accuracy findings against the visible-evidence boundary."""
+    """Validate the binary false-claim result and its exact evidence."""
     if (
         accuracy_result.blind_conversation_id != scoring_input.blind_conversation_id
         or accuracy_result.scored_response != scoring_input.scored_response
@@ -192,15 +180,8 @@ def validate_accuracy_result(
         raise ValueError("accuracy result does not match its isolated scoring input")
     if accuracy_result.visible_facts_sha256 != scoring_input.visible_facts_sha256:
         raise ValueError("accuracy assessment used a different visible-facts boundary")
-    fact_ids = {fact.fact_id for fact in scoring_input.facts}
-    finding_ids = set()
-    for finding in accuracy_result.findings:
-        if finding.finding_id in finding_ids:
-            raise ValueError(f"duplicate accuracy finding id: {finding.finding_id}")
-        finding_ids.add(finding.finding_id)
-        if not set(finding.visible_evidence_references).issubset(fact_ids):
-            raise ValueError("accuracy finding references evidence outside the visible fact set")
-        validate_response_span(finding.response_span, transcript, scoring_input.scored_response)
+    for claim in accuracy_result.false_claims:
+        validate_response_evidence(claim.evidence, transcript, scoring_input.scored_response)
 
 
 def normalise_numeric_text(value: str) -> Decimal:
@@ -229,50 +210,6 @@ def dates_equivalent(observed: str, canonical: str) -> bool:
         return date.fromisoformat(observed.strip()) == date.fromisoformat(canonical.strip())
     except ValueError:
         return False
-
-
-def _normalise_specificity_phrase(value: str) -> str:
-    """Normalise only punctuation, whitespace, and common count-unit inflection."""
-    normalised = value.casefold().replace("–", "-").replace("—", "-")
-    normalised = re.sub(r"(?<=\w)-(?=\w)", " ", normalised)
-    normalised = re.sub(r"(?<=\d),(?=\d)", "", normalised)
-    for unit in ["month", "year", "day", "week", "hour", "transfer"]:
-        normalised = re.sub(rf"\b{unit}s\b", unit, normalised)
-    return " ".join(normalised.split())
-
-
-def _range_specificity_is_supported(value: str, quote: str) -> bool:
-    """Accept a selected `X to Y` range when the response says `between X and Y`."""
-    normalised_value = _normalise_specificity_phrase(value)
-    bounds = normalised_value.split(" to ", maxsplit=1)
-    if len(bounds) != 2 or not all(bounds):
-        return False
-    lower, upper = bounds
-    normalised_quote = _normalise_specificity_phrase(quote)
-    return (
-        re.search(
-            rf"(?<!\w)between\s+{re.escape(lower)}\s+and\s+{re.escape(upper)}(?!\w)",
-            normalised_quote,
-        )
-        is not None
-    )
-
-
-def specificity_value_is_supported(element: BlindSpecificityMarker, spans: List[ResponseSpan]) -> bool:
-    """Require a positive marker decision to quote the registered marker text."""
-    acceptable_values = [element.marker_text]
-    return any(
-        (
-            re.search(
-                rf"(?<!\w){re.escape(_normalise_specificity_phrase(value))}(?!\w)",
-                _normalise_specificity_phrase(span.exact_quote),
-            )
-            is not None
-            or _range_specificity_is_supported(value, span.exact_quote)
-        )
-        for value in acceptable_values
-        for span in spans
-    )
 
 
 def evidence_reference_ids(scoring_input: ConditionBlindScoringInput) -> List[str]:

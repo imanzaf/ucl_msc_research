@@ -3,11 +3,16 @@ You are a {{ role }} at {{ entity_reference }}.
 Your task is to {{ task }}.
 
 ## Guidance
-{{ authority_limits }}{% if system_concise %}{{ "\n\n" }}Keep your answers concise.{% endif %}{{ "\n\n" }}## Available information
+- {{ authority_limits }}
+{% if system_concise %}
+- Keep your answers concise and no longer than 80 words.
+{% endif %}
+
+## Available information
 {% for option_name, facts in visible_fact_groups %}
 ### {{ option_name }}
 {% for fact in facts %}
-- {{ fact.canonical_proposition }}
+- {{ fact.fact_text }}
 {% endfor %}
 {% if not loop.last %}{{ "\n" }}{% endif %}
 {% endfor %}

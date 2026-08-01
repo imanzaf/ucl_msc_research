@@ -178,7 +178,7 @@ class OpenRouterClient:
         structured_log_dir: Optional[Path] = None,
         provider_routing: Optional[ProviderRouting] = None,
     ) -> "OpenRouterClient":
-        """Construct a role-scoped OpenRouter client from Pydantic settings."""
+        """Construct a role-scoped client without hidden retries for recorded experiment calls."""
         if api_settings.paid_api_calls_disabled:
             raise PermissionError("external paid API clients are disabled by CI_PAID_API_CALLS_DISABLED")
         default_headers: Dict[str, str] = {}
@@ -186,10 +186,12 @@ class OpenRouterClient:
             default_headers["HTTP-Referer"] = api_settings.openrouter_http_referer
         if api_settings.openrouter_app_title:
             default_headers["X-OpenRouter-Title"] = api_settings.openrouter_app_title
+        sdk_max_retries = model_settings.max_generation_retries if credential_role == OpenRouterCredentialRole.SCENARIO_GENERATION else 0
         client = OpenAI(
             api_key=api_settings.openrouter_api_key_for(credential_role),
             base_url=api_settings.openrouter_base_url,
             timeout=model_settings.openrouter_request_timeout_seconds,
+            max_retries=sdk_max_retries,
             default_headers=default_headers or None,
         )
         return cls(

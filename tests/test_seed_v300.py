@@ -49,8 +49,8 @@ def test_v300_seed_and_queries_match_their_versioned_schemas() -> None:
         assert list(Draft202012Validator(schema).iter_errors(payload)) == []
 
 
-def test_v300_snapshots_latest_v210_definition_and_query_content() -> None:
-    """Change only the version identity when snapshotting the latest V2.1 inputs."""
+def test_v300_snapshots_v210_with_concrete_retail_bank_entities() -> None:
+    """Retain V2.1 content except for the intentional V3 retail-bank refinements."""
     for filename in ("scenario_generation_seeds.json", "scenario_customer_queries.json"):
         previous = _read_json(V210_ROOT / filename)
         current = _read_json(V300_ROOT / filename)
@@ -58,6 +58,13 @@ def test_v300_snapshots_latest_v210_definition_and_query_content() -> None:
         previous.pop("scenario_set_id")
         current.pop("schema_version")
         current.pop("scenario_set_id")
+        if filename == "scenario_generation_seeds.json":
+            use_cases = {item["use_case_id"]: item for item in previous["use_cases"]}
+            for use_case_id in ("CF001", "CF002", "CF010"):
+                use_cases[use_case_id]["deployment_context"]["entity_type"] = "retail bank"
+            cf010_r2 = next(item for item in use_cases["CF010"]["replications"] if item["scenario_id"] == "CF010_R2")
+            cf010_external = next(item for item in cf010_r2["options"] if item["option_id"] == "OPTION_B")
+            cf010_external["option_name"] = "SEPA euro transfer through another retail bank"
         assert current == previous
 
 

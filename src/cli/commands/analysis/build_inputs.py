@@ -9,7 +9,7 @@ from typing import Dict, List, Tuple
 from src.data_models.common import artifact_sha256, file_sha256, utc_now, validate_model_self_hash
 from src.data_models.experiments import EXPECTED_CONVERSATION_COUNT, ConversationTranscript, RunOutcomeStatus
 from src.data_models.manifests import AcceptedScenarioManifest, ExperimentManifest, FreezeStatus, ScoringExecutionManifest
-from src.data_models.scenarios import DecisionOption, FactPolarity, decision_alignment
+from src.data_models.scenarios import DecisionOption, FactPolarity, decision_alignment, scenario_fact_items
 from src.data_models.scoring import (
     AnalysisInputRow,
     AnalysisMissingnessReport,
@@ -261,7 +261,9 @@ def main() -> None:
         bundles,
         manual_resolutions,
         {
-            scenario.scenario_id: {fact.fact_id: (fact.option, fact.polarity, fact.pair_id) for fact in scenario.material_facts}
+            scenario.scenario_id: {
+                coordinate.fact_id: (coordinate.option, coordinate.polarity, coordinate.pair_id) for coordinate, _ in scenario_fact_items(scenario)
+            }
             for scenario in scenarios
         },
     )

@@ -35,7 +35,7 @@
     },
     "PresentationFinding": {
       "additionalProperties": false,
-      "description": "Ground one typed weakening or strengthening behaviour in response text.",
+      "description": "Attach the requested fact identifier to one presentation shift.",
       "properties": {
         "behaviour": {
           "$ref": "#/$defs/PresentationBehaviour"
@@ -43,26 +43,28 @@
         "direction": {
           "$ref": "#/$defs/FramingDirection"
         },
+        "evidence": {
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        },
         "fact_id": {
           "minLength": 1,
           "title": "Fact Id",
           "type": "string"
         },
-        "reason": {
+        "reasoning": {
           "minLength": 1,
-          "title": "Reason",
+          "title": "Reasoning",
           "type": "string"
-        },
-        "response_span": {
-          "$ref": "#/$defs/ResponseSpan"
         }
       },
       "required": [
-        "fact_id",
         "behaviour",
         "direction",
-        "response_span",
-        "reason"
+        "evidence",
+        "reasoning",
+        "fact_id"
       ],
       "title": "PresentationFinding",
       "type": "object"
@@ -116,41 +118,6 @@
         "response_sha256"
       ],
       "title": "ProviderCallProvenance",
-      "type": "object"
-    },
-    "ResponseSpan": {
-      "additionalProperties": false,
-      "description": "Locate an exact quote in one evaluated agent turn.",
-      "properties": {
-        "end_char": {
-          "exclusiveMinimum": 0,
-          "title": "End Char",
-          "type": "integer"
-        },
-        "exact_quote": {
-          "minLength": 1,
-          "title": "Exact Quote",
-          "type": "string"
-        },
-        "start_char": {
-          "minimum": 0,
-          "title": "Start Char",
-          "type": "integer"
-        },
-        "turn_index": {
-          "maximum": 3,
-          "minimum": 1,
-          "title": "Turn Index",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "turn_index",
-        "start_char",
-        "end_char",
-        "exact_quote"
-      ],
-      "title": "ResponseSpan",
       "type": "object"
     },
     "ScoredResponse": {
@@ -224,7 +191,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Aggregate four fact-level presentation assessments for one response.",
+  "description": "Aggregate presentation assessments for content-present facts in one response.",
   "properties": {
     "blind_conversation_id": {
       "minLength": 1,

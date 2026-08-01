@@ -1,4 +1,4 @@
-"""Run six isolated scoring calls and derive three metric checkpoints."""
+"""Run isolated content-gated scoring calls and derive three metric checkpoints."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Dict, List, Literal, Protocol, Tuple, cast
 
 from src.data_models.common import artifact_sha256
 from src.data_models.experiments import ConversationTranscript, RunOutcomeStatus
-from src.data_models.scenarios import AcceptedScenario
+from src.data_models.scenarios import AcceptedScenario, DecisionOption, alternative_seed_option, scenario_fact_items
 from src.data_models.scoring import (
     AccuracyAssessmentResult,
     BlindFactReference,
@@ -22,7 +22,8 @@ from src.data_models.scoring import (
     ScoredResponse,
     ScoringTranscriptTurn,
 )
-from src.scenarios.fact_rendering import material_facts_without_option_prefix, ordered_visible_fact_groups, render_visible_facts, visible_facts_sha256
+from src.prompts.scoring_contracts import PRESENTATION_ASSESSMENT_PROMPT_SHA256
+from src.scenarios.fact_rendering import render_visible_facts, visible_facts_sha256
 from src.scoring.metrics import compute_conversation_metrics
 from src.scoring.validation import validate_scoring_results
 
@@ -88,26 +89,27 @@ def aggregate_content_fact_results(
 def aggregate_presentation_fact_results(
     scoring_input: ConditionBlindScoringInput,
     results: List[FactPresentationAssessmentResult],
+    content_result: ContentAssessmentResult,
 ) -> PresentationAssessmentResult:
-    """Aggregate four independently scored presentation facts for one response."""
+    """Aggregate presentation results for the facts independently marked present."""
     result_by_fact = {result.fact_id: result for result in results}
-    expected_fact_ids = {fact.fact_id for fact in scoring_input.facts}
-    if len(result_by_fact) != 4 or set(result_by_fact) != expected_fact_ids:
-        raise ValueError("presentation aggregation requires one result for every supplied fact")
+    expected_fact_ids = {judgment.fact_id for judgment in content_result.judgments if judgment.present}
+    if len(result_by_fact) != len(expected_fact_ids) or set(result_by_fact) != expected_fact_ids:
+        raise ValueError("presentation aggregation requires one result for every content-present fact")
     judge_model_ids = {result.judge_model_id for result in results}
     prompt_hashes = {result.scoring_prompt_sha256 for result in results}
-    if len(judge_model_ids) != 1 or len(prompt_hashes) != 1:
+    if len(judge_model_ids) > 1 or len(prompt_hashes) > 1:
         raise ValueError("presentation fact results must use one judge and prompt contract")
-    ordered_results = [result_by_fact[fact.fact_id] for fact in scoring_input.facts]
+    ordered_results = [result_by_fact[fact.fact_id] for fact in scoring_input.facts if fact.fact_id in expected_fact_ids]
     return PresentationAssessmentResult(
         schema_version="3.0.0",
         blind_conversation_id=scoring_input.blind_conversation_id,
         scored_response=scoring_input.scored_response,
         findings=[finding for result in ordered_results for finding in result.findings],
-        judge_model_id=ordered_results[0].judge_model_id,
+        judge_model_id=ordered_results[0].judge_model_id if ordered_results else content_result.judge_model_id,
         provider_calls=[result.provider_call for result in ordered_results],
-        scoring_prompt_sha256=ordered_results[0].scoring_prompt_sha256,
-        scored_at=max(result.scored_at for result in ordered_results),
+        scoring_prompt_sha256=ordered_results[0].scoring_prompt_sha256 if ordered_results else PRESENTATION_ASSESSMENT_PROMPT_SHA256,
+        scored_at=max((result.scored_at for result in ordered_results), default=content_result.scored_at),
     )
 
 
@@ -119,25 +121,22 @@ def build_condition_blind_inputs(
     """Hide labels, fix one fact order, and isolate the two assistant responses."""
     if transcript.outcome_status != RunOutcomeStatus.COMPLETED:
         raise ValueError("only completed transcripts can be scored")
-    material_facts = material_facts_without_option_prefix(scenario)
-    specificity_by_fact = {
-        fact.fact_id: [element for element in scenario.specificity_elements if element.fact_id == fact.fact_id] for fact in material_facts
+    fact_items = scenario_fact_items(scenario)
+    seed_option_by_decision_option = {
+        DecisionOption.OWNER_OPTION: scenario.hidden_design.owner_supporting_option,
+        DecisionOption.ALTERNATIVE_OPTION: alternative_seed_option(scenario.hidden_design.owner_supporting_option),
     }
-    fact_text_by_id = {
-        fact.fact_id: f"{option_name}: {fact.canonical_proposition}"
-        for option_name, option_facts in ordered_visible_fact_groups(scenario)
-        for fact in option_facts
-    }
+    option_name_by_seed_option = {option.option_id: option.option_name for option in scenario.hidden_design.options}
     facts = [
         BlindFactReference(
-            fact_id=fact.fact_id,
-            fact_text=fact_text_by_id[fact.fact_id],
+            fact_id=coordinate.fact_id,
+            fact_text=f"{option_name_by_seed_option[seed_option_by_decision_option[coordinate.option]]}: {information.fact_text}",
             specificity_markers=[
-                BlindSpecificityMarker(element_id=element.element_id, marker_text=element.canonical_value)
-                for element in specificity_by_fact[fact.fact_id]
+                BlindSpecificityMarker(element_id=f"{coordinate.fact_id}_S{index}", marker_text=marker)
+                for index, marker in enumerate(information.specificity_markers, start=1)
             ],
         )
-        for fact in material_facts
+        for coordinate, information in fact_items
     ]
     random.Random(fact_order_seed).shuffle(facts)
     assistant_turns = {
@@ -169,7 +168,7 @@ def score_condition_blind_inputs(
     scenario: AcceptedScenario,
     backend: ConditionBlindScoringBackend,
 ) -> ScoringOutputs:
-    """Execute fact-level content/presentation and response-level accuracy calls."""
+    """Execute content-gated fact-level presentation and response-level accuracy calls."""
     if set(scoring_inputs) != set(ScoredResponse):
         raise ValueError("scoring requires isolated initial and follow-up inputs")
     content_results: Dict[ScoredResponse, ContentAssessmentResult] = {}
@@ -181,9 +180,11 @@ def score_condition_blind_inputs(
             scoring_input,
             [backend.assess_content_fact(scoring_input, fact) for fact in scoring_input.facts],
         )
+        present_fact_ids = {judgment.fact_id for judgment in content_results[response].judgments if judgment.present}
         presentation_results[response] = aggregate_presentation_fact_results(
             scoring_input,
-            [backend.assess_presentation_fact(scoring_input, fact) for fact in scoring_input.facts],
+            [backend.assess_presentation_fact(scoring_input, fact) for fact in scoring_input.facts if fact.fact_id in present_fact_ids],
+            content_results[response],
         )
         accuracy_results[response] = backend.assess_accuracy(scoring_input)
         validate_scoring_results(
@@ -213,7 +214,7 @@ def score_conversation(
     backend: ConditionBlindScoringBackend,
     fact_order_seed: int,
 ) -> Tuple[Dict[ScoredResponse, ConditionBlindScoringInput], *ScoringOutputs]:
-    """Build isolated inputs, run eighteen calls, and derive all metrics."""
+    """Build isolated inputs, run content-gated calls, and derive all metrics."""
     scoring_inputs = build_condition_blind_inputs(transcript, scenario, fact_order_seed)
     outputs = score_condition_blind_inputs(
         scoring_inputs=scoring_inputs,

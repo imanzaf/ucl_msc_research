@@ -8,52 +8,49 @@ model run is complete.
 
 | Experiment | Purpose | Conversations |
 |---|---|---:|
-| `c1_llama_2x2_v8` | Eighteen-call rescoring of the 40 completed V3 Llama C1 conversations | 40 |
+| `c1_llama_2x2_v9` | Content-gated rescoring of the 40 completed V3 Llama C1 conversations | 40 |
 | `risk_comm_calibration_v1` | Ten C1 scenarios × three models × the four primary cells | 120 |
 | `risk_comm_v1` | Twenty R1–R2 scenarios × three models × the four primary cells | 240 |
 | `material_priority_v1` | Twenty R1–R2 scenarios × three models × concise guidance × two seed-authored queries | 120 |
 | `brevity_locus_v1` | Twenty R1–R2 scenarios × three models × neutral query with user-requested brevity | 60 |
 
-The baseline system prompt has no response-length instruction. The concise condition adds exactly `Keep your answers concise.` under Guidance.
-Neither condition has a numeric word limit.
+The baseline system prompt has no response-length instruction. The concise condition adds exactly
+`Keep your answers concise and no longer than 80 words.` under Guidance. This is a prompt instruction only: execution does not count, reject,
+truncate, or retry responses based on their word count.
 
 The complete evaluated-model contract is defined in `src/prompts/templates/experiment.jinja2`. Its `---system---`, `---user---`, and
-`---follow-up---` sections keep the initial pair and later user turn together, with all dynamic formatting visible in the template. The V10 prompt
+`---follow-up---` sections keep the initial pair and later user turn together, with all dynamic formatting visible in the template. The V12 prompt
 package hashes the complete template source through `src/prompts/template_utils.py`.
 
-## C1 single-model diagnostic
+Evaluated responses use three runner-recorded retries after the initial attempt, with a fixed 30-second wait before each retry. The OpenAI client’s
+internal retries are disabled for evaluated-model calls so every attempt is governed by the frozen experiment retry policy.
 
-Prepare and run the redesigned scoring diagnostic from the completed Llama C1 evaluated-model outputs:
+## Direct response generation
+
+Use the response runner to select only the ten C1 scenarios (`c`), only the twenty R1/R2 scenarios (`r`), or all thirty published scenarios
+(`all`). Omitting `--model-ids` runs all three evaluated models in `src/settings/models.json`:
 
 ```bash
-uv run risk-comm scoring run-c1 \
-  --source-experiment-name c1_llama_2x2_v3 \
-  --frozen-by <researcher-id> \
+uv run risk-comm experiment run-responses \
+  --experiment-name all_scenarios_all_models_2x2_v1 \
+  --scenario-scope all \
   --execute-paid
 ```
 
-The command authenticates the active C1 scenarios and prompt hash, requires all 40 source transcripts to be completed Llama outputs, and writes a
-hash-bound source manifest under `data/outputs/experiments/c1_llama_2x2_v8/checkpoints/`. It makes no new evaluated-model calls. It writes the six
-scoring-call caches and scored bundles under V4 and regenerates the stable V4 table. Repeating the command resumes only unfinished scoring calls.
-Validate the redesigned output before freezing the shared scoring contract:
+Pass one or more model ids to run only that subset:
 
 ```bash
-uv run risk-comm scoring validate-c1 \
-  --scored-bundles data/outputs/experiments/c1_llama_2x2_v8/results/scored_conversations.jsonl \
-  --scoring-calls data/outputs/experiments/c1_llama_2x2_v8/results/scoring_calls.jsonl \
-  --manual-queue data/outputs/experiments/c1_llama_2x2_v8/results/manual_scoring_queue.jsonl \
-  --output data/outputs/experiments/c1_llama_2x2_v8/checkpoints/scoring_diagnostic.json
-
-uv run risk-comm scoring build-manifest \
-  --evaluated-model-manifest data/outputs/experiments/risk_comm_v1/manifests/evaluated_models.json \
-  --judge-snapshot data/outputs/experiments/risk_comm_v1/manifests/judge_snapshot.json \
-  --c1-diagnostic-report data/outputs/experiments/c1_llama_2x2_v8/checkpoints/scoring_diagnostic.json \
-  --frozen-by <researcher-id> \
-  --output data/outputs/experiments/risk_comm_v1/manifests/scoring_execution.json
+uv run risk-comm experiment run-responses \
+  --experiment-name r_llama_qwen_2x2_v1 \
+  --scenario-scope r \
+  --model-ids meta-llama/llama-3.3-70b-instruct qwen/qwen-2.5-72b-instruct \
+  --execute-paid
 ```
 
-Validation requires all 40 bundles, all 720 successful response-contract-fact calls, eighteen independent provenances per conversation, isolated initial and
-follow-up inputs, and no manual queue. The C1 diagnostic checks the new scoring contract; it does not replace three-model calibration.
+The command authenticates the complete published manifest, freezes the selected model list and prompt package in `config.json`, writes the seeded
+run plan before making calls, and appends every terminal conversation immediately. Repeating the same command resumes the same result file. It
+generates evaluated-model responses only; scoring remains a separate command and is never invoked by this runner. Optional
+`--provider-only MODEL_ID=PROVIDER_ID[,PROVIDER_ID]` values freeze OpenRouter routing per selected model.
 
 ## Freeze shared manifests
 
