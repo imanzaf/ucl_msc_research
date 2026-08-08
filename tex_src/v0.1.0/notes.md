@@ -21,10 +21,12 @@ Section 2 - discuss what the literature has shown on how and when LLMs decieve a
 - Most papers measure the occurence of deception under direct instructions to decieve, and/or a direct goal conflict.
 - Earlier papers focus on blatant deception (false claims). Recent papers also introduce subtle forms of deception like selective omission, pragmatic distortion, etc.
 - Research in behavioural science / advertising also shows that conversational AI can shift consumer preferences without explicitly lying, including when commercial/sponsored conflicts exist.
+- include paper (maybe): How Personality Traits Shape LLM Risk-Taking Behaviour
 
-Section 3 - discuss what has been studied around owner loyalty
+Section 3 - discuss what has been studied around owner loyalty and sycophancy
 - todo - include papers around corporate loyalty in LLMs
 - include paper: Simple Role Assignment is Extraordinarily Effective for Safety Alignment
+- include paper (maybe): The Social Sycophancy Scale: A psychometrically validated measure of sycophancy
 - talk about relevance to: goal-conditioned analytical sycophancy
 
 Section 4 - discuss whats been studied around how user emotions impact LLM responses & how brevity instructions impact LLM responses
@@ -49,8 +51,18 @@ Section 1 - what type of data do we need
 - We don't assume that the second option would be more beneficial for the customer or that the first option would harm them (is this true?? for most this will naturally be the case, why not enforce for consistency?)
 
 Section 2 - breakdown of each conversation's contents 
-- 
+- the two-option design
+- owner-benefiting mechanism
+- adverse vs beneficial fact pairs
 
-Section 3 - generation and review pipeline
+Section 3 - seed and fact generation
+- seed was generated manually (mention the key parts that were included in here to feed into fact generation)
+- seed was created with 10 use cases, with use cases aimed to be relevant to the current landscape of AI use cases in financial services
+- a user query was written manually per use case to ensure neutral tone and non-leading questions
+- each use case had 3 scenarios. One of the three was a calibration scenario that was run through the fact generation pipeline first and reviewed. Once finalised the other two were generated and the calibration scenario was passed as an example.
+- fact generation was done using an LLM. (include a summary of what the model was instructed to do, prompt will go in the appendix)
+- present a sample seed and scenario
 
-Section 4 - sample scenarios
+
+## Methodology
+- each scenario processed as a conversat
