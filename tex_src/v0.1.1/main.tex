@@ -77,7 +77,11 @@
 \chapter{Introduction}
 \label{chap:introduction}
 
-Large language models are increasingly being considered as an interface between financial institutions and their customers. In this role, a model may be asked to explain an account feature, compare borrowing arrangements, summarise the implications of an insurance settlement, or outline the trade-offs between retirement options. The attraction of conversational systems is clear: they can translate technical material into accessible language, respond to follow-up questions and bring together information that would otherwise be dispersed across product documentation. Their growing relevance is reflected in the wider adoption of artificial intelligence across UK financial services, including anticipated expansion in customer-support applications \parencite{boe_fca_2024_ai}.
+\textcolor{red}{[first two paragraphs are repetitive and not strong enough. REWRITE!!! cite any review papers/articles that discuss the main uses of LLMs in financial services to make it stronger]}
+
+Large language models are increasingly being integrated into customer-facing workflows across financial services. In these settings, conversational agents may support tasks like information provision, routine service interactions, navigation of products and processes, and decision support. Rather than performing a single narrowly defined function, they can operate across multiple stages of a customer journey by helping users identify relevant information, understand available options, clarify requirements, and determine what further action or support may be appropriate.
+
+The appeal of these systems extends beyond their ability to restate technical material in more accessible language. They can provide rapid and scalable assistance, remain available outside conventional service hours, adapt explanations to the user's question and level of understanding, and maintain context across multi-turn interactions. They may also bring together information from different sources or stages of a process, improve consistency in routine communication, reduce the effort required to locate relevant information, and direct customers towards appropriate self-service or specialist support. For financial institutions, these capabilities offer the prospect of complementing human service teams while supporting a wider range of customer needs. Their growing relevance is reflected in the broader adoption of artificial intelligence across UK financial services, including its anticipated expansion in customer-support applications \parencite{boe_fca_2024_ai}.
 
 The quality of these interactions depends on more than whether individual statements are factually correct. A customer-facing assistant also determines which facts enter the response, how precisely they are expressed, and which considerations receive the greatest prominence. These choices can shape the customer's understanding of a decision even where every sentence is literally true. This is especially important in financial services, where apparently modest differences in fees, repayment periods, access conditions, insurance cover or investment charges can have material consequences. The Financial Conduct Authority's Consumer Duty places particular emphasis on communications that meet customers' information needs and support effective and properly informed decisions \parencite{fca_2022_consumer_duty}. An answer that accurately describes one side of a choice while omitting or weakening a material countervailing fact may therefore remain problematic despite containing no direct falsehood.
 
@@ -581,9 +585,304 @@ The initial answer is the confirmatory checkpoint because it captures the inform
 \chapter{Results}
 \label{chap:results}
 
-\begin{todobox}
-TODO
-\end{todobox}
+\section{Analysis sample and score reconciliation}
+
+The experiment produced the complete planned matrix of 360 conversations: 30 scenarios evaluated by three models in each of the four treatment cells. Every conversation contained an initial answer and a response to the fixed follow-up, giving 720 assistant responses in total. Each experimental cell therefore contained 90 conversations, and no run unit was missing from the final scoring dataset.
+
+The effective score file incorporated the reviewed scoring decisions for all 360 conversations. The final score source remained the automated judge for 276 conversations (76.7\%), while 67 conversations (18.6\%) incorporated a manual correction and 17 conversations (4.7\%) were completed through manual resolution after entering the scoring queue. All analyses below use these effective scores rather than the unrevised automated outputs.
+
+The concision treatment produced a substantial separation in response length. Initial responses averaged 49.5 words under concise guidance, compared with 274.2 words without a length instruction. Of the 180 concise initial responses, 176 (97.8\%) were within the requested 80-word limit; the four exceptions contained between 81 and 86 words. All 180 concise follow-up responses were within the limit. The emotional-vulnerability cue did not materially change response length: marginal initial-response means were 162.2 words for neutral queries and 161.5 words for concerned queries.
+
+\section{Primary treatment effects}
+\label{sec:primary_results}
+
+Across all initial responses, the mean selective-communication score was 0.039 and the median was zero. Fifty-three of the 360 responses (14.7\%) received a non-zero score. Non-zero scores occurred in 17 of 180 baseline responses (9.4\%) and 36 of 180 concise responses (20.0\%). The corresponding counts were 26 of 180 neutral responses (14.4\%) and 27 of 180 concerned responses (15.0\%).
+
+\Cref{tab:initial_treatment_effects} reports the marginal means and scenario-level treatment contrasts. Concise-response guidance increased the initial selective-communication score from 0.026 to 0.053. The estimated concision effect was \(\Delta_C=0.027\), with a 95\% confidence interval of \([0.009,0.045]\). The two-sided sign-flip test gave an unadjusted \(p\)-value of 0.024 and a Holm-adjusted \(p\)-value of 0.048. The result therefore met the prespecified 5\% threshold after correction across the two confirmatory tests.
+
+The emotional-vulnerability cue produced a much smaller marginal difference. Mean selective communication was 0.037 for neutral queries and 0.042 for concerned queries, giving \(\Delta_E=0.005\), 95\% CI \([-0.010,0.020]\), and \(p_{\mathrm{Holm}}=0.674\). The overall concision-by-cue interaction was also close to zero, \(\Delta_{C\times E}=0.001\), 95\% CI \([-0.028,0.032]\). The aggregate results therefore supported an effect of concise-response guidance on the primary score, but not a marginal effect of the emotional-vulnerability cue or an interaction between the two treatments.
+
+\begin{table}[htbp]
+\centering
+\caption{Initial-response means and marginal treatment effects.}
+\label{tab:initial_treatment_effects}
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabularx}{\textwidth}{@{}Ycccccc@{}}
+\toprule
+\textbf{Outcome}
+& \multicolumn{3}{c}{\textbf{Concision contrast}}
+& \multicolumn{3}{c}{\textbf{Emotional-cue contrast}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+& \textbf{Baseline}
+& \textbf{Concise}
+& \shortstack{\textbf{\(\Delta_C\)}\\\textbf{[95\% CI]}}
+& \textbf{Neutral}
+& \textbf{Concerned}
+& \shortstack{\textbf{\(\Delta_E\)}\\\textbf{[95\% CI]}} \\
+\midrule
+
+\multicolumn{7}{@{}l}{\textit{Primary outcome and selective-communication components}} \\
+
+\textbf{Selective communication}
+& 0.026
+& 0.053
+& \textbf{\shortstack{\(+0.027\)\\\([0.009,\,0.045]\)}}
+& 0.037
+& 0.042
+& \shortstack{\(+0.005\)\\\([-0.010,\,0.020]\)} \\
+
+Coverage asymmetry
+& 0.047
+& 0.094
+& \shortstack{\(+0.047\)\\\([0.011,\,0.083]\)}
+& 0.064
+& 0.078
+& \shortstack{\(+0.014\)\\\([-0.014,\,0.044]\)} \\
+
+Specificity asymmetry
+& 0.004
+& 0.011
+& \shortstack{\(+0.007\)\\\([-0.004,\,0.019]\)}
+& 0.010
+& 0.006
+& \shortstack{\(-0.004\)\\\([-0.010,\,0.000]\)} \\
+
+Signed coverage gap
+& 0.014
+& -0.061
+& \shortstack{\(-0.075\)\\\([-0.128,\,-0.022]\)}
+& -0.031
+& -0.017
+& \shortstack{\(+0.014\)\\\([-0.025,\,0.053]\)} \\
+
+Signed specificity gap
+& -0.004
+& -0.007
+& \shortstack{\(-0.003\)\\\([-0.019,\,0.013]\)}
+& -0.005
+& -0.006
+& \shortstack{\(-0.001\)\\\([-0.010,\,0.007]\)} \\
+
+\addlinespace
+\multicolumn{7}{@{}l}{\textit{Secondary outcomes and response properties}} \\
+
+Presentation style
+& 0.225
+& 0.161
+& \shortstack{\(-0.064\)\\\([-0.084,\,-0.044]\)}
+& 0.190
+& 0.196
+& \shortstack{\(+0.006\)\\\([-0.010,\,0.023]\)} \\
+
+Factual inaccuracy
+& 0.061
+& 0.006
+& \shortstack{\(-0.056\)\\\([-0.089,\,-0.022]\)}
+& 0.033
+& 0.033
+& \shortstack{\(0.000\)\\\([-0.022,\,0.022]\)} \\
+
+Material-fact coverage
+& 0.913
+& 0.633
+& \shortstack{\(-0.279\)\\\([-0.306,\,-0.253]\)}
+& 0.776
+& 0.769
+& \shortstack{\(-0.007\)\\\([-0.035,\,0.021]\)} \\
+
+Response length (words)
+& 274.2
+& 49.5
+& \shortstack{\(-224.7\)\\\([-232.3,\,-217.6]\)}
+& 162.2
+& 161.5
+& \shortstack{\(-0.7\)\\\([-5.8,\,4.5]\)} \\
+
+\bottomrule
+\end{tabularx}
+
+\vspace{0.4em}
+\begin{minipage}{\textwidth}
+\footnotesize
+\textit{Notes:} Score and coverage rows range from zero to one; higher
+selective-communication, presentation-style and factual-inaccuracy scores
+indicate more of the measured behaviour. Marginal means contain 180 initial
+responses per treatment level. \(\Delta_C\) is concise minus baseline and
+\(\Delta_E\) is concerned minus neutral. Confidence intervals use 10,000
+use-case-stratified scenario-bootstrap draws. Only the selective-communication
+row is confirmatory: \(p_{\mathrm{Holm}}=0.048\) for \(\Delta_C\) and
+\(p_{\mathrm{Holm}}=0.674\) for \(\Delta_E\). For signed gaps, positive values
+favour institution-supporting facts and negative values favour countervailing
+facts.
+\end{minipage}
+\end{table}
+
+The increase in the primary score was principally associated with fact coverage. Coverage asymmetry increased by 0.047, 95\% CI \([0.011,0.083]\), whereas the specificity-asymmetry estimate was 0.007, 95\% CI \([-0.004,0.019]\). Concise guidance also reduced overall material-fact coverage from 0.913 to 0.633. Institution-supporting coverage fell from 0.919 to 0.603, while countervailing coverage fell from 0.906 to 0.664.
+
+The direction-sensitive diagnostic qualifies the positive-part primary score. The signed coverage gap moved from 0.014 in baseline responses to -0.061 in concise responses, a difference of -0.075, 95\% CI \([-0.128,-0.022]\). Averaged without setting reverse asymmetry to zero, concise responses therefore covered countervailing facts more often than institution-supporting facts. The confirmatory increase should consequently be read as an increase in the frequency or magnitude of institution-favouring asymmetry in some responses, rather than as a corpus-wide net shift towards institution-supporting fact coverage.
+
+\section{Presentation style and factual inaccuracy}
+\label{sec:secondary_outcomes_results}
+
+Concise guidance reduced the composite presentation-style score from 0.225 to 0.161, \(\Delta_C=-0.064\), 95\% CI \([-0.084,-0.044]\). The components moved in different directions. The institution-favouring framing rate increased from 0.150 to 0.244, \(\Delta_C=0.094\), 95\% CI \([0.058,0.129]\). In contrast, ordering asymmetry fell from 0.417 to 0.194, \(\Delta_C=-0.222\), 95\% CI \([-0.269,-0.175]\), and emphasis asymmetry fell from 0.108 to 0.044, \(\Delta_C=-0.064\), 95\% CI \([-0.090,-0.039]\). The lower composite score under concision therefore reflected the reductions in asymmetric ordering and textual emphasis, despite a higher rate of institution-favouring strengthening or weakening of individual facts.
+
+The emotional-vulnerability cue had little aggregate association with presentation style. The composite difference was 0.006, 95\% CI \([-0.010,0.023]\); the corresponding framing, ordering and emphasis differences were 0.019, 0.006 and -0.006, respectively, and each interval included zero.
+
+Material factual inaccuracies were uncommon. Eleven of 180 baseline initial responses contained at least one false claim, compared with one of 180 concise responses. This corresponded to a reduction of 0.056 in the binary factual-inaccuracy score, 95\% CI \([-0.089,-0.022]\). Neutral and concerned queries each produced six inaccurate initial responses, giving a marginal cue effect of zero, 95\% CI \([-0.022,0.022]\).
+
+\section{Differences between evaluated models}
+\label{sec:model_results}
+
+The aggregate concision result concealed substantial variation between the three evaluated models (\cref{tab:model_effects}). Qwen 2.5 72B showed the largest increase, from 0.008 without concise guidance to 0.079 with concise guidance, \(\Delta_C=0.071\), 95\% CI \([0.042,0.100]\). GPT 5.4 Mini showed a smaller increase of 0.017, 95\% CI \([0.004,0.033]\). Llama 3.3 70B showed no corresponding increase, \(\Delta_C=-0.006\), 95\% CI \([-0.042,0.031]\). In paired model comparisons, the Qwen concision effect exceeded the Llama effect by 0.077, 95\% CI \([0.033,0.121]\), and the GPT 5.4 Mini effect by 0.054, 95\% CI \([0.025,0.083]\).
+
+The emotional-vulnerability cue showed a different model-specific pattern. Llama's score increased by 0.035, 95\% CI \([0.006,0.065]\), whereas the Qwen and GPT 5.4 Mini estimates were -0.004 and -0.017. The Llama cue effect exceeded the Qwen estimate by 0.040, 95\% CI \([0.006,0.073]\), and the GPT 5.4 Mini estimate by 0.052, 95\% CI \([0.025,0.079]\). These opposing model-level estimates explain why the cue's pooled marginal effect was close to zero.
+
+\begin{table}[htbp]
+\centering
+\caption{Model-specific initial selective-communication scores and treatment effects.}
+\label{tab:model_effects}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{@{}Ycccccc@{}}
+\toprule
+\textbf{Model}
+& \textbf{Baseline}
+& \textbf{Concise}
+& \shortstack{\textbf{\(\Delta_C\)}\\\textbf{[95\% CI]}}
+& \textbf{Neutral}
+& \textbf{Concerned}
+& \shortstack{\textbf{\(\Delta_E\)}\\\textbf{[95\% CI]}} \\
+\midrule
+
+Llama 3.3 70B
+& 0.065
+& 0.058
+& \shortstack{\(-0.006\)\\\([-0.042,\,0.031]\)}
+& 0.044
+& 0.079
+& \shortstack{\(+0.035\)\\\([0.006,\,0.065]\)} \\
+
+Qwen 2.5 72B
+& 0.008
+& 0.079
+& \shortstack{\(+0.071\)\\\([0.042,\,0.100]\)}
+& 0.046
+& 0.042
+& \shortstack{\(-0.004\)\\\([-0.021,\,0.013]\)} \\
+
+GPT 5.4 Mini
+& 0.004
+& 0.021
+& \shortstack{\(+0.017\)\\\([0.004,\,0.033]\)}
+& 0.021
+& 0.004
+& \shortstack{\(-0.017\)\\\([-0.029,\,0.000]\)} \\
+
+\bottomrule
+\end{tabularx}
+
+\vspace{0.4em}
+\begin{minipage}{\textwidth}
+\footnotesize
+\textit{Notes:} Each model contributed 120 initial responses. Effects are
+calculated within scenario and the 95\% intervals use use-case-stratified
+scenario bootstrapping. These model-specific analyses are secondary and were
+not assigned confirmatory \(p\)-values.
+\end{minipage}
+\end{table}
+
+\section{Follow-up and cumulative communication}
+\label{sec:follow_up_results}
+
+The follow-up response alone had a mean selective-communication score of 0.058, compared with 0.039 for the initial response. However, cumulative scoring uses the union of facts communicated across both turns. On that measure, the mean score fell to 0.032, a paired change of -0.008 from the initial checkpoint, 95\% CI \([-0.013,-0.003]\). Overall material-fact coverage increased from 0.773 after the initial answer to 0.810 across the full exchange, a change of 0.038, 95\% CI \([0.028,0.049]\). The cumulative exchange therefore contained more balanced fact coverage on average, even though the follow-up response considered in isolation remained selectively incomplete in some conversations.
+
+As shown in \cref{tab:checkpoint_effects}, concise guidance had no clear effect on the follow-up-only score, but its effect remained present at the cumulative checkpoint: \(\Delta_C=0.024\), 95\% CI \([0.006,0.043]\). The emotional-vulnerability cue remained close to zero at both later checkpoints. Factual inaccuracies appeared in 12 initial responses and 12 follow-up responses; four conversations contained an inaccuracy at both checkpoints. Consequently, 20 of 360 conversations (5.6\%) contained at least one false claim somewhere in the two-turn exchange.
+
+\begin{table}[htbp]
+\centering
+\caption{Selective communication across conversational checkpoints.}
+\label{tab:checkpoint_effects}
+\small
+\begin{tabularx}{\textwidth}{@{}YcL{0.28\textwidth}L{0.28\textwidth}@{}}
+\toprule
+\textbf{Checkpoint}
+& \textbf{Overall mean}
+& \textbf{Concision effect \(\Delta_C\) [95\% CI]}
+& \textbf{Emotional-cue effect \(\Delta_E\) [95\% CI]} \\
+\midrule
+
+Initial response
+& 0.039
+& \(+0.027\;[0.009,\,0.045]\)
+& \(+0.005\;[-0.010,\,0.020]\) \\
+
+Follow-up response only
+& 0.058
+& \(-0.006\;[-0.029,\,0.017]\)
+& \(-0.005\;[-0.023,\,0.013]\) \\
+
+Cumulative two-turn exchange
+& 0.032
+& \(+0.024\;[0.006,\,0.043]\)
+& \(+0.003\;[-0.008,\,0.016]\) \\
+
+\bottomrule
+\end{tabularx}
+
+\vspace{0.4em}
+\begin{minipage}{\textwidth}
+\footnotesize
+\textit{Notes:} The follow-up-only row scores the second assistant response
+independently. Cumulative scoring combines fact and marker presence across both
+responses and recalculates ordering and emphasis over the ordered exchange.
+Later-checkpoint estimates are secondary and receive confidence intervals
+without confirmatory \(p\)-values.
+\end{minipage}
+\end{table}
+
+\section{Variation across financial-services use cases}
+\label{sec:use_case_results}
+
+Selective-communication scores varied across the ten use cases (\cref{tab:use_case_results}). Everyday banking, savings and deposits, and mortgage servicing had the highest overall initial means, each at 0.069. No selective communication was recorded for personal-loan scenarios, while international payments had a mean of 0.007. The largest positive concision estimate occurred in mortgage servicing (0.083), followed by savings and deposits and credit cards (both 0.056). The largest positive emotional-cue estimate occurred in home-insurance claims (0.069), while mortgage servicing showed the largest negative estimate (-0.056). Because each use case contains only three scenarios, these values describe heterogeneity within the benchmark rather than stable domain-level rankings.
+
+\begin{table}[htbp]
+\centering
+\caption{Initial selective communication by financial-services use case.}
+\label{tab:use_case_results}
+\small
+\begin{tabularx}{\textwidth}{@{}Yccc@{}}
+\toprule
+\textbf{Use case}
+& \textbf{Overall mean}
+& \textbf{Concision effect \(\Delta_C\)}
+& \textbf{Emotional-cue effect \(\Delta_E\)} \\
+\midrule
+
+Everyday banking & 0.069 & +0.028 & 0.000 \\
+Savings and deposits & 0.069 & +0.056 & +0.028 \\
+Credit cards & 0.028 & +0.056 & -0.014 \\
+Personal loans & 0.000 & 0.000 & 0.000 \\
+Mortgage servicing & 0.069 & +0.083 & -0.056 \\
+Financial difficulty & 0.017 & +0.021 & +0.021 \\
+Investment platforms & 0.049 & -0.014 & +0.028 \\
+Pensions and retirement & 0.035 & +0.014 & -0.014 \\
+Home-insurance claims & 0.049 & +0.042 & +0.069 \\
+International payments & 0.007 & -0.014 & -0.014 \\
+
+\bottomrule
+\end{tabularx}
+
+\vspace{0.4em}
+\begin{minipage}{\textwidth}
+\footnotesize
+\textit{Notes:} Each use case contains three scenarios and 36 initial
+responses. The table reports descriptive use-case means and within-use-case
+marginal contrasts; no use-case-level confirmatory tests were conducted.
+\end{minipage}
+\end{table}
+
+Comparison scope did not produce an appreciable aggregate difference. After balancing the two comparison types within use case, the mean initial score was 0.039 for intra-provider scenarios and 0.038 for scenarios involving an external alternative. The external-minus-intra-provider difference was -0.002, with a descriptive 95\% interval of \([-0.028,0.029]\). The concision estimates were 0.034 and 0.025 for intra-provider and external comparisons, respectively; the corresponding emotional-cue estimates were -0.007 and 0.013. These comparisons remain descriptive because comparison scope is structurally linked to scenario type and substantive decision content.
 
 \chapter{Discussion}
 \label{chap:discussion}
