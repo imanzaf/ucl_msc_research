@@ -17,6 +17,7 @@ from src.data_models.scoring import (
     ConversationMetrics,
     EvaluationCheckpoint,
     FactAnalysisInputRow,
+    ManualScoringEdit,
     ManualScoringResolution,
     MissingRunRecord,
     ScoredConversationBundle,
@@ -53,8 +54,9 @@ def build_analysis_rows(
     scoring_contract_digest: str,
     experiment_name: ExperimentName = ExperimentName.RISK_COMM_V1,
     expected_conversation_count: int = EXPECTED_CONVERSATION_COUNT,
+    manual_edits: List[ManualScoringEdit] | None = None,
 ) -> Tuple[List[AnalysisInputRow], List[MissingRunRecord]]:
-    """Join all completed outcomes and preserve exhausted provider calls as missing."""
+    """Join completed outcomes, overlay source-linked edits, and preserve missing runs."""
     if len(transcripts) != expected_conversation_count:
         raise ValueError(
             f"{experiment_name.value} analysis input requires the complete " f"{expected_conversation_count}-unit terminal transcript ledger"
@@ -76,6 +78,7 @@ def build_analysis_rows(
         )
 
     metric_by_id: Dict[str, Tuple[List[ConversationMetrics], str, str]] = {}
+    bundle_by_id: Dict[str, ScoredConversationBundle] = {}
     for bundle in bundles:
         if bundle.run_unit_id in metric_by_id:
             raise ValueError(f"duplicate scored run-unit id: {bundle.run_unit_id}")
@@ -85,7 +88,27 @@ def build_analysis_rows(
             bundle.scoring_execution_manifest_sha256,
             bundle.scoring_contract_sha256,
         )
+        bundle_by_id[bundle.run_unit_id] = bundle
         metric_by_id[bundle.run_unit_id] = (bundle.metrics, bundle.bundle_sha256, bundle.transcript_sha256)
+    edit_run_ids: set[str] = set()
+    for edit in manual_edits or []:
+        if edit.run_unit_id in edit_run_ids:
+            raise ValueError(f"duplicate manual scoring edit run-unit id: {edit.run_unit_id}")
+        edit_run_ids.add(edit.run_unit_id)
+        source_bundle = bundle_by_id.get(edit.run_unit_id)
+        if source_bundle is None:
+            raise ValueError(f"manual scoring edit has no automated source bundle: {edit.run_unit_id}")
+        if edit.source_bundle_sha256 != source_bundle.bundle_sha256:
+            raise ValueError(f"manual scoring edit binds a different automated bundle: {edit.run_unit_id}")
+        if edit.transcript_sha256 != source_bundle.transcript_sha256 or edit.scoring_inputs != source_bundle.scoring_inputs:
+            raise ValueError(f"manual scoring edit changes immutable source inputs: {edit.run_unit_id}")
+        _validate_scoring_provenance(
+            scoring_manifest_sha256,
+            scoring_contract_digest,
+            edit.scoring_execution_manifest_sha256,
+            edit.scoring_contract_sha256,
+        )
+        metric_by_id[edit.run_unit_id] = (edit.metrics, edit.edit_sha256, edit.transcript_sha256)
     for resolution in manual_resolutions:
         if resolution.run_unit_id in metric_by_id:
             raise ValueError(f"run unit has both automated and manual scoring: {resolution.run_unit_id}")
@@ -158,11 +181,14 @@ def build_fact_analysis_rows(
     bundles: List[ScoredConversationBundle],
     manual_resolutions: List[ManualScoringResolution],
     fact_metadata_by_scenario: Dict[str, Dict[str, Tuple[DecisionOption, FactPolarity, str]]],
+    manual_edits: List[ManualScoringEdit] | None = None,
 ) -> List[FactAnalysisInputRow]:
-    """Join binary material-fact decisions to immutable experimental conditions."""
+    """Join effective binary fact decisions to immutable experimental conditions."""
     result_by_id: Dict[str, Dict[ScoredResponse, ContentAssessmentResult]] = {bundle.run_unit_id: bundle.content_results for bundle in bundles}
+    result_by_id.update({edit.run_unit_id: edit.content_results for edit in manual_edits or []})
     result_by_id.update({resolution.run_unit_id: resolution.content_results for resolution in manual_resolutions})
     hash_by_id = {bundle.run_unit_id: bundle.bundle_sha256 for bundle in bundles}
+    hash_by_id.update({edit.run_unit_id: edit.edit_sha256 for edit in manual_edits or []})
     hash_by_id.update({resolution.run_unit_id: resolution.resolution_sha256 for resolution in manual_resolutions})
     transcript_by_id = {
         transcript.run_unit.run_unit_id: transcript for transcript in transcripts if transcript.outcome_status == RunOutcomeStatus.COMPLETED
@@ -215,6 +241,7 @@ def main() -> None:
     parser.add_argument("--transcripts", type=Path, required=True)
     parser.add_argument("--scored-bundles", type=Path, required=True)
     parser.add_argument("--manual-resolutions", type=Path, required=True)
+    parser.add_argument("--manual-edits", type=Path)
     parser.add_argument("--experiment-manifest", type=Path, required=True)
     parser.add_argument("--accepted-root", type=Path, required=True)
     parser.add_argument("--accepted-scenario-manifest", type=Path, required=True)
@@ -245,6 +272,7 @@ def main() -> None:
     transcripts = read_model_jsonl(args.transcripts, ConversationTranscript)
     bundles = read_model_jsonl(args.scored_bundles, ScoredConversationBundle)
     manual_resolutions = read_model_jsonl(args.manual_resolutions, ManualScoringResolution)
+    manual_edits = read_model_jsonl(args.manual_edits, ManualScoringEdit) if args.manual_edits is not None else []
     rows, missing_runs = build_analysis_rows(
         transcripts,
         bundles,
@@ -253,6 +281,7 @@ def main() -> None:
         scoring_manifest.scoring_contract_sha256,
         experiment_name,
         expected_count,
+        manual_edits,
     )
     write_models_jsonl_atomic(args.output, rows)
     scenarios = load_accepted_evaluation_scenarios(args.accepted_root, accepted_manifest)
@@ -266,6 +295,7 @@ def main() -> None:
             }
             for scenario in scenarios
         },
+        manual_edits,
     )
     write_models_jsonl_atomic(args.fact_analysis_output, fact_rows)
     payload = {

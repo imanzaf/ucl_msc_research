@@ -78,6 +78,10 @@ COMMAND_GROUPS: Dict[str, Dict[str, Command]] = {
         ),
         "run": Command("src.cli.commands.scoring.run", "Score experiment outputs."),
         "resolve-manual": Command("src.cli.commands.scoring.resolve_manual", "Resolve records routed to manual scoring."),
+        "apply-manual": Command(
+            "src.cli.commands.scoring.apply_manual",
+            "Apply source-linked manual edits and resolve terminal scoring records.",
+        ),
         "validate": Command("src.cli.commands.scoring.validate", "Build the scoring validation report."),
         "freeze-validation-gates": Command(
             "src.cli.commands.scoring.freeze_validation_gates",

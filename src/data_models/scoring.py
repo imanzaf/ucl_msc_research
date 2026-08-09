@@ -969,6 +969,116 @@ class ManualScoringResolution(VersionedImmutableModel):
         return self
 
 
+class ManualScoringEdit(VersionedImmutableModel):
+    """Persist a manual replacement for one immutable automated scored bundle."""
+
+    schema_version: str = Field(pattern=r"^3\.0\.0$")
+    run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
+    transcript_sha256: str
+    scoring_execution_manifest_sha256: str
+    scoring_contract_sha256: str
+    source_bundle_sha256: str
+    scoring_inputs: Dict[ScoredResponse, ConditionBlindScoringInput]
+    content_results: Dict[ScoredResponse, ContentAssessmentResult]
+    presentation_results: Dict[ScoredResponse, PresentationAssessmentResult]
+    accuracy_results: Dict[ScoredResponse, AccuracyAssessmentResult]
+    metrics: List[ConversationMetrics] = Field(min_length=3, max_length=3)
+    annotation_id: str = Field(pattern=r"^[A-Z0-9_]+$")
+    researcher_id: str = Field(min_length=1)
+    rubric_sha256: str
+    edit_reason: str = Field(min_length=1)
+    edited_at: datetime
+    edit_sha256: str
+
+    @field_validator(
+        "transcript_sha256",
+        "scoring_execution_manifest_sha256",
+        "scoring_contract_sha256",
+        "source_bundle_sha256",
+        "rubric_sha256",
+        "edit_sha256",
+    )
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate every source and self digest."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_edit(self) -> "ManualScoringEdit":
+        """Require complete manual outputs, metrics, source linkage, and self-hash."""
+        expected_responses = set(ScoredResponse)
+        if (
+            set(self.scoring_inputs) != expected_responses
+            or set(self.content_results) != expected_responses
+            or set(self.presentation_results) != expected_responses
+            or set(self.accuracy_results) != expected_responses
+        ):
+            raise ValueError("manual scoring edit requires all three outputs for both responses")
+        blind_ids = {
+            *{item.blind_conversation_id for item in self.scoring_inputs.values()},
+            *{item.blind_conversation_id for item in self.content_results.values()},
+            *{item.blind_conversation_id for item in self.presentation_results.values()},
+            *{item.blind_conversation_id for item in self.accuracy_results.values()},
+        }
+        if len(blind_ids) != 1:
+            raise ValueError("manual scoring edit components must share one blind conversation id")
+        if {metric.checkpoint for metric in self.metrics} != set(EvaluationCheckpoint):
+            raise ValueError("manual scoring edit requires initial, follow-up, and cumulative metrics")
+        if any(metric.run_unit_id != self.run_unit_id for metric in self.metrics):
+            raise ValueError("manual scoring edit metrics must share the run-unit id")
+        manual_judge_id = f"manual:{self.researcher_id}"
+        judge_ids = {
+            *{item.judge_model_id for item in self.content_results.values()},
+            *{item.judge_model_id for item in self.presentation_results.values()},
+            *{item.judge_model_id for item in self.accuracy_results.values()},
+        }
+        if judge_ids != {manual_judge_id}:
+            raise ValueError("manual scoring edit results must identify the editing researcher")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"edit_sha256"}))
+        if self.edit_sha256 != expected_hash:
+            raise ValueError("manual scoring edit digest does not match canonical content")
+        return self
+
+
+class ScoringResultSource(str, Enum):
+    """Identify the provenance class selected for effective scoring."""
+
+    AUTOMATED = "automated"
+    MANUAL_EDIT = "manual_edit"
+    MANUAL_RESOLUTION = "manual_resolution"
+
+
+class EffectiveScoringRecord(VersionedImmutableModel):
+    """Materialize the effective metrics selected from immutable scoring sources."""
+
+    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    run_unit_id: str = Field(pattern=r"^RUN_[A-F0-9]{16}$")
+    transcript_sha256: str
+    source_type: ScoringResultSource
+    source_scoring_sha256: str
+    metrics: List[ConversationMetrics] = Field(min_length=3, max_length=3)
+    calculated_at: datetime
+    record_sha256: str
+
+    @field_validator("transcript_sha256", "source_scoring_sha256", "record_sha256")
+    @classmethod
+    def validate_hashes(cls, value: str) -> str:
+        """Validate source and record digests."""
+        return validate_sha256(value)
+
+    @model_validator(mode="after")
+    def validate_record(self) -> "EffectiveScoringRecord":
+        """Require complete checkpoints, aligned run ids, and an exact self-hash."""
+        if {metric.checkpoint for metric in self.metrics} != set(EvaluationCheckpoint):
+            raise ValueError("effective scoring requires all three checkpoints")
+        if any(metric.run_unit_id != self.run_unit_id for metric in self.metrics):
+            raise ValueError("effective metrics must share the record run-unit id")
+        expected_hash = artifact_sha256(self.model_dump(mode="json", exclude={"record_sha256"}))
+        if self.record_sha256 != expected_hash:
+            raise ValueError("effective scoring record digest does not match canonical content")
+        return self
+
+
 class MissingRunRecord(ImmutableModel):
     """Describe one preregistered run unit missing after provider retries."""
 

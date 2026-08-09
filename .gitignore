@@ -13,6 +13,12 @@ __pycache__/
 *.fls
 *.log
 *.out
+*.toc
+*.synctex.gz
+*.run.xml
+*.bbl-SAVE-ERROR
+*.bcf
+*.bcf-SAVE-ERROR
 
 # Distribution / packaging
 .DS_Store

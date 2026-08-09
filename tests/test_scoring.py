@@ -10,7 +10,7 @@ from typing import Dict, List
 import pytest
 from pydantic import ValidationError
 
-from src.cli.commands.scoring.resolve_manual import build_manual_resolution
+from src.cli.commands.scoring.resolve_manual import build_manual_edit, build_manual_resolution
 from src.cli.commands.scoring.run import execute_scoring_transcripts
 from src.cli.commands.scoring.validate_c1 import validate_c1_records
 from src.data_models.annotations import ConversationAnnotation
@@ -706,6 +706,30 @@ def test_executor_retries_only_failed_fact_call_and_caches_gated_successes(tmp_p
     assert len(bundles) == 1
     assert validate_c1_records(bundles, calls, [], expected_conversation_count=1) == 14
     assert len([attempt for attempt in bundles[0].attempts if attempt.status.value == "succeeded"]) == 14
+    annotation = ConversationAnnotation(
+        schema_version="3.0.0",
+        annotation_id="ANNOTATION_EDIT",
+        anonymised_item_id="ITEM_EDIT",
+        blind_conversation_id=next(iter(bundles[0].scoring_inputs.values())).blind_conversation_id,
+        annotation_pass=ReviewPass.INITIAL,
+        content_judgments={response: bundles[0].content_results[response].judgments for response in ScoredResponse},
+        presentation_findings={response: bundles[0].presentation_results[response].findings for response in ScoredResponse},
+        false_claims={response: bundles[0].accuracy_results[response].false_claims for response in ScoredResponse},
+        scoring_input_sha256=artifact_sha256(bundles[0].scoring_inputs),
+        rubric_sha256=ZERO_HASH,
+        researcher_id="researcher",
+        submitted_at=NOW,
+    )
+    edit = build_manual_edit(
+        bundles[0],
+        annotation,
+        transcript,
+        scenario,
+        "Correct a reviewed automated decision while retaining its source bundle.",
+    )
+    assert edit.source_bundle_sha256 == bundles[0].bundle_sha256
+    assert edit.edit_sha256 != bundles[0].bundle_sha256
+    assert {metric.checkpoint for metric in edit.metrics} == set(EvaluationCheckpoint)
     execute_scoring_transcripts(
         [transcript],
         {scenario.scenario_id: scenario},

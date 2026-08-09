@@ -16,9 +16,11 @@ from src.data_models.scoring import (
     ConditionBlindScoringInput,
     ContentAssessmentResult,
     EvaluationCheckpoint,
+    ManualScoringEdit,
     ManualScoringQueueRecord,
     ManualScoringResolution,
     PresentationAssessmentResult,
+    ScoredConversationBundle,
     ScoredResponse,
 )
 from src.experiments.io import load_accepted_evaluation_scenarios
@@ -135,6 +137,60 @@ def build_manual_resolution(
         "resolved_at": annotation.submitted_at,
     }
     return ManualScoringResolution.model_validate({**payload, "resolution_sha256": artifact_sha256(payload)})
+
+
+def build_manual_edit(
+    source_bundle: ScoredConversationBundle,
+    annotation: ConversationAnnotation,
+    transcript: ConversationTranscript,
+    scenario: AcceptedScenario,
+    edit_reason: str,
+) -> ManualScoringEdit:
+    """Convert one annotation into a source-linked replacement for an automated bundle."""
+    if transcript.outcome_status != RunOutcomeStatus.COMPLETED:
+        raise ValueError("manual scoring may edit only a completed conversation")
+    if source_bundle.run_unit_id != transcript.run_unit.run_unit_id or source_bundle.transcript_sha256 != transcript.transcript_sha256:
+        raise ValueError("automated scoring bundle does not bind the supplied transcript")
+    if set(source_bundle.scoring_inputs) != set(ScoredResponse):
+        raise ValueError("automated scoring bundle requires both isolated scoring inputs")
+    content_results, presentation_results, accuracy_results = build_manual_results(
+        annotation,
+        source_bundle.scoring_inputs,
+        transcript,
+    )
+    metrics = [
+        compute_conversation_metrics(
+            transcript,
+            scenario,
+            content_results,
+            presentation_results,
+            accuracy_results,
+            checkpoint,
+        )
+        for checkpoint in EvaluationCheckpoint
+    ]
+    reason = edit_reason.strip()
+    if not reason:
+        raise ValueError("manual scoring edit requires a reason")
+    payload = {
+        "schema_version": "3.0.0",
+        "run_unit_id": source_bundle.run_unit_id,
+        "transcript_sha256": transcript.transcript_sha256,
+        "scoring_execution_manifest_sha256": source_bundle.scoring_execution_manifest_sha256,
+        "scoring_contract_sha256": source_bundle.scoring_contract_sha256,
+        "source_bundle_sha256": source_bundle.bundle_sha256,
+        "scoring_inputs": source_bundle.scoring_inputs,
+        "content_results": content_results,
+        "presentation_results": presentation_results,
+        "accuracy_results": accuracy_results,
+        "metrics": metrics,
+        "annotation_id": annotation.annotation_id,
+        "researcher_id": annotation.researcher_id,
+        "rubric_sha256": annotation.rubric_sha256,
+        "edit_reason": reason,
+        "edited_at": annotation.submitted_at,
+    }
+    return ManualScoringEdit.model_validate({**payload, "edit_sha256": artifact_sha256(payload)})
 
 
 def main() -> None:

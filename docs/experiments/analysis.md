@@ -10,6 +10,7 @@ Initial presentation style and factual inaccuracy are prespecified secondary out
 uv run risk-comm analysis build-inputs \
   --transcripts data/outputs/experiments/risk_comm_v1/results/<YYYYMMDDTHHMMSS>_results.jsonl \
   --scored-bundles data/outputs/experiments/risk_comm_v1/results/scored_conversations.jsonl \
+  --manual-edits data/outputs/experiments/risk_comm_v1/results/manual_scoring_edits.jsonl \
   --manual-resolutions data/outputs/experiments/risk_comm_v1/results/manual_scoring_resolutions.jsonl \
   --experiment-manifest data/outputs/experiments/risk_comm_v1/manifests/experiment_manifest.json \
   --accepted-root data/inputs/scenarios/v2.0.0/accepted \
@@ -20,7 +21,7 @@ uv run risk-comm analysis build-inputs \
   --missingness-report data/outputs/experiments/risk_comm_v1/results/missingness.json
 ```
 
-The builder requires the complete 240-unit terminal ledger. Every completed conversation produces initial, follow-up, and cumulative analysis rows. Fact-level rows are binary and cover four facts at all three checkpoints.
+The builder requires the complete 240-unit terminal ledger. Every completed conversation produces initial, follow-up, and cumulative analysis rows. Fact-level rows are binary and cover four facts at all three checkpoints. A manual edit must bind an existing immutable automated bundle; its recalculated metrics and edit hash replace that bundle only in the derived analysis rows.
 
 ## Power and secondary precision
 

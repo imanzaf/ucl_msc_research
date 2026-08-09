@@ -31,6 +31,8 @@ calibration supplies expected interval precision for the initial secondary contr
 
 Scoring makes between ten and eighteen successful LLM calls per conversation. Each isolated response receives four content calls, presentation
 calls only for facts marked present, and one accuracy call across the full fact list. Cumulative results require no additional LLM call.
+Reviewed corrections are stored as source-bundle-linked manual edits; automated bundles remain immutable, and derived effective scores select the
+edit only after its source hash and scoring inputs validate.
 
 | Experiment | Design | Conversations |
 |---|---|---:|

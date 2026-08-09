@@ -79,6 +79,33 @@ Successful calls are cached in `results/scoring/scoring_calls.jsonl`. Only a fai
 `results/scoring/manual_scoring_queue.jsonl` if any required call exhausts retries. Completed bundles require all eight content calls, both accuracy
 calls, and exactly one presentation call per content-present fact.
 
+## Manual resolutions and source-linked edits
+
+Complete blinded `ConversationAnnotation` records are the manual input for both terminal failures and reviewed corrections. Apply them with:
+
+```bash
+uv run risk-comm scoring apply-manual \
+  --annotations data/outputs/experiments/<experiment-name>/results/scoring/manual_annotations.jsonl \
+  --transcripts data/outputs/experiments/<experiment-name>/results/<YYYYMMDDTHHMMSS>_results.jsonl \
+  --scored-bundles data/outputs/experiments/<experiment-name>/results/scoring/scored_conversations.jsonl \
+  --manual-queue data/outputs/experiments/<experiment-name>/results/scoring/manual_scoring_queue.jsonl \
+  --accepted-root data/inputs/scenarios/v3.0.0/accepted \
+  --accepted-scenario-manifest data/inputs/scenarios/v3.0.0/accepted_scenario_manifest.json \
+  --scoring-execution-manifest data/outputs/experiments/<experiment-name>/checkpoints/scoring_execution_manifest.json \
+  --edit-reason "<reason for the reviewed corrections>" \
+  --edits-output data/outputs/experiments/<experiment-name>/results/scoring/manual_scoring_edits.jsonl \
+  --resolutions-output data/outputs/experiments/<experiment-name>/results/scoring/manual_scoring_resolutions.jsonl \
+  --effective-scores-output data/outputs/experiments/<experiment-name>/results/scoring/effective_scores.jsonl
+```
+
+Queued conversations become hashed `ManualScoringResolution` records. An annotation for an already scored conversation becomes a hashed
+`ManualScoringEdit` that binds `source_bundle_sha256`; `scored_conversations.jsonl` remains unchanged. The command recalculates all three checkpoints
+from the manual content, presentation, and accuracy decisions and materializes exactly one effective source per completed conversation in
+`effective_scores.jsonl`.
+
+Downstream `analysis build-inputs` accepts `--manual-edits`. For an edited run, it verifies the original bundle hash and immutable scoring inputs,
+then uses the edit metrics and edit hash. Terminal resolutions remain disjoint from automated bundles.
+
 ## Blinded annotation
 
 ```bash
