@@ -1,0 +1,584 @@
+{
+  "$defs": {
+    "Affect": {
+      "description": "Represent the allowed customer affect manipulation.",
+      "enum": [
+        "neutral",
+        "anxious",
+        "frustrated"
+      ],
+      "title": "Affect",
+      "type": "string"
+    },
+    "BalancedProminenceCell": {
+      "additionalProperties": false,
+      "description": "Define the implemented but deferred balanced-prominence task.",
+      "properties": {
+        "kind": {
+          "const": "balanced_prominence_mitigation_v1",
+          "default": "balanced_prominence_mitigation_v1",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "BalancedProminenceCell",
+      "type": "object"
+    },
+    "ExactFactBudget": {
+      "description": "Represent the exact structured fact-selection budgets.",
+      "enum": [
+        2,
+        4,
+        6
+      ],
+      "title": "ExactFactBudget",
+      "type": "integer"
+    },
+    "ExecutionStatus": {
+      "description": "Declare whether an experiment assignment belongs to the paid run.",
+      "enum": [
+        "active",
+        "deferred"
+      ],
+      "title": "ExecutionStatus",
+      "type": "string"
+    },
+    "ExperimentKind": {
+      "description": "Identify one final-protocol experiment.",
+      "enum": [
+        "user_state_adaptation_v2",
+        "information_budget_v1",
+        "word_budget_external_validity_v1",
+        "single_fact_priority_v1",
+        "ownership_role_control_v1",
+        "option_first_v1",
+        "balanced_prominence_mitigation_v1"
+      ],
+      "title": "ExperimentKind",
+      "type": "string"
+    },
+    "GenerationControls": {
+      "additionalProperties": false,
+      "description": "Freeze every effective model-native generation parameter.",
+      "properties": {
+        "extra_parameters": {
+          "additionalProperties": true,
+          "title": "Extra Parameters",
+          "type": "object"
+        },
+        "max_output_tokens": {
+          "exclusiveMinimum": 0,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "reasoning_effort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning Effort"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temperature"
+        }
+      },
+      "required": [
+        "max_output_tokens"
+      ],
+      "title": "GenerationControls",
+      "type": "object"
+    },
+    "InformationBudgetCell": {
+      "additionalProperties": false,
+      "description": "Define one exact fact-count treatment cell.",
+      "properties": {
+        "affect": {
+          "enum": [
+            "neutral",
+            "anxious"
+          ],
+          "title": "Affect",
+          "type": "string"
+        },
+        "exact_fact_budget": {
+          "$ref": "#/$defs/ExactFactBudget"
+        },
+        "kind": {
+          "const": "information_budget_v1",
+          "default": "information_budget_v1",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "affect",
+        "exact_fact_budget"
+      ],
+      "title": "InformationBudgetCell",
+      "type": "object"
+    },
+    "LicenceCategory": {
+      "description": "Freeze the model-weight licence category reported in metadata.",
+      "enum": [
+        "community_licence",
+        "apache_2_0",
+        "mit",
+        "proprietary"
+      ],
+      "title": "LicenceCategory",
+      "type": "string"
+    },
+    "MatrixAssignment": {
+      "additionalProperties": false,
+      "description": "Bind a scenario, model, treatment cell, and fixed fact order.",
+      "properties": {
+        "assignment_id": {
+          "title": "Assignment Id",
+          "type": "string"
+        },
+        "cell": {
+          "discriminator": {
+            "mapping": {
+              "balanced_prominence_mitigation_v1": "#/$defs/BalancedProminenceCell",
+              "information_budget_v1": "#/$defs/InformationBudgetCell",
+              "option_first_v1": "#/$defs/OptionFirstCell",
+              "ownership_role_control_v1": "#/$defs/OwnershipCell",
+              "single_fact_priority_v1": "#/$defs/SingleFactCell",
+              "user_state_adaptation_v2": "#/$defs/UserStateCell",
+              "word_budget_external_validity_v1": "#/$defs/WordBudgetCell"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/UserStateCell"
+            },
+            {
+              "$ref": "#/$defs/InformationBudgetCell"
+            },
+            {
+              "$ref": "#/$defs/WordBudgetCell"
+            },
+            {
+              "$ref": "#/$defs/SingleFactCell"
+            },
+            {
+              "$ref": "#/$defs/OwnershipCell"
+            },
+            {
+              "$ref": "#/$defs/OptionFirstCell"
+            },
+            {
+              "$ref": "#/$defs/BalancedProminenceCell"
+            }
+          ],
+          "title": "Cell"
+        },
+        "execution_status": {
+          "$ref": "#/$defs/ExecutionStatus"
+        },
+        "fact_order": {
+          "maximum": 2,
+          "minimum": 1,
+          "title": "Fact Order",
+          "type": "integer"
+        },
+        "model_slug": {
+          "title": "Model Slug",
+          "type": "string"
+        },
+        "scenario_id": {
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "4.0.0",
+          "pattern": "^4\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "assignment_id",
+        "scenario_id",
+        "model_slug",
+        "cell",
+        "fact_order",
+        "execution_status"
+      ],
+      "title": "MatrixAssignment",
+      "type": "object"
+    },
+    "ModelAccess": {
+      "description": "Classify model access without treating it as a causal attribute.",
+      "enum": [
+        "open_weight",
+        "closed"
+      ],
+      "title": "ModelAccess",
+      "type": "string"
+    },
+    "NaturalWordBudget": {
+      "description": "Represent the natural-language external-validity response caps.",
+      "enum": [
+        40,
+        80,
+        160
+      ],
+      "title": "NaturalWordBudget",
+      "type": "integer"
+    },
+    "OptionFirstCell": {
+      "additionalProperties": false,
+      "description": "Define the one-response option-choice task.",
+      "properties": {
+        "kind": {
+          "const": "option_first_v1",
+          "default": "option_first_v1",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "OptionFirstCell",
+      "type": "object"
+    },
+    "OwnershipCell": {
+      "additionalProperties": false,
+      "description": "Define one ownership role and jointly counterbalanced rendering.",
+      "properties": {
+        "kind": {
+          "const": "ownership_role_control_v1",
+          "default": "ownership_role_control_v1",
+          "title": "Kind",
+          "type": "string"
+        },
+        "ownership_role": {
+          "$ref": "#/$defs/OwnershipRole"
+        },
+        "rendering": {
+          "enum": [
+            1,
+            2
+          ],
+          "title": "Rendering",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ownership_role",
+        "rendering"
+      ],
+      "title": "OwnershipCell",
+      "type": "object"
+    },
+    "OwnershipRole": {
+      "description": "Define the employer's relationship to the fixed option-A coordinate.",
+      "enum": [
+        "employer_owns_option_a",
+        "employer_owns_option_b",
+        "independent_adviser"
+      ],
+      "title": "OwnershipRole",
+      "type": "string"
+    },
+    "ProviderSnapshot": {
+      "additionalProperties": false,
+      "description": "Bind a run to one frozen model, gateway, and routing-policy snapshot.",
+      "properties": {
+        "active_parameters": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Parameters"
+        },
+        "licence_category": {
+          "$ref": "#/$defs/LicenceCategory"
+        },
+        "metadata_snapshot_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Metadata Snapshot Sha256",
+          "type": "string"
+        },
+        "model_access": {
+          "$ref": "#/$defs/ModelAccess"
+        },
+        "model_slug": {
+          "minLength": 3,
+          "title": "Model Slug",
+          "type": "string"
+        },
+        "preflight_passed": {
+          "default": false,
+          "title": "Preflight Passed",
+          "type": "boolean"
+        },
+        "provider_endpoint": {
+          "minLength": 1,
+          "title": "Provider Endpoint",
+          "type": "string"
+        },
+        "provider_name": {
+          "minLength": 1,
+          "title": "Provider Name",
+          "type": "string"
+        },
+        "returned_model_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Returned Model Version"
+        },
+        "routing_policy": {
+          "minLength": 1,
+          "title": "Routing Policy",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "4.0.0",
+          "pattern": "^4\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "total_parameters": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Parameters"
+        }
+      },
+      "required": [
+        "model_slug",
+        "model_access",
+        "licence_category",
+        "provider_name",
+        "provider_endpoint",
+        "routing_policy",
+        "metadata_snapshot_sha256"
+      ],
+      "title": "ProviderSnapshot",
+      "type": "object"
+    },
+    "QueryLength": {
+      "description": "Represent semantically equivalent short and long query forms.",
+      "enum": [
+        "short",
+        "long"
+      ],
+      "title": "QueryLength",
+      "type": "string"
+    },
+    "RenderedPrompt": {
+      "additionalProperties": false,
+      "description": "Store exact prompt messages and their canonical hash.",
+      "properties": {
+        "experiment": {
+          "$ref": "#/$defs/ExperimentKind"
+        },
+        "fact_order": {
+          "title": "Fact Order",
+          "type": "integer"
+        },
+        "messages": {
+          "items": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Messages",
+          "type": "array"
+        },
+        "prompt_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Prompt Sha256",
+          "type": "string"
+        },
+        "query_variant_id": {
+          "title": "Query Variant Id",
+          "type": "string"
+        },
+        "response_contract": {
+          "additionalProperties": true,
+          "title": "Response Contract",
+          "type": "object"
+        },
+        "response_contract_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Response Contract Sha256",
+          "type": "string"
+        },
+        "scenario_id": {
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "4.0.0",
+          "pattern": "^4\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "experiment",
+        "scenario_id",
+        "query_variant_id",
+        "fact_order",
+        "messages",
+        "response_contract",
+        "prompt_sha256",
+        "response_contract_sha256"
+      ],
+      "title": "RenderedPrompt",
+      "type": "object"
+    },
+    "SingleFactCell": {
+      "additionalProperties": false,
+      "description": "Define the natural single-most-important-fact task.",
+      "properties": {
+        "kind": {
+          "const": "single_fact_priority_v1",
+          "default": "single_fact_priority_v1",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "SingleFactCell",
+      "type": "object"
+    },
+    "UserStateCell": {
+      "additionalProperties": false,
+      "description": "Define one affect and naturally authored query-length treatment cell.",
+      "properties": {
+        "affect": {
+          "$ref": "#/$defs/Affect"
+        },
+        "kind": {
+          "const": "user_state_adaptation_v2",
+          "default": "user_state_adaptation_v2",
+          "title": "Kind",
+          "type": "string"
+        },
+        "query_length": {
+          "$ref": "#/$defs/QueryLength"
+        }
+      },
+      "required": [
+        "affect",
+        "query_length"
+      ],
+      "title": "UserStateCell",
+      "type": "object"
+    },
+    "WordBudgetCell": {
+      "additionalProperties": false,
+      "description": "Define one neutral natural-language word-budget cell.",
+      "properties": {
+        "kind": {
+          "const": "word_budget_external_validity_v1",
+          "default": "word_budget_external_validity_v1",
+          "title": "Kind",
+          "type": "string"
+        },
+        "word_budget": {
+          "$ref": "#/$defs/NaturalWordBudget"
+        }
+      },
+      "required": [
+        "word_budget"
+      ],
+      "title": "WordBudgetCell",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Materialize everything needed to execute one immutable assignment.",
+  "properties": {
+    "assignment": {
+      "$ref": "#/$defs/MatrixAssignment"
+    },
+    "generation_controls": {
+      "$ref": "#/$defs/GenerationControls"
+    },
+    "model": {
+      "$ref": "#/$defs/ProviderSnapshot"
+    },
+    "prompt": {
+      "$ref": "#/$defs/RenderedPrompt"
+    },
+    "protocol_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Protocol Manifest Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "4.0.0",
+      "pattern": "^4\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "valid_fact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 6,
+      "minItems": 6,
+      "title": "Valid Fact Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "protocol_manifest_sha256",
+    "assignment",
+    "prompt",
+    "model",
+    "generation_controls",
+    "valid_fact_ids"
+  ],
+  "title": "ExecutionBundle",
+  "type": "object"
+}

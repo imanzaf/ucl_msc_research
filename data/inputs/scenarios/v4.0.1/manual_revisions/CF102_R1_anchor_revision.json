@@ -1,0 +1,26 @@
+{
+  "approval_note": "Approved the two minimal verbatim-anchor corrections proposed for CF102_R1; the original provider response remains immutable.",
+  "approved_at": "2026-08-15T22:44:46Z",
+  "approved_by": "Researcher (confirmed in Codex task)",
+  "edits": [
+    {
+      "fact_id": "CF102_R1_F2",
+      "original_text": "With Juniper Vale Credit’s fixed £350 monthly repayment, the balance is paid off in about 31 months if no new spending occurs.",
+      "reason": "Insert the frozen anchor verbatim without changing the generated proposition.",
+      "revised_text": "At Juniper Vale Credit, the payoff period at £350 each month is about 31 months if no new spending occurs."
+    },
+    {
+      "fact_id": "CF102_R1_F4",
+      "original_text": "With Juniper Vale Credit’s contractual minimum repayment and no new spending, paying only the minimum takes about 33 years to clear the balance.",
+      "reason": "Insert the frozen anchor verbatim without changing the generated proposition.",
+      "revised_text": "At Juniper Vale Credit, the minimum-only payoff period is about 33 years if no new spending occurs."
+    }
+  ],
+  "generation_request_sha256": "0009a8c9fac33e82bd23f24c235ee0297a19ba65f295114deb20f3c142f74627",
+  "original_raw_output_sha256": "86c952af353556cf70ace9d067a4ebd4bd97234674557cd8635bdfa5c1172e59",
+  "provider_record_sha256": "e7da2df81e46fe2e6fae90d37be6b85531bd57effd28a8e16ce760f5c798b213",
+  "revised_output_sha256": "dace55413737d01f233996bb06624bc307da895a661113f289d7c82954e721fc",
+  "revision_sha256": "b6279d1aaaa22e685e8b7d638a82a9bbd27dd4700e2878fee0eb7dc8d5603107",
+  "scenario_id": "CF102_R1",
+  "schema_version": "4.0.0"
+}

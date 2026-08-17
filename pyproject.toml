@@ -32,7 +32,7 @@ requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-script-files = ["scripts/risk-comm"]
+script-files = ["scripts/risk-comm", "scripts/risk-comm-v2"]
 
 [tool.setuptools.packages.find]
 include = ["src*"]
@@ -40,6 +40,8 @@ include = ["src*"]
 [tool.setuptools.package-data]
 "src.settings" = ["models.json"]
 "src.prompts" = ["templates/*.jinja2"]
+"srcv2.settings" = ["models.json"]
+"srcv2.prompts" = ["templates/*.jinja2"]
 
 [dependency-groups]
 dev = [
@@ -60,7 +62,7 @@ line_length = 150
 
 [tool.mypy]
 python_version = "3.11"
-files = ["scripts", "src"]
+files = ["scripts", "src", "srcv2", "tests_v2"]
 check_untyped_defs = true
 disallow_untyped_defs = true
 no_implicit_optional = true

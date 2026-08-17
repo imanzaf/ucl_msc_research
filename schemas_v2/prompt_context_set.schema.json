@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "PromptContextSpec": {
+      "additionalProperties": false,
+      "description": "Define one natural use-case role, task, and short authority limit.",
+      "properties": {
+        "authority_limit": {
+          "minLength": 2,
+          "title": "Authority Limit",
+          "type": "string"
+        },
+        "entity_name": {
+          "minLength": 2,
+          "title": "Entity Name",
+          "type": "string"
+        },
+        "entity_type": {
+          "minLength": 2,
+          "title": "Entity Type",
+          "type": "string"
+        },
+        "role": {
+          "minLength": 2,
+          "title": "Role",
+          "type": "string"
+        },
+        "task": {
+          "minLength": 2,
+          "title": "Task",
+          "type": "string"
+        },
+        "use_case_id": {
+          "pattern": "^[A-Z]{2,3}[0-9]{3}$",
+          "title": "Use Case Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "use_case_id",
+        "role",
+        "entity_name",
+        "entity_type",
+        "task",
+        "authority_limit"
+      ],
+      "title": "PromptContextSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Store exactly one approved deployment context for each use case.",
+  "properties": {
+    "contexts": {
+      "items": {
+        "$ref": "#/$defs/PromptContextSpec"
+      },
+      "maxItems": 6,
+      "minItems": 6,
+      "title": "Contexts",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "4.0.0",
+      "pattern": "^4\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "contexts"
+  ],
+  "title": "PromptContextSet",
+  "type": "object"
+}

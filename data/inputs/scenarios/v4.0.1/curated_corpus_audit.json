@@ -1,0 +1,17 @@
+{
+  "countervailing_count": 90,
+  "customer_adverse_count": 90,
+  "customer_favourable_count": 90,
+  "domain_count": 6,
+  "fact_count": 180,
+  "option_a_first_count": 15,
+  "option_b_first_count": 15,
+  "owner_option_a_count": 15,
+  "owner_option_b_count": 15,
+  "owner_supporting_count": 90,
+  "ownership_eligible_count": 11,
+  "pair_count": 90,
+  "scenario_count": 30,
+  "schema_version": "4.0.0",
+  "violations": []
+}

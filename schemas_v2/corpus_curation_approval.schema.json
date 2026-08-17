@@ -1,0 +1,222 @@
+{
+  "$defs": {
+    "AnchorCuration": {
+      "additionalProperties": false,
+      "description": "Bind one approved specificity-anchor replacement to its original value.",
+      "properties": {
+        "fact_id": {
+          "pattern": "^[A-Z0-9_]+_F[1-6]$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "original_anchor": {
+          "title": "Original Anchor",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "revised_anchor": {
+          "title": "Revised Anchor",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fact_id",
+        "original_anchor",
+        "revised_anchor",
+        "reason"
+      ],
+      "title": "AnchorCuration",
+      "type": "object"
+    },
+    "BriefCuration": {
+      "additionalProperties": false,
+      "description": "Bind one approved seed-brief correction to its original wording.",
+      "properties": {
+        "fact_id": {
+          "pattern": "^[A-Z0-9_]+_F[1-6]$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "original_brief": {
+          "title": "Original Brief",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "revised_brief": {
+          "title": "Revised Brief",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fact_id",
+        "original_brief",
+        "revised_brief",
+        "reason"
+      ],
+      "title": "BriefCuration",
+      "type": "object"
+    },
+    "ContextCuration": {
+      "additionalProperties": false,
+      "description": "Bind one approved decision-context replacement to its original text.",
+      "properties": {
+        "original_context": {
+          "title": "Original Context",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "revised_context": {
+          "title": "Revised Context",
+          "type": "string"
+        },
+        "scenario_id": {
+          "pattern": "^[A-Z]{2,3}[0-9]{3}_R[1-5]$",
+          "title": "Scenario Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "original_context",
+        "revised_context",
+        "reason"
+      ],
+      "title": "ContextCuration",
+      "type": "object"
+    },
+    "FactTextCuration": {
+      "additionalProperties": false,
+      "description": "Bind one approved fact-text replacement to its exact original text.",
+      "properties": {
+        "fact_id": {
+          "pattern": "^[A-Z0-9_]+_F[1-6]$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "original_text": {
+          "title": "Original Text",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "revised_text": {
+          "title": "Revised Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fact_id",
+        "original_text",
+        "revised_text",
+        "reason"
+      ],
+      "title": "FactTextCuration",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Bind researcher approval to exact source artifacts and every correction.",
+  "properties": {
+    "anchor_edits": {
+      "items": {
+        "$ref": "#/$defs/AnchorCuration"
+      },
+      "title": "Anchor Edits",
+      "type": "array"
+    },
+    "approval_note": {
+      "minLength": 2,
+      "title": "Approval Note",
+      "type": "string"
+    },
+    "approved_at": {
+      "format": "date-time",
+      "title": "Approved At",
+      "type": "string"
+    },
+    "approved_by": {
+      "minLength": 2,
+      "title": "Approved By",
+      "type": "string"
+    },
+    "brief_edits": {
+      "items": {
+        "$ref": "#/$defs/BriefCuration"
+      },
+      "title": "Brief Edits",
+      "type": "array"
+    },
+    "context_edits": {
+      "items": {
+        "$ref": "#/$defs/ContextCuration"
+      },
+      "title": "Context Edits",
+      "type": "array"
+    },
+    "curation_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Curation Sha256",
+      "type": "string"
+    },
+    "fact_text_edits": {
+      "items": {
+        "$ref": "#/$defs/FactTextCuration"
+      },
+      "title": "Fact Text Edits",
+      "type": "array"
+    },
+    "manual_review_audit_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Manual Review Audit Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "4.0.0",
+      "pattern": "^4\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_generated_outputs_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Generated Outputs Sha256",
+      "type": "string"
+    },
+    "source_generation_request_batch_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Generation Request Batch Sha256",
+      "type": "string"
+    },
+    "source_seed_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Seed Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_generation_request_batch_sha256",
+    "source_seed_sha256",
+    "source_generated_outputs_sha256",
+    "manual_review_audit_sha256",
+    "fact_text_edits",
+    "context_edits",
+    "brief_edits",
+    "anchor_edits",
+    "approved_by",
+    "approved_at",
+    "approval_note",
+    "curation_sha256"
+  ],
+  "title": "CorpusCurationApproval",
+  "type": "object"
+}

@@ -1,0 +1,88 @@
+"""Confirmatory contrasts, Holm correction, bootstrap, and descriptive reporting tests."""
+
+from __future__ import annotations
+
+from srcv2.analysis.confirmatory import (
+    BudgetScore,
+    ScenarioContrast,
+    UserStateScore,
+    anxious_neutral_contrasts,
+    complete_budget_models,
+    holm_adjust,
+    ordered_budget_contrasts,
+)
+from srcv2.analysis.descriptive import GroupObservation, summarize_groups
+from srcv2.analysis.resampling import stratified_cluster_bootstrap
+from srcv2.models.enums import Affect, ExactFactBudget
+
+
+def _contrasts() -> list[ScenarioContrast]:
+    """Build six use-case strata with five scenario clusters each."""
+    return [
+        ScenarioContrast(scenario_id=f"UC{use_case}_R{scenario}", use_case_id=f"UC{use_case}", value=(scenario - 3) / 10)
+        for use_case in range(1, 7)
+        for scenario in range(1, 6)
+    ]
+
+
+def test_holm_correction_is_step_down_and_family_limited() -> None:
+    """Correct exactly the two declared confirmatory p-values."""
+    adjusted = holm_adjust({"anxious": 0.01, "budget": 0.04})
+    assert adjusted == {"anxious": 0.02, "budget": 0.04}
+
+
+def test_confirmatory_contrasts_require_the_seven_model_panel() -> None:
+    """Aggregate both confirmatory outcomes across all thirty scenarios and seven models."""
+    user_state_scores = [
+        UserStateScore(
+            scenario_id=f"UC{use_case}_R{scenario}",
+            use_case_id=f"UC{use_case}",
+            model_slug=f"model-{model}",
+            affect=affect,
+            query_length=length,
+            signed_directional_gap=0.2 if affect == Affect.ANXIOUS else 0.1,
+        )
+        for use_case in range(1, 7)
+        for scenario in range(1, 6)
+        for model in range(1, 8)
+        for affect in (Affect.NEUTRAL, Affect.ANXIOUS)
+        for length in ("short", "long")
+    ]
+    budget_scores = [
+        BudgetScore(
+            scenario_id=f"UC{use_case}_R{scenario}",
+            use_case_id=f"UC{use_case}",
+            model_slug=f"model-{model}",
+            exact_fact_budget=budget,
+            signed_directional_gap=float(budget) / 10,
+        )
+        for use_case in range(1, 7)
+        for scenario in range(1, 6)
+        for model in range(1, 8)
+        for budget in (ExactFactBudget.FACTS_2, ExactFactBudget.FACTS_4, ExactFactBudget.FACTS_6)
+    ]
+    assert len(anxious_neutral_contrasts(user_state_scores)) == 30
+    assert len(ordered_budget_contrasts(budget_scores)) == 30
+    assert len(complete_budget_models(budget_scores)) == 7
+
+    incomplete = [
+        score
+        for score in budget_scores
+        if not (score.model_slug == "model-7" and score.scenario_id == "UC1_R1" and score.exact_fact_budget == ExactFactBudget.FACTS_2)
+    ]
+    assert complete_budget_models(incomplete) == [f"model-{model}" for model in range(1, 7)]
+    assert len(ordered_budget_contrasts(incomplete)) == 30
+
+
+def test_stratified_scenario_bootstrap_is_reproducible() -> None:
+    """Resample five scenario clusters within each of six use cases reproducibly."""
+    first = stratified_cluster_bootstrap(_contrasts(), iterations=500, random_seed=7)
+    second = stratified_cluster_bootstrap(_contrasts(), iterations=500, random_seed=7)
+    assert first == second
+
+
+def test_grouped_reporting_is_descriptive_and_not_ranked() -> None:
+    """Return groups alphabetically with explicit descriptive-only labeling."""
+    summaries = summarize_groups([GroupObservation(group="closed", value=0.9), GroupObservation(group="open_weight", value=0.1)])
+    assert [summary.group for summary in summaries] == ["closed", "open_weight"]
+    assert all(summary.interpretation == "descriptive_only_no_ranking_or_causal_claim" for summary in summaries)

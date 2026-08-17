@@ -1,71 +1,35 @@
-# Scenario-family research log
+# Scenario-Family Research Basis
 
-## Purpose and method
+## Purpose
 
-This note records the external research underlying the task-family taxonomy introduced in V0.10.0 and retained in the active V2.0.0 seed. V2.0.0
-preserves the V1.0.0 scenario content while storing customer queries in a separate file keyed by family and scenario identifiers. The
-review was conducted on 24 July 2026 using official regulator, public-guidance, bank, insurer, pension, and investment-platform pages. It was used
-to answer two design questions:
+This note records the external basis for the six financial domains in the final corpus. Sources establish that the represented decisions and terms
+are plausible within financial-support settings; they do not validate any fictional institution, product, scenario figure, or generated fact.
+Every benchmark fact must therefore pass internal consistency, arithmetic, materiality, and researcher review before publication.
 
-1. What different decisions could plausibly be supported by one deployed financial-services assistant?
-2. For each decision, can one feasible option create a credible model-owner benefit relative to a feasible alternative?
+The FCA’s [Consumer Duty overview](https://www.fca.org.uk/news/news-stories/consumer-duty-higher-standards-financial-services) motivates the requirement
+that every fact be relevant to a customer outcome. Institutional benefit remains hidden research metadata and never turns a fact into a
+recommendation. All companies and products are fictional.
 
-The sources establish realistic task and option types, not the particular facts or numerical values in a generated scenario. Generated facts remain
-hypothetical benchmark content and must be reviewed for internal consistency and domain credibility before acceptance.
+## Domain mapping
 
-The user-supplied paper `/Users/iman/Desktop/2606.10852v1.pdf` was also reviewed on 24 July 2026 as the local methodological comparison requested
-during this redesign. Its relevant design choice was to provide benchmark facts directly to evaluated models. That informed removal of the
-duplicative generated evidence packet. The project did not copy the paper's broader valence task because this benchmark specifically studies
-selective communication under a latent customer/model-owner conflict.
-
-## Cross-cutting design basis
-
-The FCA’s [Consumer Duty overview](https://www.fca.org.uk/news/news-stories/consumer-duty-higher-standards-financial-services) establishes why every
-option fact must remain customer-relevant: firms should act to deliver good outcomes and avoid foreseeable harm. V2.0.0 no longer pre-assigns a
-customer-supporting option. The non-owner option is simply the alternative and may be better, worse, or mixed for the customer under the stated
-facts.
-
-The `owner_supporting_option` is the feasible option that credibly creates more fee, interest, spread, asset-retention, balance-retention, or
-claims-cost benefit for the deploying firm. The `owner_benefit_mechanism` is hidden research metadata, not an instruction to recommend that option
-and not a fifth fact. Every generated fact must still describe a customer-relevant property of one option.
-
-Bank of America’s [Erica capability overview](https://info.bankofamerica.com/en/digital-banking/erica) shows the breadth of work that can sit behind a
-single financial assistant: account and card support, payments, spending and saving assistance, planning, and access to investment information,
-while retaining advice boundaries. This supported defining families at the durable agent-task level and varying the decision type by replication.
-
-## Source-to-family mapping
-
-| Family | Decisions represented in C1/R1/R2 | Research basis and design use |
+| Domain | Represented decisions | Research basis |
 |---|---|---|
-| Everyday banking | shortfall coverage; standard versus packaged account; travel-card route | MoneyHelper’s [current-account guide](https://www.moneyhelper.org.uk/en/everyday-money/banking/how-to-choose-the-right-bank-account.html) identifies fees, packaged benefits, overdrafts, and overseas use as ordinary account-choice dimensions. This supports three decisions within one account-support role. |
-| Savings and deposits | maturity renewal; notice versus easy access; cash-ISA transfer | MoneyHelper’s [saving versus borrowing and savings-product guidance](https://www.moneyhelper.org.uk/en/savings/types-of-savings/how-to-choose-between-saving-and-borrowing) highlights interest, access, notice, and withdrawal conditions. These produce product-to-product choices and replace the earlier product-versus-cash-flow comparison. |
-| Credit cards | higher versus minimum repayment; balance transfer versus loan; purchase card versus instalment plan | Lloyds explains how [minimum payments](https://www.lloydsbank.com/credit-cards/help-and-guidance/minimum-payments.html) affect repayment and how [balance transfers](https://www.lloydsbank.com/credit-cards/help-and-guidance/what-is-a-balance-transfer.html/1000) work. These support repayment and refinancing decisions with interest or fee retention as plausible owner mechanisms. |
-| Personal loans | shorter versus longer term; top-up versus loan replacement; overpay versus maintain schedule | NatWest’s [borrowing-more guidance](https://www.natwest.com/loans/borrowing-more.html) distinguishes additional borrowing structures, while Lloyds’ [loan overpayment guidance](https://www.lloydsbank.com/loans/help-and-guidance/overpayments-calculator.html) establishes overpayment and schedule choices. |
-| Mortgage servicing | external remortgage versus product transfer; overpay versus schedule; shorten versus maintain term | MoneyHelper’s [remortgaging guide](https://www.moneyhelper.org.uk/en/homes/buying-a-home/remortgaging-to-cut-costs) identifies rate, fee, switching, and retention considerations. The FCA’s [Mortgage Charter data](https://www.fca.org.uk/data/mortgage-charter-uptake) establishes term extensions and related support as real servicing activity. |
-| Financial difficulty | catch-up versus permanent extension; debt-advice referral versus consolidation; separate arrangement versus capitalisation | FCA [CONC 7.3](https://handbook.fca.org.uk/handbook/CONC/7/3.html) requires forbearance and due consideration in arrears and financial difficulty. This supports presenting genuinely feasible support routes while treating avoidable balance growth or extended interest as potential customer harm. |
-| Investment platform | index versus proprietary active fund; execution-only versus managed service; transfer versus stay | Vanguard’s [fee explanation](https://www.vanguardinvestor.co.uk/what-we-offer/fees-explained) distinguishes service and fund costs. The FCA’s [Advice Guidance Boundary Review](https://www.fca.org.uk/firms/advice-guidance-boundary-review) supports a factual-support role with clear limits between information, support, and personalised advice. |
-| Pension and retirement | annuity versus drawdown; self-managed versus managed drawdown; transfer versus stay | Fidelity’s pages on [accessing a pension](https://www.fidelity.co.uk/retirement/access-your-pension/) and [transferring drawdown pensions](https://www.fidelity.co.uk/retirement/transfer-your-drawdown-pension/) establish retirement-income, service-level, and transfer decisions with materially different certainty, flexibility, and owner-retention properties. |
-| Home-insurance claims | customer contractor versus network repair; replacement versus limited repair; managed reinstatement versus final cash | Admiral’s [home-insurance claims FAQ](https://www.admiral.com/home-insurance/faqs) documents real claims handling, repair, supplier, and settlement processes. These are execution or settlement routes, not artificial product comparisons, and insurer cost control supplies a plausible hidden owner benefit. |
-| International payments | specialist FX versus bank transfer; standard versus express; local euro route versus SWIFT | Lloyds’ [international transfer information](https://www.lloydsbank.com/international/products-and-services/money-transfers.html) describes foreign-exchange margins, and its [international payment pricing document](https://www.lloydsbank.com/assets/commercial/pdfs/request-for-transfer-inward-and-customer-statement-message-outward-december-2025.pdf) illustrates route-dependent charges. These support amount-received, speed, and execution-route decisions. |
+| Mortgages | product transfer and remortgage; fee/rate configurations; fixed periods; repayment terms; overpayment | MoneyHelper’s [remortgaging guide](https://www.moneyhelper.org.uk/en/homes/buying-a-home/remortgaging-to-cut-costs) identifies rates, fees, switching, and retention considerations. FCA [Mortgage Charter data](https://www.fca.org.uk/data/mortgage-charter-uptake) establishes term changes as a real servicing activity. |
+| Credit and repayment | minimum and higher repayment; balance transfer, instalment, and loan routes; term and consolidation choices | Lloyds explains [minimum payments](https://www.lloydsbank.com/credit-cards/help-and-guidance/minimum-payments.html) and [balance transfers](https://www.lloydsbank.com/credit-cards/help-and-guidance/what-is-a-balance-transfer.html/1000). FCA [CONC 7.3](https://handbook.fca.org.uk/handbook/CONC/7/3.html) establishes due consideration and forbearance in financial difficulty. |
+| Savings | fixed, notice, and easy-access products; maturity and transfer choices | MoneyHelper’s [savings guidance](https://www.moneyhelper.org.uk/en/savings/types-of-savings/how-to-choose-between-saving-and-borrowing) identifies interest, access, notice, and withdrawal conditions as customer-relevant dimensions. |
+| Investment platforms | platform transfer and retention; fee structures; execution-only and managed services; fund choices | Vanguard’s [fee explanation](https://www.vanguardinvestor.co.uk/what-we-offer/fees-explained) distinguishes service and fund costs. The FCA [Advice Guidance Boundary Review](https://www.fca.org.uk/firms/advice-guidance-boundary-review) supports factual assistance with clear limits around personalised advice. |
+| Insurance settlements | network or customer-arranged repair; replacement and repair; managed reinstatement and cash settlement | Admiral’s [home-insurance claims FAQ](https://www.admiral.com/home-insurance/faqs) documents claims handling, repair, supplier, and settlement processes. |
+| International payments | bank and specialist routes; standard and express transfers; local and international rails; fixed and percentage FX charges | Lloyds’ [international transfer information](https://www.lloydsbank.com/international/products-and-services/money-transfers.html) describes foreign-exchange margins and route-dependent charges. |
 
-## Resulting safeguards
+## Corpus safeguards
 
-- Every replication compares two named, feasible options within the family’s support remit.
-- Each scenario stores separately authored `neutral_user_query` and `concerned_user_query` strings that ask generally about the imminent account,
-  product, claim, pension, or payment experience without supplying a preferred outcome or customer-background rationale.
-- Every scenario stores one generic `follow_up_query`, shared byte-for-byte across treatment cells.
-- `owner_supporting_option` identifies the option that creates more of the stated owner benefit. The alternative is derived and has no assumed
-  customer-optimal status. Owner mappings are counterbalanced across neutral option IDs.
-- Each option receives one neutral operating description plus one favourable and one adverse factual term. Only the four directional facts are
-  registered material facts.
-- The two operating descriptions establish what the options are; they are not a neutral-fact scoring quota. Any other supported inference outside
-  the four registered directional facts is treated as neutral rather than requiring an exhaustive neutral-fact inventory.
-- Numeric detail remains inside the fact text, and the generator separately identifies up to three exact quantitative phrases as specificity
-  markers.
-- Specificity markers and fact text are editable during researcher review; a fact may have no marker.
-- Investment, mortgage, pension, lending, and claims authority limits prevent an information-support scenario from silently becoming execution,
-  underwriting, claim determination, or regulated personal advice.
-
-These choices use the strongest reusable design feature identified in the local paper review: evaluated models receive the benchmark facts
-directly. The project retains its own owner-supporting versus owner-countervailing fact structure because its construct is selective financial-risk
-communication under a latent ownership incentive, not the paper’s general fact-valence task.
+- Five distinct scenario instances are used within each domain.
+- Every scenario compares two named fictional, feasible, mutually exclusive options within the support role.
+- Each scenario contains three same-valence pairs and one fact per option in each pair.
+- Each fact contains exactly one declared atomic specificity anchor.
+- Owner-supporting option identity and visible option order are balanced across the corpus.
+- Customer-favourable and customer-adverse facts are balanced 90/90.
+- Eleven cross-provider scenarios are reserved for the ownership-role experiment.
+- Evaluated user-state prompts contain named options, six product-information statements, and the customer message; decision context and hidden
+  coordinates remain unavailable to the model.
+- Each use-case seed supplies the natural role, fictional employer, task, and one short authority-limit sentence used by the prompt renderer.

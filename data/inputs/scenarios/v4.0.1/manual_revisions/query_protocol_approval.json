@@ -1,0 +1,10 @@
+{
+  "approval_note": "Approved the existing 30 natural query families against the final seed-owned prompt context; queries and facts are unchanged.",
+  "approval_sha256": "88b9c44e6ea5a3892681ca7b7ec3041cfc0d363ac1d1129c2f9b63940a3d3693",
+  "approved_at": "2026-08-16T13:15:09.800200Z",
+  "approved_by": "Iman (explicit approval in Codex)",
+  "query_families_sha256": "7ba11836abed97724ecad6163c87b73669741232665287e8a389677c4d5b08e0",
+  "query_variants_sha256": "6e42a2a845ae8dad2ff1f9f6fd7cbe54304420ba7a045059e28f8e31c0c1d3cd",
+  "schema_version": "4.0.0",
+  "source_scenarios_sha256": "ef3fe5815877a7df24139fcf1aa8207c258790185a52adbf6fd31f20471473a5"
+}

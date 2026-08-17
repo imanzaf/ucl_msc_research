@@ -1,0 +1,88 @@
+{
+  "additionalProperties": false,
+  "description": "Record the token-ceiling cost estimate for one exact judge plan.",
+  "properties": {
+    "call_count": {
+      "minimum": 1,
+      "title": "Call Count",
+      "type": "integer"
+    },
+    "estimated_at": {
+      "format": "date-time",
+      "title": "Estimated At",
+      "type": "string"
+    },
+    "estimated_max_cost": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Estimated Max Cost"
+    },
+    "input_price_per_million": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Input Price Per Million"
+    },
+    "input_token_estimate": {
+      "minimum": 1,
+      "title": "Input Token Estimate",
+      "type": "integer"
+    },
+    "judge_plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Judge Plan Sha256",
+      "type": "string"
+    },
+    "output_price_per_million": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Output Price Per Million"
+    },
+    "output_token_ceiling": {
+      "minimum": 1,
+      "title": "Output Token Ceiling",
+      "type": "integer"
+    },
+    "schema_version": {
+      "default": "4.0.0",
+      "pattern": "^4\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "judge_plan_sha256",
+    "call_count",
+    "input_token_estimate",
+    "output_token_ceiling",
+    "input_price_per_million",
+    "output_price_per_million",
+    "estimated_max_cost",
+    "estimated_at"
+  ],
+  "title": "JudgeExecutionEstimate",
+  "type": "object"
+}

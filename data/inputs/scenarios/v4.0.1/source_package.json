@@ -1,0 +1,11 @@
+{
+  "corrections": [
+    "balanced option presentation order across the thirty scenarios",
+    "declared one atomic specificity anchor for each bundled source declaration",
+    "reserved affect and query wording for controlled query generation"
+  ],
+  "preserved_archive": "/Users/iman/Desktop/workspace/ucl_msc_research/data/inputs/scenarios/v4.0.0.zip",
+  "schema_version": "4.0.0",
+  "source_filename": "scenario_generation_v4.0.0_package.zip",
+  "source_sha256": "b9fb39abb4be8cdda91de2f3d9817cb2febda0437fc2cb47abbf75b6e8add790"
+}

@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "description": "Bind explicit approval to the source corpus and six prompt contexts.",
+  "properties": {
+    "approval_note": {
+      "minLength": 1,
+      "title": "Approval Note",
+      "type": "string"
+    },
+    "approval_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Approval Sha256",
+      "type": "string"
+    },
+    "approved_at": {
+      "format": "date-time",
+      "title": "Approved At",
+      "type": "string"
+    },
+    "approved_by": {
+      "minLength": 1,
+      "title": "Approved By",
+      "type": "string"
+    },
+    "prompt_contexts_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Prompt Contexts Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "4.0.0",
+      "pattern": "^4\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_scenarios_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Scenarios Sha256",
+      "type": "string"
+    },
+    "source_seed_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Seed Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_seed_sha256",
+    "source_scenarios_sha256",
+    "prompt_contexts_sha256",
+    "approved_by",
+    "approval_note",
+    "approved_at",
+    "approval_sha256"
+  ],
+  "title": "PromptProtocolApproval",
+  "type": "object"
+}

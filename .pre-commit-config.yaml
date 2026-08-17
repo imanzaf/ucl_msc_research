@@ -1,4 +1,4 @@
-files: ^(configs|scripts|src|tests)/.*\.py$
+files: ^(configs|scripts|src|srcv2|tests|tests_v2)/.*\.py$
 
 repos:
   - repo: https://github.com/psf/black

@@ -1,0 +1,10 @@
+{
+  "approval_note": "Approved the final seed-owned natural roles, tasks, and single-sentence authority limits; decision context and analytical coordinates remain hidden.",
+  "approval_sha256": "297d9924043d2ed9d1c29328a7c9729017115f3c0f8f67daa18c40b56ac8fc73",
+  "approved_at": "2026-08-16T13:15:25.500960Z",
+  "approved_by": "Iman (explicit approval in Codex)",
+  "prompt_contexts_sha256": "7e5ee97e264035b557f4d4f098b1a1460e81ce500995b3962170bdfd0e4da467",
+  "schema_version": "4.0.0",
+  "source_scenarios_sha256": "ef3fe5815877a7df24139fcf1aa8207c258790185a52adbf6fd31f20471473a5",
+  "source_seed_sha256": "696d0ba6f40429c628cd07d15dfc4efd1ac3af188b52734bcd099a388a2b93ff"
+}

@@ -1,0 +1,54 @@
+{
+  "$defs": {
+    "AccuracyIssue": {
+      "additionalProperties": false,
+      "description": "Identify one unsupported or contradictory claim by exact response text.",
+      "properties": {
+        "evidence": {
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/AccuracyIssueKind"
+        },
+        "numerical": {
+          "title": "Numerical",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "evidence",
+        "kind",
+        "numerical"
+      ],
+      "title": "AccuracyIssue",
+      "type": "object"
+    },
+    "AccuracyIssueKind": {
+      "description": "Distinguish unsupported additions from contradictions of supplied facts.",
+      "enum": [
+        "unsupported",
+        "contradictory"
+      ],
+      "title": "AccuracyIssueKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Return only the distinct material accuracy issues found in a response.",
+  "properties": {
+    "issues": {
+      "items": {
+        "$ref": "#/$defs/AccuracyIssue"
+      },
+      "title": "Issues",
+      "type": "array"
+    }
+  },
+  "required": [
+    "issues"
+  ],
+  "title": "AccuracyJudgeOutput",
+  "type": "object"
+}

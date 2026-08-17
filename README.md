@@ -1,69 +1,89 @@
-# UCL MSc Research: Selective Risk Communication
+# UCL MSc Research: Selective Financial-Risk Communication
 
-This repository contains the dissertation and reproducible experiments for a controlled study of selective financial-risk communication under
-concise-response guidance and user-expressed concern.
+This repository contains the dissertation and reproducible implementation for a controlled study of how financial-assistant models select,
+realise, and present matched facts under user-state, information-budget, word-budget, ownership-role, and option-priority treatments.
 
-The canonical methodology is [RESEARCH_PLAN.md](docs/research-plan/RESEARCH_PLAN.md). The active scenario seed is V3.0.0 and generated/published
-scenario artifacts use schema 9.0.0. Scenario definitions and customer queries are stored in separate, schema-validated JSON files joined by
-family and scenario IDs. Generation protocol V1.1.1 makes one initial generation call per scenario, excludes all customer queries from that call,
-generates exact quantitative specificity markers with each fact, and freezes the R1 same-provider and R2 external-option relationships in the
-provider payload. For R1/R2, its example contains only the matching published C1's two option-information records.
-All five active scenario, experiment, and scoring prompts are paired Jinja2 templates under
-`src/prompts/templates/`, loaded through shared utilities in `src/prompts/template_utils.py`; R1/R2 are processed independently. The local scenario
-editor saves arbitrary wording changes as parent-linked candidate versions and can publish any selected current version directly.
+The active study is implemented independently in `srcv2/` and run with `uv run risk-comm-v2 ...`. Its tests live in `tests_v2/`, public schemas in
+`schemas_v2/`, and scenario inputs in `data/inputs/scenarios/v4.0.1/`. The `srcv2` package does not import the historical `src` package. The existing
+`uv run risk-comm ...` command remains available for reproducibility but is not used to operate the active study.
 
-Scenario authoring has no automated-review, regeneration, acceptance-decision, model-freeze, prompt-review, pilot, or complete-batch gate. Those
-downstream evaluated-model controls remain separate. R1 generation always compares two options from the provider; R2 compares one provider option
-with one identified external option.
+The canonical design is [RESEARCH_PLAN.md](docs/research-plan/RESEARCH_PLAN.md). Durable inclusion, modification, rejection, and deferral reasons are
+recorded separately in [V4_REDESIGN_DECISIONS.md](docs/research-plan/V4_REDESIGN_DECISIONS.md).
 
 ## Study at a glance
 
-The sole primary outcome is the preregistered 0–1 `selective_communication_score`:
+The corpus contains 30 fictional financial scenarios across mortgages, credit and repayment, savings, investment platforms, insurance settlements,
+and international payments. Each scenario contains three same-valence matched pairs: six facts in total, three facts per option, three
+owner-supporting facts, three countervailing facts, and one atomic specificity anchor per fact. Customer valence is balanced 90/90 across the
+180-fact corpus.
 
-\[
-0.5(coverage\ asymmetry) + 0.5(specificity\ asymmetry).
-\]
-
-H1 compares concise-response guidance with no response-length instruction. H2 compares concerned with neutral wording. Both use the initial answer
-and form the only Holm-adjusted confirmatory family. `presentation_style_score` and binary `factual_inaccuracy_score` are prespecified secondary
-outcomes. Follow-up-only and code-derived cumulative results for all three scores are secondary checkpoints. Power is calculated only for H1/H2;
-calibration supplies expected interval precision for the initial secondary contrasts.
-
-Scoring makes between ten and eighteen successful LLM calls per conversation. Each isolated response receives four content calls, presentation
-calls only for facts marked present, and one accuracy call across the full fact list. Cumulative results require no additional LLM call.
-Reviewed corrections are stored as source-bundle-linked manual edits; automated bundles remain immutable, and derived effective scores select the
-edit only after its source hash and scoring inputs validate.
-
-| Experiment | Design | Conversations |
+| Experiment | Design | Responses |
 |---|---|---:|
-| `risk_comm_v1` | 20 scenarios × 3 models × baseline/concise × neutral/concerned | 240 |
-| `material_priority_v1` | 20 scenarios × 3 models × concise guidance × 2 seed-authored queries | 120 |
-| `brevity_locus_v1` | 20 scenarios × 3 models × neutral query with user-requested brevity | 60 |
+| `user_state_adaptation_v2` | 30 scenarios × 3 affects × 2 lengths × 7 models | 1,260 |
+| `information_budget_v1` | Neutral k={2,4,6}; anxious k={2,4}; fact IDs selected before prose | 1,050 |
+| `word_budget_external_validity_v1` | Neutral 40/80/160-word instructions | 630 |
+| `single_fact_priority_v1` | One naturally expressed most-important fact | 210 |
+| `ownership_role_control_v1` | 11 scenarios × 3 roles × 2 jointly counterbalanced renderings × 7 models | 462 |
+| `option_first_v1` | One response choosing and explaining one option | 210 |
+| **Total** | | **3,822** |
 
-Experiment artifacts live under `data/outputs/experiments/<experiment-name>/`. Scenario-generation histories live under
-`data/outputs/scenario_generation/v3.0.0/<run-id>/<round-id>/`; the run ID identifies one logical authoring set and timestamped rounds preserve each
-initial or manually revised candidate version.
+`balanced_prominence_mitigation_v1` is implemented as a deferred 210-response matrix and is excluded from the active total.
 
-## Workflows
+The principal direction-sensitive outcome is the signed directional gap (D). Pairwise imbalance (A), total material coverage (T), pair states,
+specificity, presentation, factual error, empathy/referral, density, and length are reported separately. The confirmatory family contains only two
+Holm-corrected tests: anxious versus neutral (D), and the ordered k=6→4→2 change in selection-ID (D).
 
-- [Scenario workflow](docs/experiments/scenario_workflow.md): generate initial candidates, edit/save versions, and publish selected scenarios.
-- [Experiment execution](docs/experiments/experiment_execution.md): run C1, calibration, confirmatory, and exploratory model calls.
-- [Scoring and validation](docs/experiments/scoring_and_validation.md): automated scoring, blinded annotation, validation, and contingencies.
-- [Analysis](docs/experiments/analysis.md): construct analysis inputs and run confirmatory or exploratory inference.
-- [Scenario-family research](docs/experiments/scenario_research.md): source basis for the financial task-family taxonomy.
+## Current execution boundary
 
-The [Distinction Guide](docs/reference/DISTINCTION_GUIDE.md) is supporting dissertation guidance rather than an experiment runbook. Historical
-protocols and superseded workflow documents remain under `docs/archive/`.
+Offline protocol construction is implemented. The supplied source archive is preserved at `data/inputs/scenarios/v4.0.0.zip` with SHA-256
+`b9fb39abb4be8cdda91de2f3d9817cb2febda0437fc2cb47abbf75b6e8add790`; its audited seed corpus is under
+`data/inputs/scenarios/v4.0.1/`. GPT-5.4 generated one semantic response for each scenario through the pinned OpenAI endpoint, and the complete
+180-fact corpus received manual financial, arithmetic, completeness, and language review. Researcher-approved corrections are stored as a separate
+hash-bound curation layer; the source requests, responses, and provider caches remain unchanged. All scenarios are accepted and republished with six
+researcher-approved natural queries: neutral, anxious, and frustrated wording in short and long forms. All 3,822 evaluated-model responses are
+complete with per-response provider, token, and billed-cost records. The three GPT-5.4 Mini judge contracts and their 191-response development
+workflow are implemented. The active content contract separates underlying proposition presence from specificity-anchor retention. Exact-budget
+selection scoring retains strict format adherence separately while recovering otherwise valid exact-k JSON from one complete Markdown fence; its
+prose field is judged without the JSON wrapper. Of 1,050 selections, 954 are usable and 96 prose or invalid outputs remain unusable. Accuracy judging
+uses the visible assistant context, customer query, option names, and six facts, while hidden research metadata remains excluded. The content and
+presentation calls were retained unchanged while all 191 accuracy calls were rerun with the visible option names. The complete pilot has been
+reviewed, corrected through the immutable override ledger, and frozen. Statistical results remain pending the cost-approved full scoring run.
 
-## Common offline checks
+Evaluated prompts take their natural domain role, fictional employer, task, and single authority limit from the final seed. They expose named
+options, six product-information statements, and the customer message while keeping decision context and analytical coordinates hidden.
+
+## Offline setup and validation
 
 ```bash
-uv run risk-comm maintenance export-schemas
-uv run risk-comm maintenance validate-protocol
-uv run risk-comm maintenance validate-docs
+uv run risk-comm-v2 scenarios import-package
+uv run risk-comm-v2 scenarios validate
+uv run risk-comm-v2 scenarios build-generation-requests
+uv run risk-comm-v2 scenarios build-queries
+uv run risk-comm-v2 experiment build-plan --include-deferred
+uv run risk-comm-v2 maintenance export-schemas
+uv run risk-comm-v2 experiment generate-assets
+uv run risk-comm-v2 scoring show-prompts
+uv run risk-comm-v2 scoring sample-pilot
+uv run risk-comm-v2 maintenance validate-isolation
 uv run pytest
 uv run pre-commit run --all-files
 ```
 
-Setup, validation, plan construction, tests, and documentation commands never authorise paid provider calls. Scenario generation runs only when
-explicitly requested and records actual provider usage and cost. Evaluated-model and scoring calls retain their separate paid-execution gates.
+These commands do not authorise paid calls. Paid preflight and execution require cost estimates plus explicit, hash-bound approval artifacts; see
+[experiment_execution.md](docs/experiments/experiment_execution.md).
+
+## Workflow guides
+
+- [Scenario workflow](docs/experiments/scenario_workflow.md)
+- [Experiment execution](docs/experiments/experiment_execution.md)
+- [Scoring and validation](docs/experiments/scoring_and_validation.md)
+- [Analysis](docs/experiments/analysis.md)
+- [Scenario-family research](docs/experiments/scenario_research.md)
+
+Experiment artifacts are written beneath `data/outputs/experiments/<experiment-name>/`, with `config.json`, `results/`, `cache/`, `logs/`, `assets/`,
+and `checkpoints/` owned by each experiment.
+
+## Protected launcher compatibility
+
+The unchanged `risk-comm` regression fixture continues to recognise its packaged `V3.0.0` seed, schema `9.0.0`, and fixture counts `240`, `120`,
+and `60`. These identifiers exist only to verify that the protected launcher remains operational; they are not inputs to the active study.

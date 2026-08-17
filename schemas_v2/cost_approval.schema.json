@@ -1,0 +1,80 @@
+{
+  "additionalProperties": false,
+  "description": "Require explicit, bounded authorization before any evaluated paid execution.",
+  "properties": {
+    "approval_note": {
+      "minLength": 2,
+      "title": "Approval Note",
+      "type": "string"
+    },
+    "approval_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Approval Sha256",
+      "type": "string"
+    },
+    "approved_at": {
+      "format": "date-time",
+      "title": "Approved At",
+      "type": "string"
+    },
+    "approved_by": {
+      "minLength": 2,
+      "title": "Approved By",
+      "type": "string"
+    },
+    "approved_max_cost": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Approved Max Cost"
+    },
+    "currency": {
+      "default": "USD",
+      "pattern": "^USD$",
+      "title": "Currency",
+      "type": "string"
+    },
+    "estimated_max_cost": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Estimated Max Cost"
+    },
+    "protocol_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Protocol Manifest Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "4.0.0",
+      "pattern": "^4\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "protocol_manifest_sha256",
+    "estimated_max_cost",
+    "approved_max_cost",
+    "approved_by",
+    "approved_at",
+    "approval_note",
+    "approval_sha256"
+  ],
+  "title": "CostApproval",
+  "type": "object"
+}

@@ -1,0 +1,223 @@
+{
+  "anchor_edits": [
+    {
+      "fact_id": "CF106_R1_F6",
+      "original_anchor": "additional euros",
+      "reason": "The briefs demand exact recipient amounts without an exchange-rate basis. The comparison can instead be calculated exactly from the stated markups and fee.",
+      "revised_anchor": "£237.50 lower charges"
+    }
+  ],
+  "approval_note": "Approved all factual, completeness, context, brief, anchor, arithmetic, grammar, and clarity corrections documented in manual_review_audit.json.",
+  "approved_at": "2026-08-15T22:56:43.739293Z",
+  "approved_by": "Researcher (confirmed in Codex task)",
+  "brief_edits": [
+    {
+      "fact_id": "CF102_R1_F4",
+      "original_brief": "State the verified payoff period and total interest under minimum-only payments.",
+      "reason": "The seed omits the contractual minimum-payment formula, the generated fixed-payment interest is incorrect, and the minimum-payment brief still bundles payoff time with total interest after its anchor was made atomic.",
+      "revised_brief": "State the verified payoff period under minimum-only payments."
+    },
+    {
+      "fact_id": "CF106_R1_F2",
+      "original_brief": "State ClearCurrent’s lower 0.35% markup and exact quoted recipient amount.",
+      "reason": "The briefs demand exact recipient amounts without an exchange-rate basis. The comparison can instead be calculated exactly from the stated markups and fee.",
+      "revised_brief": "State ClearCurrent’s lower 0.35% markup."
+    },
+    {
+      "fact_id": "CF106_R1_F4",
+      "original_brief": "State Silverbay’s £25 fixed fee plus 1.20% FX markup and exact recipient amount.",
+      "reason": "The briefs demand exact recipient amounts without an exchange-rate basis. The comparison can instead be calculated exactly from the stated markups and fee.",
+      "revised_brief": "State Silverbay’s £25 fixed fee plus 1.20% FX markup."
+    },
+    {
+      "fact_id": "CF106_R1_F6",
+      "original_brief": "State the exact additional euros received under ClearCurrent’s quote.",
+      "reason": "The briefs demand exact recipient amounts without an exchange-rate basis. The comparison can instead be calculated exactly from the stated markups and fee.",
+      "revised_brief": "State the exact £237.50 lower combined charge under ClearCurrent’s quote."
+    },
+    {
+      "fact_id": "CF106_R5_F2",
+      "original_brief": "State Silverbay’s disclosed 1.00% markup and exact all-in GBP cost.",
+      "reason": "The brief requests an exact all-in GBP cost without stating the exchange-rate basis needed to calculate it.",
+      "revised_brief": "State Silverbay’s disclosed 1.00% markup."
+    }
+  ],
+  "context_edits": [
+    {
+      "original_context": "A £8,000 card balance is at 22.9% APR and no new spending occurs. The two payment arrangements begin next month.",
+      "reason": "The seed omits the contractual minimum-payment formula, the generated fixed-payment interest is incorrect, and the minimum-payment brief still bundles payoff time with total interest after its anchor was made atomic.",
+      "revised_context": "A £8,000 card balance is at 22.9% APR and no new spending occurs. The two payment arrangements begin next month. The contractual minimum is 3% of each month’s opening balance or £5, whichever is greater.",
+      "scenario_id": "CF102_R1"
+    }
+  ],
+  "curation_sha256": "c3fd6a8e666228742186b5b11cc5dd28414b15bf06ed827056a48f2f3ae9cf92",
+  "fact_text_edits": [
+    {
+      "fact_id": "CF101_R4_F1",
+      "original_text": "For Brackenmere Home Finance, the monthly payment over 20 years on a £200,000 repayment mortgage at 4.10% is about £1,221.",
+      "reason": "Five generated amortisation figures do not reproduce from £200,000 at 4.10% using equal monthly payments and monthly compounding.",
+      "revised_text": "For Brackenmere Home Finance, the monthly payment over 20 years is about £1,223 on £200,000 at 4.10%."
+    },
+    {
+      "fact_id": "CF101_R4_F2",
+      "original_text": "For Brackenmere Home Finance, the total interest over 30 years on a £200,000 repayment mortgage at 4.10% is about £148,127.",
+      "reason": "Five generated amortisation figures do not reproduce from £200,000 at 4.10% using equal monthly payments and monthly compounding.",
+      "revised_text": "For Brackenmere Home Finance, the total interest over 30 years is about £147,903 on £200,000 at 4.10%."
+    },
+    {
+      "fact_id": "CF101_R4_F3",
+      "original_text": "For Brackenmere Home Finance, the monthly payment over 30 years on a £200,000 repayment mortgage at 4.10% is about £967.",
+      "reason": "Five generated amortisation figures do not reproduce from £200,000 at 4.10% using equal monthly payments and monthly compounding.",
+      "revised_text": "For Brackenmere Home Finance, the monthly payment over 30 years is about £966 on £200,000 at 4.10%."
+    },
+    {
+      "fact_id": "CF101_R4_F5",
+      "original_text": "For Brackenmere Home Finance, the 20-year repayment term requires about £254 extra per month than the 30-year term at the same 4.10% rate.",
+      "reason": "Five generated amortisation figures do not reproduce from £200,000 at 4.10% using equal monthly payments and monthly compounding.",
+      "revised_text": "The Brackenmere Home Finance 20-year term requires about £256 extra per month compared with the 30-year term."
+    },
+    {
+      "fact_id": "CF101_R4_F6",
+      "original_text": "For Brackenmere Home Finance, the balance after 20 years under the 30-year schedule at 4.10% is about £76,620.",
+      "reason": "Five generated amortisation figures do not reproduce from £200,000 at 4.10% using equal monthly payments and monthly compounding.",
+      "revised_text": "Under Brackenmere Home Finance’s 30-year schedule, the balance after 20 years is about £95,005 at 4.10%."
+    },
+    {
+      "fact_id": "CF101_R5_F1",
+      "original_text": "With Brackenmere Home Finance, applying the £20,000 overpayment to reduce the required payment and keep the 20-year term gives a monthly payment reduction of about £124 per month, from roughly £1,111 to £987.",
+      "reason": "The interest saving and payoff date are materially incorrect; two related rounded payment figures are also inconsistent with the same amortisation basis.",
+      "revised_text": "Brackenmere Home Finance’s monthly payment reduction is about £123, from £1,110 to £987, after applying the £20,000 overpayment over 20 years."
+    },
+    {
+      "fact_id": "CF101_R5_F2",
+      "original_text": "With Brackenmere Home Finance, keeping the original payment after the £20,000 overpayment produces a future interest saving of about £12,100 versus recalculating over the remaining 20 years.",
+      "reason": "The interest saving and payoff date are materially incorrect; two related rounded payment figures are also inconsistent with the same amortisation basis.",
+      "revised_text": "Keeping the original payment produces a future interest saving of about £13,661 compared with recalculating the £160,000 balance over 20 years."
+    },
+    {
+      "fact_id": "CF101_R5_F3",
+      "original_text": "With Brackenmere Home Finance, if the overpayment is applied by keeping the payment and shortening the term, the monthly payment unchanged means the required payment stays at about £1,111.",
+      "reason": "The interest saving and payoff date are materially incorrect; two related rounded payment figures are also inconsistent with the same amortisation basis.",
+      "revised_text": "Keeping the original payment leaves the monthly payment unchanged after the £20,000 overpayment."
+    },
+    {
+      "fact_id": "CF101_R5_F6",
+      "original_text": "With Brackenmere Home Finance, keeping the original payment leads to an earlier payoff date of about 3 years and 7 months sooner, shortening repayment from 20 years to about 16 years and 5 months.",
+      "reason": "The interest saving and payoff date are materially incorrect; two related rounded payment figures are also inconsistent with the same amortisation basis.",
+      "revised_text": "Keeping the original payment gives an earlier payoff date by about 3 years and 2 months, ending after about 16 years and 10 months."
+    },
+    {
+      "fact_id": "CF102_R1_F1",
+      "original_text": "With Juniper Vale Credit’s contractual minimum repayment, the first-month minimum payment is £240, based on 3% of the £8,000 balance under the no-new-spending assumption.",
+      "reason": "The seed omits the contractual minimum-payment formula, the generated fixed-payment interest is incorrect, and the minimum-payment brief still bundles payoff time with total interest after its anchor was made atomic.",
+      "revised_text": "Juniper Vale Credit’s formula gives a first-month minimum payment of £240, equal to 3% of the £8,000 opening balance."
+    },
+    {
+      "fact_id": "CF102_R1_F4",
+      "original_text": "At Juniper Vale Credit, the minimum-only payoff period is about 33 years if no new spending occurs.",
+      "reason": "The seed omits the contractual minimum-payment formula, the generated fixed-payment interest is incorrect, and the minimum-payment brief still bundles payoff time with total interest after its anchor was made atomic.",
+      "revised_text": "At Juniper Vale Credit, the minimum-only payoff period is about 33 years and 11 months under the stated formula."
+    },
+    {
+      "fact_id": "CF102_R1_F6",
+      "original_text": "With Juniper Vale Credit’s fixed £350 monthly repayment, the total interest at £350 is about £2,710 if no new spending occurs.",
+      "reason": "The seed omits the contractual minimum-payment formula, the generated fixed-payment interest is incorrect, and the minimum-payment brief still bundles payoff time with total interest after its anchor was made atomic.",
+      "revised_text": "With Juniper Vale Credit’s fixed repayment, the total interest at £350 each month is about £2,611 if no new spending occurs."
+    },
+    {
+      "fact_id": "CF102_R4_F4",
+      "original_text": "Once settlement clears with Juniper Vale Credit, the loan balance and monthly obligation ends immediately.",
+      "reason": "The generated compound subject disagrees with the singular verb.",
+      "revised_text": "The monthly obligation ends immediately after settlement clears, and the Juniper Vale loan balance becomes zero."
+    },
+    {
+      "fact_id": "CF102_R5_F4",
+      "original_text": "Northcross Finance offers a lower 7.4% APR with a verified 48-month cost saving even after its fee.",
+      "reason": "Two briefs require verified 48-month monetary outcomes, but the generated facts state only unquantified comparisons.",
+      "revised_text": "Northcross Finance’s 7.4% APR produces an estimated 48-month saving of £1,020 after its £495 origination fee."
+    },
+    {
+      "fact_id": "CF102_R5_F6",
+      "original_text": "Retaining the Juniper Vale Credit loan results in a higher 48-month total cost.",
+      "reason": "Two briefs require verified 48-month monetary outcomes, but the generated facts state only unquantified comparisons.",
+      "revised_text": "Retaining the Juniper Vale Credit loan gives a higher 48-month total cost of about £18,890."
+    },
+    {
+      "fact_id": "CF103_R3_F5",
+      "original_text": "If the cash ISA is retained at Alderwick Savings Bank, existing beneficiary and withdrawal instructions unchanged remain in place.",
+      "reason": "The generated anchor is inserted in an ungrammatical word order.",
+      "revised_text": "Alderwick Savings Bank keeps existing beneficiary and withdrawal instructions unchanged when the cash ISA is retained."
+    },
+    {
+      "fact_id": "CF103_R5_F5",
+      "original_text": "Holding the Alderwick Savings Bank deposit to maturity keeps the 4.00% for six months guaranteed under the fixed term.",
+      "reason": "The guarantee wording is syntactically awkward.",
+      "revised_text": "Alderwick Savings Bank guarantees 4.00% for six months until the fixed deposit matures."
+    },
+    {
+      "fact_id": "CF104_R1_F1",
+      "original_text": "Keeping the portfolio at Lattice Harbour requires no transfer or account re-registration, so there is no transfer.",
+      "reason": "Two generated facts repeat their anchor wording instead of stating each proposition once.",
+      "revised_text": "Keeping the portfolio at Lattice Harbour Investments requires no transfer or account re-registration."
+    },
+    {
+      "fact_id": "CF104_R1_F5",
+      "original_text": "If the portfolio stays at Lattice Harbour, existing regular investments and withdrawal instructions continue with instructions unchanged.",
+      "reason": "Two generated facts repeat their anchor wording instead of stating each proposition once.",
+      "revised_text": "Lattice Harbour Investments keeps existing regular investments and withdrawal instructions unchanged."
+    },
+    {
+      "fact_id": "CF104_R4_F3",
+      "original_text": "Lattice Harbour Investments applies a 0.35% annual platform charge, which is a verified £675 annual difference on a £250,000 account.",
+      "reason": "The £675 difference is correct but the generated wording does not say that it is a saving.",
+      "revised_text": "At £250,000, Lattice Harbour Investments’ 0.35% annual platform charge saves £675 each year against Whitecap’s 0.62% charge."
+    },
+    {
+      "fact_id": "CF105_R1_F5",
+      "original_text": "With the network-managed repair, Pineharbour manages paperwork, the contractor, building-control paperwork, and covered remedial work.",
+      "reason": "The generated fact repeats paperwork and separates it awkwardly from building control.",
+      "revised_text": "For the network repair, Pineharbour manages paperwork for building control, the contractor and covered remedial work."
+    },
+    {
+      "fact_id": "CF105_R4_F1",
+      "original_text": "Pineharbour Insurance’s network garage has a 20 business days start queue.",
+      "reason": "Two generated facts use ungrammatical or unnatural constructions.",
+      "revised_text": "Pineharbour Insurance’s network garage has a start queue of 20 business days."
+    },
+    {
+      "fact_id": "CF105_R4_F6",
+      "original_text": "Under the cash-in-lieu settlement, Pineharbour Insurance provides no costs above £17,000.",
+      "reason": "Two generated facts use ungrammatical or unnatural constructions.",
+      "revised_text": "Under the cash settlement, Pineharbour Insurance covers no costs above £17,000."
+    },
+    {
+      "fact_id": "CF105_R5_F4",
+      "original_text": "Choice under the Pineharbour comparable replacement vehicle route is limited to network vehicles only available through Pineharbour Insurance.",
+      "reason": "The generated restriction contains a misplaced modifier.",
+      "revised_text": "The replacement choice is limited to Pineharbour Insurance’s network vehicles only."
+    },
+    {
+      "fact_id": "CF106_R1_F6",
+      "original_text": "ClearCurrent FX’s quote results in additional euros received versus the alternative quote.",
+      "reason": "The briefs demand exact recipient amounts without an exchange-rate basis. The comparison can instead be calculated exactly from the stated markups and fee.",
+      "revised_text": "On £25,000, ClearCurrent FX has £237.50 lower charges than Silverbay Payments under the stated markups and fixed fee."
+    },
+    {
+      "fact_id": "CF106_R4_F5",
+      "original_text": "Rivermint Travel Money charges £20 replacement for an emergency replacement Rivermint travel card.",
+      "reason": "The generated emergency-replacement sentence omits the word fee.",
+      "revised_text": "Rivermint Travel Money charges a £20 replacement fee for an emergency replacement travel card."
+    },
+    {
+      "fact_id": "CF106_R5_F2",
+      "original_text": "Silverbay Payments discloses a 1.00% markup in its conversion quote and provides the exact all-in GBP cost.",
+      "reason": "The brief requests an exact all-in GBP cost without stating the exchange-rate basis needed to calculate it.",
+      "revised_text": "Silverbay Payments applies a disclosed 1.00% markup to the reference exchange rate used for its conversion quote."
+    }
+  ],
+  "manual_review_audit_sha256": "490b205a4ccb88c13ce896b82df3e52e4ba681cbb6dc6351f92ab44f54f60f1c",
+  "schema_version": "4.0.0",
+  "source_generated_outputs_sha256": "deb9049d5899c829bae2caa4cf9db6c3ea1e65a46ab1f1ed7228908c93d1af02",
+  "source_generation_request_batch_sha256": "42e29b07c124bd4caaada5ebd81fd1914606e22fab71ea2ae73fa6d7c205d718",
+  "source_seed_sha256": "8f7ce6924daa1ab9377922623266a21b8842b24bc3963b84f64d8036fd91e37d"
+}

@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "description": "Bind researcher approval to the accepted corpus and its authored query families.",
+  "properties": {
+    "approval_note": {
+      "minLength": 1,
+      "title": "Approval Note",
+      "type": "string"
+    },
+    "approval_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Approval Sha256",
+      "type": "string"
+    },
+    "approved_at": {
+      "format": "date-time",
+      "title": "Approved At",
+      "type": "string"
+    },
+    "approved_by": {
+      "minLength": 1,
+      "title": "Approved By",
+      "type": "string"
+    },
+    "query_families_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Query Families Sha256",
+      "type": "string"
+    },
+    "query_variants_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Query Variants Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "4.0.0",
+      "pattern": "^4\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_scenarios_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Scenarios Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_scenarios_sha256",
+    "query_families_sha256",
+    "query_variants_sha256",
+    "approved_by",
+    "approval_note",
+    "approved_at",
+    "approval_sha256"
+  ],
+  "title": "QueryProtocolApproval",
+  "type": "object"
+}

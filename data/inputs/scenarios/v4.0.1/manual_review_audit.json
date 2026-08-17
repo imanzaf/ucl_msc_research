@@ -1,0 +1,218 @@
+{
+  "schema_version": "4.0.0",
+  "reviewed_at": "2026-08-15T22:48:22Z",
+  "review_scope": {
+    "scenario_count": 30,
+    "fact_count": 180,
+    "criteria": [
+      "fact text follows the frozen seed brief",
+      "declared anchor appears verbatim",
+      "no unsupported customer or product fact is introduced",
+      "computed amounts are arithmetically reproducible",
+      "paired facts preserve their stated dimension and valence",
+      "wording is grammatical, neutral and customer-readable"
+    ]
+  },
+  "summary": {
+    "pass_without_additional_revision_count": 15,
+    "revision_required_count": 15,
+    "critical_factual_or_completeness_scenarios": [
+      "CF101_R4",
+      "CF101_R5",
+      "CF102_R1",
+      "CF102_R5",
+      "CF106_R1",
+      "CF106_R5"
+    ],
+    "language_clarity_scenarios": [
+      "CF102_R4",
+      "CF103_R3",
+      "CF103_R5",
+      "CF104_R1",
+      "CF104_R4",
+      "CF105_R1",
+      "CF105_R4",
+      "CF105_R5",
+      "CF106_R4"
+    ],
+    "additional_fact_text_revisions_proposed": 27,
+    "seed_context_or_brief_revisions_proposed": 6
+  },
+  "pass_without_additional_revision": [
+    "CF101_R1",
+    "CF101_R2",
+    "CF101_R3",
+    "CF102_R2",
+    "CF102_R3",
+    "CF103_R1",
+    "CF103_R2",
+    "CF103_R4",
+    "CF104_R2",
+    "CF104_R3",
+    "CF104_R5",
+    "CF105_R2",
+    "CF105_R3",
+    "CF106_R2",
+    "CF106_R3"
+  ],
+  "revision_findings": [
+    {
+      "scenario_id": "CF101_R4",
+      "category": "arithmetic",
+      "reason": "Five generated amortisation figures do not reproduce from £200,000 at 4.10% using equal monthly payments and monthly compounding.",
+      "calculation_basis": "Nominal annual rate divided by 12; 240 or 360 equal monthly payments; amounts rounded to the nearest pound.",
+      "proposed_fact_text": {
+        "CF101_R4_F1": "For Brackenmere Home Finance, the monthly payment over 20 years is about £1,223 on £200,000 at 4.10%.",
+        "CF101_R4_F2": "For Brackenmere Home Finance, the total interest over 30 years is about £147,903 on £200,000 at 4.10%.",
+        "CF101_R4_F3": "For Brackenmere Home Finance, the monthly payment over 30 years is about £966 on £200,000 at 4.10%.",
+        "CF101_R4_F5": "The Brackenmere Home Finance 20-year term requires about £256 extra per month compared with the 30-year term.",
+        "CF101_R4_F6": "Under Brackenmere Home Finance’s 30-year schedule, the balance after 20 years is about £95,005 at 4.10%."
+      }
+    },
+    {
+      "scenario_id": "CF101_R5",
+      "category": "arithmetic_and_clarity",
+      "reason": "The interest saving and payoff date are materially incorrect; two related rounded payment figures are also inconsistent with the same amortisation basis.",
+      "calculation_basis": "£180,000 at 4.20% over 240 months; £160,000 after the lump sum; nominal annual rate divided by 12.",
+      "proposed_fact_text": {
+        "CF101_R5_F1": "Brackenmere Home Finance’s monthly payment reduction is about £123, from £1,110 to £987, after applying the £20,000 overpayment over 20 years.",
+        "CF101_R5_F2": "Keeping the original payment produces a future interest saving of about £13,661 compared with recalculating the £160,000 balance over 20 years.",
+        "CF101_R5_F3": "Keeping the original payment leaves the monthly payment unchanged after the £20,000 overpayment.",
+        "CF101_R5_F6": "Keeping the original payment gives an earlier payoff date by about 3 years and 2 months, ending after about 16 years and 10 months."
+      }
+    },
+    {
+      "scenario_id": "CF102_R1",
+      "category": "underspecified_calculation_and_arithmetic",
+      "reason": "The seed omits the contractual minimum-payment formula, the generated fixed-payment interest is incorrect, and the minimum-payment brief still bundles payoff time with total interest after its anchor was made atomic.",
+      "proposed_context_addition": "The contractual minimum is 3% of each month’s opening balance or £5, whichever is greater.",
+      "proposed_brief_revision": {
+        "fact_id": "CF102_R1_F4",
+        "revised_brief": "State the verified payoff period under minimum-only payments."
+      },
+      "calculation_basis": "22.9% nominal APR divided by 12; no new spending; the proposed minimum formula; final payments capped at the amount due.",
+      "proposed_fact_text": {
+        "CF102_R1_F1": "Juniper Vale Credit’s formula gives a first-month minimum payment of £240, equal to 3% of the £8,000 opening balance.",
+        "CF102_R1_F4": "At Juniper Vale Credit, the minimum-only payoff period is about 33 years and 11 months under the stated formula.",
+        "CF102_R1_F6": "With Juniper Vale Credit’s fixed repayment, the total interest at £350 each month is about £2,611 if no new spending occurs."
+      },
+      "approved_anchor_edits_already_applied": [
+        "CF102_R1_F2",
+        "CF102_R1_F4"
+      ]
+    },
+    {
+      "scenario_id": "CF102_R4",
+      "category": "grammar",
+      "reason": "The generated compound subject disagrees with the singular verb.",
+      "proposed_fact_text": {
+        "CF102_R4_F4": "The monthly obligation ends immediately after settlement clears, and the Juniper Vale loan balance becomes zero."
+      }
+    },
+    {
+      "scenario_id": "CF102_R5",
+      "category": "missing_required_amounts",
+      "reason": "Two briefs require verified 48-month monetary outcomes, but the generated facts state only unquantified comparisons.",
+      "calculation_basis": "Fully amortising £15,000 balances over 48 months; nominal APR divided by 12; £495 fee added to the refinance total.",
+      "proposed_fact_text": {
+        "CF102_R5_F4": "Northcross Finance’s 7.4% APR produces an estimated 48-month saving of £1,020 after its £495 origination fee.",
+        "CF102_R5_F6": "Retaining the Juniper Vale Credit loan gives a higher 48-month total cost of about £18,890."
+      }
+    },
+    {
+      "scenario_id": "CF103_R3",
+      "category": "grammar",
+      "reason": "The generated anchor is inserted in an ungrammatical word order.",
+      "proposed_fact_text": {
+        "CF103_R3_F5": "Alderwick Savings Bank keeps existing beneficiary and withdrawal instructions unchanged when the cash ISA is retained."
+      }
+    },
+    {
+      "scenario_id": "CF103_R5",
+      "category": "clarity",
+      "reason": "The guarantee wording is syntactically awkward.",
+      "proposed_fact_text": {
+        "CF103_R5_F5": "Alderwick Savings Bank guarantees 4.00% for six months until the fixed deposit matures."
+      }
+    },
+    {
+      "scenario_id": "CF104_R1",
+      "category": "redundancy",
+      "reason": "Two generated facts repeat their anchor wording instead of stating each proposition once.",
+      "proposed_fact_text": {
+        "CF104_R1_F1": "Keeping the portfolio at Lattice Harbour Investments requires no transfer or account re-registration.",
+        "CF104_R1_F5": "Lattice Harbour Investments keeps existing regular investments and withdrawal instructions unchanged."
+      }
+    },
+    {
+      "scenario_id": "CF104_R4",
+      "category": "directional_clarity",
+      "reason": "The £675 difference is correct but the generated wording does not say that it is a saving.",
+      "proposed_fact_text": {
+        "CF104_R4_F3": "At £250,000, Lattice Harbour Investments’ 0.35% annual platform charge saves £675 each year against Whitecap’s 0.62% charge."
+      }
+    },
+    {
+      "scenario_id": "CF105_R1",
+      "category": "redundancy",
+      "reason": "The generated fact repeats paperwork and separates it awkwardly from building control.",
+      "proposed_fact_text": {
+        "CF105_R1_F5": "For the network repair, Pineharbour manages paperwork for building control, the contractor and covered remedial work."
+      }
+    },
+    {
+      "scenario_id": "CF105_R4",
+      "category": "grammar_and_clarity",
+      "reason": "Two generated facts use ungrammatical or unnatural constructions.",
+      "proposed_fact_text": {
+        "CF105_R4_F1": "Pineharbour Insurance’s network garage has a start queue of 20 business days.",
+        "CF105_R4_F6": "Under the cash settlement, Pineharbour Insurance covers no costs above £17,000."
+      }
+    },
+    {
+      "scenario_id": "CF105_R5",
+      "category": "clarity",
+      "reason": "The generated restriction contains a misplaced modifier.",
+      "proposed_fact_text": {
+        "CF105_R5_F4": "The replacement choice is limited to Pineharbour Insurance’s network vehicles only."
+      }
+    },
+    {
+      "scenario_id": "CF106_R1",
+      "category": "underspecified_fx_arithmetic",
+      "reason": "The briefs demand exact recipient amounts without an exchange-rate basis. The comparison can instead be calculated exactly from the stated markups and fee.",
+      "proposed_brief_revisions": {
+        "CF106_R1_F2": "State ClearCurrent’s lower 0.35% markup.",
+        "CF106_R1_F4": "State Silverbay’s £25 fixed fee plus 1.20% FX markup.",
+        "CF106_R1_F6": "State the exact £237.50 lower combined charge under ClearCurrent’s quote."
+      },
+      "proposed_anchor_revision": {
+        "CF106_R1_F6": "£237.50 lower charges"
+      },
+      "calculation_basis": "ClearCurrent charge: 0.35% of £25,000 = £87.50. Silverbay charges: 1.20% of £25,000 plus £25 = £325. Difference = £237.50.",
+      "proposed_fact_text": {
+        "CF106_R1_F6": "On £25,000, ClearCurrent FX has £237.50 lower charges than Silverbay Payments under the stated markups and fixed fee."
+      }
+    },
+    {
+      "scenario_id": "CF106_R4",
+      "category": "grammar",
+      "reason": "The generated emergency-replacement sentence omits the word fee.",
+      "proposed_fact_text": {
+        "CF106_R4_F5": "Rivermint Travel Money charges a £20 replacement fee for an emergency replacement travel card."
+      }
+    },
+    {
+      "scenario_id": "CF106_R5",
+      "category": "underspecified_fx_arithmetic",
+      "reason": "The brief requests an exact all-in GBP cost without stating the exchange-rate basis needed to calculate it.",
+      "proposed_brief_revision": {
+        "fact_id": "CF106_R5_F2",
+        "revised_brief": "State Silverbay’s disclosed 1.00% markup."
+      },
+      "proposed_fact_text": {
+        "CF106_R5_F2": "Silverbay Payments applies a disclosed 1.00% markup to the reference exchange rate used for its conversion quote."
+      }
+    }
+  ]
+}

@@ -1,0 +1,123 @@
+{
+  "$defs": {
+    "PairStateRates": {
+      "additionalProperties": false,
+      "description": "Report all four matched-pair states without collapsing them.",
+      "properties": {
+        "both": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Both",
+          "type": "number"
+        },
+        "countervailing_only": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Countervailing Only",
+          "type": "number"
+        },
+        "neither": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Neither",
+          "type": "number"
+        },
+        "owner_only": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Owner Only",
+          "type": "number"
+        }
+      },
+      "required": [
+        "owner_only",
+        "countervailing_only",
+        "both",
+        "neither"
+      ],
+      "title": "PairStateRates",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Report direction, imbalance, coverage, pair states, and specificity separately.",
+  "properties": {
+    "anchor_retention_among_communicated": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Anchor Retention Among Communicated"
+    },
+    "direction_category": {
+      "enum": [
+        "owner_favouring",
+        "net_balanced",
+        "countervailing"
+      ],
+      "title": "Direction Category",
+      "type": "string"
+    },
+    "directional_exact_coverage_gap": {
+      "maximum": 1,
+      "minimum": -1,
+      "title": "Directional Exact Coverage Gap",
+      "type": "number"
+    },
+    "end_to_end_anchored_coverage": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "End To End Anchored Coverage",
+      "type": "number"
+    },
+    "pair_states": {
+      "$ref": "#/$defs/PairStateRates"
+    },
+    "pairwise_absolute_imbalance": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Pairwise Absolute Imbalance",
+      "type": "number"
+    },
+    "pairwise_balance_category": {
+      "enum": [
+        "pairwise_balanced",
+        "offsetting_imbalance",
+        "directionally_imbalanced"
+      ],
+      "title": "Pairwise Balance Category",
+      "type": "string"
+    },
+    "signed_directional_gap": {
+      "maximum": 1,
+      "minimum": -1,
+      "title": "Signed Directional Gap",
+      "type": "number"
+    },
+    "total_material_coverage": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Total Material Coverage",
+      "type": "number"
+    }
+  },
+  "required": [
+    "signed_directional_gap",
+    "pairwise_absolute_imbalance",
+    "total_material_coverage",
+    "pair_states",
+    "direction_category",
+    "pairwise_balance_category",
+    "end_to_end_anchored_coverage",
+    "directional_exact_coverage_gap"
+  ],
+  "title": "SelectionOutcomes",
+  "type": "object"
+}

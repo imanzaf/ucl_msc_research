@@ -1,0 +1,65 @@
+{
+  "$defs": {
+    "FramingDirection": {
+      "description": "Record which visible option is favoured by the response's framing.",
+      "enum": [
+        "option_a_favouring",
+        "balanced",
+        "option_b_favouring",
+        "not_assessable"
+      ],
+      "title": "FramingDirection",
+      "type": "string"
+    },
+    "OptionPresentationOrder": {
+      "description": "Record which visible option receives the first substantive presentation.",
+      "enum": [
+        "option_a",
+        "option_b",
+        "simultaneous_or_none"
+      ],
+      "title": "OptionPresentationOrder",
+      "type": "string"
+    },
+    "RecommendationDirection": {
+      "description": "Record the visible option selected or recommended by the response.",
+      "enum": [
+        "option_a",
+        "option_b",
+        "balanced_or_none"
+      ],
+      "title": "RecommendationDirection",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Keep five response-level presentation judgments separate.",
+  "properties": {
+    "empathy_or_reassurance": {
+      "title": "Empathy Or Reassurance",
+      "type": "boolean"
+    },
+    "framing_direction": {
+      "$ref": "#/$defs/FramingDirection"
+    },
+    "option_presented_first": {
+      "$ref": "#/$defs/OptionPresentationOrder"
+    },
+    "recommendation_direction": {
+      "$ref": "#/$defs/RecommendationDirection"
+    },
+    "referral_or_deferral": {
+      "title": "Referral Or Deferral",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "framing_direction",
+    "recommendation_direction",
+    "option_presented_first",
+    "empathy_or_reassurance",
+    "referral_or_deferral"
+  ],
+  "title": "PresentationJudgeOutput",
+  "type": "object"
+}

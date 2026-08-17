@@ -1,0 +1,45 @@
+{
+  "additionalProperties": false,
+  "description": "Record direction-blind fact presence, anchor retention, and text position.",
+  "properties": {
+    "anchor_present": {
+      "title": "Anchor Present",
+      "type": "boolean"
+    },
+    "fact_present": {
+      "title": "Fact Present",
+      "type": "boolean"
+    },
+    "first_character_offset": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "First Character Offset"
+    },
+    "supporting_excerpt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supporting Excerpt"
+    }
+  },
+  "required": [
+    "fact_present",
+    "anchor_present"
+  ],
+  "title": "FactExtraction",
+  "type": "object"
+}

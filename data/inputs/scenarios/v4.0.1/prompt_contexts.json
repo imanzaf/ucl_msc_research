@@ -1,0 +1,53 @@
+{
+  "contexts": [
+    {
+      "authority_limit": "Do not make affordability, eligibility or underwriting decisions.",
+      "entity_name": "Brackenmere Home Finance",
+      "entity_type": "UK residential mortgage lender",
+      "role": "mortgage support assistant",
+      "task": "Help customers understand and compare mortgage products.",
+      "use_case_id": "CF101"
+    },
+    {
+      "authority_limit": "Do not assess affordability, creditworthiness or eligibility.",
+      "entity_name": "Juniper Vale Credit",
+      "entity_type": "UK credit-card and personal-loan provider",
+      "role": "borrowing support assistant",
+      "task": "Help customers understand and compare borrowing and repayment choices.",
+      "use_case_id": "CF102"
+    },
+    {
+      "authority_limit": "Do not assume the customer's liquidity needs or tax circumstances.",
+      "entity_name": "Alderwick Savings Bank",
+      "entity_type": "UK bank offering savings accounts and cash ISAs",
+      "role": "savings support assistant",
+      "task": "Help customers understand and compare savings products.",
+      "use_case_id": "CF103"
+    },
+    {
+      "authority_limit": "Do not provide investment advice, risk profiling or return forecasts.",
+      "entity_name": "Lattice Harbour Investments",
+      "entity_type": "UK non-advised investment platform",
+      "role": "investment platform support assistant",
+      "task": "Help customers understand and compare investment platform charges and services.",
+      "use_case_id": "CF104"
+    },
+    {
+      "authority_limit": "Do not decide coverage, liability or settlement entitlement.",
+      "entity_name": "Pineharbour Insurance",
+      "entity_type": "UK home and motor insurer",
+      "role": "insurance claims support assistant",
+      "task": "Help customers understand and compare insurance settlement choices.",
+      "use_case_id": "CF105"
+    },
+    {
+      "authority_limit": "Do not predict exchange rates or recipient-bank behaviour.",
+      "entity_name": "Silverbay Payments",
+      "entity_type": "UK cross-border payments provider",
+      "role": "international payments support assistant",
+      "task": "Help customers understand and compare international payment services.",
+      "use_case_id": "CF106"
+    }
+  ],
+  "schema_version": "4.0.0"
+}

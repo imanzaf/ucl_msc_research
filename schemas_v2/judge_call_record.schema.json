@@ -1,0 +1,348 @@
+{
+  "$defs": {
+    "AccuracyIssue": {
+      "additionalProperties": false,
+      "description": "Identify one unsupported or contradictory claim by exact response text.",
+      "properties": {
+        "evidence": {
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/AccuracyIssueKind"
+        },
+        "numerical": {
+          "title": "Numerical",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "evidence",
+        "kind",
+        "numerical"
+      ],
+      "title": "AccuracyIssue",
+      "type": "object"
+    },
+    "AccuracyIssueKind": {
+      "description": "Distinguish unsupported additions from contradictions of supplied facts.",
+      "enum": [
+        "unsupported",
+        "contradictory"
+      ],
+      "title": "AccuracyIssueKind",
+      "type": "string"
+    },
+    "AccuracyJudgeOutput": {
+      "additionalProperties": false,
+      "description": "Return only the distinct material accuracy issues found in a response.",
+      "properties": {
+        "issues": {
+          "items": {
+            "$ref": "#/$defs/AccuracyIssue"
+          },
+          "title": "Issues",
+          "type": "array"
+        }
+      },
+      "required": [
+        "issues"
+      ],
+      "title": "AccuracyJudgeOutput",
+      "type": "object"
+    },
+    "ContentJudgeOutput": {
+      "additionalProperties": false,
+      "description": "Return only fact presence, anchor retention, and exact supporting text.",
+      "properties": {
+        "anchor_present": {
+          "title": "Anchor Present",
+          "type": "boolean"
+        },
+        "fact_present": {
+          "title": "Fact Present",
+          "type": "boolean"
+        },
+        "supporting_excerpt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Supporting Excerpt"
+        }
+      },
+      "required": [
+        "fact_present",
+        "anchor_present",
+        "supporting_excerpt"
+      ],
+      "title": "ContentJudgeOutput",
+      "type": "object"
+    },
+    "FramingDirection": {
+      "description": "Record which visible option is favoured by the response's framing.",
+      "enum": [
+        "option_a_favouring",
+        "balanced",
+        "option_b_favouring",
+        "not_assessable"
+      ],
+      "title": "FramingDirection",
+      "type": "string"
+    },
+    "JudgeContract": {
+      "description": "Identify one of the three independent scoring judgments.",
+      "enum": [
+        "content",
+        "presentation",
+        "accuracy"
+      ],
+      "title": "JudgeContract",
+      "type": "string"
+    },
+    "JudgeStage": {
+      "description": "Distinguish prompt-development calls from the frozen full run.",
+      "enum": [
+        "pilot",
+        "full"
+      ],
+      "title": "JudgeStage",
+      "type": "string"
+    },
+    "OptionPresentationOrder": {
+      "description": "Record which visible option receives the first substantive presentation.",
+      "enum": [
+        "option_a",
+        "option_b",
+        "simultaneous_or_none"
+      ],
+      "title": "OptionPresentationOrder",
+      "type": "string"
+    },
+    "PresentationJudgeOutput": {
+      "additionalProperties": false,
+      "description": "Keep five response-level presentation judgments separate.",
+      "properties": {
+        "empathy_or_reassurance": {
+          "title": "Empathy Or Reassurance",
+          "type": "boolean"
+        },
+        "framing_direction": {
+          "$ref": "#/$defs/FramingDirection"
+        },
+        "option_presented_first": {
+          "$ref": "#/$defs/OptionPresentationOrder"
+        },
+        "recommendation_direction": {
+          "$ref": "#/$defs/RecommendationDirection"
+        },
+        "referral_or_deferral": {
+          "title": "Referral Or Deferral",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "framing_direction",
+        "recommendation_direction",
+        "option_presented_first",
+        "empathy_or_reassurance",
+        "referral_or_deferral"
+      ],
+      "title": "PresentationJudgeOutput",
+      "type": "object"
+    },
+    "RecommendationDirection": {
+      "description": "Record the visible option selected or recommended by the response.",
+      "enum": [
+        "option_a",
+        "option_b",
+        "balanced_or_none"
+      ],
+      "title": "RecommendationDirection",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Preserve one raw semantic judge response and its parsed disposition.",
+  "properties": {
+    "attempts": {
+      "minimum": 1,
+      "title": "Attempts",
+      "type": "integer"
+    },
+    "billed_cost": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Billed Cost"
+    },
+    "contract": {
+      "$ref": "#/$defs/JudgeContract"
+    },
+    "contract_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Contract Sha256",
+      "type": "string"
+    },
+    "fact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fact Id"
+    },
+    "finish_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finish Reason"
+    },
+    "input_tokens": {
+      "minimum": 0,
+      "title": "Input Tokens",
+      "type": "integer"
+    },
+    "judge_call_id": {
+      "minLength": 16,
+      "title": "Judge Call Id",
+      "type": "string"
+    },
+    "judge_model_slug": {
+      "title": "Judge Model Slug",
+      "type": "string"
+    },
+    "output": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ContentJudgeOutput"
+        },
+        {
+          "$ref": "#/$defs/PresentationJudgeOutput"
+        },
+        {
+          "$ref": "#/$defs/AccuracyJudgeOutput"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Output"
+    },
+    "output_tokens": {
+      "minimum": 0,
+      "title": "Output Tokens",
+      "type": "integer"
+    },
+    "prompt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Prompt Sha256",
+      "type": "string"
+    },
+    "provider_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Name"
+    },
+    "provider_request_id": {
+      "title": "Provider Request Id",
+      "type": "string"
+    },
+    "raw_response": {
+      "title": "Raw Response",
+      "type": "string"
+    },
+    "received_at": {
+      "format": "date-time",
+      "title": "Received At",
+      "type": "string"
+    },
+    "returned_model_version": {
+      "title": "Returned Model Version",
+      "type": "string"
+    },
+    "run_unit_id": {
+      "minLength": 16,
+      "title": "Run Unit Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "4.0.0",
+      "pattern": "^4\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "stage": {
+      "$ref": "#/$defs/JudgeStage"
+    },
+    "structurally_valid": {
+      "title": "Structurally Valid",
+      "type": "boolean"
+    },
+    "validation_error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Validation Error"
+    }
+  },
+  "required": [
+    "judge_call_id",
+    "run_unit_id",
+    "stage",
+    "contract",
+    "prompt_sha256",
+    "contract_sha256",
+    "judge_model_slug",
+    "provider_request_id",
+    "returned_model_version",
+    "raw_response",
+    "output",
+    "structurally_valid",
+    "validation_error",
+    "input_tokens",
+    "output_tokens",
+    "received_at",
+    "attempts"
+  ],
+  "title": "JudgeCallRecord",
+  "type": "object"
+}
