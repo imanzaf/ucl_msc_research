@@ -1,6 +1,6 @@
 {
   "additionalProperties": false,
-  "description": "Freeze the stratified five-percent response sample used to develop prompts.",
+  "description": "Freeze the stratified 191-response sample used to develop judge prompts.",
   "properties": {
     "random_seed": {
       "title": "Random Seed",

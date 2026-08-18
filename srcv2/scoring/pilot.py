@@ -1,17 +1,17 @@
-"""Stratified five-percent sampling for judge-prompt development."""
+"""Stratified sampling for the frozen judge-prompt development set."""
 
 from __future__ import annotations
 
 import random
 from collections import defaultdict
+from math import ceil
 from typing import Dict, List, Sequence
 
 from srcv2.common import ImmutableModel, artifact_sha256
 from srcv2.models.experiments import RunUnit
 from srcv2.models.scoring import JudgePilotSample
 
-PILOT_RESPONSE_COUNT = 191
-FROZEN_RESPONSE_COUNT = 3822
+PILOT_FRACTION = 0.05
 
 
 class SamplingRecord(ImmutableModel):
@@ -34,10 +34,10 @@ def response_length_band(response_text: str) -> str:
 
 
 def build_sampling_frame(runs: Sequence[RunUnit]) -> List[SamplingRecord]:
-    """Build the complete stratified sampling frame from frozen semantic responses."""
+    """Build one experiment's stratified sampling frame from semantic responses."""
     identifiers = [run.run_unit_id for run in runs]
-    if len(runs) != FROZEN_RESPONSE_COUNT or len(set(identifiers)) != FROZEN_RESPONSE_COUNT:
-        raise ValueError("judge sampling requires all 3,822 unique evaluated responses")
+    if not runs or len(set(identifiers)) != len(runs):
+        raise ValueError("judge sampling requires a non-empty set of unique evaluated responses")
     records: List[SamplingRecord] = []
     for run in runs:
         if run.response is None:
@@ -54,12 +54,12 @@ def build_sampling_frame(runs: Sequence[RunUnit]) -> List[SamplingRecord]:
     return records
 
 
-def stratified_sample(records: Sequence[SamplingRecord], sample_size: int = PILOT_RESPONSE_COUNT, random_seed: int = 410191) -> List[str]:
+def stratified_sample(records: Sequence[SamplingRecord], sample_size: int, random_seed: int = 410191) -> List[str]:
     """Draw a reproducible approximately proportional sample across declared strata."""
-    if sample_size != PILOT_RESPONSE_COUNT:
-        raise ValueError("the judge-development pilot requires exactly 191 responses")
-    if len({record.response_id for record in records}) != len(records) or len(records) < sample_size:
-        raise ValueError("eligible response identifiers must be unique and number at least 191")
+    if sample_size < 1 or sample_size > len(records):
+        raise ValueError("pilot sample size must be between one and the source response count")
+    if len({record.response_id for record in records}) != len(records):
+        raise ValueError("eligible response identifiers must be unique")
     groups: Dict[tuple[str, str, str], List[str]] = defaultdict(list)
     for record in records:
         groups[(record.experiment, record.model_slug, record.response_length_band)].append(record.response_id)
@@ -84,12 +84,13 @@ def stratified_sample(records: Sequence[SamplingRecord], sample_size: int = PILO
     return selected
 
 
-def build_pilot_sample(records: Sequence[SamplingRecord], random_seed: int = 410191) -> JudgePilotSample:
-    """Create the hash-bound 191-response judge-development sample."""
+def build_pilot_sample(records: Sequence[SamplingRecord], sample_size: int | None = None, random_seed: int = 410191) -> JudgePilotSample:
+    """Create one hash-bound five-percent judge-development sample."""
+    resolved_size = sample_size if sample_size is not None else max(1, ceil(len(records) * PILOT_FRACTION))
     base = {
         "schema_version": "4.0.0",
-        "source_response_count": FROZEN_RESPONSE_COUNT,
-        "response_ids": stratified_sample(records, random_seed=random_seed),
+        "source_response_count": len(records),
+        "response_ids": stratified_sample(records, resolved_size, random_seed=random_seed),
         "random_seed": random_seed,
     }
     return JudgePilotSample.model_validate({**base, "sample_sha256": artifact_sha256(base)})

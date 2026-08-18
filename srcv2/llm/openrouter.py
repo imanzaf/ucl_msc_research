@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from openai import APIConnectionError, APITimeoutError, InternalServerError, OpenAI, RateLimitError
+from openai import APIConnectionError, APITimeoutError, BadRequestError, InternalServerError, OpenAI, RateLimitError
 from pydantic import Field
 
 from srcv2.common import ImmutableModel, utc_now
@@ -62,7 +62,7 @@ class OpenRouterClient:
         return cls(client, model_settings)
 
     def complete(self, model: ProviderSnapshot, controls: GenerationControls, messages: List[Dict[str, str]]) -> ProviderReply:
-        """Retry only provider transport failures that returned no semantic response."""
+        """Retry only transport or routed-provider failures that returned no semantic response."""
         if not model.preflight_passed:
             raise PermissionError("model/provider snapshot has not passed operational preflight")
         retryable = (APIConnectionError, APITimeoutError, InternalServerError, RateLimitError)
@@ -70,10 +70,32 @@ class OpenRouterClient:
         for attempt in range(1, self.settings.transport_retry_limit + 2):
             try:
                 payload = self._request(model, controls, messages)
+                if not self._has_completion_choice(payload):
+                    last_error = RuntimeError("provider response contained no completion choice")
+                    continue
                 return self._reply(payload, attempt)
             except retryable as error:
                 last_error = error
+            except BadRequestError as error:
+                if not self._is_routed_provider_failure(error):
+                    raise
+                last_error = error
         raise TransportFailure(f"provider transport failed after {self.settings.transport_retry_limit + 1} attempts") from last_error
+
+    @staticmethod
+    def _has_completion_choice(payload: Dict[str, Any]) -> bool:
+        """Distinguish a completed semantic response from an empty provider envelope."""
+        choices = payload.get("choices")
+        return isinstance(choices, list) and bool(choices) and isinstance(choices[0], dict)
+
+    @staticmethod
+    def _is_routed_provider_failure(error: BadRequestError) -> bool:
+        """Recognise OpenRouter's provider-failure wrapper without treating ordinary request errors as retryable."""
+        body = error.body
+        if not isinstance(body, dict):
+            return False
+        detail = body.get("error", body)
+        return isinstance(detail, dict) and detail.get("message") == "Provider returned error"
 
     def _request(self, model: ProviderSnapshot, controls: GenerationControls, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """Send one request under the frozen routing policy and supported controls."""

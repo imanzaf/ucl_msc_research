@@ -29,7 +29,7 @@ class ProtocolManifest(ImmutableModel):
 
     @model_validator(mode="after")
     def validate_manifest(self) -> "ProtocolManifest":
-        """Enforce the active 3,822-response matrix and bind the manifest hash."""
+        """Enforce the active 10,710-response matrix and bind the manifest hash."""
         expected_counts = {
             ExperimentKind.USER_STATE: 1260,
             ExperimentKind.INFORMATION_BUDGET: 1050,
@@ -37,9 +37,10 @@ class ProtocolManifest(ImmutableModel):
             ExperimentKind.SINGLE_FACT: 210,
             ExperimentKind.OWNERSHIP: 462,
             ExperimentKind.OPTION_FIRST: 210,
+            ExperimentKind.COMMERCIAL_INTEREST: 6888,
         }
         if self.expected_response_counts != expected_counts or set(self.experiments) != set(expected_counts):
-            raise ValueError("manifest must contain exactly the six active experiments and their 3,822 planned responses")
+            raise ValueError("manifest must contain exactly the seven active experiments and their 10,710 planned responses")
         model_slugs = [model.model_slug for model in self.evaluated_models]
         if len(set(model_slugs)) != 7 or self.scorer_model.model_slug in model_slugs:
             raise ValueError("manifest must contain seven unique evaluated models and a distinct scorer")

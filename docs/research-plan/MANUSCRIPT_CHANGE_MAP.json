@@ -54,7 +54,7 @@
       "Freeze the final evaluated panel and judge",
       "Describe provider preflight, controls, retry policy and paid-execution approval",
       "Define separate D, A, T, specificity, presentation, safety and secondary outcomes",
-      "Describe the three minimal GPT-5.4 Mini judge contracts",
+      "Describe the three minimal Gemini 3.1 Flash Lite judge contracts",
       "Specify the two confirmatory Holm-corrected tests"
     ],
     "Judge development and adjudication": [

@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
 from srcv2.common import artifact_sha256
+from srcv2.experiments.accounting import execute_bundle_batch
 from srcv2.experiments.matrix import build_matrix
 from srcv2.experiments.planner import build_execution_bundles
+from srcv2.experiments.runner import write_run_cache
+from srcv2.llm.openrouter import OpenRouterClient
 from srcv2.models.catalog import load_model_catalog
-from srcv2.models.enums import ReviewState
-from srcv2.models.manifests import ProtocolManifest
+from srcv2.models.enums import Affect, CommercialInterestInstruction, CommercialInterestTask, ReviewState
+from srcv2.models.experiments import AttemptMetadata, CommercialInterestCell, ResponseMetadata, RunUnit
+from srcv2.models.manifests import CostApproval, ProtocolManifest
 from srcv2.models.queries import AuthoredQueryFamily, QueryVariant
 from srcv2.models.scenarios import AcceptedScenario, ScenarioReview
 from srcv2.models.seeds import ScenarioSeedSet
@@ -101,3 +106,105 @@ def test_bundle_materialization_rejects_pending_scenarios(
     scenarios = [accepted_scenario]
     with pytest.raises(PermissionError):
         build_execution_bundles([assignment], scenarios, queries, _manifest(tmp_path / "manifest.json", scenarios, queries))
+
+
+def test_commercial_bundle_uses_its_short_affect_query(
+    tmp_path: Path,
+    seed_set: ScenarioSeedSet,
+    accepted_scenario: AcceptedScenario,
+) -> None:
+    """Resolve commercial-interest cells to short queries at their assigned affect."""
+    catalog = load_model_catalog()
+    assignments = build_matrix(seed_set, [entry.model_slug for entry in catalog.evaluated_models])
+    assignment = next(
+        item
+        for item in assignments
+        if item.scenario_id == accepted_scenario.scenario_id
+        and isinstance(item.cell, CommercialInterestCell)
+        and item.cell.affect == Affect.FRUSTRATED
+        and item.cell.instruction == CommercialInterestInstruction.PROTECT_COMMERCIAL_INTERESTS
+        and item.cell.task == CommercialInterestTask.STANDARD
+    )
+    queries = _queries()
+    scenarios = [_accepted(accepted_scenario)]
+    bundle = build_execution_bundles(
+        [assignment],
+        scenarios,
+        queries,
+        _manifest(tmp_path / "manifest.json", scenarios, queries),
+    )[0]
+    assert bundle.prompt.query_variant_id == f"{assignment.scenario_id}_frustrated_short"
+    assert "protect the commercial interests" in bundle.prompt.messages[0]["content"]
+
+
+def test_commercial_batch_reuses_a_cached_run_without_calling_provider(
+    tmp_path: Path,
+    seed_set: ScenarioSeedSet,
+    accepted_scenario: AcceptedScenario,
+) -> None:
+    """Resume the same experiment ID by skipping an already cached semantic response."""
+    catalog = load_model_catalog()
+    assignment = next(
+        item
+        for item in build_matrix(seed_set, [entry.model_slug for entry in catalog.evaluated_models])
+        if item.scenario_id == accepted_scenario.scenario_id and isinstance(item.cell, CommercialInterestCell)
+    )
+    queries = _queries()
+    scenarios = [_accepted(accepted_scenario)]
+    manifest = _manifest(tmp_path / "manifest.json", scenarios, queries)
+    bundle = build_execution_bundles([assignment], scenarios, queries, manifest)[0]
+    timestamp = datetime(2026, 8, 17, tzinfo=UTC)
+    cached = RunUnit(
+        run_unit_id=assignment.assignment_id,
+        experiment=assignment.cell.kind,
+        cell=assignment.cell,
+        scenario_id=assignment.scenario_id,
+        query_variant_id=bundle.prompt.query_variant_id,
+        prompt_sha256=bundle.prompt.prompt_sha256,
+        response_contract_sha256=bundle.prompt.response_contract_sha256,
+        model=bundle.model,
+        generation_controls=bundle.generation_controls,
+        response=ResponseMetadata(
+            raw_response="Cached semantic response.",
+            structurally_valid=True,
+            adherent=True,
+            billed_cost=Decimal("0.01"),
+            received_at=timestamp,
+        ),
+        attempts=[
+            AttemptMetadata(
+                attempt_number=1,
+                started_at=timestamp,
+                completed_at=timestamp,
+                semantic_response_received=True,
+            )
+        ],
+    )
+    cache_directory = tmp_path / "cache"
+    write_run_cache(cache_directory / f"{assignment.assignment_id}.json", cached)
+    approval_base = {
+        "schema_version": "4.0.0",
+        "protocol_manifest_sha256": manifest.manifest_sha256,
+        "estimated_max_cost": Decimal("1.00"),
+        "currency": "USD",
+        "approved_max_cost": Decimal("1.00"),
+        "approved_by": "test researcher",
+        "approved_at": timestamp,
+        "approval_note": "cache resume test",
+    }
+    approval = CostApproval.model_validate({**approval_base, "approval_sha256": artifact_sha256(approval_base)})
+
+    def fail_if_called() -> OpenRouterClient:
+        """Prove that a completed assignment never constructs a provider client."""
+        raise AssertionError("provider client should not be constructed for a cached run")
+
+    resumed = execute_bundle_batch(
+        [bundle],
+        cache_directory,
+        fail_if_called,
+        approval,
+        prior_billed_cost=Decimal("0"),
+        reserved_cost_per_call=Decimal("0.10"),
+        max_workers=1,
+    )
+    assert resumed == [cached]

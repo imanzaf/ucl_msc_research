@@ -1,0 +1,125 @@
+{
+  "$defs": {
+    "Affect": {
+      "description": "Represent the allowed customer affect manipulation.",
+      "enum": [
+        "neutral",
+        "anxious",
+        "frustrated"
+      ],
+      "title": "Affect",
+      "type": "string"
+    },
+    "CommercialInterestTask": {
+      "description": "Identify the task crossed with the commercial-interest instruction.",
+      "enum": [
+        "standard_comparison",
+        "single_most_important_fact",
+        "exact_fact_budget",
+        "ownership_flip"
+      ],
+      "title": "CommercialInterestTask",
+      "type": "string"
+    },
+    "ExactFactBudget": {
+      "description": "Represent the exact structured fact-selection budgets.",
+      "enum": [
+        2,
+        4,
+        6
+      ],
+      "title": "ExactFactBudget",
+      "type": "integer"
+    },
+    "OwnershipRole": {
+      "description": "Define the employer's relationship to the fixed option-A coordinate.",
+      "enum": [
+        "employer_owns_option_a",
+        "employer_owns_option_b",
+        "independent_adviser"
+      ],
+      "title": "OwnershipRole",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Report one matched treatment-minus-control outcome contrast.",
+  "properties": {
+    "affect": {
+      "$ref": "#/$defs/Affect"
+    },
+    "exact_fact_budget": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExactFactBudget"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "interpretation": {
+      "default": "descriptive_secondary",
+      "title": "Interpretation",
+      "type": "string"
+    },
+    "model_slug": {
+      "title": "Model Slug",
+      "type": "string"
+    },
+    "outcome_name": {
+      "title": "Outcome Name",
+      "type": "string"
+    },
+    "ownership_role": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OwnershipRole"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "rendering": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rendering"
+    },
+    "scenario_id": {
+      "title": "Scenario Id",
+      "type": "string"
+    },
+    "task": {
+      "$ref": "#/$defs/CommercialInterestTask"
+    },
+    "treatment_minus_control": {
+      "title": "Treatment Minus Control",
+      "type": "number"
+    },
+    "use_case_id": {
+      "title": "Use Case Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "scenario_id",
+    "use_case_id",
+    "model_slug",
+    "affect",
+    "task",
+    "outcome_name",
+    "treatment_minus_control"
+  ],
+  "title": "CommercialInterestContrast",
+  "type": "object"
+}

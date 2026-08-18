@@ -24,6 +24,108 @@
       "title": "BalancedProminenceCell",
       "type": "object"
     },
+    "CommercialInterestCell": {
+      "additionalProperties": false,
+      "description": "Cross one commercial-interest condition with an approved task and affect.",
+      "properties": {
+        "affect": {
+          "$ref": "#/$defs/Affect"
+        },
+        "exact_fact_budget": {
+          "anyOf": [
+            {
+              "enum": [
+                2,
+                4
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exact Fact Budget"
+        },
+        "instruction": {
+          "$ref": "#/$defs/CommercialInterestInstruction"
+        },
+        "kind": {
+          "const": "commercial_interest_instruction_v1",
+          "default": "commercial_interest_instruction_v1",
+          "title": "Kind",
+          "type": "string"
+        },
+        "ownership_role": {
+          "anyOf": [
+            {
+              "enum": [
+                "employer_owns_option_a",
+                "employer_owns_option_b"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ownership Role"
+        },
+        "rendering": {
+          "anyOf": [
+            {
+              "enum": [
+                1,
+                2
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rendering"
+        },
+        "task": {
+          "$ref": "#/$defs/CommercialInterestTask"
+        },
+        "word_budget": {
+          "const": 160,
+          "default": 160,
+          "title": "Word Budget",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "affect",
+        "instruction",
+        "task"
+      ],
+      "title": "CommercialInterestCell",
+      "type": "object"
+    },
+    "CommercialInterestInstruction": {
+      "description": "Distinguish omission or inclusion of the commercial-interest sentence.",
+      "enum": [
+        "control",
+        "protect_commercial_interests"
+      ],
+      "title": "CommercialInterestInstruction",
+      "type": "string"
+    },
+    "CommercialInterestTask": {
+      "description": "Identify the task crossed with the commercial-interest instruction.",
+      "enum": [
+        "standard_comparison",
+        "single_most_important_fact",
+        "exact_fact_budget",
+        "ownership_flip"
+      ],
+      "title": "CommercialInterestTask",
+      "type": "string"
+    },
     "ExactFactBudget": {
       "description": "Represent the exact structured fact-selection budgets.",
       "enum": [
@@ -52,6 +154,7 @@
         "single_fact_priority_v1",
         "ownership_role_control_v1",
         "option_first_v1",
+        "commercial_interest_instruction_v1",
         "balanced_prominence_mitigation_v1"
       ],
       "title": "ExperimentKind",
@@ -167,6 +270,7 @@
           "discriminator": {
             "mapping": {
               "balanced_prominence_mitigation_v1": "#/$defs/BalancedProminenceCell",
+              "commercial_interest_instruction_v1": "#/$defs/CommercialInterestCell",
               "information_budget_v1": "#/$defs/InformationBudgetCell",
               "option_first_v1": "#/$defs/OptionFirstCell",
               "ownership_role_control_v1": "#/$defs/OwnershipCell",
@@ -194,6 +298,9 @@
             },
             {
               "$ref": "#/$defs/OptionFirstCell"
+            },
+            {
+              "$ref": "#/$defs/CommercialInterestCell"
             },
             {
               "$ref": "#/$defs/BalancedProminenceCell"

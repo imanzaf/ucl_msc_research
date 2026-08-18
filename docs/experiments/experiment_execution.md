@@ -9,7 +9,10 @@ All active experiment operations use `uv run risk-comm-v2 experiment ...`. The e
 uv run risk-comm-v2 experiment build-plan --include-deferred
 ```
 
-The active plans must contain 1,260; 1,050; 630; 210; 462; and 210 units, totalling 3,822. The optional flag also writes 210 units for
+The active plans must contain 1,260; 1,050; 630; 210; 462; 210; and 6,888 units, totalling 10,710. The 6,888-unit
+`commercial_interest_instruction_v1` plan contains matched control and commercial-interest instructions across short neutral, anxious, and
+frustrated queries, with a 160-word cap in every cell. It includes standard, single-fact, exact k={2,4}, and ownership-flip tasks. The optional flag
+also writes 210 units for
 `balanced_prominence_mitigation_v1` with `execution_status=deferred`. Each experiment owns `config.json`, `run_plan.jsonl`, `results/`, `cache/`,
 `logs/`, `assets/`, and `checkpoints/` beneath `data/outputs/experiments/<experiment-name>/`.
 
@@ -113,6 +116,13 @@ uv run risk-comm-v2 experiment execute-batch \
   --cost-estimate data/outputs/experiments/cost_estimate.json \
   --approval data/outputs/experiments/cost_approval.json
 ```
+
+`commercial_interest_instruction_v1` is a core active experiment. Its 6,888 assignment IDs are deterministic functions of the scenario, model,
+treatment cell, fact order, and active status. Re-running the same `execute-batch` command with the same frozen manifest and bundle file loads every
+completed ID from `data/outputs/experiments/commercial_interest_instruction_v1/cache/` and calls the provider only for missing IDs. Each semantic
+response is written to that cache immediately, so an interrupted run resumes from its last completed response. Do not re-freeze the manifest or
+change treatment coordinates during a run; those changes intentionally require new bundles and approval. The approval ceiling is cumulative, so a
+commercial-interest approval must cover already billed protocol cost plus the estimated ceiling for unfinished commercial-interest calls.
 
 ## 6. Generate stable assets
 

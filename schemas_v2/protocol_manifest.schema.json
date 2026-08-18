@@ -9,6 +9,7 @@
         "single_fact_priority_v1",
         "ownership_role_control_v1",
         "option_first_v1",
+        "commercial_interest_instruction_v1",
         "balanced_prominence_mitigation_v1"
       ],
       "title": "ExperimentKind",

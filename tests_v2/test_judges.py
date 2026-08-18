@@ -172,10 +172,10 @@ def test_contract_specific_controls_and_paid_approval(accepted_scenario: Accepte
     """Bind strict schemas, small output ceilings, estimate, and approval to an exact plan."""
     tasks = build_judge_tasks(_run(accepted_scenario, "A response."), accepted_scenario, _query(accepted_scenario), JudgeStage.PILOT)
     base = GenerationControls(max_output_tokens=1024, seed=7, reasoning_effort="medium")
-    assert judge_controls(base, JudgeContract.CONTENT).max_output_tokens == 1024
+    assert judge_controls(base, JudgeContract.CONTENT).max_output_tokens == 2048
     assert judge_controls(base, JudgeContract.PRESENTATION).reasoning_effort == "medium"
     assert judge_controls(base, JudgeContract.PRESENTATION).max_output_tokens == 1024
-    assert judge_controls(base, JudgeContract.ACCURACY).max_output_tokens == 2048
+    assert judge_controls(base, JudgeContract.ACCURACY).max_output_tokens == 4096
     estimate = build_execution_estimate(tasks, base, Decimal("0.10"), Decimal("0.40"))
     approval = build_execution_approval(estimate, estimate.estimated_max_cost, "researcher", "Approved test plan")
     assert approval.judge_plan_sha256 == estimate.judge_plan_sha256
@@ -194,9 +194,9 @@ def test_manual_override_preserves_raw_record(accepted_scenario: AcceptedScenari
         fact_id=task.fact_id,
         prompt_sha256=task.prompt_sha256,
         contract_sha256=task.contract_sha256,
-        judge_model_slug="openai/gpt-5.4-mini",
+        judge_model_slug="google/gemini-3.1-flash-lite",
         provider_request_id="request_1",
-        returned_model_version="openai/gpt-5.4-mini",
+        returned_model_version="google/gemini-3.1-flash-lite",
         raw_response=original.model_dump_json(),
         output=original,
         structurally_valid=True,
@@ -219,7 +219,7 @@ def test_manual_override_preserves_raw_record(accepted_scenario: AcceptedScenari
         corrected_at=timestamp,
     )
     adjudicated = adjudicate_judgments([task], [record], [override])
-    validate_pilot_adjudication([task], [record], adjudicated, "openai/gpt-5.4-mini")
+    validate_pilot_adjudication([task], [record], adjudicated, "google/gemini-3.1-flash-lite")
     assert adjudicated[0].source == "manual_override"
     assert adjudicated[0].output == replacement
     assert record.output == original
@@ -238,9 +238,9 @@ def test_merge_judge_records_reuses_only_exact_plan_matches(accepted_scenario: A
             fact_id=task.fact_id,
             prompt_sha256=task.prompt_sha256,
             contract_sha256=task.contract_sha256,
-            judge_model_slug="openai/gpt-5.4-mini",
+            judge_model_slug="google/gemini-3.1-flash-lite",
             provider_request_id=f"request_{index}",
-            returned_model_version="openai/gpt-5.4-mini",
+            returned_model_version="google/gemini-3.1-flash-lite",
             raw_response="{}",
             output=None,
             structurally_valid=False,

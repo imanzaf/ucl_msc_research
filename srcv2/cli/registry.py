@@ -30,7 +30,7 @@ COMMAND_GROUPS = {
         "assemble-generated": Command("srcv2.cli.commands.scenarios", "Validate generated facts and join hidden metadata for review."),
     },
     "experiment": {
-        "build-plan": Command("srcv2.cli.commands.experiment", "Build the 3,822-unit active run matrix."),
+        "build-plan": Command("srcv2.cli.commands.experiment", "Build the 10,710-unit active run matrix."),
         "approve-preflight": Command("srcv2.cli.commands.experiment", "Record bounded approval for paid compatibility probes."),
         "preflight": Command("srcv2.cli.commands.experiment", "Probe approved model/provider routes before freezing."),
         "freeze-protocol": Command("srcv2.cli.commands.experiment", "Freeze preflighted model and provider snapshots."),
@@ -42,8 +42,8 @@ COMMAND_GROUPS = {
         "generate-assets": Command("srcv2.cli.commands.experiment", "Generate stable paper assets for every experiment."),
     },
     "scoring": {
-        "sample-pilot": Command("srcv2.cli.commands.scoring", "Draw the stratified 191-response judge-development sample."),
-        "show-prompts": Command("srcv2.cli.commands.scoring", "Write the three exact GPT-5.4 Mini judge contracts for review."),
+        "sample-pilot": Command("srcv2.cli.commands.scoring", "Draw one experiment's stratified five-percent judge-development sample."),
+        "show-prompts": Command("srcv2.cli.commands.scoring", "Write the three exact Gemini 3.1 Flash Lite judge contracts for review."),
         "recover-selections": Command("srcv2.cli.commands.scoring", "Recover unambiguous exact-budget selections without changing adherence."),
         "build-plan": Command("srcv2.cli.commands.scoring", "Build the pilot or full eight-call-per-response judge plan."),
         "estimate-cost": Command("srcv2.cli.commands.scoring", "Estimate one exact judge plan using current token prices."),
@@ -53,10 +53,15 @@ COMMAND_GROUPS = {
         "freeze-contract": Command("srcv2.cli.commands.scoring", "Freeze all three contracts after pilot review."),
         "execute-full": Command("srcv2.cli.commands.scoring", "Run all frozen judges over every evaluated response."),
         "apply-overrides": Command("srcv2.cli.commands.scoring", "Apply auditable manual corrections to raw judge labels."),
+        "calculate-outcomes": Command("srcv2.cli.commands.scoring", "Write one experiment's final response scores and scoring manifest."),
     },
     "analysis": {
         "confirmatory": Command("srcv2.cli.commands.analysis", "Run only the two Holm-corrected confirmatory contrasts."),
         "describe": Command("srcv2.cli.commands.analysis", "Summarize use-case or access groups descriptively."),
+        "commercial-interest-observations": Command(
+            "srcv2.cli.commands.analysis", "Prepare complete matched observations from commercial-interest response outcomes."
+        ),
+        "commercial-interest": Command("srcv2.cli.commands.analysis", "Calculate matched commercial-interest instruction contrasts."),
     },
     "maintenance": {
         "export-schemas": Command("srcv2.cli.commands.maintenance", "Export final-protocol schemas under schemas_v2."),

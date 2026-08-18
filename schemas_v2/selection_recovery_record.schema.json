@@ -72,6 +72,7 @@
       "enum": [
         "strict_json",
         "fenced_json",
+        "recovered_output",
         "unusable"
       ],
       "title": "Source",

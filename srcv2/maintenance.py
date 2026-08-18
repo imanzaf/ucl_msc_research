@@ -10,6 +10,7 @@ from typing import Dict, List, Type
 
 from pydantic import BaseModel
 
+from srcv2.analysis.commercial_interest import CommercialInterestContrast, CommercialInterestContrastSummary, CommercialInterestObservation
 from srcv2.experiments.planner import ExecutionBundle
 from srcv2.models.experiments import RunUnit
 from srcv2.models.manifests import CostApproval, PreflightApproval, ProtocolManifest, ScenarioGenerationApproval
@@ -17,7 +18,9 @@ from srcv2.models.queries import AuthoredQueryFamily, QueryVariant
 from srcv2.models.scenarios import AcceptedScenario
 from srcv2.models.scoring import (
     AccuracyJudgeOutput,
+    AdjudicatedJudgment,
     ContentJudgeOutput,
+    ExperimentScoringManifest,
     FactExtraction,
     FrozenJudgeContract,
     JudgeCallRecord,
@@ -27,6 +30,7 @@ from srcv2.models.scoring import (
     JudgePilotSample,
     JudgeTask,
     PresentationJudgeOutput,
+    ResponseOutcomesRecord,
     SelectionOutcomes,
     SelectionRecoveryRecord,
 )
@@ -40,12 +44,17 @@ from srcv2.storage import atomic_write_bytes
 
 SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
     "accepted_scenario": AcceptedScenario,
+    "adjudicated_judgment": AdjudicatedJudgment,
     "authored_query_family": AuthoredQueryFamily,
     "accuracy_judge_output": AccuracyJudgeOutput,
     "content_judge_output": ContentJudgeOutput,
+    "commercial_interest_contrast": CommercialInterestContrast,
+    "commercial_interest_contrast_summary": CommercialInterestContrastSummary,
+    "commercial_interest_observation": CommercialInterestObservation,
     "cost_approval": CostApproval,
     "corpus_curation_approval": CorpusCurationApproval,
     "execution_bundle": ExecutionBundle,
+    "experiment_scoring_manifest": ExperimentScoringManifest,
     "fact_extraction": FactExtraction,
     "frozen_judge_contract": FrozenJudgeContract,
     "generated_scenario_output": GeneratedScenarioOutput,
@@ -62,6 +71,7 @@ SCHEMA_MODELS: Dict[str, Type[BaseModel]] = {
     "presentation_judge_output": PresentationJudgeOutput,
     "query_variant": QueryVariant,
     "query_protocol_approval": QueryProtocolApproval,
+    "response_outcomes_record": ResponseOutcomesRecord,
     "run_unit": RunUnit,
     "scenario_generation_approval": ScenarioGenerationApproval,
     "scenario_generation_config": ScenarioGenerationConfig,

@@ -9,9 +9,10 @@ from srcv2.common import artifact_sha256, utc_now
 from srcv2.experiments.matrix import MatrixAssignment
 from srcv2.experiments.responses import check_word_budget, parse_exact_budget_output
 from srcv2.llm.openrouter import OpenRouterClient, ProviderReply
-from srcv2.models.enums import ExecutionStatus
+from srcv2.models.enums import CommercialInterestTask, ExecutionStatus
 from srcv2.models.experiments import (
     AttemptMetadata,
+    CommercialInterestCell,
     GenerationControls,
     InformationBudgetCell,
     ProviderSnapshot,
@@ -40,6 +41,21 @@ def _response_metadata(reply: ProviderReply, assignment: MatrixAssignment, valid
         adherence = check_word_budget(reply.text, assignment.cell.word_budget, reply.finish_reason)
         adherent = adherence.adherent
         truncated = adherence.truncated
+    elif isinstance(assignment.cell, CommercialInterestCell):
+        if assignment.cell.task == CommercialInterestTask.EXACT_BUDGET:
+            if assignment.cell.exact_fact_budget is None:
+                raise ValueError("commercial exact-budget assignment is missing its budget coordinate")
+            exact_adherence = parse_exact_budget_output(reply.text, assignment.cell.exact_fact_budget, valid_fact_ids)
+            selected_ids = exact_adherence.selected_fact_ids
+            answer_text = exact_adherence.answer_text
+            structurally_valid = exact_adherence.structurally_valid
+            word_adherence = check_word_budget(answer_text or "", assignment.cell.word_budget, reply.finish_reason)
+            adherent = exact_adherence.adherent and word_adherence.adherent
+            truncated = word_adherence.truncated
+        else:
+            word_adherence = check_word_budget(reply.text, assignment.cell.word_budget, reply.finish_reason)
+            adherent = word_adherence.adherent
+            truncated = word_adherence.truncated
     return ResponseMetadata(
         raw_response=reply.text,
         returned_model_version=reply.returned_model_version,

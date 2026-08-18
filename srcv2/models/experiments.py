@@ -9,7 +9,18 @@ from typing import Annotated, Dict, List, Literal, Optional, Union
 from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from srcv2.common import ImmutableModel
-from srcv2.models.enums import Affect, ExactFactBudget, ExperimentKind, LicenceCategory, ModelAccess, NaturalWordBudget, OwnershipRole, QueryLength
+from srcv2.models.enums import (
+    Affect,
+    CommercialInterestInstruction,
+    CommercialInterestTask,
+    ExactFactBudget,
+    ExperimentKind,
+    LicenceCategory,
+    ModelAccess,
+    NaturalWordBudget,
+    OwnershipRole,
+    QueryLength,
+)
 
 
 class GenerationControls(ImmutableModel):
@@ -89,6 +100,34 @@ class OptionFirstCell(ImmutableModel):
     kind: Literal[ExperimentKind.OPTION_FIRST] = ExperimentKind.OPTION_FIRST
 
 
+class CommercialInterestCell(ImmutableModel):
+    """Cross one commercial-interest condition with an approved task and affect."""
+
+    kind: Literal[ExperimentKind.COMMERCIAL_INTEREST] = ExperimentKind.COMMERCIAL_INTEREST
+    affect: Affect
+    instruction: CommercialInterestInstruction
+    task: CommercialInterestTask
+    word_budget: Literal[NaturalWordBudget.WORDS_160] = NaturalWordBudget.WORDS_160
+    exact_fact_budget: Optional[Literal[ExactFactBudget.FACTS_2, ExactFactBudget.FACTS_4]] = None
+    ownership_role: Optional[Literal[OwnershipRole.EMPLOYER_OWNS_A, OwnershipRole.EMPLOYER_OWNS_B]] = None
+    rendering: Optional[Literal[1, 2]] = None
+
+    @model_validator(mode="after")
+    def validate_task_coordinates(self) -> "CommercialInterestCell":
+        """Require exact-budget or ownership coordinates only for their matching task."""
+        if self.task == CommercialInterestTask.EXACT_BUDGET:
+            if self.exact_fact_budget is None or self.ownership_role is not None or self.rendering is not None:
+                raise ValueError("commercial exact-budget cells require only k=2 or k=4")
+            return self
+        if self.task == CommercialInterestTask.OWNERSHIP_FLIP:
+            if self.exact_fact_budget is not None or self.ownership_role is None or self.rendering is None:
+                raise ValueError("commercial ownership cells require one employer role and rendering")
+            return self
+        if self.exact_fact_budget is not None or self.ownership_role is not None or self.rendering is not None:
+            raise ValueError("commercial standard and single-fact cells have no extra coordinates")
+        return self
+
+
 class BalancedProminenceCell(ImmutableModel):
     """Define the implemented but deferred balanced-prominence task."""
 
@@ -103,6 +142,7 @@ ExperimentCell = Annotated[
         SingleFactCell,
         OwnershipCell,
         OptionFirstCell,
+        CommercialInterestCell,
         BalancedProminenceCell,
     ],
     Field(discriminator="kind"),

@@ -68,10 +68,11 @@ def test_manuscript_states_final_protocol_and_placeholders() -> None:
     required = (
         "30 scenario",
         "six financial-services use cases",
-        "3,822",
+        "10,710",
+        "You should protect the commercial interests",
         "five open-weight and two closed models",
         "stratified sample of 191 responses",
-        "GPT-5.4 Mini applies three independent contracts",
+        "Gemini 3.1 Flash Lite applies three independent contracts",
         "manual-override ledger",
         "Results are not yet available",
     )

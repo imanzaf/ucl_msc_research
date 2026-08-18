@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from srcv2.analysis.commercial_interest import CommercialInterestObservation, paired_instruction_contrasts, summarize_commercial_interest_contrasts
 from srcv2.analysis.confirmatory import (
     BudgetScore,
     ScenarioContrast,
@@ -13,7 +14,7 @@ from srcv2.analysis.confirmatory import (
 )
 from srcv2.analysis.descriptive import GroupObservation, summarize_groups
 from srcv2.analysis.resampling import stratified_cluster_bootstrap
-from srcv2.models.enums import Affect, ExactFactBudget
+from srcv2.models.enums import Affect, CommercialInterestInstruction, CommercialInterestTask, ExactFactBudget
 
 
 def _contrasts() -> list[ScenarioContrast]:
@@ -86,3 +87,32 @@ def test_grouped_reporting_is_descriptive_and_not_ranked() -> None:
     summaries = summarize_groups([GroupObservation(group="closed", value=0.9), GroupObservation(group="open_weight", value=0.1)])
     assert [summary.group for summary in summaries] == ["closed", "open_weight"]
     assert all(summary.interpretation == "descriptive_only_no_ranking_or_causal_claim" for summary in summaries)
+
+
+def test_commercial_interest_contrast_pairs_only_the_instruction() -> None:
+    """Calculate treatment-minus-control while holding every other coordinate fixed."""
+    observations = [
+        CommercialInterestObservation(
+            scenario_id="CF101_R1",
+            use_case_id="CF101",
+            model_slug="test/model",
+            affect=Affect.ANXIOUS,
+            instruction=instruction,
+            task=CommercialInterestTask.EXACT_BUDGET,
+            exact_fact_budget=ExactFactBudget.FACTS_2,
+            outcome_name="signed_directional_gap",
+            value=value,
+        )
+        for instruction, value in (
+            (CommercialInterestInstruction.CONTROL, -0.1),
+            (CommercialInterestInstruction.PROTECT_COMMERCIAL_INTERESTS, 0.2),
+        )
+    ]
+    contrasts = paired_instruction_contrasts(observations)
+    assert len(contrasts) == 1
+    assert contrasts[0].treatment_minus_control == 0.30000000000000004
+    assert contrasts[0].interpretation == "descriptive_secondary"
+    summaries = summarize_commercial_interest_contrasts(contrasts)
+    assert summaries[0].contrast_count == 1
+    assert summaries[0].scenario_count == 1
+    assert summaries[0].mean_treatment_minus_control == contrasts[0].treatment_minus_control

@@ -12,6 +12,7 @@ from srcv2.common import ImmutableModel, artifact_sha256
 from srcv2.models.enums import (
     AccuracyIssueKind,
     ExactFactBudget,
+    ExperimentKind,
     FactDirection,
     FramingDirection,
     JudgeContract,
@@ -19,7 +20,7 @@ from srcv2.models.enums import (
     OptionPresentationOrder,
     RecommendationDirection,
 )
-from srcv2.models.experiments import GenerationControls, ProviderSnapshot
+from srcv2.models.experiments import CommercialInterestCell, ExperimentCell, GenerationControls, InformationBudgetCell, ProviderSnapshot
 
 
 class FactExtractionRequest(ImmutableModel):
@@ -127,7 +128,7 @@ class SelectionRecoveryRecord(ImmutableModel):
     schema_version: str = Field(default="4.0.0", pattern=r"^4\.0\.0$")
     run_unit_id: str = Field(min_length=16)
     expected_fact_count: ExactFactBudget
-    source: Literal["strict_json", "fenced_json", "unusable"]
+    source: Literal["strict_json", "fenced_json", "recovered_output", "unusable"]
     format_adherent: bool
     selection_usable: bool
     selected_fact_ids: Optional[List[str]] = None
@@ -137,12 +138,14 @@ class SelectionRecoveryRecord(ImmutableModel):
     @model_validator(mode="after")
     def validate_recovery(self) -> "SelectionRecoveryRecord":
         """Keep exact-k usability distinct from the original response format."""
-        if self.selection_usable != (self.source in {"strict_json", "fenced_json"}):
+        if self.selection_usable != (self.source in {"strict_json", "fenced_json", "recovered_output"}):
             raise ValueError("selection usability must agree with its recovery source")
         if self.source == "strict_json" and not self.format_adherent:
             raise ValueError("strict JSON selections must be format-adherent")
         if self.source == "fenced_json" and self.format_adherent:
             raise ValueError("fenced JSON selections remain format-nonadherent")
+        if self.source == "recovered_output" and self.format_adherent:
+            raise ValueError("recovered selections remain format-nonadherent")
         if self.selection_usable:
             if self.selected_fact_ids is None or len(self.selected_fact_ids) != self.expected_fact_count:
                 raise ValueError("usable selection must contain exactly the expected number of identifiers")
@@ -228,19 +231,21 @@ class JudgeCallRecord(ImmutableModel):
 
 
 class JudgePilotSample(ImmutableModel):
-    """Freeze the stratified five-percent response sample used to develop prompts."""
+    """Freeze one experiment's stratified five-percent judge-development sample."""
 
     schema_version: str = Field(default="4.0.0", pattern=r"^4\.0\.0$")
-    source_response_count: Literal[3822] = 3822
-    response_ids: List[str] = Field(min_length=191, max_length=191)
+    source_response_count: int = Field(ge=1)
+    response_ids: List[str] = Field(min_length=1)
     random_seed: int
     sample_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
     @model_validator(mode="after")
     def validate_sample(self) -> "JudgePilotSample":
-        """Require 191 unique response identifiers and a valid content hash."""
-        if len(set(self.response_ids)) != 191:
-            raise ValueError("judge pilot requires 191 unique response identifiers")
+        """Require unique response identifiers drawn from the declared source corpus."""
+        if len(set(self.response_ids)) != len(self.response_ids):
+            raise ValueError("judge pilot response identifiers must be unique")
+        if len(self.response_ids) > self.source_response_count:
+            raise ValueError("judge pilot cannot exceed its source response corpus")
         expected_hash = artifact_sha256(
             {
                 "schema_version": self.schema_version,
@@ -358,6 +363,38 @@ class AdjudicatedJudgment(ImmutableModel):
         return self
 
 
+class ExperimentScoringManifest(ImmutableModel):
+    """Bind one experiment's final scores to its raw responses and judge artifacts."""
+
+    schema_version: str = Field(default="4.0.0", pattern=r"^4\.0\.0$")
+    state: Literal["final"] = "final"
+    experiment: ExperimentKind
+    judge_model_slug: str = Field(min_length=3)
+    frozen_contract_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_response_count: int = Field(ge=1)
+    judge_call_count: int = Field(ge=1)
+    manual_override_count: int = Field(ge=0)
+    final_judgment_count: int = Field(ge=1)
+    selection_count: int = Field(ge=0)
+    response_score_count: int = Field(ge=1)
+    source_responses_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    judge_plan_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    raw_judge_results_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    final_judgments_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    response_scores_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    generated_at: datetime
+
+    @model_validator(mode="after")
+    def validate_complete_scoring(self) -> "ExperimentScoringManifest":
+        """Require eight final judge labels and one score record per response."""
+        expected_judgments = self.source_response_count * 8
+        if self.judge_call_count != expected_judgments or self.final_judgment_count != expected_judgments:
+            raise ValueError("final scoring requires exactly eight judge records per response")
+        if self.response_score_count != self.source_response_count:
+            raise ValueError("final scoring requires exactly one score record per response")
+        return self
+
+
 def _output_type(contract: JudgeContract) -> type[ImmutableModel]:
     """Return the one Pydantic output model allowed for a judge contract."""
     return cast(
@@ -432,3 +469,59 @@ class SecondaryOutcomes(ImmutableModel):
     referral_or_deferral: bool
     factual_density: float = Field(ge=0)
     response_word_count: int = Field(ge=0)
+
+
+class ExactSelectionOutcomes(ImmutableModel):
+    """Store direction and pair states for usable identifier selections only."""
+
+    signed_directional_gap: float = Field(ge=-1, le=1)
+    pairwise_absolute_imbalance: float = Field(ge=0, le=1)
+    pair_states: PairStateRates
+
+
+class OptionCoordinatePresentationOutcomes(ImmutableModel):
+    """Retain presentation outcomes on the fixed option-A product coordinate."""
+
+    framing_direction: Literal["option_a_favouring", "balanced", "option_b_favouring", "not_assessable"]
+    first_material_fact: Literal["option_a", "option_b", "neither"]
+    conditional_pair_order_option_a_first_rate: Optional[float] = Field(default=None, ge=0, le=1)
+    factual_emphasis_option_a_share: Optional[float] = Field(default=None, ge=0, le=1)
+    recommendation_direction: Literal["option_a", "option_b", "balanced_or_none"]
+    option_presented_first: Literal["option_a", "option_b", "simultaneous_or_none"]
+
+
+class ResponseOutcomesRecord(ImmutableModel):
+    """Bind all separate response outcomes to one evaluated run unit."""
+
+    schema_version: str = Field(default="4.0.0", pattern=r"^4\.0\.0$")
+    run_unit_id: str = Field(min_length=16)
+    experiment: ExperimentKind
+    cell: ExperimentCell
+    scenario_id: str = Field(min_length=3)
+    use_case_id: str = Field(min_length=3)
+    model_slug: str = Field(min_length=3)
+    prose_selection: SelectionOutcomes
+    option_a_selection: SelectionOutcomes
+    exact_selection: Optional[ExactSelectionOutcomes] = None
+    exact_selection_source: Optional[Literal["strict_json", "fenced_json", "recovered_output", "unusable"]] = None
+    visible_presentation: PresentationJudgeOutput
+    presentation: PresentationOutcomes
+    option_coordinate_presentation: OptionCoordinatePresentationOutcomes
+    accuracy: AccuracyOutcomes
+    secondary: SecondaryOutcomes
+
+    @model_validator(mode="after")
+    def validate_exact_selection_source(self) -> "ResponseOutcomesRecord":
+        """Bind the experiment cell and exact-selection disposition to the scored response."""
+        if self.cell.kind != self.experiment:
+            raise ValueError("response outcome experiment and cell do not match")
+        is_exact = isinstance(self.cell, InformationBudgetCell) or (
+            isinstance(self.cell, CommercialInterestCell) and self.cell.task.value == "exact_fact_budget"
+        )
+        if is_exact != (self.exact_selection_source is not None):
+            raise ValueError("exact-budget response outcomes require one selection-recovery source")
+        if self.exact_selection_source == "unusable" and self.exact_selection is not None:
+            raise ValueError("an unusable selection cannot have identifier outcomes")
+        if self.exact_selection_source not in {None, "unusable"} and self.exact_selection is None:
+            raise ValueError("a usable selection source requires identifier outcomes")
+        return self

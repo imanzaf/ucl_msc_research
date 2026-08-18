@@ -52,7 +52,7 @@ def test_catalog_freezes_exact_models_and_parameter_metadata() -> None:
     ]
     assert [entry.model_access for entry in catalog.evaluated_models].count(ModelAccess.OPEN_WEIGHT) == 5
     assert [entry.model_access for entry in catalog.evaluated_models].count(ModelAccess.CLOSED) == 2
-    assert catalog.scoring_model.model_slug == "openai/gpt-5.4-mini"
+    assert catalog.scoring_model.model_slug == "google/gemini-3.1-flash-lite"
     assert catalog.scoring_model.generation_controls.reasoning_effort == "medium"
     deepseek = catalog.evaluated_models[4]
     assert (deepseek.total_parameters, deepseek.active_parameters) == ("1.6T", "49B")
@@ -63,7 +63,7 @@ def test_manifest_and_approval_hashes_survive_json_round_trip(tmp_path: Path) ->
     catalog = load_model_catalog()
     manifest_path = tmp_path / "protocol_manifest.json"
     manifest = freeze_protocol_manifest(catalog, _preflight_results(), "a" * 64, manifest_path)
-    assert sum(manifest.expected_response_counts.values()) == 3822
+    assert sum(manifest.expected_response_counts.values()) == 10710
     assert ProtocolManifest.model_validate(read_json(manifest_path)) == manifest
 
     preflight_base = {

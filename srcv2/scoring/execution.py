@@ -278,12 +278,12 @@ def freeze_judge_contract(
     frozen_at: Optional[datetime] = None,
 ) -> FrozenJudgeContract:
     """Freeze reviewed contracts after every raw pilot call has an adjudicated label."""
-    if len(tasks) != 191 * 8 or any(task.stage != JudgeStage.PILOT for task in tasks):
-        raise ValueError("contract freeze requires one complete 191-response pilot plan")
+    if len(tasks) != len(sample.response_ids) * 8 or any(task.stage != JudgeStage.PILOT for task in tasks):
+        raise ValueError("contract freeze requires eight pilot calls per sampled response")
     validate_pilot_adjudication(tasks, records, adjudicated, model.model_slug)
     selected_response_ids = list(dict.fromkeys(task.run_unit_id for task in tasks))
     if selected_response_ids != sample.response_ids:
-        raise ValueError("pilot plan does not match the frozen 191-response sample")
+        raise ValueError("pilot plan does not match the frozen response sample")
     controls = {contract: judge_controls(base_controls, contract) for contract in JudgeContract}
     contract_hashes = {contract: judge_contract_sha256(contract) for contract in JudgeContract}
     base = {
@@ -338,9 +338,19 @@ def validate_pilot_adjudication(
 
 
 def validate_full_plan(tasks: Sequence[JudgeTask], contract: FrozenJudgeContract) -> None:
-    """Require all full-run tasks to use the reviewed frozen judge contracts."""
-    if len(tasks) != 3822 * 8 or any(task.stage != JudgeStage.FULL for task in tasks):
-        raise ValueError("full scoring requires 30,576 calls covering all 3,822 responses")
+    """Require complete response-level task sets using the reviewed frozen contracts."""
+    if not tasks or any(task.stage != JudgeStage.FULL for task in tasks):
+        raise ValueError("full scoring requires a non-empty full-stage plan")
+    tasks_by_response: Dict[str, List[JudgeTask]] = {}
+    for task in tasks:
+        tasks_by_response.setdefault(task.run_unit_id, []).append(task)
+    for response_tasks in tasks_by_response.values():
+        contract_counts = {judge: sum(task.contract == judge for task in response_tasks) for judge in JudgeContract}
+        content_fact_ids = [task.fact_id for task in response_tasks if task.contract == JudgeContract.CONTENT]
+        if contract_counts != {JudgeContract.CONTENT: 6, JudgeContract.PRESENTATION: 1, JudgeContract.ACCURACY: 1}:
+            raise ValueError("each fully scored response requires six content, one presentation, and one accuracy call")
+        if None in content_fact_ids or len(set(content_fact_ids)) != 6:
+            raise ValueError("each fully scored response requires six unique content-fact coordinates")
     for task in tasks:
         if task.contract_sha256 != contract.contract_sha256_by_judge[task.contract]:
             raise PermissionError("full judge task differs from the frozen contract")

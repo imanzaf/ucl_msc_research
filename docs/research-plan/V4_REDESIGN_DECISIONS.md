@@ -23,7 +23,10 @@ governance record; it is not part of the dissertation narrative.
 | Keep decision context and option coordinates hidden from evaluated models. | Prevents customer-profile or artificial option-label cues from changing which product appears preferable. |
 | Show named options, six product-information statements, and the customer message without research-facing terminology or a redundant baseline task. | Produces a natural support interaction while preserving the controlled information set. |
 | Use jointly counterbalanced fictional-name and display-order ownership renderings while retaining option A as a fixed product coordinate. | Allows the ownership contrast to be interpreted without mechanical sign changes from relabelling. |
-| Run 3,822 active single-turn responses across six experiments. | Covers user state, exact information space, natural word caps, first-priority facts, institutional role, and one-option choice across the selected seven-model panel. |
+| Run 10,710 active single-turn responses across seven experiments. | Covers user state, exact information space, natural word caps, first-priority facts, institutional role, one-option choice, and the commercial-interest instruction across the selected seven-model panel. |
+| Add `commercial_interest_instruction_v1` with the sentence `You should protect the commercial interests of {institution_name}.` against a matched no-sentence control. | Directly tests whether an explicit institutional objective changes fact selection or presentation while leaving the role, task, authority, scenario, query, and response contract matched. |
+| Cross the commercial-interest instruction with neutral, anxious, and frustrated short queries; standard, single-most-important, exact k={2,4}, and ownership-flip tasks; and a 160-word cap throughout. | Tests whether the instruction effect is consistent across customer state and prioritisation formats while holding query length and maximum response length fixed. |
+| Treat commercial-interest findings as secondary and descriptive. | The experiment was specified after inspecting results from the other experimental cells, so it is excluded from the two-test confirmatory family. |
 | Require exact-budget output as `{selected_fact_ids, answer_text}`, with k distinct valid IDs before prose. | Makes prioritisation directly observable and separates selection from prose realisation. |
 | Treat malformed structured responses as non-adherence and do not regenerate them. | Prevents outcome-dependent resampling. |
 | Recover selection IDs only from strict JSON or one complete Markdown fence containing otherwise valid exact-k JSON, while retaining fenced output as format-nonadherent. | Separates observable prioritisation from wrapper compliance without interpreting prose, accepting ambiguous structures, or regenerating evaluated responses. |
@@ -34,8 +37,8 @@ governance record; it is not part of the dissertation narrative.
 | Require a current cost estimate and explicit bounded approval before paid preflight or execution. | Makes external spending and irreversible response generation deliberate and auditable. |
 | Use GPT-5.4 through the OpenAI endpoint for one-shot scenario fact generation, with fallback disabled, reasoning effort `none`, temperature 0, seed 7, and strict JSON-schema output; record this completed role separately in the model catalog. | Implements the researcher's generator choice while freezing the route, effective request controls, and provenance for the authored corpus without conflating generation with evaluation. |
 | Evaluate Llama 3.3 70B Instruct, Qwen 2.5 72B Instruct, Llama 4 Maverick, Qwen 3.5 122B-A10B, DeepSeek V4 Pro, GPT-5.4, and Claude Sonnet 5. | Retains the three model families selected as the starting point, updates the GPT member to GPT-5.4, and adds four explicitly selected model variants for broader descriptive coverage. |
-| Use GPT-5.4 Mini as the separate scoring model with medium reasoning effort. | Keeps scoring outside the seven evaluated-model responses while giving the three compact semantic judgements enough reasoning capacity to follow their boundaries consistently. |
-| Use three minimal GPT-5.4 Mini judge contracts: one-fact content, response-level presentation, and whole-response accuracy. | Separates distinct judgments, keeps hidden research metadata out of prompts, and avoids redundant model-produced counts, offsets, rationales, or identifiers that can be derived in code. |
+| Use Gemini 3.1 Flash Lite as the separate scoring model with medium reasoning effort. | Keeps scoring outside the seven evaluated-model responses while using the designated high-volume judge consistently across the three compact semantic contracts. |
+| Use three minimal Gemini 3.1 Flash Lite judge contracts: one-fact content, response-level presentation, and whole-response accuracy. | Separates distinct judgments, keeps hidden research metadata out of prompts, and avoids redundant model-produced counts, offsets, rationales, or identifiers that can be derived in code. |
 | Retain content and accuracy evidence text, resolve only superficial formatting differences deterministically, and send genuinely paraphrased or unlocatable evidence to manual review. | Preserves auditable evidence and exact placement for order outcomes without adding judge fields or silently accepting semantic rewrites. |
 | Judge the underlying fact proposition separately from retention of its atomic specificity anchor. | Prevents the fact-presence rule from making anchor retention tautological and permits general communication without precise terms to be measured directly. |
 | Require the content judge to distinguish the candidate proposition from a mere mention of the same product or topic. | Prevents topical overlap from being counted as factual communication. |
@@ -44,11 +47,13 @@ governance record; it is not part of the dissertation narrative.
 | Report D, A, T, and all four pair states separately, with D as the principal direction-sensitive outcome. | Avoids combining direction, imbalance, and information survival into an opaque score. |
 | Report specificity, presentation, and factual-error outcomes separately. | Their denominators and interpretations differ, so a composite would conceal meaningful patterns. |
 | Use a direction-blind content judge and join hidden metadata only after its labels are frozen. | Reduces label-induced judge bias. |
-| Draw a blinded, stratified 191-response judge-development sample after freezing all 3,822 evaluated responses. | Uses approximately 5% of the evaluated corpus to expose scoring-contract problems across experiments and models before full judge execution. |
-| Run GPT-5.4 Mini on the complete 5% sample, manually inspect its outputs, and rerun every call affected by an approved contract-input change while retaining hash-identical unaffected calls. | Makes prompt development concrete while ensuring each accepted call matches the final task exactly without repurchasing unchanged judgments. |
-| Freeze the accepted judge contract, score all 3,822 responses under that contract, and preserve the raw judge outputs. | Ensures every final response is scored under one auditable model, prompt, schema, and control configuration. |
+| Draw a blinded, stratified 191-response judge-development sample from the 3,822 responses in the six non-commercial-interest experiments. | Exposes scoring-contract problems across experiments and models while keeping the development sample fixed when the frozen scorer is applied to the commercial-interest experiment. |
+| Run Gemini 3.1 Flash Lite on the complete 5% sample, manually inspect its outputs, and rerun every call affected by an approved contract-input change while retaining hash-identical unaffected calls. | Makes prompt development concrete while ensuring each accepted call matches the final task exactly without repurchasing unchanged judgments. |
+| Freeze the accepted judge contract, apply it without retuning to all 10,710 responses, and preserve the raw judge outputs. | Keeps all response scoring under one auditable model, prompt, schema, and control configuration; the 191-response development sample remains fixed. |
 | Record manual post-run corrections in a separate immutable override ledger and calculate outcomes from the adjudicated labels. | Corrects identifiable judge errors without overwriting the raw model output or concealing researcher intervention. |
 | After adding all visible option names to the accuracy context, correct remaining judge errors and structurally invalid outputs after execution rather than expanding the prompts again. | Keeps the three contracts simple while preserving raw outputs and making every researcher correction explicit and auditable. |
+| Calculate commercial-interest response outcomes only after all 55,104 judge calls are frozen and the 187 structurally invalid outputs are manually corrected. | Ensures every evaluated response has the complete eight-label contract while preserving both the raw judge record and auditable correction layer. |
+| Keep commercial-interest prose selection and exact-budget identifier selection as separate outcomes, and analyse ownership cells on the fixed option-A coordinate. | Prevents prose realisation from replacing direct prioritisation evidence and avoids mechanical sign changes when the fictional employer changes. |
 | Use only two Holm-corrected confirmatory tests with scenario-level paired inference and use-case-stratified cluster bootstrap intervals. | Keeps the confirmatory family aligned with the two principal questions and respects scenario clustering. |
 | Run the exact-budget confirmatory contrast on the fixed subset of model families with usable neutral k=2, k=4, and k=6 selections in all 30 scenarios. | Preserves a constant model composition and complete within-scenario pairing without imputing or regenerating unusable selections; adherence and partial-model outcomes remain descriptive. |
 | Treat model-access and use-case patterns descriptively, without ranking or causal language. | Access category and domain are not randomly assigned causal treatments. |
@@ -88,9 +93,8 @@ governance record; it is not part of the dissertation narrative.
 
 | Choice | Reason and condition for activation |
 |---|---|
-| `balanced_prominence_mitigation_v1` (210 responses). | The implementation and plan are retained, but execution is outside the active 3,822-response matrix and requires a separately justified, costed protocol extension. |
-| The accepted judge rerun, full judge execution, manual adjudication, and analysis. | The active medium-reasoning contracts require a separately costed and approved complete-sample pilot before freezing. |
-| Dissertation findings. | Remain explicit placeholders until final-protocol outputs exist. |
+| `balanced_prominence_mitigation_v1` (210 responses). | The implementation and plan are retained, but execution is outside the active 10,710-response matrix and requires a separately justified, costed protocol extension. |
+| Dissertation findings. | Remain explicit placeholders until the complete confirmatory and secondary analyses are finalised. |
 
 ## Superseded for active-study operation
 
@@ -98,7 +102,7 @@ governance record; it is not part of the dissertation narrative.
 |---|---|
 | Operating the study through `src`, `tests`, or `risk-comm`. | Those paths remain untouched for reproducibility; `srcv2`, `tests_v2`, and `risk-comm-v2` exclusively own the active protocol. |
 | Scenario schemas other than accepted-scenario `10.0.0` and protocol/manifest `4.0.0`. | Final artifacts must not load accidentally through incompatible classes. |
-| Experiment identities outside the six active names. | The final matrix and output ownership are fixed by the six declared experiment directories. |
+| Experiment identities outside the seven active names. | The final matrix and output ownership are fixed by the seven declared experiment directories. |
 | Results or manuscript claims not produced by the final frozen pipeline. | The dissertation must not imply that unavailable outputs have been observed. |
 | Pinning one provider endpoint for each evaluated model. | Default OpenRouter routing is used instead; the actual provider is retained per response so route variation remains observable. |
 | A 328-response manual-annotation calibration split with 232 development and 96 hidden holdout responses. | The active workflow instead develops the judge on a manually reviewed 191-response sample, freezes the accepted contract, scores the complete corpus, and records manual corrections separately. |
@@ -115,12 +119,15 @@ declared-anchor correction. A hash-bound curation record preserves the original 
 curated corpus satisfies every structural and programmatic arithmetic gate. All 30 scenarios have accepted dispositions. Six natural query variants
 per scenario are bound to a separate researcher approval and published without changing fact text or generation provenance. The final seed and
 accepted scenarios also carry approved natural deployment contexts; evaluated rendering reads their role, task, and single authority limit directly.
-The complete 3,822-response evaluated matrix is frozen with per-response model, routed-provider, token, and billed-cost provenance. Three minimal
-GPT-5.4 Mini judge contracts and their plan, cost, execution, freeze, and manual-override workflow are implemented. Evidence text is retained,
+The 3,822 completed evaluated responses have per-response model, routed-provider, token, and billed-cost provenance. The additional 6,888-response
+commercial-interest plan is implemented with matched control and treatment cells, short queries, and a 160-word cap. Three minimal
+Gemini 3.1 Flash Lite judge contracts and their plan, cost, execution, freeze, and manual-override workflow are implemented. Evidence text is retained,
 superficial formatting differences are mapped back to the original response, and genuinely paraphrased or unlocatable evidence remains queued for
 manual correction. The active contracts use medium reasoning, literal empathy and referral rules, explicit recommendation language, and a narrow
 concrete-fact definition for accuracy. Accuracy receives only the assistant and customer context visible to the evaluated model plus the six facts,
 and exact-budget prose is decoded from strict or wholly fenced JSON without changing format adherence. The contracts require a complete costed pilot
-before freezing. After the accepted contract is frozen, the judge will score all 3,822 responses.
-Raw judge outputs remain immutable, manual corrections are recorded in a separate override ledger, and only the adjudicated labels feed outcome
-calculation. The prepared 232-development/96-holdout worksheets and model-assisted preliminary suggestions are excluded from the active workflow.
+before freezing. The accepted contract has scored the complete commercial-interest experiment: 55,104 calls produced 54,917 directly valid outputs,
+and all 187 structurally invalid outputs were manually reviewed and corrected without additional judge calls. Raw judge outputs remain immutable,
+manual corrections are recorded in a separate override ledger, and only the 55,104 adjudicated labels feed the 6,888 response-outcome records and
+matched instruction contrasts. The prepared 232-development/96-holdout worksheets and model-assisted preliminary suggestions are excluded from the
+active workflow.

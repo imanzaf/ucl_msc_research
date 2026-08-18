@@ -1,4 +1,4 @@
-"""Build and parse the three minimal GPT-5.4 Mini judge contracts."""
+"""Build and parse the three minimal Gemini 3.1 Flash Lite judge contracts."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from pydantic import ValidationError
 
 from srcv2.common import ImmutableModel, artifact_sha256
 from srcv2.experiments.responses import extract_exact_budget_answer_text
-from srcv2.models.enums import JudgeContract, JudgeStage
-from srcv2.models.experiments import GenerationControls, InformationBudgetCell, RunUnit
+from srcv2.models.enums import CommercialInterestTask, JudgeContract, JudgeStage
+from srcv2.models.experiments import CommercialInterestCell, GenerationControls, InformationBudgetCell, RunUnit
 from srcv2.models.queries import QueryVariant
 from srcv2.models.scenarios import AcceptedScenario
 from srcv2.models.scoring import (
@@ -69,9 +69,9 @@ OUTPUT_MODELS: Dict[JudgeContract, Type[ImmutableModel]] = {
 }
 
 OUTPUT_TOKEN_CEILINGS: Dict[JudgeContract, int] = {
-    JudgeContract.CONTENT: 1024,
+    JudgeContract.CONTENT: 2048,
     JudgeContract.PRESENTATION: 1024,
-    JudgeContract.ACCURACY: 2048,
+    JudgeContract.ACCURACY: 4096,
 }
 
 
@@ -161,7 +161,9 @@ def response_text_for_scoring(run: RunUnit) -> str:
         raise ValueError("judge tasks require a semantic evaluated-model response")
     if run.response.answer_text is not None:
         return run.response.answer_text
-    if isinstance(run.cell, InformationBudgetCell):
+    if isinstance(run.cell, InformationBudgetCell) or (
+        isinstance(run.cell, CommercialInterestCell) and run.cell.task == CommercialInterestTask.EXACT_BUDGET
+    ):
         recovered_answer = extract_exact_budget_answer_text(run.response.raw_response)
         if recovered_answer is not None:
             return recovered_answer

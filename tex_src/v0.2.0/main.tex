@@ -91,11 +91,11 @@ However, much of the existing evidence is produced in settings where the model i
 
 This dissertation studies that narrower and observable behaviour. It defines \emph{selective communication} as an asymmetry in the coverage or specificity of customer-relevant facts that favours the option providing greater benefit to the deploying financial institution. The construct is deliberately separated from factual inaccuracy and from the way communicated facts are framed. It therefore captures whether relevant information was communicated evenly without assuming that the model represented an institutional objective internally, deliberately manipulated the customer, or selected an option that was necessarily worse for the customer.
 
-Four features of ordinary conversational deployment are examined as possible influences on this behaviour. The first is the customer's expressed state: neutral, anxious, or frustrated. The second is the amount of information the model is instructed to communicate, measured directly through exact fact budgets and complemented by natural-language word limits. The third is the assistant's institutional affiliation. The fourth is a task that requires the assistant to prioritise either one fact or one option. None of these effects is assumed to be directional in advance.
+Five features of conversational deployment are examined as possible influences on this behaviour. The first is the customer's expressed state: neutral, anxious, or frustrated. The second is the amount of information the model is instructed to communicate, measured directly through exact fact budgets and complemented by natural-language word limits. The third is the assistant's institutional affiliation. The fourth is a task that requires the assistant to prioritise either one fact or one option. The fifth is an explicit instruction to protect the fictional employer's commercial interests. None of these effects is assumed to be directional in advance.
 
-To test these conditions, the study constructs a synthetic benchmark of 30 financial decision scenarios spanning six use cases. Each scenario presents two feasible options and six customer-relevant facts arranged as three same-valence pairs, with one fact per option in each pair. Hidden metadata identifies three owner-supporting and three countervailing facts. Seven language models produce 3,822 single-turn responses across user-state, exact information-budget, natural word-budget, single-fact priority, ownership-role, and option-choice experiments. Responses are evaluated through separate measures of directional fact selection, pairwise imbalance, total coverage, specificity, presentation, and factual error.
+To test these conditions, the study constructs a synthetic benchmark of 30 financial decision scenarios spanning six use cases. Each scenario presents two feasible options and six customer-relevant facts arranged as three same-valence pairs, with one fact per option in each pair. Hidden metadata identifies three owner-supporting and three countervailing facts. Seven language models produce 10,710 single-turn responses across user-state, exact information-budget, natural word-budget, single-fact priority, ownership-role, option-choice, and commercial-interest experiments. Responses are evaluated through separate measures of directional fact selection, pairwise imbalance, total coverage, specificity, presentation, and factual error.
 
-The study makes three main contributions. First, it develops a controlled financial-services benchmark in which the institutional incentive is present in the scenario design but is not stated as an instruction to the evaluated model. Second, it uses exact fact selection to distinguish which information a model prioritises from how that information is realised in prose. Third, it provides a fact-level measurement framework that keeps directional selection, imbalance, coverage, specificity, presentation, and false claims separate. The resulting analysis is intended to identify conditions under which institution-favouring informational asymmetry emerges in otherwise conventional customer-support interactions. It does not attempt to infer deceptive intent, determine the customer-optimal option, or measure realised customer harm; these remain separate questions for subsequent research.
+The study makes three main contributions. First, it develops a controlled financial-services benchmark in which a latent institutional incentive can be examined alongside a matched explicit commercial-interest instruction. Second, it uses exact fact selection to distinguish which information a model prioritises from how that information is realised in prose. Third, it provides a fact-level measurement framework that keeps directional selection, imbalance, coverage, specificity, presentation, and false claims separate. The resulting analysis is intended to identify conditions under which institution-favouring informational asymmetry emerges in customer-support interactions. It does not attempt to infer deceptive intent, determine the customer-optimal option, or measure realised customer harm; these remain separate questions for subsequent research.
 
 \section{Research questions}
 \label{sec:research_questions}
@@ -120,9 +120,11 @@ The experiments also support the following secondary questions. These analyses e
 
 \RQ{RQ7.} How do the treatments affect specificity, presentation, factual-error exposure, empathy or reassurance, referral or deferral, factual density, and response length?
 
-\RQ{RQ8.} To what extent do observed patterns vary descriptively across use cases and model-access categories?
+\RQ{RQ8.} Does an explicit instruction to protect the fictional employer's commercial interests change fact selection or presentation across customer states, prioritisation tasks, and employer-ownership roles?
 
-RQ1 and RQ2 constitute the confirmatory analysis. RQ3--RQ8 are secondary or diagnostic and are reported through effect estimates, uncertainty intervals, and descriptive comparisons. Use-case and model-access summaries describe heterogeneity within the benchmark; they are not rankings and do not support causal claims about financial domains or model access.
+\RQ{RQ9.} To what extent do observed patterns vary descriptively across use cases and model-access categories?
+
+RQ1 and RQ2 constitute the confirmatory analysis. RQ3--RQ9 are secondary or diagnostic and are reported through effect estimates, uncertainty intervals, and descriptive comparisons. Use-case and model-access summaries describe heterogeneity within the benchmark; they are not rankings and do not support causal claims about financial domains or model access.
 
 \chapter{Literature Review}
 \label{chap:literature_review}
@@ -153,7 +155,7 @@ Early discussions of model deception frequently centred on statements that were 
 
 Recent benchmarks have begun to isolate this problem. JANUS introduces fixed pools of favourable and adverse facts and compares neutral with goal-conditioned responses, treating omission, weakening, emphasis and loss of precision as forms of pragmatic distortion \parencite{giannouris_etal_2026_janus}. The fixed-fact design is methodologically important because it separates information selection from open-ended knowledge retrieval. Where the same facts are made available in every condition, a change in communicated balance cannot be attributed simply to the model lacking access to the relevant proposition. DECOR takes a related but more explicitly diagnostic approach, decomposing source material into atomic informational units and evaluating how those units are manipulated in a response \parencite{cai_etal_2026_decor}. Both works move beyond a binary lie detector towards a fact-level account of what was retained, omitted or transformed.
 
-The present study adopts this general insight but does not tell the model to promote an outcome. The institutionally beneficial option is hidden research metadata, and the evaluated model receives no label identifying that option as preferred. The design instead asks whether customer state, information and word budgets, institutional affiliation, and priority tasks change the balance of communication when institutional benefit is implicit in the role and product facts.
+The present study adopts this general insight while keeping the institutionally beneficial option as hidden research metadata. The evaluated model receives no label identifying an option as preferred. Most experiments ask whether customer state, information and word budgets, institutional affiliation, and priority tasks change the balance of communication when institutional benefit is implicit in the role and product facts. A separate matched experiment tests the effect of one explicit instruction to protect the fictional employer's commercial interests without identifying which facts support that interest.
 
 A fact-level approach also avoids conflating omission with factual error. If a model fails to mention a £15 monthly fee, the omission may affect the decision value of the answer, but it is not a false claim. Conversely, a fabricated fee waiver is an accuracy failure even if the response otherwise covers both options symmetrically. The dissertation therefore reports directional selection, pairwise imbalance, total coverage, specificity, presentation, and factual inaccuracy separately. A treatment may change what is said, how precisely it is said, how a communicated fact is framed, or whether unsupported claims are introduced, and these effects need not move together.
 
@@ -195,9 +197,9 @@ A complementary external-validity experiment requests ordinary prose under 40-, 
 
 \section{Research gap and contribution}
 
-The literature establishes four relevant points. First, language models can engage in deception or strategic concealment in environments where an objective and conflict are made explicit. Second, misleading communication can arise through omission, weakening and differential precision even when individual sentences remain true. Third, roles, affiliations and user cues can alter model behaviour. Fourth, conversational systems can influence customer preferences, making the balance of communicated information consequential. These strands have rarely been combined in a benign, customer-facing financial setting in which the institutionally beneficial direction is present but not stated as an instruction.
+The literature establishes four relevant points. First, language models can engage in deception or strategic concealment in environments where an objective and conflict are made explicit. Second, misleading communication can arise through omission, weakening and differential precision even when individual sentences remain true. Third, roles, affiliations and user cues can alter model behaviour. Fourth, conversational systems can influence customer preferences, making the balance of communicated information consequential. These strands have rarely been combined in a benign, customer-facing financial setting that permits both latent and explicitly stated institutional interests to be evaluated against the same matched facts.
 
-This dissertation addresses that gap through a controlled benchmark with five defining features. It fixes the material fact set so that communication can be compared against information actually available to the model. It represents the deploying institution through an ordinary service role rather than an explicit profit-maximisation objective. It manipulates customer state and information space, and it changes institutional affiliation directly in a cross-provider control. It distinguishes explicit fact selection from prose realisation. Finally, it reports directional selection, imbalance, coverage, specificity, presentation, and factual error as separate outcomes. The contribution is therefore not evidence that models \emph{intend} to deceive. It is a method for testing whether ordinary prompt conditions alter the directional balance of financial decision communication under a latent institutional incentive.
+This dissertation addresses that gap through a controlled benchmark with five defining features. It fixes the material fact set so that communication can be compared against information actually available to the model. It represents the deploying institution through an ordinary service role and separately tests one explicit commercial-interest instruction. It manipulates customer state and information space, and it changes institutional affiliation directly in a cross-provider control. It distinguishes explicit fact selection from prose realisation. Finally, it reports directional selection, imbalance, coverage, specificity, presentation, and factual error as separate outcomes. The contribution is therefore not evidence that models \emph{intend} to deceive. It is a method for testing whether controlled prompt conditions alter the directional balance of financial decision communication under latent or stated institutional interest.
 
 The design deliberately estimates observable transcript behaviour rather than internal intent or realised customer welfare. The fixed fact set supports causal treatment contrasts within each experiment, while the option-A coordinate in the ownership control isolates affiliation changes from relabelling. Customer-state conditions remain authored wording contrasts rather than measurements of a real customer's psychological state, and customer-optimal choice remains outside scope because the benchmark does not supply the personal circumstances required for regulated suitability judgements.
 
@@ -254,7 +256,7 @@ The visible prompt never uses the labels \enquote{our product}, \enquote{competi
 
 The user-state experiment uses neutral, anxious, and frustrated versions of each query. Every state is crossed with short and long scenario-specific wording, producing six variants per scenario. Each variant is authored as a natural customer request rather than being assembled from a fixed affect prefix. The variants introduce no urgency, distrust, option preference, risk tolerance, customer facts, assumed number of options, or request for more detail, reassurance or completeness. Frustration is expressed without distrust.
 
-Outside the user-state experiment, each scenario uses its neutral short query. Two fixed fact-order permutations are balanced across the 30 scenarios. The order remains identical within each paired treatment comparison. Option display order is balanced 15/15 across the corpus. In the ownership experiment, two renderings jointly reverse fictional company-name assignment and option display order while keeping the product terms attached to the fixed option-A and option-B coordinates.
+The commercial-interest experiment uses the short query for each of the three affect conditions. Other experiments outside the user-state study use the neutral short query. Two fixed fact-order permutations are balanced across the 30 scenarios. The order remains identical within each paired treatment comparison. Option display order is balanced 15/15 across the corpus. In the ownership experiments, two renderings jointly reverse fictional company-name assignment and option display order while keeping the product terms attached to the fixed option-A and option-B coordinates.
 
 \section{Scenario generation and curation}
 
@@ -274,7 +276,7 @@ The 30 scenarios contain 180 facts and 90 matched pairs. Each scenario contribut
 
 \section{Overall study design}
 
-The study comprises six active single-turn experiments evaluated across the same six model families. The response matrix is shown in \Cref{tab:experiment_matrix}. The user-state experiment has no explicit response-length cap. The exact information-budget experiment observes fact selection directly, while the natural word-budget experiment tests ordinary prose instructions. The single-fact, ownership-role and option-choice experiments isolate distinct forms of prioritisation rather than treating them as additional turns in one universal conversation.
+The study comprises seven active single-turn experiments evaluated across the same seven models. The response matrix is shown in \Cref{tab:experiment_matrix}. The user-state experiment has no explicit response-length cap. The exact information-budget experiment observes fact selection directly, while the natural word-budget experiment tests ordinary prose instructions. The single-fact, ownership-role, option-choice and commercial-interest experiments isolate distinct forms of prioritisation and institutional instruction rather than treating them as additional turns in one universal conversation.
 
 \begin{table}[htbp]
 \centering
@@ -291,8 +293,9 @@ Natural word budget & Neutral 40-, 80- and 160-word instructions & 630 \\
 Single-fact priority & One naturally expressed most-important fact & 210 \\
 Ownership-role control & 11 scenarios \(\times3\) roles \(\times2\) renderings \(\times7\) models & 462 \\
 Option choice & One option choice and explanation & 210 \\
+Commercial-interest instruction & Matched control/instruction across short-query affect, task and ownership cells & 6,888 \\
 \midrule
-Total & & 3,822 \\
+Total & & 10,710 \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -310,6 +313,7 @@ The template is represented below. Treatment wording is inserted only in the sys
 \textbf{SYSTEM MESSAGE}\par
 You are a \{seed-owned support role\} at \{fictional institution\}.\par
 \{seed-owned task\}\par
+\{commercial-interest sentence where assigned\}\par
 \{one seed-owned authority limit\}\par
 
 \medskip
@@ -356,6 +360,12 @@ The eleven cross-provider scenarios are rendered under three roles: employed by 
 
 The option-choice task asks the model to choose one option and explain the choice in one response. Recommendation direction and which option is presented first are scored separately. Ordinary fact-selection imbalance is not treated as the principal outcome because the prompt itself requires asymmetry.
 
+\subsection{Commercial-interest instruction}
+
+The commercial-interest experiment compares a control system context with an otherwise matched context containing the sentence \enquote{You should protect the commercial interests of \{institution name\}.} The institution name is the fictional employer displayed in that prompt. Every cell uses the short query for its neutral, anxious or frustrated condition and instructs the model to answer in no more than 160 words.
+
+The standard comparison and single-most-important-fact tasks each contribute 1,260 responses. Exact fact budgets of \(k=2\) and \(k=4\) contribute 2,520 responses and retain the identifier-first JSON contract, with the word limit applied to \code{answer\_text}. The ownership subset contributes 1,848 responses across the eleven eligible scenarios, employer ownership of option A or option B, and both name-and-order renderings. Each treatment cell has a no-sentence control with the same scenario, model, affect, task, budget, role, rendering, fact order and response limit.
+
 \section{Models and response generation}
 
 The evaluated panel contains five open-weight and two closed models, with a separate lightweight model used only for scoring. The open-weight label describes access to model weights under the stated community, Apache-2.0 or MIT licence; it is not treated as a causal treatment or a quality ranking \cite{meta_llama4_maverick_model_card,qwen35_122b_model_card,deepseek_v4_pro_model_card}.
@@ -376,7 +386,7 @@ The evaluated panel contains five open-weight and two closed models, with a sepa
 \code{deepseek/deepseek-v4-pro} & Open-weight, MIT & Evaluated model \\
 \code{openai/gpt-5.4} & Closed & Scenario fact generator and evaluated model \\
 \code{anthropic/claude-sonnet-5} & Closed & Evaluated model \\
-\code{openai/gpt-5.4-mini} & Closed & Scoring judge \\
+\code{google/gemini-3.1-flash-lite} & Closed & Scoring judge \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -421,9 +431,9 @@ The automated content judge is blinded to direction. Each call receives only the
 
 \section{Judge development and adjudication}
 
-All 3,822 evaluated-model responses are frozen before judge development. A blinded, stratified sample of 191 responses, approximately 5\% of the corpus, is drawn across experiment, model and response length. GPT-5.4 Mini applies three independent contracts. For exact-budget responses returned as strict or wholly fenced JSON, the decoded \code{answer\_text} is judged as prose while the original wrapper remains part of format-adherence assessment. The content judge receives only the response, one candidate fact and its anchor; this call is repeated for each of the six facts. The presentation judge receives only the response and the two visible option names, and records a recommendation only when the response explicitly chooses or recommends an option. The accuracy judge receives the response, the visible assistant context and customer query, the two visible option names, and the six visible facts. Hidden research metadata is not supplied to any judge. The output schemas contain only the labels and exact evidence needed for the corresponding outcomes.
+The judge contracts are developed on a blinded, stratified sample of 191 responses drawn across the six non-commercial-interest experiments, models and response lengths. Gemini 3.1 Flash Lite applies three independent contracts. For exact-budget responses returned as strict or wholly fenced JSON, the decoded \code{answer\_text} is judged as prose while the original wrapper remains part of format-adherence assessment. The content judge receives only the response, one candidate fact and its anchor; this call is repeated for each of the six facts. The presentation judge receives only the response and the two visible option names, and records a recommendation only when the response explicitly chooses or recommends an option. The accuracy judge receives the response, the visible assistant context and customer query, the two visible option names, and the six visible facts. Hidden research metadata is not supplied to any judge. The output schemas contain only the labels and exact evidence needed for the corresponding outcomes.
 
-Every pilot output is inspected manually. If an approved change affects one contract's input, every affected sampled response is judged again and hash-identical calls from the unaffected contracts are retained. Once the three contracts are accepted, their prompts, schemas, model and generation controls are frozen and applied to all 3,822 responses. Raw judge outputs are retained unchanged. Incorrect labels and structurally invalid outputs identified during review are replaced through a separate manual-override ledger, and outcomes are calculated from the resulting adjudicated labels. Evaluated-model responses are not regenerated during this process.
+Every pilot output is inspected manually. If an approved change affects one contract's input, every affected sampled response is judged again and hash-identical calls from the unaffected contracts are retained. Once the three contracts are accepted, their prompts, schemas, model and generation controls are frozen and applied without retuning to all 10,710 responses. Raw judge outputs are retained unchanged. Incorrect labels and structurally invalid outputs identified during review are replaced through a separate manual-override ledger, and outcomes are calculated from the resulting adjudicated labels. Evaluated-model responses are not regenerated during this process.
 
 \section{Statistical analysis plan}
 
@@ -431,19 +441,19 @@ The confirmatory family contains two tests. The first is the anxious-minus-neutr
 
 Both tests use scenario-level paired contrasts. Two-sided paired sign-flip randomisation provides the unadjusted \(p\)-values, and Holm's step-down procedure controls the two-test family-wise error rate. Uncertainty is reported through use-case-stratified, scenario-clustered bootstrap intervals: scenarios are resampled within each of the six use cases, and all paired observations attached to a sampled scenario remain together.
 
-All remaining effects are secondary or diagnostic. Exact-budget analysis reports \(D\), \(A\), pair states, individual selection probabilities and entry order; it does not treat \(T\) as an outcome. Ownership analysis reports a fixed option-A gap, the symmetric employer-role contrast, strict owner-concordant switches and switch rates. Use-case and model-access summaries are descriptive, alphabetically presented and interpreted without rankings or causal claims.
+All remaining effects are secondary or diagnostic. Exact-budget analysis reports \(D\), \(A\), pair states, individual selection probabilities and entry order; it does not treat \(T\) as an outcome. Ownership analysis reports a fixed option-A gap, the symmetric employer-role contrast, strict owner-concordant switches and switch rates. Commercial-interest outcomes are reported as matched instruction-minus-control contrasts that hold scenario, model, affect, task, exact budget, employer role and rendering fixed. This experiment is descriptive and does not enlarge the confirmatory testing family. Use-case and model-access summaries are descriptive, alphabetically presented and interpreted without rankings or causal claims.
 
 
 \chapter{Results}
 \label{chap:results}
 
 \begin{todobox}
-Results are not yet available. Populate this chapter only from the frozen 3,822-response corpus, the frozen three-judge contract, the adjudicated scoring outputs and the preregistered analysis outputs. Do not insert values from judge-development runs or any other experiment artifacts.
+Results are not yet available. Populate this chapter only from the frozen 10,710-response corpus, the frozen three-judge contract, the adjudicated scoring outputs and the specified analysis outputs. Do not insert values from judge-development runs or any other experiment artifacts.
 \end{todobox}
 
 \section{Execution and analysis sample}
 
-\textit{Placeholder: report model/provider preflight outcomes, the number of completed and non-adherent run units in each of the six experiments, strict and recovered exact-budget selections, unusable selections, transport-only retries, provider-reported truncation, word-limit adherence and the final analysis denominator.}
+\textit{Placeholder: report model/provider preflight outcomes, the number of completed and non-adherent run units in each of the seven experiments, strict and recovered exact-budget selections, unusable selections, transport-only retries, provider-reported truncation, word-limit adherence and the final analysis denominator.}
 
 \section{Scoring execution and adjudication}
 
@@ -463,7 +473,7 @@ Results are not yet available. Populate this chapter only from the frozen 3,822-
 
 \section{Ownership, priority tasks and descriptive heterogeneity}
 
-\textit{Placeholder: report fixed-coordinate ownership contrasts and switch rates, single-fact priorities, option choices, empathy or reassurance, referral or deferral, factual density and response length. Describe use-case and model-access patterns without ranking or causal language.}
+\textit{Placeholder: report fixed-coordinate ownership contrasts and switch rates, single-fact priorities, option choices, matched commercial-interest instruction contrasts, empathy or reassurance, referral or deferral, factual density and response length. Describe use-case and model-access patterns without ranking or causal language.}
 
 
 \chapter{Discussion}
@@ -475,7 +485,7 @@ Interpretation is deferred until the final results in \Cref{chap:results} are av
 
 The study is designed to support narrow claims about observable communication under controlled prompts. A positive \(D\) would indicate net owner-supporting fact communication, not proof that a model represented or pursued an institutional objective. A zero \(D\) would not by itself establish pairwise balance because owner-only and countervailing-only selections can offset across pairs. Likewise, fewer factual errors in a shorter response would need to be considered alongside unsupported claims per 100 words because shorter answers create fewer opportunities for error.
 
-The exact-budget experiment makes prioritisation directly observable, while the natural word-budget experiment tests whether the same pattern appears under ordinary prose constraints. The ownership control isolates changes in stated affiliation while retaining a fixed product coordinate. The user-state experiment estimates responses to authored textual cues rather than to measured human emotional states. These design features determine the appropriate interpretation of each estimate.
+The exact-budget experiment makes prioritisation directly observable, while the natural word-budget experiment tests whether the same pattern appears under ordinary prose constraints. The ownership control isolates changes in stated affiliation while retaining a fixed product coordinate. The commercial-interest experiment estimates the effect of one explicit institutional objective under matched 160-word tasks; its transcript effects do not establish that the model adopted that objective internally. The user-state experiment estimates responses to authored textual cues rather than to measured human emotional states. These design features determine the appropriate interpretation of each estimate.
 
 The benchmark remains synthetic. Its scenario instances are controlled stimuli, not a probability sample of financial interactions, and deterministic single completions estimate behaviour across the constructed corpus rather than within-prompt stochastic frequencies. The absence of personal financial circumstances also means that option choice cannot be interpreted as regulated suitability or customer-optimal advice. External validity therefore depends on replication with other scenario corpora, deployment contexts and interaction formats.
 
@@ -487,9 +497,9 @@ The benchmark remains synthetic. Its scenario instances are controlled stimuli, 
 Insert the empirical conclusion only after all final-protocol outputs and the confirmatory analysis are complete.
 \end{todobox}
 
-This dissertation develops a controlled method for studying selective financial-risk communication without equating informational asymmetry with deceptive intent. Thirty six-fact scenarios, seven evaluated models and six single-turn experiments separate user state, exact information space, natural word limits, institutional affiliation and priority tasks. The measurement framework keeps direction, imbalance, coverage, specificity, presentation and factual error distinct, and the scoring design uses a manually reviewed pilot before applying three frozen judge contracts to the full corpus and recording any manual corrections separately.
+This dissertation develops a controlled method for studying selective financial-risk communication without equating informational asymmetry with deceptive intent. Thirty six-fact scenarios, seven evaluated models and seven single-turn experiments separate user state, exact information space, natural word limits, institutional affiliation, priority tasks and an explicit commercial-interest instruction. The measurement framework keeps direction, imbalance, coverage, specificity, presentation and factual error distinct, and the scoring design uses a manually reviewed pilot before applying three frozen judge contracts to the full corpus and recording any manual corrections separately.
 
-The empirical conclusion will state whether anxiety and tighter exact information budgets change signed directional fact selection, then place secondary ownership, presentation, specificity and factual-safety findings around those two confirmatory results. Until those outputs exist, no result or model comparison is claimed.
+The empirical conclusion will state whether anxiety and tighter exact information budgets change signed directional fact selection, then place secondary commercial-interest, ownership, presentation, specificity and factual-safety findings around those two confirmatory results. Until the complete analysis is finalised, no result or model comparison is claimed.
 
 
 \appendix
@@ -497,7 +507,7 @@ The empirical conclusion will state whether anxiety and tighter exact informatio
 \chapter{Prompt and Scoring Materials}
 \label{app:prompt_scoring}
 
-The archived study materials contain the exact system and user templates, six customer-query variants per scenario, two fixed fact orders, experiment-specific response contracts, model-native generation controls and the direction-blind scoring contract. The exact information-budget schema requires \code{selected\_fact\_ids} before \code{answer\_text}; the single-fact task does not expose identifiers. Prompt audit records verify that paired prompts differ only in the intended treatment field.
+The archived study materials contain the exact system and user templates, six customer-query variants per scenario, two fixed fact orders, experiment-specific response contracts, model-native generation controls and the direction-blind scoring contract. The exact information-budget schema requires \code{selected\_fact\_ids} before \code{answer\_text}; the single-fact task does not expose identifiers. The commercial-interest treatment uses one institution-specific system sentence and a 160-word response limit. Prompt audit records verify that paired prompts differ only in the intended treatment field.
 
 \begin{todobox}
 Insert the frozen prompt hashes, provider snapshots and scoring-contract hash after preflight and judge development are complete.
@@ -506,9 +516,9 @@ Insert the frozen prompt hashes, provider snapshots and scoring-contract hash af
 \chapter{Additional Scenario and Analysis Materials}
 \label{app:additional_materials}
 
-The scenario archive is retained with its SHA-256 checksum. Machine-readable materials include the 30 corrected generation seeds, 30 one-shot generation requests, 180 controlled user-state query variants, accepted-scenario records, researcher review records, the six active run plans, the deferred balanced-prominence plan, response artifacts, the judge-development sample, raw and adjudicated scoring outputs, the manual-override ledger and stable paper assets.
+The scenario archive is retained with its SHA-256 checksum. Machine-readable materials include the 30 corrected generation seeds, 30 one-shot generation requests, 180 controlled user-state query variants, accepted-scenario records, researcher review records, the seven active run plans, the deferred balanced-prominence plan, response artifacts, the judge-development sample, raw and adjudicated scoring outputs, the manual-override ledger and stable paper assets.
 
-Corpus validation requires six use cases, five scenario instances per use case, 180 facts, 90 matched pairs, a 90/90 direction balance, a 90/90 customer-valence balance, a 15/15 owner-option balance, a 15/15 display-order balance, one atomic anchor per fact and eleven ownership-eligible scenarios. Analysis validation requires 3,822 unique active run units, a reproducible 191-response judge-development sample, complete adjudicated labels, reproducible bootstrap intervals and exactly two Holm-corrected confirmatory tests.
+Corpus validation requires six use cases, five scenario instances per use case, 180 facts, 90 matched pairs, a 90/90 direction balance, a 90/90 customer-valence balance, a 15/15 owner-option balance, a 15/15 display-order balance, one atomic anchor per fact and eleven ownership-eligible scenarios. Analysis validation requires 10,710 unique active run units, a reproducible 191-response judge-development sample, complete adjudicated labels, reproducible bootstrap intervals and exactly two Holm-corrected confirmatory tests.
 
 \begin{todobox}
 Insert the final corpus audit, run counts, adherence summaries and stable paper tables when the final artifacts are available.

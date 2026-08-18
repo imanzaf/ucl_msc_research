@@ -9,15 +9,22 @@ All notable changes to the active research implementation are recorded here. The
 - Added the fully isolated `srcv2` package and `risk-comm-v2` CLI without modifying or importing the historical implementation.
 - Added the checksum-preserved source archive and audited six-domain, thirty-scenario seed corpus with 180 atomic-anchor fact briefs, balanced
   customer valence and option order, and eleven ownership-eligible scenarios.
-- Added the 3,822-response active matrix and the implemented-but-deferred 210-response balanced-prominence mitigation.
+- Added the 10,710-response active matrix, including 6,888 matched commercial-interest instruction cells, and the implemented-but-deferred
+  210-response balanced-prominence mitigation.
+- Crossed the commercial-interest instruction with all three short-query affects, standard comparison, single-most-important fact, exact k={2,4},
+  and employer-ownership flip tasks under a fixed 160-word cap; added paired descriptive treatment-minus-control analysis.
 - Added independent prompt rendering, pinned-provider transport, model/provider preflight, transport-only retry behavior, malformed-output
   non-adherence, cost estimation, and explicit hash-bound paid-call approvals.
 - Added separate D/A/T, pair-state, specificity, presentation, error-exposure, ownership, judge-development, and confirmatory-analysis implementations.
-- Added a stratified 191-response judge-development pilot, three minimal GPT-5.4 Mini contracts, a frozen full-run workflow, and an auditable manual-override ledger.
-- Moved the active scoring workflow to `response_judging_v7`, supplied the accuracy judge with the visible option names, and added exact-plan merging
+- Added a stratified 191-response judge-development pilot, three minimal Gemini 3.1 Flash Lite contracts, a frozen full-run workflow, and an auditable manual-override ledger.
+- Completed all 55,104 commercial-interest judge calls, retained 54,917 directly valid outputs, and manually corrected the 187 structurally invalid
+  outputs without additional judge calls; added validated response-outcome joins and complete matched instruction contrasts for all 6,888 responses.
+- Added independent prose and exact-budget identifier outcomes, fixed-option ownership outcomes, and CLI commands for reproducibly generating
+  response scores, commercial-interest observations, and paired treatment-minus-control contrasts.
+- Moved the active scoring workflow to `response_judging_v8`, supplied the accuracy judge with the visible option names, and added exact-plan merging
   so unchanged content and presentation pilot records can be reused while only the affected accuracy calls are rerun. Residual judge errors and
   structurally invalid outputs are corrected after execution through the immutable override ledger rather than by further prompt expansion.
-- Tightened the three GPT-5.4 Mini judge prompts while retaining evidence text, set the scorer to medium reasoning, limited accuracy findings to
+- Tightened the three Gemini 3.1 Flash Lite judge prompts while retaining evidence text, set the scorer to medium reasoning, limited accuracy findings to
   concrete factual errors, and made empathy and referral labels require explicit qualifying language; superficial formatting differences resolve
   to original response positions, while paraphrased or unlocatable evidence remains queued for manual correction.
 - Increased judge completion allowances for medium reasoning and preserved provider-returned empty or truncated completions, usage, cost, and finish
@@ -34,7 +41,7 @@ All notable changes to the active research implementation are recorded here. The
   v2 model catalog, and added hash-bound researcher curation that preserves source requests, semantic responses, and provider caches while
   applying the approved arithmetic, completeness, anchor, grammar, and clarity corrections.
 - Published the 30-scenario curated corpus with one accepted, hash-bound researcher review per scenario and declared the seven-model evaluated
-  panel with GPT-5.4 Mini as the separate scoring model.
+  panel with Gemini 3.1 Flash Lite as the separate scoring model.
 - Published six natural, scenario-specific queries per scenario using neutral, anxious, and frustrated affect in short and long forms without
   paraphrases or an assumed option count; updated the user-state experiment to 1,260 responses and preserved all fact-generation provenance.
 

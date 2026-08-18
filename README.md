@@ -1,7 +1,8 @@
 # UCL MSc Research: Selective Financial-Risk Communication
 
 This repository contains the dissertation and reproducible implementation for a controlled study of how financial-assistant models select,
-realise, and present matched facts under user-state, information-budget, word-budget, ownership-role, and option-priority treatments.
+realise, and present matched facts under user-state, information-budget, word-budget, ownership-role, option-priority, and commercial-interest
+instruction treatments.
 
 The active study is implemented independently in `srcv2/` and run with `uv run risk-comm-v2 ...`. Its tests live in `tests_v2/`, public schemas in
 `schemas_v2/`, and scenario inputs in `data/inputs/scenarios/v4.0.1/`. The `srcv2` package does not import the historical `src` package. The existing
@@ -25,9 +26,12 @@ owner-supporting facts, three countervailing facts, and one atomic specificity a
 | `single_fact_priority_v1` | One naturally expressed most-important fact | 210 |
 | `ownership_role_control_v1` | 11 scenarios × 3 roles × 2 jointly counterbalanced renderings × 7 models | 462 |
 | `option_first_v1` | One response choosing and explaining one option | 210 |
-| **Total** | | **3,822** |
+| `commercial_interest_instruction_v1` | Control/protect instruction × 3 affects × standard, single-fact, k={2,4}, and ownership tasks | 6,888 |
+| **Total** | | **10,710** |
 
 `balanced_prominence_mitigation_v1` is implemented as a deferred 210-response matrix and is excluded from the active total.
+Every commercial-interest cell uses the scenario's short query and a 160-word response cap. The ownership subset uses the 11 eligible scenarios,
+two employer coordinates, and two jointly counterbalanced renderings.
 
 The principal direction-sensitive outcome is the signed directional gap (D). Pairwise imbalance (A), total material coverage (T), pair states,
 specificity, presentation, factual error, empathy/referral, density, and length are reported separately. The confirmatory family contains only two
@@ -40,14 +44,17 @@ Offline protocol construction is implemented. The supplied source archive is pre
 `data/inputs/scenarios/v4.0.1/`. GPT-5.4 generated one semantic response for each scenario through the pinned OpenAI endpoint, and the complete
 180-fact corpus received manual financial, arithmetic, completeness, and language review. Researcher-approved corrections are stored as a separate
 hash-bound curation layer; the source requests, responses, and provider caches remain unchanged. All scenarios are accepted and republished with six
-researcher-approved natural queries: neutral, anxious, and frustrated wording in short and long forms. All 3,822 evaluated-model responses are
-complete with per-response provider, token, and billed-cost records. The three GPT-5.4 Mini judge contracts and their 191-response development
-workflow are implemented. The active content contract separates underlying proposition presence from specificity-anchor retention. Exact-budget
+researcher-approved natural queries: neutral, anxious, and frustrated wording in short and long forms. The 3,822 responses from the first six
+experiments are complete with per-response provider, token, and billed-cost records, and their 30,576 judge calls have been adjudicated. The new
+6,888-response commercial-interest experiment and its 55,104 Gemini 3.1 Flash Lite judge calls are complete. The three judge contracts and their
+191-response development workflow were frozen before application to that experiment. The content contract separates underlying proposition presence from
+specificity-anchor retention. Exact-budget
 selection scoring retains strict format adherence separately while recovering otherwise valid exact-k JSON from one complete Markdown fence; its
-prose field is judged without the JSON wrapper. Of 1,050 selections, 954 are usable and 96 prose or invalid outputs remain unusable. Accuracy judging
-uses the visible assistant context, customer query, option names, and six facts, while hidden research metadata remains excluded. The content and
-presentation calls were retained unchanged while all 191 accuracy calls were rerun with the visible option names. The complete pilot has been
-reviewed, corrected through the immutable override ledger, and frozen. Statistical results remain pending the cost-approved full scoring run.
+prose field is judged without the JSON wrapper. Across all 3,570 exact-budget responses, 3,569 selections are usable and one wrong-k response remains
+unusable. Accuracy judging
+uses the visible assistant context, customer query, option names, and six facts, while hidden research metadata remains excluded. Raw judge outputs
+remain immutable; 187 structurally invalid commercial-interest judge outputs were reviewed and corrected in the separate override ledger. The
+adjudicated labels have been joined into 6,888 response-outcome records and matched treatment-minus-control observations.
 
 Evaluated prompts take their natural domain role, fictional employer, task, and single authority limit from the final seed. They expose named
 options, six product-information statements, and the customer message while keeping decision context and analytical coordinates hidden.

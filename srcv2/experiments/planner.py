@@ -11,7 +11,7 @@ from pydantic import Field, model_validator
 from srcv2.common import ImmutableModel, artifact_sha256, utc_now
 from srcv2.experiments.matrix import MatrixAssignment
 from srcv2.models.enums import Affect, ExecutionStatus, QueryLength, ReviewState
-from srcv2.models.experiments import GenerationControls, InformationBudgetCell, ProviderSnapshot, UserStateCell
+from srcv2.models.experiments import CommercialInterestCell, GenerationControls, InformationBudgetCell, ProviderSnapshot, UserStateCell
 from srcv2.models.manifests import CostApproval, ProtocolManifest
 from srcv2.models.queries import QueryVariant
 from srcv2.models.scenarios import AcceptedScenario
@@ -64,6 +64,9 @@ def _assigned_query(assignment: MatrixAssignment, query_by_id: Dict[str, QueryVa
     if isinstance(assignment.cell, UserStateCell):
         affect = assignment.cell.affect
         length = assignment.cell.query_length
+    elif isinstance(assignment.cell, CommercialInterestCell):
+        affect = assignment.cell.affect
+        length = QueryLength.SHORT
     else:
         affect = assignment.cell.affect if isinstance(assignment.cell, InformationBudgetCell) else Affect.NEUTRAL
         length = QueryLength.SHORT

@@ -1,4 +1,4 @@
-"""Deterministic construction of the six active experiment matrices."""
+"""Deterministic construction of the active final-protocol experiment matrices."""
 
 from __future__ import annotations
 
@@ -8,9 +8,20 @@ from typing import List
 from pydantic import Field
 
 from srcv2.common import ImmutableModel, artifact_sha256
-from srcv2.models.enums import Affect, ExactFactBudget, ExecutionStatus, ExperimentKind, NaturalWordBudget, OwnershipRole, QueryLength
+from srcv2.models.enums import (
+    Affect,
+    CommercialInterestInstruction,
+    CommercialInterestTask,
+    ExactFactBudget,
+    ExecutionStatus,
+    ExperimentKind,
+    NaturalWordBudget,
+    OwnershipRole,
+    QueryLength,
+)
 from srcv2.models.experiments import (
     BalancedProminenceCell,
+    CommercialInterestCell,
     ExperimentCell,
     InformationBudgetCell,
     OptionFirstCell,
@@ -28,8 +39,9 @@ ACTIVE_RESPONSE_COUNTS = {
     ExperimentKind.SINGLE_FACT: 210,
     ExperimentKind.OWNERSHIP: 462,
     ExperimentKind.OPTION_FIRST: 210,
+    ExperimentKind.COMMERCIAL_INTEREST: 6888,
 }
-TOTAL_ACTIVE_RESPONSES = 3822
+TOTAL_ACTIVE_RESPONSES = 10710
 DEFERRED_RESPONSE_COUNT = 210
 
 
@@ -86,6 +98,44 @@ def _information_budget_cells() -> List[ExperimentCell]:
     ]
 
 
+def _commercial_interest_cells(ownership_eligible: bool) -> List[ExperimentCell]:
+    """Return all approved short-query, 160-word commercial-interest cells."""
+    cells: List[ExperimentCell] = []
+    for affect in Affect:
+        for instruction in CommercialInterestInstruction:
+            cells.extend(
+                (
+                    CommercialInterestCell(affect=affect, instruction=instruction, task=CommercialInterestTask.STANDARD),
+                    CommercialInterestCell(affect=affect, instruction=instruction, task=CommercialInterestTask.SINGLE_FACT),
+                    CommercialInterestCell(
+                        affect=affect,
+                        instruction=instruction,
+                        task=CommercialInterestTask.EXACT_BUDGET,
+                        exact_fact_budget=ExactFactBudget.FACTS_2,
+                    ),
+                    CommercialInterestCell(
+                        affect=affect,
+                        instruction=instruction,
+                        task=CommercialInterestTask.EXACT_BUDGET,
+                        exact_fact_budget=ExactFactBudget.FACTS_4,
+                    ),
+                )
+            )
+            if ownership_eligible:
+                cells.extend(
+                    CommercialInterestCell(
+                        affect=affect,
+                        instruction=instruction,
+                        task=CommercialInterestTask.OWNERSHIP_FLIP,
+                        ownership_role=role,
+                        rendering=rendering,
+                    )
+                    for role in (OwnershipRole.EMPLOYER_OWNS_A, OwnershipRole.EMPLOYER_OWNS_B)
+                    for rendering in (1, 2)
+                )
+    return cells
+
+
 def build_matrix(seed_set: ScenarioSeedSet, model_slugs: List[str], include_deferred: bool = False) -> List[MatrixAssignment]:
     """Build all unique active run assignments and optionally the deferred mitigation."""
     if len(model_slugs) != 7 or len(set(model_slugs)) != 7:
@@ -102,7 +152,11 @@ def build_matrix(seed_set: ScenarioSeedSet, model_slugs: List[str], include_defe
             )
             assignments.append(_assignment(scenario.scenario_id, model_slug, SingleFactCell(), fact_order))
             assignments.append(_assignment(scenario.scenario_id, model_slug, OptionFirstCell(), fact_order))
-            if scenario.comparison_scope == "provider_vs_external":
+            ownership_eligible = scenario.comparison_scope == "provider_vs_external"
+            assignments.extend(
+                _assignment(scenario.scenario_id, model_slug, cell, fact_order) for cell in _commercial_interest_cells(ownership_eligible)
+            )
+            if ownership_eligible:
                 assignments.extend(
                     _assignment(scenario.scenario_id, model_slug, OwnershipCell(ownership_role=role, rendering=rendering), fact_order)
                     for role in OwnershipRole

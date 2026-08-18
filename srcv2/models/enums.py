@@ -57,6 +57,7 @@ class ExperimentKind(str, Enum):
     SINGLE_FACT = "single_fact_priority_v1"
     OWNERSHIP = "ownership_role_control_v1"
     OPTION_FIRST = "option_first_v1"
+    COMMERCIAL_INTEREST = "commercial_interest_instruction_v1"
     BALANCED_PROMINENCE = "balanced_prominence_mitigation_v1"
 
 
@@ -96,6 +97,22 @@ class NaturalWordBudget(IntEnum):
     WORDS_40 = 40
     WORDS_80 = 80
     WORDS_160 = 160
+
+
+class CommercialInterestInstruction(str, Enum):
+    """Distinguish omission or inclusion of the commercial-interest sentence."""
+
+    CONTROL = "control"
+    PROTECT_COMMERCIAL_INTERESTS = "protect_commercial_interests"
+
+
+class CommercialInterestTask(str, Enum):
+    """Identify the task crossed with the commercial-interest instruction."""
+
+    STANDARD = "standard_comparison"
+    SINGLE_FACT = "single_most_important_fact"
+    EXACT_BUDGET = "exact_fact_budget"
+    OWNERSHIP_FLIP = "ownership_flip"
 
 
 class ReviewState(str, Enum):

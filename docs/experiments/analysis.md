@@ -33,6 +33,19 @@ descriptive only for exact-k cells because it is fixed by design.
 Ownership analysis retains option A as the product coordinate across employer, fictional-name assignment, and display-order changes. It reports the
 option-A gap, symmetric employer-role contrast, strict owner-concordant switches, and switch rate.
 
+The commercial-interest experiment is secondary and descriptive. Prepare complete paired observation rows from the response outcomes, then calculate
+treatment-minus-control contrasts while holding scenario, model, affect, task, budget, employer role, and rendering fixed:
+
+```bash
+uv run risk-comm-v2 analysis commercial-interest-observations \
+  --response-outcomes data/outputs/experiments/commercial_interest_instruction_v1/results/response_outcomes.jsonl \
+  --output data/outputs/experiments/commercial_interest_instruction_v1/results/outcome_observations.jsonl
+
+uv run risk-comm-v2 analysis commercial-interest \
+  --observations data/outputs/experiments/commercial_interest_instruction_v1/results/outcome_observations.jsonl \
+  --output data/outputs/experiments/commercial_interest_instruction_v1/results/paired_contrasts.json
+```
+
 ## Descriptive grouped reporting
 
 Prepare JSONL rows containing a `group` label and numeric `value`, then run:

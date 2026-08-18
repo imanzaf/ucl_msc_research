@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from srcv2.scoring.pilot import PILOT_RESPONSE_COUNT, SamplingRecord, build_pilot_sample, stratified_sample
+from srcv2.scoring.pilot import PILOT_FRACTION, SamplingRecord, build_pilot_sample, stratified_sample
 
 
 def _sampling_records() -> list[SamplingRecord]:
@@ -22,17 +22,19 @@ def _sampling_records() -> list[SamplingRecord]:
 
 
 def test_five_percent_pilot_is_reproducible() -> None:
-    """Draw 191 unique responses from the full frozen corpus."""
-    first = stratified_sample(_sampling_records(), random_seed=9)
-    second = stratified_sample(_sampling_records(), random_seed=9)
+    """Draw five percent of one experiment's responses reproducibly."""
+    sample_size = 63
+    first = stratified_sample(_sampling_records(), sample_size, random_seed=9)
+    second = stratified_sample(_sampling_records(), sample_size, random_seed=9)
     assert first == second
-    assert len(first) == PILOT_RESPONSE_COUNT == 191
-    assert len(set(first)) == 191
+    assert len(first) == sample_size
+    assert len(set(first)) == sample_size
 
 
 def test_pilot_sample_binds_identifiers_and_seed() -> None:
     """Hash the exact selected response identifiers and sampling seed."""
     sample = build_pilot_sample(_sampling_records(), random_seed=410191)
-    assert sample.source_response_count == 3822
-    assert len(sample.response_ids) == 191
+    assert sample.source_response_count == 1260
+    assert len(sample.response_ids) == 63
+    assert len(sample.response_ids) == sample.source_response_count * PILOT_FRACTION
     assert len(sample.sample_sha256) == 64
