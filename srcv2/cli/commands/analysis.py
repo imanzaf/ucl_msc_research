@@ -14,7 +14,9 @@ from srcv2.analysis.commercial_interest import (
 )
 from srcv2.analysis.confirmatory import BudgetScore, UserStateScore, run_confirmatory_tests
 from srcv2.analysis.descriptive import GroupObservation, summarize_groups
+from srcv2.models.enums import ExperimentKind
 from srcv2.models.scoring import ResponseOutcomesRecord
+from srcv2.paths import scoring_paths
 from srcv2.storage import read_jsonl, write_json, write_jsonl
 
 
@@ -49,8 +51,9 @@ def _describe(arguments: List[str]) -> None:
 def _commercial_interest(arguments: List[str]) -> None:
     """Write matched treatment-minus-control contrasts for every supplied outcome."""
     parser = argparse.ArgumentParser(prog="risk-comm-v2 analysis commercial-interest")
-    parser.add_argument("--observations", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    paths = scoring_paths(ExperimentKind.COMMERCIAL_INTEREST.value)
+    parser.add_argument("--observations", type=Path, default=paths["outcome_observations"])
+    parser.add_argument("--output", type=Path, default=paths["paired_contrasts"])
     args = parser.parse_args(arguments)
     observations = [CommercialInterestObservation.model_validate(record) for record in read_jsonl(args.observations)]
     contrasts = paired_instruction_contrasts(observations)
@@ -71,8 +74,9 @@ def _commercial_interest(arguments: List[str]) -> None:
 def _commercial_interest_observations(arguments: List[str]) -> None:
     """Flatten response scores into complete matched commercial-interest observations."""
     parser = argparse.ArgumentParser(prog="risk-comm-v2 analysis commercial-interest-observations")
-    parser.add_argument("--response-outcomes", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    paths = scoring_paths(ExperimentKind.COMMERCIAL_INTEREST.value)
+    parser.add_argument("--response-outcomes", type=Path, default=paths["response_scores"])
+    parser.add_argument("--output", type=Path, default=paths["outcome_observations"])
     args = parser.parse_args(arguments)
     scores = [ResponseOutcomesRecord.model_validate(record) for record in read_jsonl(args.response_outcomes)]
     observations = commercial_interest_observations(scores)

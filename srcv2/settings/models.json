@@ -11,8 +11,8 @@
     "provider_endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "routing_policy": "one_provider_only_no_fallback",
     "preflight_passed": true,
-    "run_config_path": "data/outputs/experiments/scenario_fact_generation_v1/config.json",
-    "run_results_path": "data/outputs/experiments/scenario_fact_generation_v1/results/20260815T223528Z_results.jsonl"
+    "run_config_path": "data/outputs/scenario_generation/v4.0.1/scenario_fact_generation_v1/config.json",
+    "run_results_path": "data/outputs/scenario_generation/v4.0.1/scenario_fact_generation_v1/results/20260815T223528Z_results.jsonl"
   },
   "evaluated_models": [
     {

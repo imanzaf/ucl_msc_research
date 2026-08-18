@@ -131,5 +131,6 @@ adherence and partial-model selection outcomes are reported separately. Use-case
 ## Reproducibility boundary
 
 The active implementation is owned by `srcv2`, `tests_v2`, `schemas_v2`, and `risk-comm-v2`. Artifacts use accepted-scenario schema `10.0.0` and
-protocol/manifest schema `4.0.0`. Each experiment owns `config.json`, `results/`, `cache/`, `logs/`, `assets/`, and `checkpoints/` beneath
-`data/outputs/experiments/<experiment-name>/`.
+protocol/manifest schema `4.0.0`. Each experiment owns `config.json`, `results/`, `scoring/`, `cache/`, `logs/`, `assets/`, and `checkpoints/` beneath
+`data/outputs/experiments/<experiment-name>/`. Evaluated-model outputs remain in `results/`; raw judge outputs, manual corrections, final judgments,
+final response scores, and scoring-derived analysis artifacts remain together in `scoring/`.

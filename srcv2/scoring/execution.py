@@ -7,7 +7,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from datetime import datetime
 from decimal import ROUND_CEILING, Decimal
 from pathlib import Path
-from typing import Callable, Dict, List, Literal, Optional, Sequence
+from typing import Callable, Dict, List, Literal, Mapping, Optional, Sequence
 
 from pydantic import ValidationError
 
@@ -357,9 +357,12 @@ def validate_full_plan(tasks: Sequence[JudgeTask], contract: FrozenJudgeContract
 
 
 def adjudicate_judgments(
-    tasks: Sequence[JudgeTask], records: Sequence[JudgeCallRecord], overrides: Sequence[JudgeOverride]
+    tasks: Sequence[JudgeTask],
+    records: Sequence[JudgeCallRecord],
+    overrides: Sequence[JudgeOverride],
+    response_text_by_run: Optional[Mapping[str, str]] = None,
 ) -> List[AdjudicatedJudgment]:
-    """Apply reviewed replacements while leaving raw judge records immutable."""
+    """Apply reviewed replacements against canonical response prose while preserving raw records."""
     task_by_id = {task.judge_call_id: task for task in tasks}
     record_by_id = {record.judge_call_id: record for record in records}
     override_by_id = {override.judge_call_id: override for override in overrides}
@@ -383,7 +386,8 @@ def adjudicate_judgments(
             output = record.output
             source = "judge"
             override_id = None
-        parsed = parse_judge_output(task.contract, json.dumps(output.model_dump(mode="json")), _response_text(task))
+        response_text = response_text_by_run[task.run_unit_id] if response_text_by_run is not None else _response_text(task)
+        parsed = parse_judge_output(task.contract, json.dumps(output.model_dump(mode="json")), response_text)
         judgments.append(
             AdjudicatedJudgment(
                 judge_call_id=record.judge_call_id,

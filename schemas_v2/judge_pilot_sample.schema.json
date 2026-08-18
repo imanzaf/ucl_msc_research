@@ -1,6 +1,6 @@
 {
   "additionalProperties": false,
-  "description": "Freeze the stratified 191-response sample used to develop judge prompts.",
+  "description": "Freeze one experiment's stratified five-percent judge-development sample.",
   "properties": {
     "random_seed": {
       "title": "Random Seed",
@@ -10,8 +10,7 @@
       "items": {
         "type": "string"
       },
-      "maxItems": 191,
-      "minItems": 191,
+      "minItems": 1,
       "title": "Response Ids",
       "type": "array"
     },
@@ -27,13 +26,13 @@
       "type": "string"
     },
     "source_response_count": {
-      "const": 3822,
-      "default": 3822,
+      "minimum": 1,
       "title": "Source Response Count",
       "type": "integer"
     }
   },
   "required": [
+    "source_response_count",
     "response_ids",
     "random_seed",
     "sample_sha256"

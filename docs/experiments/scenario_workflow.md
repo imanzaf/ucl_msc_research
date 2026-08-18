@@ -53,7 +53,7 @@ The runner in `srcv2/scenarios/execution.py` uses strict JSON-schema output, rea
 per-request ceiling. Each record in `data/inputs/scenarios/v4.0.1/generation_requests.jsonl` may produce one semantic generation only. A malformed
 semantic response is retained for review and is not replaced. Provider retries are allowed only when no semantic response was received. Config,
 approval, preflight, raw records, caches, and logs are stored under
-`data/outputs/experiments/scenario_fact_generation_v1/`; valid visible outputs are written to
+`data/outputs/scenario_generation/v4.0.1/scenario_fact_generation_v1/`; valid visible outputs are written to
 `data/inputs/scenarios/v4.0.1/generated_outputs.jsonl`.
 
 The returned facts must validate against accepted-scenario schema `10.0.0` in `schemas_v2/accepted_scenario.schema.json`. Arithmetic is checked in

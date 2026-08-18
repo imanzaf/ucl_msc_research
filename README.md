@@ -7,6 +7,8 @@ instruction treatments.
 The active study is implemented independently in `srcv2/` and run with `uv run risk-comm-v2 ...`. Its tests live in `tests_v2/`, public schemas in
 `schemas_v2/`, and scenario inputs in `data/inputs/scenarios/v4.0.1/`. The `srcv2` package does not import the historical `src` package. The existing
 `uv run risk-comm ...` command remains available for reproducibility but is not used to operate the active study.
+Scenario-generation provenance is stored separately from evaluated experiments under
+`data/outputs/scenario_generation/v4.0.1/scenario_fact_generation_v1/`.
 
 The canonical design is [RESEARCH_PLAN.md](docs/research-plan/RESEARCH_PLAN.md). Durable inclusion, modification, rejection, and deferral reasons are
 recorded separately in [V4_REDESIGN_DECISIONS.md](docs/research-plan/V4_REDESIGN_DECISIONS.md).
@@ -45,16 +47,18 @@ Offline protocol construction is implemented. The supplied source archive is pre
 180-fact corpus received manual financial, arithmetic, completeness, and language review. Researcher-approved corrections are stored as a separate
 hash-bound curation layer; the source requests, responses, and provider caches remain unchanged. All scenarios are accepted and republished with six
 researcher-approved natural queries: neutral, anxious, and frustrated wording in short and long forms. The 3,822 responses from the first six
-experiments are complete with per-response provider, token, and billed-cost records, and their 30,576 judge calls have been adjudicated. The new
-6,888-response commercial-interest experiment and its 55,104 Gemini 3.1 Flash Lite judge calls are complete. The three judge contracts and their
-191-response development workflow were frozen before application to that experiment. The content contract separates underlying proposition presence from
-specificity-anchor retention. Exact-budget
+experiments are complete with per-response provider, token, and billed-cost records, and their 30,576 GPT-5.4 Mini judge calls have been adjudicated.
+The 6,888-response commercial-interest experiment and its 55,104 Gemini 3.1 Flash Lite judge calls are also complete. The three judge contracts and
+their shared 191-response development workflow were frozen before application to that experiment. The content contract separates underlying proposition
+presence from specificity-anchor retention. Exact-budget
 selection scoring retains strict format adherence separately while recovering otherwise valid exact-k JSON from one complete Markdown fence; its
 prose field is judged without the JSON wrapper. Across all 3,570 exact-budget responses, 3,569 selections are usable and one wrong-k response remains
 unusable. Accuracy judging
 uses the visible assistant context, customer query, option names, and six facts, while hidden research metadata remains excluded. Raw judge outputs
-remain immutable; 187 structurally invalid commercial-interest judge outputs were reviewed and corrected in the separate override ledger. The
-adjudicated labels have been joined into 6,888 response-outcome records and matched treatment-minus-control observations.
+remain immutable; confirmed corrections are stored in separate override ledgers. Final adjudicated labels have been joined into one response-score
+record for each of the 10,710 evaluated responses. Each experiment now owns its judge-development artifacts, raw judge calls, correction ledger,
+final judgments, and calculated scores under `scoring/`. A complete copy of the pre-restructure experiment tree is preserved under
+`data/outputs/archive/experiments/`.
 
 Evaluated prompts take their natural domain role, fictional employer, task, and single authority limit from the final seed. They expose named
 options, six product-information statements, and the customer message while keeping decision context and analytical coordinates hidden.
@@ -69,8 +73,8 @@ uv run risk-comm-v2 scenarios build-queries
 uv run risk-comm-v2 experiment build-plan --include-deferred
 uv run risk-comm-v2 maintenance export-schemas
 uv run risk-comm-v2 experiment generate-assets
-uv run risk-comm-v2 scoring show-prompts
-uv run risk-comm-v2 scoring sample-pilot
+uv run risk-comm-v2 scoring show-prompts --experiment commercial_interest_instruction_v1
+uv run risk-comm-v2 scoring calculate-outcomes --experiment commercial_interest_instruction_v1
 uv run risk-comm-v2 maintenance validate-isolation
 uv run pytest
 uv run pre-commit run --all-files
@@ -87,8 +91,9 @@ These commands do not authorise paid calls. Paid preflight and execution require
 - [Analysis](docs/experiments/analysis.md)
 - [Scenario-family research](docs/experiments/scenario_research.md)
 
-Experiment artifacts are written beneath `data/outputs/experiments/<experiment-name>/`, with `config.json`, `results/`, `cache/`, `logs/`, `assets/`,
-and `checkpoints/` owned by each experiment.
+Experiment artifacts are written beneath `data/outputs/experiments/<experiment-name>/`. Evaluated-model outputs remain in `results/`; every scoring
+artifact, from raw judge calls through manual corrections and final response scores, is kept in that experiment's `scoring/` directory. The experiment
+also owns `config.json`, `cache/`, `logs/`, `assets/`, and `checkpoints/`.
 
 ## Protected launcher compatibility
 

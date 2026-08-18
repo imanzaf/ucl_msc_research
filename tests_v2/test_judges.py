@@ -225,6 +225,46 @@ def test_manual_override_preserves_raw_record(accepted_scenario: AcceptedScenari
     assert record.output == original
 
 
+def test_manual_override_can_target_canonical_parsed_answer(accepted_scenario: AcceptedScenario) -> None:
+    """Validate corrected evidence against parsed answer prose without rewriting the raw judge plan."""
+    task = build_judge_tasks(_run(accepted_scenario, "Wrapper only."), accepted_scenario, _query(accepted_scenario), JudgeStage.FULL)[0]
+    timestamp = datetime.now(UTC)
+    original = ContentJudgeOutput(fact_present=False, anchor_present=False, supporting_excerpt=None)
+    record = JudgeCallRecord(
+        judge_call_id=task.judge_call_id,
+        run_unit_id=task.run_unit_id,
+        stage=task.stage,
+        contract=task.contract,
+        fact_id=task.fact_id,
+        prompt_sha256=task.prompt_sha256,
+        contract_sha256=task.contract_sha256,
+        judge_model_slug="google/gemini-3.1-flash-lite",
+        provider_request_id="request_canonical",
+        returned_model_version="google/gemini-3.1-flash-lite",
+        raw_response=original.model_dump_json(),
+        output=original,
+        structurally_valid=True,
+        validation_error=None,
+        input_tokens=10,
+        output_tokens=5,
+        received_at=timestamp,
+        attempts=1,
+    )
+    replacement = ContentJudgeOutput(fact_present=True, anchor_present=False, supporting_excerpt="Canonical answer.")
+    override = JudgeOverride(
+        override_id="override_canonical_123456789",
+        judge_call_id=task.judge_call_id,
+        contract=task.contract,
+        original_output_sha256=artifact_sha256(original),
+        replacement_output=replacement,
+        reason="The parsed answer is the scoring target.",
+        researcher_id="researcher",
+        corrected_at=timestamp,
+    )
+    adjudicated = adjudicate_judgments([task], [record], [override], response_text_by_run={task.run_unit_id: "Canonical answer."})
+    assert adjudicated[0].output == replacement
+
+
 def test_merge_judge_records_reuses_only_exact_plan_matches(accepted_scenario: AcceptedScenario) -> None:
     """Order reusable raw records by the target plan and ignore superseded calls."""
     tasks = build_judge_tasks(_run(accepted_scenario, "A response."), accepted_scenario, _query(accepted_scenario), JudgeStage.PILOT)

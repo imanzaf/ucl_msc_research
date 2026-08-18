@@ -1,165 +1,184 @@
 # Scoring and Validation
 
-One model, `google/gemini-3.1-flash-lite`, runs three independent judge contracts using medium reasoning effort. The contracts are developed and frozen on
-the stratified 191-response sample and are applied without retuning to all 10,710 evaluated responses:
+Scoring is owned by the experiment that produced the evaluated responses. Every experiment stores its evaluated-model outputs in `results/` and every
+artifact produced by its scoring workflow in `scoring/`:
+
+```text
+data/outputs/experiments/<experiment_name>/
+  results/
+    <timestamp>_results.jsonl
+  scoring/
+    judge_prompts.json
+    pilot_sample.json
+    pilot_plan.jsonl
+    pilot_raw_judge_results.jsonl
+    pilot_manual_overrides.jsonl
+    pilot_final_judgments.jsonl
+    frozen_judge_contract.json
+    judge_plan.jsonl
+    cost_estimate.json
+    approval.json
+    raw_judge_results.jsonl
+    manual_overrides.jsonl
+    final_judgments.jsonl
+    selections.jsonl
+    response_scores.jsonl
+    outcome_observations.jsonl
+    paired_contrasts.json
+    manifest.json
+    summary.json
+    cache/
+    logs/
+    checkpoints/
+```
+
+`raw_judge_results.jsonl` remains immutable. Confirmed corrections are recorded in `manual_overrides.jsonl`; applying that ledger writes
+`final_judgments.jsonl`. `response_scores.jsonl` is the canonical analysis input. The manifest hashes the source responses, judge plan, raw calls,
+final judgments, and final scores and verifies eight final judgments and one score record per evaluated response.
+
+The same 191-response sample underlies the completed contract-development workflows. Each experiment contains the complete development bundle for the
+judge contract it uses—sample, plan, raw outputs, correction ledger, and final judgments—so its frozen contract can be verified without depending on
+a central scoring experiment. These replicated files are provenance artifacts; future experiment-specific pilots use the same filenames in the new
+experiment's own directory.
+
+The first six experiments were scored with `openai/gpt-5.4-mini`; `commercial_interest_instruction_v1` was scored with
+`google/gemini-3.1-flash-lite`. Each experiment's manifest records the judge model and frozen contract. Both models run the same three independent
+contracts with medium reasoning effort:
 
 - content: one response, one candidate fact, and its anchor;
 - presentation: one response and the two visible option names;
-- accuracy: one response, the visible assistant context and customer query, the two visible option names, and the six visible reference facts.
+- accuracy: one response, its visible prompt context, its visible option names, and the six visible facts.
 
-The content contract runs once for each of six facts, so each evaluated response requires eight calls: six content, one presentation, and one accuracy.
-No call receives fact direction, pair, valence, ownership, treatment, evaluated-model, or provider labels. Exact evidence positions, counts, response length,
-factual emphasis, and pair order are derived in code. Returned evidence is kept verbatim in the raw record. Code maps only superficial formatting,
-quotation, punctuation, and case differences back to the original response; genuinely paraphrased or unlocatable evidence is queued for manual correction.
-Fact presence concerns the underlying proposition; anchor presence separately records whether its specific number, rate, duration, threshold, or definite
-condition survives. A product or topic mention alone is not fact presence. Recommendation requires an explicit choice; conditional advice covering
-both options, favourable emphasis, and one-option discussion remain separate from recommendation.
+The content contract runs once for each fact, producing eight calls per response: six content, one presentation, and one accuracy. The judges never
+receive hidden direction, pair, valence, ownership, treatment, evaluated-model, or provider labels. Exact evidence positions, fact counts, response
+length, factual emphasis, and pair order are derived in code. Genuinely unlocatable evidence is corrected through the manual ledger rather than by
+silently changing raw judge outputs.
 
-Before judge execution, `recover-selections` derives the 3,570 exact-budget selection outcomes. Strict JSON remains format-adherent. One complete Markdown
-fence containing otherwise valid JSON supplies usable selection IDs but remains format-nonadherent. Prose, ambiguous wrappers, wrong-k selections,
-duplicate IDs, and unknown IDs remain unusable, and no evaluated response is regenerated. The decoded `answer_text` from strict or wholly fenced
-JSON is used for prose judging without changing the original adherence result:
+## Experiment-scoped commands
 
-```bash
-uv run risk-comm-v2 scoring recover-selections \
-  --output data/outputs/experiments/response_judging_v8/results/exact_budget_selections.jsonl \
-  --summary data/outputs/experiments/response_judging_v8/logs/exact_budget_selection_summary.json
-```
-
-## Review the contracts
-
-Write the exact prompts, strict output schemas, hashes, and output-token ceilings without making a paid call:
+Every scoring command requires `--experiment`. Its default inputs and outputs resolve beneath that experiment's `scoring/` directory. For example:
 
 ```bash
 uv run risk-comm-v2 scoring show-prompts \
-  --output data/outputs/experiments/response_judging_v8/judge_prompts.json
+  --experiment commercial_interest_instruction_v1
+
+uv run risk-comm-v2 scoring build-plan \
+  --experiment commercial_interest_instruction_v1 \
+  --stage full
 ```
 
-The source contracts are in `srcv2/scoring/judges.py`. The three response models are `ContentJudgeOutput`, `PresentationJudgeOutput`, and
+The source contracts are in `srcv2/scoring/judges.py`. Their response models are `ContentJudgeOutput`, `PresentationJudgeOutput`, and
 `AccuracyJudgeOutput` in `srcv2/models/scoring.py`.
 
-## Build and run the 5% pilot
+## Exact-budget selections
 
-Draw the stratified 191-response sample and build its 1,528 calls:
+Run selection recovery only for an experiment containing exact-budget responses:
 
 ```bash
-uv run risk-comm-v2 scoring sample-pilot
+uv run risk-comm-v2 scoring recover-selections \
+  --experiment information_budget_v1
 
-uv run risk-comm-v2 scoring build-plan \
-  --stage pilot \
-  --output data/outputs/experiments/response_judging_v8/checkpoints/pilot_plan.jsonl
+uv run risk-comm-v2 scoring recover-selections \
+  --experiment commercial_interest_instruction_v1
 ```
 
-Obtain current Gemini 3.1 Flash Lite prices, estimate the exact plan, and record bounded approval before execution:
+Strict JSON remains format-adherent. One complete Markdown fence containing otherwise valid JSON supplies usable selection identifiers but remains
+format-nonadherent. Ambiguous wrappers, wrong-k selections, duplicate identifiers, and unknown identifiers remain unusable. The decoded
+`answer_text` is the prose-scoring target without changing the response's original adherence result.
+
+## Pilot and contract freeze
+
+The final judge prompts were reviewed on the frozen five-percent development sample. If a new experiment requires a new pilot, keep that pilot in the
+same experiment's scoring directory:
 
 ```bash
+uv run risk-comm-v2 scoring sample-pilot \
+  --experiment <EXPERIMENT_NAME>
+
+uv run risk-comm-v2 scoring build-plan \
+  --experiment <EXPERIMENT_NAME> \
+  --stage pilot
+
 uv run risk-comm-v2 scoring estimate-cost \
-  --plan data/outputs/experiments/response_judging_v8/checkpoints/pilot_plan.jsonl \
+  --experiment <EXPERIMENT_NAME> \
+  --stage pilot \
   --input-price-per-million <CURRENT_INPUT_PRICE_USD> \
-  --output-price-per-million <CURRENT_OUTPUT_PRICE_USD> \
-  --output data/outputs/experiments/response_judging_v8/checkpoints/pilot_cost_estimate.json
+  --output-price-per-million <CURRENT_OUTPUT_PRICE_USD>
 
 uv run risk-comm-v2 scoring approve-execution \
-  --estimate data/outputs/experiments/response_judging_v8/checkpoints/pilot_cost_estimate.json \
+  --experiment <EXPERIMENT_NAME> \
+  --stage pilot \
   --approved-max-cost <APPROVED_USD_CEILING> \
   --approved-by <RESEARCHER_ID> \
-  --note "Approved 191-response judge-development pilot" \
-  --confirm-paid-execution \
-  --output data/outputs/experiments/response_judging_v8/checkpoints/pilot_approval.json
+  --note "Approved scoring pilot" \
+  --confirm-paid-execution
 
 uv run risk-comm-v2 scoring execute-pilot \
-  --plan data/outputs/experiments/response_judging_v8/checkpoints/pilot_plan.jsonl \
-  --estimate data/outputs/experiments/response_judging_v8/checkpoints/pilot_cost_estimate.json \
-  --approval data/outputs/experiments/response_judging_v8/checkpoints/pilot_approval.json \
-  --cache-dir data/outputs/experiments/response_judging_v8/cache/pilot \
-  --output data/outputs/experiments/response_judging_v8/results/pilot_results.jsonl \
-  --summary data/outputs/experiments/response_judging_v8/logs/pilot_summary.json
+  --experiment <EXPERIMENT_NAME>
 ```
 
-Inspect every pilot output. If an approved change affects only one contract's input, build that contract's plan with `--contract`, rerun every affected
-call, and use `merge-results` to combine those replacement records with hash-identical records from the other contracts. Never merge a record whose
-task hash does not occur in the target plan. Residual label errors and structurally invalid outputs are corrected after execution through the manual
-override ledger rather than by expanding the prompts.
-
-## Freeze and run evaluated responses
-
-After explicit review and manual adjudication of every pilot call, freeze a contract that binds both the immutable raw results and the complete
-adjudicated label set:
+After reviewing every pilot call, apply any pilot correction ledger and freeze the contract:
 
 ```bash
+uv run risk-comm-v2 scoring apply-overrides \
+  --experiment <EXPERIMENT_NAME> \
+  --plan data/outputs/experiments/<EXPERIMENT_NAME>/scoring/pilot_plan.jsonl \
+  --raw-results data/outputs/experiments/<EXPERIMENT_NAME>/scoring/pilot_raw_judge_results.jsonl \
+  --overrides data/outputs/experiments/<EXPERIMENT_NAME>/scoring/pilot_manual_overrides.jsonl \
+  --output data/outputs/experiments/<EXPERIMENT_NAME>/scoring/pilot_final_judgments.jsonl
+
 uv run risk-comm-v2 scoring freeze-contract \
-  --pilot-sample data/outputs/experiments/response_judging_v8/checkpoints/pilot_sample.json \
-  --pilot-plan data/outputs/experiments/response_judging_v8/checkpoints/pilot_plan.jsonl \
-  --pilot-results data/outputs/experiments/response_judging_v8/results/pilot_results.jsonl \
-  --pilot-adjudicated data/outputs/experiments/response_judging_v8/results/adjudicated_judgments.jsonl \
-  --confirm-pilot-reviewed \
-  --output data/outputs/experiments/response_judging_v8/checkpoints/frozen_judge_contract.json
-
-uv run risk-comm-v2 scoring build-plan \
-  --stage full \
-  --output data/outputs/experiments/response_judging_v8/checkpoints/full_plan.jsonl
+  --experiment <EXPERIMENT_NAME> \
+  --confirm-pilot-reviewed
 ```
 
-The completed six-experiment plan contains 30,576 calls. Build the 55,104-call commercial-interest plan separately so its paid execution can be
-estimated, approved, resumed, and reviewed without rerunning those calls:
+## Full scoring run
+
+Build, cost, approve, and execute each experiment independently:
 
 ```bash
 uv run risk-comm-v2 scoring build-plan \
-  --stage full \
-  --experiment commercial_interest_instruction_v1 \
-  --output data/outputs/experiments/commercial_interest_instruction_v1/checkpoints/judge_plan.jsonl
-```
+  --experiment <EXPERIMENT_NAME> \
+  --stage full
 
-Estimate and approve the exact requested plan using the same `estimate-cost` and `approve-execution` commands, then run it with the frozen contract:
+uv run risk-comm-v2 scoring estimate-cost \
+  --experiment <EXPERIMENT_NAME> \
+  --input-price-per-million <CURRENT_INPUT_PRICE_USD> \
+  --output-price-per-million <CURRENT_OUTPUT_PRICE_USD>
 
-```bash
+uv run risk-comm-v2 scoring approve-execution \
+  --experiment <EXPERIMENT_NAME> \
+  --approved-max-cost <APPROVED_USD_CEILING> \
+  --approved-by <RESEARCHER_ID> \
+  --note "Approved full scoring run" \
+  --confirm-paid-execution
+
 uv run risk-comm-v2 scoring execute-full \
-  --plan data/outputs/experiments/commercial_interest_instruction_v1/checkpoints/judge_plan.jsonl \
-  --frozen-contract data/outputs/experiments/response_judging_v8/checkpoints/frozen_judge_contract.json \
-  --estimate data/outputs/experiments/commercial_interest_instruction_v1/checkpoints/judge_cost_estimate.json \
-  --approval data/outputs/experiments/commercial_interest_instruction_v1/checkpoints/judge_approval.json \
-  --cache-dir data/outputs/experiments/commercial_interest_instruction_v1/cache/judges_gemini \
-  --output data/outputs/experiments/commercial_interest_instruction_v1/results/judge_raw_results.jsonl \
-  --summary data/outputs/experiments/commercial_interest_instruction_v1/logs/judge_summary.json
+  --experiment <EXPERIMENT_NAME>
 ```
 
-A complete all-experiment plan contains 85,680 calls. Existing and commercial-interest raw records can be assembled against that plan with
-`merge-results`; matching hashes permit reuse, and duplicate or missing call coordinates fail closed.
+Execution resumes from `data/outputs/experiments/<EXPERIMENT_NAME>/scoring/cache/full/`. Token use, billed cost, structural validity, and completion
+counts are written to that experiment's `scoring/summary.json`.
 
-## Manual corrections and outcomes
+## Corrections and final scores
 
-Raw records are immutable. Put confirmed corrections in a JSONL ledger using `JudgeOverride`; each row binds the original output hash and supplies one
-typed replacement output with researcher, time, and reason. Empty-ledger files are valid when no correction is needed.
+Raw results are never edited. Record confirmed replacements as `JudgeOverride` rows in the experiment's `manual_overrides.jsonl`, then run:
 
 ```bash
 uv run risk-comm-v2 scoring apply-overrides \
-  --plan data/outputs/experiments/response_judging_v8/checkpoints/full_plan.jsonl \
-  --raw-results data/outputs/experiments/response_judging_v8/results/full_raw_results.jsonl \
-  --overrides data/outputs/experiments/response_judging_v8/results/manual_overrides.jsonl \
-  --output data/outputs/experiments/response_judging_v8/results/adjudicated_judgments.jsonl
-```
-
-`srcv2/scoring/outcomes.py` then reports signed directional gap D, pairwise absolute imbalance A, total material coverage T, pair states, specificity,
-presentation, factual-error exposure, and secondary outcomes separately. Exact-k selection-ID D is calculated from the selected IDs rather than from
-prose, and T is not analysed as an exact-k outcome because k fixes it. The confirmatory exact-budget contrast uses the fixed subset of model
-families with usable neutral k=2, k=4, and k=6 selections in every scenario; all format-adherence and partial-model results are reported descriptively.
-
-For the commercial-interest experiment, apply the reviewed correction ledger and calculate response outcomes with the complete evaluated-response
-file and the recovered-selection artifact:
-
-```bash
-uv run risk-comm-v2 scoring apply-overrides \
-  --plan data/outputs/experiments/commercial_interest_instruction_v1/checkpoints/judge_plan.jsonl \
-  --raw-results data/outputs/experiments/commercial_interest_instruction_v1/results/judge_raw_results.jsonl \
-  --overrides data/outputs/experiments/commercial_interest_instruction_v1/results/full_manual_overrides.jsonl \
-  --output data/outputs/experiments/commercial_interest_instruction_v1/results/adjudicated_judgments.jsonl
+  --experiment <EXPERIMENT_NAME>
 
 uv run risk-comm-v2 scoring calculate-outcomes \
-  --runs data/outputs/experiments/commercial_interest_instruction_v1/results/20260817T225417Z_results.jsonl \
-  --adjudicated data/outputs/experiments/commercial_interest_instruction_v1/results/adjudicated_judgments.jsonl \
-  --selections data/outputs/experiments/response_judging_v8/results/exact_budget_selections.jsonl \
-  --output data/outputs/experiments/commercial_interest_instruction_v1/results/response_outcomes.jsonl
+  --experiment <EXPERIMENT_NAME>
 ```
 
-`calculate-outcomes` validates an exact eight-label join for every response. It stores prose content and identifier selection separately, derives
-factual density as communicated supplied facts per 100 response words, and keeps ownership outcomes on the fixed option-A product coordinate.
+`apply-overrides` validates evidence against the canonical parsed response prose. `calculate-outcomes` writes `response_scores.jsonl` and
+`manifest.json`, validating a complete eight-label join for every response. The output keeps signed directional gap D, pairwise absolute imbalance A,
+total coverage T, pair states, specificity, presentation, factual-error exposure, and secondary outcomes separate.
+
+For the commercial-interest experiment, its matched observations and contrasts remain in the same scoring directory:
+
+```bash
+uv run risk-comm-v2 analysis commercial-interest-observations
+uv run risk-comm-v2 analysis commercial-interest
+```

@@ -42,7 +42,7 @@ from srcv2.scoring.execution import (
     merge_judge_records,
     validate_full_plan,
 )
-from srcv2.scoring.judges import build_judge_plan, judge_controls, judge_prompt_summary
+from srcv2.scoring.judges import build_judge_plan, judge_controls, judge_prompt_summary, response_text_for_scoring
 from srcv2.scoring.pilot import build_pilot_sample, build_sampling_frame
 from srcv2.scoring.selections import recover_selection_records
 from srcv2.settings import CredentialRole, get_api_settings, get_model_settings
@@ -412,7 +412,9 @@ def _apply_overrides(arguments: List[str]) -> None:
     if not overrides_path.exists():
         write_jsonl(overrides_path, [])
     overrides = [JudgeOverride.model_validate(record) for record in read_jsonl(overrides_path)]
-    judgments = adjudicate_judgments(tasks, records, overrides)
+    runs = _experiment_runs(args.experiment)
+    response_text_by_run = {run.run_unit_id: response_text_for_scoring(run) for run in runs}
+    judgments = adjudicate_judgments(tasks, records, overrides, response_text_by_run)
     write_jsonl(output, judgments)
     print(f"Wrote {len(judgments)} adjudicated judgments using {len(overrides)} manual corrections")
 

@@ -21,16 +21,20 @@ All notable changes to the active research implementation are recorded here. The
   outputs without additional judge calls; added validated response-outcome joins and complete matched instruction contrasts for all 6,888 responses.
 - Added independent prose and exact-budget identifier outcomes, fixed-option ownership outcomes, and CLI commands for reproducibly generating
   response scores, commercial-interest observations, and paired treatment-minus-control contrasts.
-- Moved the active scoring workflow to `response_judging_v8`, supplied the accuracy judge with the visible option names, and added exact-plan merging
-  so unchanged content and presentation pilot records can be reused while only the affected accuracy calls are rerun. Residual judge errors and
-  structurally invalid outputs are corrected after execution through the immutable override ledger rather than by further prompt expansion.
+- Archived the complete pre-restructure experiment tree under `data/outputs/archive/experiments/` and made every active experiment own a self-contained
+  `scoring/` directory containing contract-development provenance, raw judge calls, correction ledgers, final judgments, final response scores, and
+  scoring-derived analysis artifacts. Future scoring commands resolve to the same experiment-owned layout. Moved final-protocol scenario-generation
+  provenance to the established versioned `data/outputs/scenario_generation/v4.0.1/` hierarchy.
+- Supplied the accuracy judge with the visible option names and added exact-plan merging so unchanged content and presentation pilot records can be
+  reused while only affected accuracy calls are rerun. Residual judge errors and structurally invalid outputs are corrected after execution through
+  the immutable override ledger rather than by further prompt expansion.
 - Tightened the three Gemini 3.1 Flash Lite judge prompts while retaining evidence text, set the scorer to medium reasoning, limited accuracy findings to
   concrete factual errors, and made empathy and referral labels require explicit qualifying language; superficial formatting differences resolve
   to original response positions, while paraphrased or unlocatable evidence remains queued for manual correction.
 - Increased judge completion allowances for medium reasoning and preserved provider-returned empty or truncated completions, usage, cost, and finish
   reason as invalid outputs instead of retrying or aborting the batch.
-- Separated content proposition presence from specificity-anchor retention and moved the active scoring workflow to `response_judging_v6`; added
-  deterministic recovery of otherwise valid exact-k JSON contained in one complete Markdown fence while preserving format non-adherence and
+- Separated content proposition presence from specificity-anchor retention and added deterministic recovery of otherwise valid exact-k JSON contained
+  in one complete Markdown fence while preserving format non-adherence and
   judging only its decoded prose. Accuracy judging now receives the visible assistant and customer context, and recommendation requires an explicit
   choice rather than favourable emphasis or one-option discussion.
 - Added public schema 4.0.0 artifacts, accepted-scenario schema 10.0.0, final-protocol workflow documentation, and an independent `tests_v2` suite.

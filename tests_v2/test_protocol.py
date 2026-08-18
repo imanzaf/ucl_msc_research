@@ -40,7 +40,7 @@ def test_catalog_freezes_exact_models_and_parameter_metadata() -> None:
     assert catalog.scenario_generation_model.model_slug == "openai/gpt-5.4"
     assert catalog.scenario_generation_model.returned_model_version == "openai/gpt-5.4"
     assert catalog.scenario_generation_model.preflight_passed is True
-    assert catalog.scenario_generation_model.run_config_path == "data/outputs/experiments/scenario_fact_generation_v1/config.json"
+    assert catalog.scenario_generation_model.run_config_path == "data/outputs/scenario_generation/v4.0.1/scenario_fact_generation_v1/config.json"
     assert [entry.model_slug for entry in catalog.evaluated_models] == [
         "meta-llama/llama-3.3-70b-instruct",
         "qwen/qwen-2.5-72b-instruct",
