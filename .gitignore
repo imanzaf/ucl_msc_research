@@ -19,6 +19,7 @@ __pycache__/
 *.bbl-SAVE-ERROR
 *.bcf
 *.bcf-SAVE-ERROR
+*.zip
 
 # Distribution / packaging
 .DS_Store
