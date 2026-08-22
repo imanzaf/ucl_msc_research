@@ -68,6 +68,8 @@ def scoring_paths(name: str) -> Dict[str, Path]:
         "response_scores": root / "response_scores.jsonl",
         "outcome_observations": root / "outcome_observations.jsonl",
         "paired_contrasts": root / "paired_contrasts.json",
+        "forced_choice_labels": root / "forced_choice_labels_v1.jsonl",
+        "forced_choice_summary": root / "forced_choice_label_summary_v1.json",
         "manifest": root / "manifest.json",
         "summary": root / "summary.json",
         "cache": root / "cache",

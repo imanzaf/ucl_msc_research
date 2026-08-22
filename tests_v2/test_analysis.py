@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
-from srcv2.analysis.commercial_interest import CommercialInterestObservation, paired_instruction_contrasts, summarize_commercial_interest_contrasts
+from srcv2.analysis.commercial_interest import (
+    CommercialInterestContrast,
+    CommercialInterestObservation,
+    paired_instruction_contrasts,
+    summarize_commercial_interest_contrasts,
+)
 from srcv2.analysis.confirmatory import (
     BudgetScore,
     ScenarioContrast,
     UserStateScore,
     anxious_neutral_contrasts,
+    commercial_directional_contrasts,
     complete_budget_models,
     holm_adjust,
     ordered_budget_contrasts,
 )
 from srcv2.analysis.descriptive import GroupObservation, summarize_groups
 from srcv2.analysis.resampling import stratified_cluster_bootstrap
-from srcv2.models.enums import Affect, CommercialInterestInstruction, CommercialInterestTask, ExactFactBudget
+from srcv2.models.enums import Affect, CommercialInterestInstruction, CommercialInterestTask, ExactFactBudget, OwnershipRole
 
 
 def _contrasts() -> list[ScenarioContrast]:
@@ -26,10 +32,10 @@ def _contrasts() -> list[ScenarioContrast]:
     ]
 
 
-def test_holm_correction_is_step_down_and_family_limited() -> None:
-    """Correct exactly the two declared confirmatory p-values."""
-    adjusted = holm_adjust({"anxious": 0.01, "budget": 0.04})
-    assert adjusted == {"anxious": 0.02, "budget": 0.04}
+def test_holm_correction_is_step_down_for_the_declared_family() -> None:
+    """Correct all declared confirmatory p-values with the step-down rule."""
+    adjusted = holm_adjust({"commercial": 0.005, "anxious": 0.01, "budget": 0.04})
+    assert adjusted == {"commercial": 0.015, "anxious": 0.02, "budget": 0.04}
 
 
 def test_confirmatory_contrasts_require_the_seven_model_panel() -> None:
@@ -80,6 +86,74 @@ def test_stratified_scenario_bootstrap_is_reproducible() -> None:
     first = stratified_cluster_bootstrap(_contrasts(), iterations=500, random_seed=7)
     second = stratified_cluster_bootstrap(_contrasts(), iterations=500, random_seed=7)
     assert first == second
+
+
+def test_commercial_confirmatory_contrasts_cover_each_task() -> None:
+    """Aggregate four general tasks and one owner-recoded ownership task by scenario."""
+    general: list[CommercialInterestContrast] = []
+    task_values = (
+        (CommercialInterestTask.STANDARD, None, 0.01),
+        (CommercialInterestTask.SINGLE_FACT, None, 0.02),
+        (CommercialInterestTask.EXACT_BUDGET, ExactFactBudget.FACTS_4, 0.03),
+        (CommercialInterestTask.EXACT_BUDGET, ExactFactBudget.FACTS_2, 0.04),
+    )
+    for use_case in range(1, 7):
+        for scenario in range(1, 6):
+            for model in range(1, 8):
+                for affect in Affect:
+                    for task, budget, value in task_values:
+                        general.append(
+                            CommercialInterestContrast(
+                                scenario_id=f"UC{use_case}_R{scenario}",
+                                use_case_id=f"UC{use_case}",
+                                model_slug=f"model-{model}",
+                                affect=affect,
+                                task=task,
+                                outcome_name="prose_signed_directional_gap",
+                                exact_fact_budget=budget,
+                                treatment_minus_control=value,
+                            )
+                        )
+
+    ownership: list[CommercialInterestContrast] = []
+    ownership_scenarios = [(f"UC{index % 5 + 1}_R{index}", f"UC{index % 5 + 1}") for index in range(1, 12)]
+    for scenario_id, use_case_id in ownership_scenarios:
+        for model in range(1, 8):
+            for affect in Affect:
+                for role, fixed_option_value in (
+                    (OwnershipRole.EMPLOYER_OWNS_A, 0.05),
+                    (OwnershipRole.EMPLOYER_OWNS_B, -0.05),
+                ):
+                    for rendering in (1, 2):
+                        ownership.append(
+                            CommercialInterestContrast(
+                                scenario_id=scenario_id,
+                                use_case_id=use_case_id,
+                                model_slug=f"model-{model}",
+                                affect=affect,
+                                task=CommercialInterestTask.OWNERSHIP_FLIP,
+                                outcome_name="prose_option_coordinate_signed_directional_gap",
+                                ownership_role=role,
+                                rendering=rendering,
+                                treatment_minus_control=fixed_option_value,
+                            )
+                        )
+
+    contrasts = commercial_directional_contrasts([*general, *ownership])
+    assert {name: len(values) for name, values in contrasts.items()} == {
+        "commercial_standard_D": 30,
+        "commercial_single_fact_D": 30,
+        "commercial_exact_k4_D": 30,
+        "commercial_exact_k2_D": 30,
+        "commercial_ownership_flip_D": 11,
+    }
+    assert {name: values[0].value for name, values in contrasts.items()} == {
+        "commercial_standard_D": 0.01,
+        "commercial_single_fact_D": 0.02,
+        "commercial_exact_k4_D": 0.03,
+        "commercial_exact_k2_D": 0.04,
+        "commercial_ownership_flip_D": 0.05,
+    }
 
 
 def test_grouped_reporting_is_descriptive_and_not_ranked() -> None:

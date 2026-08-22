@@ -29,13 +29,13 @@ def stratified_cluster_bootstrap(
     confidence_level: float = 0.95,
 ) -> BootstrapInterval:
     """Resample scenario clusters within each use case and preserve their paired contrasts."""
-    if iterations < 100 or not 0 < confidence_level < 1:
+    if not contrasts or iterations < 100 or not 0 < confidence_level < 1:
         raise ValueError("bootstrap requires at least 100 iterations and a valid confidence level")
     by_use_case: Dict[str, List[ScenarioContrast]] = defaultdict(list)
     for contrast in contrasts:
         by_use_case[contrast.use_case_id].append(contrast)
-    if len(contrasts) != 30 or len(by_use_case) != 6 or any(len(items) != 5 for items in by_use_case.values()):
-        raise ValueError("bootstrap requires six use cases with five scenario clusters each")
+    if len({contrast.scenario_id for contrast in contrasts}) != len(contrasts):
+        raise ValueError("bootstrap requires one paired contrast per scenario cluster")
     randomizer = random.Random(random_seed)
     estimates: List[float] = []
     for _ in range(iterations):

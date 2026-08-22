@@ -7,33 +7,56 @@ from pathlib import Path
 from typing import List
 
 from srcv2.analysis.commercial_interest import (
+    CommercialInterestContrast,
     CommercialInterestObservation,
     commercial_interest_observations,
     paired_instruction_contrasts,
     summarize_commercial_interest_contrasts,
 )
-from srcv2.analysis.confirmatory import BudgetScore, UserStateScore, run_confirmatory_tests
+from srcv2.analysis.confirmatory import budget_scores_from_outcomes, run_confirmatory_tests, user_state_scores_from_outcomes
 from srcv2.analysis.descriptive import GroupObservation, summarize_groups
+from srcv2.analysis.option_first import label_forced_choice_scores, summarize_forced_choices
 from srcv2.models.enums import ExperimentKind
 from srcv2.models.scoring import ResponseOutcomesRecord
-from srcv2.paths import scoring_paths
-from srcv2.storage import read_jsonl, write_json, write_jsonl
+from srcv2.paths import EXPERIMENT_ROOT, scoring_paths
+from srcv2.storage import read_json, read_jsonl, write_json, write_jsonl
 
 
 def _confirmatory(arguments: List[str]) -> None:
-    """Run the two prespecified tests from frozen score files."""
+    """Run the seven directional tests from frozen score and contrast files."""
     parser = argparse.ArgumentParser(prog="risk-comm-v2 analysis confirmatory")
-    parser.add_argument("--user-state-scores", type=Path, required=True)
-    parser.add_argument("--budget-scores", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--user-state-response-scores",
+        type=Path,
+        default=scoring_paths(ExperimentKind.USER_STATE.value)["response_scores"],
+    )
+    parser.add_argument(
+        "--budget-response-scores",
+        type=Path,
+        default=scoring_paths(ExperimentKind.INFORMATION_BUDGET.value)["response_scores"],
+    )
+    parser.add_argument(
+        "--commercial-contrasts",
+        type=Path,
+        default=scoring_paths(ExperimentKind.COMMERCIAL_INTEREST.value)["paired_contrasts"],
+    )
+    parser.add_argument("--output", type=Path, default=EXPERIMENT_ROOT / "confirmatory_results.json")
     parser.add_argument("--bootstrap-iterations", type=int, default=10000)
     parser.add_argument("--seed", type=int, default=410506)
     args = parser.parse_args(arguments)
-    user_scores = [UserStateScore.model_validate(record) for record in read_jsonl(args.user_state_scores)]
-    budget_scores = [BudgetScore.model_validate(record) for record in read_jsonl(args.budget_scores)]
-    tests = run_confirmatory_tests(user_scores, budget_scores, args.bootstrap_iterations, args.seed)
-    write_json(args.output, {"schema_version": "4.0.0", "holm_family_size": 2, "tests": tests})
-    print(f"Wrote two Holm-corrected confirmatory tests to {args.output}")
+    user_outcomes = [ResponseOutcomesRecord.model_validate(record) for record in read_jsonl(args.user_state_response_scores)]
+    budget_outcomes = [ResponseOutcomesRecord.model_validate(record) for record in read_jsonl(args.budget_response_scores)]
+    commercial_records = read_json(args.commercial_contrasts)
+    commercial_contrasts = [CommercialInterestContrast.model_validate(record) for record in commercial_records["contrasts"]]
+    tests = run_confirmatory_tests(
+        user_state_scores_from_outcomes(user_outcomes),
+        budget_scores_from_outcomes(budget_outcomes),
+        commercial_contrasts,
+        args.bootstrap_iterations,
+        args.seed,
+    )
+    write_json(args.output, {"schema_version": "4.0.0", "holm_family_size": len(tests), "tests": tests})
+    print(f"Wrote {len(tests)} Holm-corrected confirmatory tests to {args.output}")
 
 
 def _describe(arguments: List[str]) -> None:
@@ -84,6 +107,23 @@ def _commercial_interest_observations(arguments: List[str]) -> None:
     print(f"Wrote {len(observations)} complete paired commercial-interest observations to {args.output}")
 
 
+def _option_first_choices(arguments: List[str]) -> None:
+    """Write forced-choice-specific labels and a descriptive summary from frozen response scores."""
+    parser = argparse.ArgumentParser(prog="risk-comm-v2 analysis option-first-choices")
+    paths = scoring_paths(ExperimentKind.OPTION_FIRST.value)
+    parser.add_argument("--response-scores", type=Path, default=paths["response_scores"])
+    parser.add_argument("--labels-output", type=Path, default=paths["forced_choice_labels"])
+    parser.add_argument("--summary-output", type=Path, default=paths["forced_choice_summary"])
+    args = parser.parse_args(arguments)
+    scores = [ResponseOutcomesRecord.model_validate(record) for record in read_jsonl(args.response_scores)]
+    labels = label_forced_choice_scores(scores)
+    summary = summarize_forced_choices(labels, scores)
+    write_jsonl(args.labels_output, labels)
+    write_json(args.summary_output, summary)
+    print(f"Wrote {len(labels)} forced-choice labels to {args.labels_output}")
+    print(f"Wrote forced-choice summary to {args.summary_output}")
+
+
 def main(command: str, arguments: List[str]) -> None:
     """Dispatch one analysis subcommand."""
     handlers = {
@@ -91,5 +131,6 @@ def main(command: str, arguments: List[str]) -> None:
         "describe": _describe,
         "commercial-interest-observations": _commercial_interest_observations,
         "commercial-interest": _commercial_interest,
+        "option-first-choices": _option_first_choices,
     }
     handlers[command](arguments)

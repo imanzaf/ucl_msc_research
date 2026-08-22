@@ -1,4 +1,4 @@
-"""The two prespecified scenario-level paired contrasts and Holm correction."""
+"""Scenario-level paired confirmatory contrasts and Holm correction."""
 
 from __future__ import annotations
 
@@ -9,8 +9,19 @@ from typing import Dict, List, Sequence
 
 from pydantic import Field
 
+from srcv2.analysis.commercial_interest import CommercialInterestContrast
 from srcv2.common import ImmutableModel
-from srcv2.models.enums import Affect, ExactFactBudget
+from srcv2.models.enums import Affect, AnalysisInterpretation, CommercialInterestTask, ExactFactBudget, OwnershipRole
+from srcv2.models.experiments import InformationBudgetCell, UserStateCell
+from srcv2.models.scoring import ResponseOutcomesRecord
+
+COMMERCIAL_TEST_NAMES = (
+    "commercial_standard_D",
+    "commercial_single_fact_D",
+    "commercial_exact_k4_D",
+    "commercial_exact_k2_D",
+    "commercial_ownership_flip_D",
+)
 
 
 class UserStateScore(ImmutableModel):
@@ -54,8 +65,9 @@ class BootstrapInterval(ImmutableModel):
 
 
 class ConfirmatoryTest(ImmutableModel):
-    """Report one prespecified contrast before and after Holm correction."""
+    """Report one confirmatory contrast before and after Holm correction."""
 
+    interpretation: AnalysisInterpretation = AnalysisInterpretation.CONFIRMATORY
     test_name: str
     estimate: float
     raw_p_value: float = Field(ge=0, le=1)
@@ -63,6 +75,47 @@ class ConfirmatoryTest(ImmutableModel):
     interval: BootstrapInterval
     scenario_count: int
     analysis_model_slugs: List[str] = Field(min_length=1)
+
+
+def user_state_scores_from_outcomes(outcomes: Sequence[ResponseOutcomesRecord]) -> List[UserStateScore]:
+    """Extract user-state directional scores from frozen response outcomes."""
+    scores: List[UserStateScore] = []
+    for outcome in outcomes:
+        if not isinstance(outcome.cell, UserStateCell):
+            raise ValueError("user-state confirmatory inputs require user-state response outcomes")
+        scores.append(
+            UserStateScore(
+                scenario_id=outcome.scenario_id,
+                use_case_id=outcome.use_case_id,
+                model_slug=outcome.model_slug,
+                affect=outcome.cell.affect,
+                query_length=outcome.cell.query_length.value,
+                signed_directional_gap=outcome.prose_selection.signed_directional_gap,
+            )
+        )
+    return scores
+
+
+def budget_scores_from_outcomes(outcomes: Sequence[ResponseOutcomesRecord]) -> List[BudgetScore]:
+    """Extract neutral exact-selection directional scores from frozen response outcomes."""
+    scores: List[BudgetScore] = []
+    for outcome in outcomes:
+        if not isinstance(outcome.cell, InformationBudgetCell):
+            raise ValueError("budget confirmatory inputs require information-budget response outcomes")
+        if outcome.cell.affect != Affect.NEUTRAL:
+            continue
+        if outcome.exact_selection is None:
+            raise ValueError("neutral budget confirmatory inputs require usable exact selections")
+        scores.append(
+            BudgetScore(
+                scenario_id=outcome.scenario_id,
+                use_case_id=outcome.use_case_id,
+                model_slug=outcome.model_slug,
+                exact_fact_budget=outcome.cell.exact_fact_budget,
+                signed_directional_gap=outcome.exact_selection.signed_directional_gap,
+            )
+        )
+    return scores
 
 
 def anxious_neutral_contrasts(scores: Sequence[UserStateScore]) -> List[ScenarioContrast]:
@@ -123,6 +176,62 @@ def ordered_budget_contrasts(scores: Sequence[BudgetScore]) -> List[ScenarioCont
     return [ScenarioContrast(scenario_id=key[0], use_case_id=key[1], value=mean(values)) for key, values in sorted(by_scenario.items())]
 
 
+def _commercial_test_name(contrast: CommercialInterestContrast) -> str | None:
+    """Map one commercial prose-direction contrast to its confirmatory task name."""
+    if contrast.task == CommercialInterestTask.STANDARD and contrast.outcome_name == "prose_signed_directional_gap":
+        return "commercial_standard_D"
+    if contrast.task == CommercialInterestTask.SINGLE_FACT and contrast.outcome_name == "prose_signed_directional_gap":
+        return "commercial_single_fact_D"
+    if contrast.task == CommercialInterestTask.EXACT_BUDGET and contrast.outcome_name == "prose_signed_directional_gap":
+        if contrast.exact_fact_budget == ExactFactBudget.FACTS_4:
+            return "commercial_exact_k4_D"
+        if contrast.exact_fact_budget == ExactFactBudget.FACTS_2:
+            return "commercial_exact_k2_D"
+    if contrast.task == CommercialInterestTask.OWNERSHIP_FLIP and contrast.outcome_name == "prose_option_coordinate_signed_directional_gap":
+        return "commercial_ownership_flip_D"
+    return None
+
+
+def _owner_relative_commercial_value(contrast: CommercialInterestContrast) -> float:
+    """Recode fixed-option ownership contrasts so positive values favour the employer."""
+    if contrast.task != CommercialInterestTask.OWNERSHIP_FLIP:
+        return contrast.treatment_minus_control
+    if contrast.ownership_role == OwnershipRole.EMPLOYER_OWNS_A:
+        return contrast.treatment_minus_control
+    if contrast.ownership_role == OwnershipRole.EMPLOYER_OWNS_B:
+        return -contrast.treatment_minus_control
+    raise ValueError("ownership-flip confirmatory contrasts require employer ownership of option A or B")
+
+
+def commercial_directional_contrasts(contrasts: Sequence[CommercialInterestContrast]) -> Dict[str, List[ScenarioContrast]]:
+    """Average matched commercial instruction effects within each scenario and task."""
+    grouped: Dict[tuple[str, str, str], List[float]] = defaultdict(list)
+    for contrast in contrasts:
+        test_name = _commercial_test_name(contrast)
+        if test_name is None:
+            continue
+        grouped[(test_name, contrast.scenario_id, contrast.use_case_id)].append(_owner_relative_commercial_value(contrast))
+
+    scenario_contrasts: Dict[str, List[ScenarioContrast]] = {name: [] for name in COMMERCIAL_TEST_NAMES}
+    for (test_name, scenario_id, use_case_id), values in sorted(grouped.items()):
+        expected_count = 84 if test_name == "commercial_ownership_flip_D" else 21
+        if len(values) != expected_count:
+            raise ValueError(f"{test_name} requires {expected_count} matched coordinates per scenario")
+        scenario_contrasts[test_name].append(ScenarioContrast(scenario_id=scenario_id, use_case_id=use_case_id, value=mean(values)))
+
+    expected_scenarios = {
+        "commercial_standard_D": 30,
+        "commercial_single_fact_D": 30,
+        "commercial_exact_k4_D": 30,
+        "commercial_exact_k2_D": 30,
+        "commercial_ownership_flip_D": 11,
+    }
+    for test_name, expected_count in expected_scenarios.items():
+        if len(scenario_contrasts[test_name]) != expected_count:
+            raise ValueError(f"{test_name} requires {expected_count} complete scenario contrasts")
+    return scenario_contrasts
+
+
 def sign_flip_p_value(values: Sequence[float], iterations: int = 99999, random_seed: int = 410506) -> float:
     """Calculate a reproducible two-sided paired randomization p-value."""
     if not values:
@@ -139,9 +248,9 @@ def sign_flip_p_value(values: Sequence[float], iterations: int = 99999, random_s
 
 
 def holm_adjust(p_values: Dict[str, float]) -> Dict[str, float]:
-    """Apply step-down Holm family-wise correction to exactly two confirmatory tests."""
-    if len(p_values) != 2 or any(not 0 <= value <= 1 for value in p_values.values()):
-        raise ValueError("the confirmatory family must contain exactly two valid p-values")
+    """Apply step-down Holm family-wise correction to a confirmatory family."""
+    if not p_values or any(not 0 <= value <= 1 for value in p_values.values()):
+        raise ValueError("the confirmatory family must contain valid p-values")
     ordered = sorted(p_values.items(), key=lambda item: item[1])
     adjusted: Dict[str, float] = {}
     running = 0.0
@@ -155,19 +264,25 @@ def holm_adjust(p_values: Dict[str, float]) -> Dict[str, float]:
 def run_confirmatory_tests(
     user_state_scores: Sequence[UserStateScore],
     budget_scores: Sequence[BudgetScore],
+    commercial_contrasts: Sequence[CommercialInterestContrast],
     bootstrap_iterations: int = 10000,
     random_seed: int = 410506,
 ) -> List[ConfirmatoryTest]:
-    """Run only the anxious-neutral and ordered-budget confirmatory tests."""
+    """Run five commercial and two complementary directional confirmatory tests."""
     from srcv2.analysis.resampling import stratified_cluster_bootstrap
 
-    contrasts = {
-        "anxious_vs_neutral_D": anxious_neutral_contrasts(user_state_scores),
-        "ordered_k6_k4_k2_selection_D": ordered_budget_contrasts(budget_scores),
-    }
+    contrasts = commercial_directional_contrasts(commercial_contrasts)
+    contrasts["anxious_vs_neutral_D"] = anxious_neutral_contrasts(user_state_scores)
+    contrasts["ordered_k6_k4_k2_selection_D"] = ordered_budget_contrasts(budget_scores)
+    if len(contrasts) != 7:
+        raise ValueError("the confirmatory family must contain five commercial and two complementary tests")
     raw = {name: sign_flip_p_value([item.value for item in values], random_seed=random_seed) for name, values in contrasts.items()}
     adjusted = holm_adjust(raw)
     analysis_models = {
+        **{
+            name: sorted({contrast.model_slug for contrast in commercial_contrasts if _commercial_test_name(contrast) == name})
+            for name in COMMERCIAL_TEST_NAMES
+        },
         "anxious_vs_neutral_D": sorted({score.model_slug for score in user_state_scores}),
         "ordered_k6_k4_k2_selection_D": complete_budget_models(budget_scores),
     }

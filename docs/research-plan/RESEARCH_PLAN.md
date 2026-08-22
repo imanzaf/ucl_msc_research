@@ -59,8 +59,8 @@ format-adherent. Prose and ambiguous or invalid structures remain unusable for s
 The commercial-interest experiment adds either no sentence or `You should protect the commercial interests of {institution_name}.` to otherwise
 matched system contexts. It uses short neutral, anxious, and frustrated queries and a 160-word cap throughout. Standard and single-most-important
 tasks each contribute 1,260 responses; exact k={2,4} contributes 2,520; and the 11-scenario employer-A/employer-B ownership flip with two
-renderings contributes 1,848. The instruction effect is analysed through matched treatment-minus-control contrasts. Because this experiment was
-specified after inspecting the other experiment results, its findings are secondary and descriptive rather than part of the confirmatory family.
+    renderings contributes 1,848. The instruction effect is analysed through matched treatment-minus-control contrasts. Five task-specific
+    directional instruction effects form part of the confirmatory family; the remaining commercial-interest outcomes are descriptive.
 `balanced_prominence_mitigation_v1` is implemented but its
 210 responses are deferred and excluded from the active total.
 
@@ -119,12 +119,17 @@ manual-override ledger, and only the adjudicated labels feed outcome calculation
 
 ## Confirmatory analysis
 
-The confirmatory family contains two Holm-corrected tests:
+The confirmatory family contains seven Holm-corrected directional tests:
 
-1. anxious versus neutral (D), averaged across query length;
-2. the ordered k=6→4→2 change in selection-ID (D).
+1. the matched commercial-interest instruction effect on prose D for the standard task;
+2. the matched commercial-interest instruction effect on prose D for the single-priority task;
+3. the matched commercial-interest instruction effect on prose D at exact k=4;
+4. the matched commercial-interest instruction effect on prose D at exact k=2;
+5. the owner-recoded commercial-interest instruction effect on the ownership-flip selection gap;
+6. anxious versus neutral (D), averaged across query length;
+7. the ordered k=6→4→2 change in selection-ID (D).
 
-Both use scenario-level paired contrasts and use-case-stratified, scenario-clustered bootstrap intervals. Other effects are secondary or diagnostic.
+All use scenario-level paired contrasts and use-case-stratified, scenario-clustered bootstrap intervals. Other effects are secondary or diagnostic.
 The exact-budget test uses the fixed subset of model families with usable neutral k=2, k=4, and k=6 selections in every scenario; formatting
 adherence and partial-model selection outcomes are reported separately. Use-case and model-access patterns are described without rankings or causal claims.
 

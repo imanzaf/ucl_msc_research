@@ -61,6 +61,12 @@ class ExperimentKind(str, Enum):
     BALANCED_PROMINENCE = "balanced_prominence_mitigation_v1"
 
 
+class AnalysisInterpretation(str, Enum):
+    """Label the inferential status of an analysis output."""
+
+    CONFIRMATORY = "confirmatory"
+
+
 class ExecutionStatus(str, Enum):
     """Declare whether an experiment assignment belongs to the paid run."""
 

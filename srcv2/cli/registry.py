@@ -56,12 +56,13 @@ COMMAND_GROUPS = {
         "calculate-outcomes": Command("srcv2.cli.commands.scoring", "Write one experiment's final response scores and scoring manifest."),
     },
     "analysis": {
-        "confirmatory": Command("srcv2.cli.commands.analysis", "Run only the two Holm-corrected confirmatory contrasts."),
+        "confirmatory": Command("srcv2.cli.commands.analysis", "Run the seven Holm-corrected directional confirmatory contrasts."),
         "describe": Command("srcv2.cli.commands.analysis", "Summarize use-case or access groups descriptively."),
         "commercial-interest-observations": Command(
             "srcv2.cli.commands.analysis", "Prepare complete matched observations from commercial-interest response outcomes."
         ),
         "commercial-interest": Command("srcv2.cli.commands.analysis", "Calculate matched commercial-interest instruction contrasts."),
+        "option-first-choices": Command("srcv2.cli.commands.analysis", "Derive forced-choice-specific labels from frozen presentation outcomes."),
     },
     "maintenance": {
         "export-schemas": Command("srcv2.cli.commands.maintenance", "Export final-protocol schemas under schemas_v2."),

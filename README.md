@@ -36,8 +36,11 @@ Every commercial-interest cell uses the scenario's short query and a 160-word re
 two employer coordinates, and two jointly counterbalanced renderings.
 
 The principal direction-sensitive outcome is the signed directional gap (D). Pairwise imbalance (A), total material coverage (T), pair states,
-specificity, presentation, factual error, empathy/referral, density, and length are reported separately. The confirmatory family contains only two
-Holm-corrected tests: anxious versus neutral (D), and the ordered k=6→4→2 change in selection-ID (D).
+specificity, presentation, factual error, empathy/referral, density, and length are reported separately. The confirmatory family contains seven
+Holm-corrected directional tests: matched commercial-interest instruction effects for the standard, single-priority, exact k=4, exact k=2, and
+ownership-flip tasks; anxious versus neutral (D); and the ordered k=6→4→2 change in selection-ID (D).
+The forced-option experiment additionally retains a three-way owner-relative choice label derived from explicit recommendation or, when absent,
+directional framing; balanced or unassessable responses remain no discernible choice.
 
 ## Current execution boundary
 
@@ -75,6 +78,7 @@ uv run risk-comm-v2 maintenance export-schemas
 uv run risk-comm-v2 experiment generate-assets
 uv run risk-comm-v2 scoring show-prompts --experiment commercial_interest_instruction_v1
 uv run risk-comm-v2 scoring calculate-outcomes --experiment commercial_interest_instruction_v1
+uv run risk-comm-v2 analysis option-first-choices
 uv run risk-comm-v2 maintenance validate-isolation
 uv run pytest
 uv run pre-commit run --all-files

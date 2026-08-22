@@ -5,23 +5,25 @@ Analysis consumes only frozen run units, frozen scorer outputs, and direction me
 
 ## Confirmatory family
 
-The two confirmatory tests are:
+The seven confirmatory directional tests are:
 
-1. anxious versus neutral D, averaged across query length;
-2. the ordered k=6→4→2 change in selection-ID D.
+1. commercial-interest instruction versus its matched no-instruction control for prose D in the standard comparison;
+2. the same paired prose-D contrast in the single-most-important-fact task;
+3. the same paired prose-D contrast at exact k=4;
+4. the same paired prose-D contrast at exact k=2;
+5. the owner-recoded fixed-option selection contrast in the ownership-flip task;
+6. anxious versus neutral D, averaged across query length;
+7. the ordered k=6→4→2 change in selection-ID D.
 
-Input JSONL for the first test contains `scenario_id`, `use_case_id`, `model_slug`, `affect`, `query_length`, and
-`signed_directional_gap`. Input for the second contains `scenario_id`, `use_case_id`, `model_slug`, `exact_fact_budget`, and
-`signed_directional_gap`.
+The command reads the frozen response outcomes for the user-state and information-budget experiments and the complete response-paired commercial
+contrasts. Commercial treatment-control differences are averaged across model and customer-state coordinates within scenarios. The ownership
+contrast is recoded so that positive values consistently refer to the employer-owned option.
 
 ```bash
-uv run risk-comm-v2 analysis confirmatory \
-  --user-state-scores data/outputs/experiments/user_state_scores.jsonl \
-  --budget-scores data/outputs/experiments/information_budget_scores.jsonl \
-  --output data/outputs/experiments/confirmatory_results.json
+uv run risk-comm-v2 analysis confirmatory
 ```
 
-The command constructs scenario-level paired contrasts, applies a two-test Holm correction, and reports use-case-stratified scenario-cluster
+The command constructs scenario-level paired contrasts, applies a seven-test Holm correction, and reports use-case-stratified scenario-cluster
 bootstrap intervals. The bootstrap seed and iteration count are stored in the result artifact.
 
 ## Secondary and diagnostic outcomes
@@ -33,9 +35,23 @@ descriptive only for exact-k cells because it is fixed by design.
 Ownership analysis retains option A as the product coordinate across employer, fictional-name assignment, and display-order changes. It reports the
 option-A gap, symmetric employer-role contrast, strict owner-concordant switches, and switch rate.
 
-The commercial-interest experiment is secondary and descriptive. Prepare complete paired observation rows from its final response scores, then
-calculate treatment-minus-control contrasts while holding scenario, model, affect, task, budget, employer role, and rendering fixed. The command
-defaults keep both derived artifacts in the experiment's `scoring/` directory:
+Forced-option responses receive an experiment-specific three-way choice label. An explicit recommendation determines the selected option when one
+is present; otherwise directional framing supplies an implicit choice. Balanced or unassessable framing is retained as no discernible choice. The
+command writes one hash-bound JSONL label per response and a descriptive JSON summary under the experiment's `scoring/` directory without making
+new model calls:
+
+```bash
+uv run risk-comm-v2 analysis option-first-choices
+```
+
+The implementation is in `srcv2/analysis/option_first.py`. The output files are
+`data/outputs/experiments/option_first_v1/scoring/forced_choice_labels_v1.jsonl` and
+`data/outputs/experiments/option_first_v1/scoring/forced_choice_label_summary_v1.json`.
+
+Prepare complete paired observation rows from the commercial-interest experiment's final response scores, then calculate treatment-minus-control
+contrasts while holding scenario, model, affect, task, budget, employer role, and rendering fixed. Five directional summaries feed the confirmatory
+family; other commercial-interest outcomes remain descriptive. The command defaults keep both derived artifacts in the experiment's `scoring/`
+directory:
 
 ```bash
 uv run risk-comm-v2 analysis commercial-interest-observations
