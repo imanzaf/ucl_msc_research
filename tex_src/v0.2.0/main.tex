@@ -43,20 +43,6 @@
   #1
 }
 
-\newtcolorbox{todobox}[1][]{
-  breakable,
-  enhanced,
-  colback=red!4,
-  colframe=red!70!black,
-  fonttitle=\bfseries,
-  coltitle=red!70!black,
-  title={TODO},
-  boxrule=0.7pt,
-  arc=1mm,
-  left=2mm,right=2mm,top=1.5mm,bottom=1.5mm,
-  #1
-}
-
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\owner}{deploying financial institution}
 \newcommand{\RQ}[1]{\par\noindent\textbf{#1}\quad}
@@ -97,7 +83,7 @@ Seven language models are evaluated across seven experiments. These experiments 
 
 The measurement framework follows the same separation of constructs. The principal direction-sensitive outcome, \(D\), measures the net difference between owner-supporting and countervailing facts communicated across the three matched pairs. Absolute pairwise imbalance, \(A\), records whether matched facts are communicated unevenly regardless of direction, while total material coverage, \(T\), records how much of the available fact set survives into the response. Specificity, factual presentation, recommendation behaviour and factual errors are analysed separately rather than being combined into a single index. This distinction is important because a shorter response may become substantially less complete without becoming institution-favouring, while an institutional objective may create a directional effect even where overall coverage changes little.
 
-% TODO: contributions can use some work, not sure if this is the best set to summarise the work. Why mention exact-budget experiments as a main contribution but not the institutional objective ones?
+\textcolor{red}{TODO: contributions can use some work, not sure if this is the best set to summarise the work. Why mention exact-budget experiments as a main contribution but not the institutional objective ones?}
 
 The resulting design makes three contributions. First, it provides a controlled financial communication benchmark in which customer valence, institutional direction and matched informational trade-offs are represented separately. Second, it distinguishes general selectivity caused by limited communication space from selection that systematically favours an institutional interest. Third, the exact-budget experiments make the model's initial prioritisation directly observable and permit comparison between selected information and the information subsequently expressed in prose. Together, these features provide a framework for examining how ordinary communication constraints and institutional objectives shape financial-assistant responses without treating every omission as deception or every institutional association as evidence of an internal commercial goal.
 
@@ -114,8 +100,8 @@ This question examines whether otherwise comparable financial queries expressed 
 
 This question examines whether limiting the information that can be selected or expressed changes not only how much material survives into a response, but also which information is prioritised. Exact information budgets provide a controlled measure of selection when models are permitted to choose (k=6), (k=4) or (k=2) facts from the available set. Natural 40-, 80- and 160-word response limits provide a complementary test under more conventional conversational constraints, while single-priority and option-selection tasks examine behaviour when the model is required to identify one consideration or one option as most salient. These experiments allow general information loss and pairwise imbalance to be distinguished from a systematic directional preference for owner-supporting information.
 
-% TODO: does RQ3 make it seem like roles and instituional affiliation was not a variable in the previous experiments? cuz that would be misleading since institutional affiliation is scenario-owned.
-% also do we describe anywhere that part of the point of the experiments is that we believe institutional affiliation may inherently provide reason to the model to favor owner-supporting facts?
+\textcolor{red}{TODO: does RQ3 make it seem like roles and instituional affiliation was not a variable in the previous experiments? cuz that would be misleading since institutional affiliation is scenario-owned.
+also do we describe anywhere that part of the point of the experiments is that we believe institutional affiliation may inherently provide reason to the model to favor owner-supporting facts?}
 
 \RQ{RQ3.} How do institutional affiliation and an explicit commercial-interest objective affect the selection and presentation of material information by financial-assistant LLMs?
 
@@ -221,9 +207,8 @@ Datasets developed for financial question answering, sentiment analysis, documen
 
 The resulting corpus should not be interpreted as a sample of production financial conversations. The scenarios are constructed decision problems rather than observations drawn from customer traffic. Synthetic construction provides control over the informational environment and allows exact treatment matching, but it does not establish how frequently comparable behaviour would occur in deployment. The benchmark is intended to support causal comparisons between controlled prompt conditions and descriptive comparisons across the constructed scenario set.
 
-% TODO: Insert the confirmed UCL ethics determination here.
-% Do not state that the study was exempt or outside scope until the formal
-% determination and, where applicable, reference number have been confirmed.
+\textcolor{red}{TODO: Insert the confirmed UCL ethics determination here.
+Check programme guide I don't think thats a requirement.}
 
 \section{Financial domains and scenario coverage}
 
@@ -269,7 +254,7 @@ The six domains are not intended to represent the frequency with which these dec
 
 \section{Scenario structure}
 
-%TODO: a visual diagram of the scenario structure would be useful here.
+\textcolor{red}{TODO: a visual diagram of the scenario structure would be useful here.}
 
 Each scenario contains two mutually exclusive options and exactly six material facts. The six facts are organised into three matched pairs. Within each pair, one fact concerns Option A and the other concerns Option B. The two facts in a pair share the same customer-valence label: they are either both favourable from the customer's perspective or both adverse. This prevents the directional comparison from being reduced to a trivial preference for positive over negative information.
 
@@ -301,7 +286,7 @@ Each scenario contains fields that serve two different purposes. The first group
 
 The visible prompt content includes:
 
-%TODO; need better formatting for these lists
+\textcolor{red}{TODO; need better formatting for these lists}
 \begin{itemize}[leftmargin=1.5em]
     \item a natural support role;
     \item the name of a fictional employing institution where the experimental condition requires one;
@@ -322,7 +307,7 @@ Scenario construction began from structured researcher-authored briefs. These br
 
 GPT-5.4 was used as the scenario fact generator. Each of the 30 scenarios received one semantic generation under the frozen generation configuration. The generator returned six facts in a strict structured format, including fact identifiers, pair identifiers, option coordinates and one specificity anchor per fact. Generation and later evaluation were treated as separate model roles: use of GPT-5.4 in corpus construction did not make its generated output a reference answer for the evaluated models.
 
-%TODO: how much of this detail is really necessary?
+\textcolor{red}{TODO: how much of this detail is really necessary?}
 The generated corpus then underwent researcher-led curation. Review covered financial plausibility, arithmetic, completeness, language and structural consistency. Arithmetic was checked programmatically where a relevant calculation could be derived from the supplied figures. All 180 facts were reviewed. Where corrections were required, the original generated response was retained and the change was recorded through the provenance system rather than silently replacing the source material.
 
 The final curation process included documented corrections in 15 of the 30 scenarios. These comprised 27 fact-text replacements, one context correction, five brief corrections and one declared-anchor correction. Two fact texts in scenario CF102\_R1 that did not reproduce their declared anchors were also restored through a provenance-bound correction record. All 30 scenarios ultimately received a researcher accept-or-revise disposition and satisfied the structural validation requirements before experimental execution.
@@ -331,7 +316,7 @@ This process means that the corpus is best described as \emph{LLM-generated and 
 
 \section{Customer-query construction}
 
-%TODO: should provide examples, improve list formatting. Maybe example of a full scenario with all six query variants.
+\textcolor{red}{TODO: should provide examples, improve list formatting. Maybe example of a full scenario with all six query variants.}
 Customer queries were authored separately from the fact-generation process. Each scenario contains six query variants formed by crossing three customer-state conditions with two query lengths:
 
 \begin{itemize}[leftmargin=1.5em]
@@ -389,6 +374,632 @@ Total authored query variants per scenario & 6 \\
 \end{table}
 
 The balance built into the corpus does not imply that every fact pair has identical economic value or that either option is universally preferable. The benchmark instead creates a controlled informational environment in which both sides of each decision contain material considerations and the direction relevant to the deploying institution is known to the researcher but hidden from the evaluated model. This supports the subsequent analysis of direction, imbalance, coverage and specificity without introducing a synthetic label for individual customer welfare.
+
+\chapter{Methodology}
+\label{chap:methodology}
+
+\section{Experimental framework}
+
+The experiments were designed to isolate changes in communication while holding the underlying financial decision fixed. For each treatment comparison, the evaluated model received the same scenario facts and differed only in the customer wording, communication constraint, institutional role or experimental instruction required by that condition. The scenario therefore provides the repeated stimulus, while the model and treatment condition determine the generated response.
+
+Seven language models were evaluated across seven experiments. The complete experimental matrix contains 10,710 responses. Each scenario-model-treatment combination was generated once under a frozen configuration. The design uses repeated scenarios rather than repeated stochastic generations of the same prompt: the five replications within each financial domain are distinct scenario instances described in Chapter~\ref{chap:data}.
+
+The experiments address different stages at which selective communication could arise. The user-state experiment tests whether customer wording changes communication in the absence of an explicit information constraint. The exact-budget and word-budget experiments restrict response space in different ways. The single-fact task imposes an explicit prioritisation requirement, while the option-choice task requires the model to choose between the two available alternatives. The ownership experiment changes the institution with which the assistant is affiliated without adding a commercial objective. Finally, the commercial-interest experiment introduces such an objective directly and crosses it with several communication tasks.
+
+Table~\ref{tab:method_experiments} summarises the active experimental matrix.
+
+\begin{table}[htbp]
+\centering
+\caption{Summary of the experimental design.}
+\label{tab:method_experiments}
+\small
+\begin{tabularx}{\textwidth}{@{}L{0.23\textwidth}L{0.43\textwidth}cY@{}}
+\toprule
+\textbf{Experiment} & \textbf{Manipulation} & \textbf{Scenarios} & \textbf{Responses} \\
+\midrule
+Customer state
+& Neutral, anxious or frustrated wording, crossed with short and long query variants
+& 30 & 1,260 \\
+
+Exact information budget
+& Selection of exactly \(k=2\), \(k=4\) or \(k=6\) facts; neutral and anxious variants used in the active matrix
+& 30 & 1,050 \\
+
+Natural word budget
+& Maximum response length of 40, 80 or 160 words
+& 30 & 630 \\
+
+Single-fact priority
+& Request to state and briefly explain the single most important fact
+& 30 & 210 \\
+
+Ownership role
+& Employer owns Option A, employer owns Option B, or independent adviser; two counterbalanced renderings
+& 11 & 462 \\
+
+Forced option choice
+& Request to choose one of the two options and explain the choice
+& 30 & 210 \\
+
+Commercial interest
+& Control versus an instruction to protect the institution's commercial interests, crossed with customer state and communication task
+& 30 & 6,888 \\
+\midrule
+\textbf{Total} & & & \textbf{10,710} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Model panel and generation procedure}
+
+The evaluated panel contains five open-weight and two proprietary models:
+
+\textcolor{red}{TODO: add a table with model details, including provider, release date, parameter count, and any other relevant metadata. Also in analysis add a graph showing results by model.}
+\begin{itemize}[leftmargin=1.5em]
+    \item Llama 3.3 70B Instruct;
+    \item Qwen 2.5 72B Instruct;
+    \item Llama 4 Maverick;
+    \item Qwen3.5 122B-A10B;
+    \item DeepSeek V4 Pro;
+    \item GPT-5.4; and
+    \item Claude Sonnet 5.
+\end{itemize}
+
+All evaluated-model calls were made through the OpenRouter chat-completions interface using the frozen model identifiers recorded in the experiment manifest. The maximum output allowance was 4,096 tokens for all evaluated models. Temperature was set to zero for models exposing that control, and seed 7 was supplied where supported. Explicit reasoning modes were disabled where the provider exposed such a switch; GPT-5.4 was run with reasoning effort set to \code{none}. Provider-specific controls that were not supported by a model were left unset rather than approximated with a different parameter.
+
+The same complete seven-model panel was used for all active experiments. Model-specific treatment effects are retained in the analysis rather than treating the responses as independent draws from a common language-model population.
+
+\section{Experimental conditions}
+
+\subsection{Customer-state adaptation}
+
+The customer-state experiment uses the six query variants defined in Chapter~\ref{chap:data}. Each of the 30 scenarios is evaluated under neutral, anxious and frustrated wording, with both short and long versions of each query. No explicit response-length constraint or prioritisation instruction is added. The resulting design contains \(30\times7\times3\times2=1{,}260\) responses.
+
+This experiment is intended to distinguish adaptation of substantive information from adaptation of conversational style. The same six material facts remain available in every cell. Differences in fact inclusion can therefore be separated from changes in reassurance, referral, response length or other presentational features.
+
+\subsection{Exact information budgets}
+
+The exact-budget experiment directly constrains the number of facts the model is instructed to select. In each condition, the model receives fact identifiers and is instructed to select exactly \(k\) distinct facts before producing its customer-facing answer. The required output contains \code{selected\_fact\_ids} followed by \code{answer\_text}. The answer is additionally instructed to use only the selected information.
+
+Three neutral conditions are evaluated at \(k=2\), \(k=4\) and \(k=6\). Anxious-query conditions are evaluated at \(k=2\) and \(k=4\). This produces five treatment cells per scenario and model, or 1,050 responses in total.
+
+The structured response serves two purposes. First, the selected identifiers provide a direct measure of prioritisation before prose generation. Second, the answer text can be scored independently to determine whether the information communicated in prose corresponds to the declared selection. Selection outcomes and prose outcomes are therefore retained separately.
+
+Structured responses that did not satisfy the exact JSON form were subjected to deterministic recovery rather than semantic reinterpretation. Across the 1,050 responses in the main exact-budget experiment, 430 were valid under the strict JSON parser and 620 were deterministically recovered; no selection was unusable. In the commercial-interest experiment, 1,070 exact-budget responses satisfied the strict parser, 1,449 were recovered deterministically and one response remained unusable for identifier-level analysis. That response remained available for analysis of its customer-facing prose.
+
+\subsection{Natural word budgets}
+
+The natural-length experiment tests whether the behaviour observed under an explicit fact-selection budget also appears when concision is imposed in a more conventional form. Models receive the neutral short query and are instructed to answer in no more than 40, 80 or 160 words. No fact identifiers are shown and no intermediate selection is requested.
+
+The word limits are instructions rather than mechanical truncation. Responses are scored as generated, and realised word count and adherence to the requested limit are recorded separately. The experiment contains \(30\times7\times3=630\) responses.
+
+\subsection{Single-fact prioritisation}
+
+The single-fact experiment removes the structured identifier mechanism while imposing a strong prioritisation request. Models receive the neutral short query and are instructed to ``state and briefly explain the single most important fact to communicate''. Fact identifiers are not shown. All 30 scenarios and seven models are evaluated, producing 210 responses.
+
+The complete response is still scored against all six registered facts. This makes it possible to determine whether the model actually restricts itself to one proposition and, independently, whether the information given greatest prominence is owner-supporting or countervailing.
+
+\subsection{Ownership role}
+\textcolor{red}{TODO: not clear which variations are corssed with this experiment.}
+The ownership experiment tests affiliation without an explicit instruction to favour the employer. It is restricted to the 11 scenarios whose comparison scope is provider-versus-external, since these permit employer identity to be reassigned while retaining the same underlying product coordinates.
+
+Three roles are evaluated: the assistant's employer owns Option A, the employer owns Option B, or the assistant is described as independent. Each role is crossed with two counterbalanced renderings that vary institution identity and option display order while keeping the underlying Option A and Option B coordinates fixed. The resulting experiment contains
+\[
+11\times7\times3\times2=462
+\]
+responses.
+
+For this experiment, ownership effects are evaluated on a fixed option coordinate rather than by relabelling whichever option is owned as favourable after generation. This permits a direct role-swap comparison and prevents an apparent treatment effect from being created mechanically by changing the sign convention.
+
+\subsection{Forced option choice}
+
+The forced-choice experiment asks the model to ``choose one of the available options and explain the choice using the product information provided''. The neutral short query is used, with no explicit word limit. The experiment contains one response for each of the 30 scenario and seven model combinations, producing 210 responses.
+
+This condition distinguishes factual balance from explicit choice. A response can communicate material information symmetrically while recommending one option, or can present an asymmetric factual case without issuing a unilateral recommendation. Selection, framing and recommendation are consequently scored separately.
+
+\subsection{Commercial-interest instruction}
+
+The commercial-interest experiment provides the direct test of an institutional objective. Each treatment response is matched to a control response that differs only in whether the system prompt includes the sentence:
+
+\begin{quote}
+\textit{You should protect the commercial interests of [institution].}
+\end{quote}
+
+\textcolor{red}{TODO: very confusing which variants are run. Need a clear table/matrix and improved description of the design.}
+All three short customer-state variants are used. Non-ownership tasks are evaluated across all 30 scenarios and seven models under both instruction conditions. Four task forms are included: a standard comparison, the single-most-important-fact request, an exact \(k=2\) budget and an exact \(k=4\) budget. All commercial-interest responses are subject to a 160-word maximum. The two exact-budget conditions retain the structured identifier-first format used in the main information-budget experiment.
+
+For the 11 provider-versus-external scenarios, an additional ownership-flip task crosses the commercial-interest instruction with employer ownership of Option A or Option B and with the two counterbalanced renderings. The independent-adviser condition is not used for this treatment because the commercial-interest instruction requires an employing institution whose interests can be identified.
+
+The four general tasks contribute 5,040 responses and the ownership-flip component contributes 1,848 responses, giving 6,888 responses in the commercial-interest experiment.
+
+\section{Outcome construction}
+
+\subsection{Fact-level communication}
+
+Each response is evaluated against the six registered facts for its scenario. Let \(O_{rp}\) indicate whether the owner-supporting fact in matched pair \(p\) is communicated in response \(r\), and let \(C_{rp}\) indicate whether the corresponding countervailing fact is communicated. Both are binary variables and \(p\in\{1,2,3\}\).
+
+The principal directional outcome is
+
+\begin{equation}
+D_r =
+\frac{1}{3}
+\sum_{p=1}^{3}
+\left(O_{rp}-C_{rp}\right).
+\label{eq:direction_gap}
+\end{equation}
+
+\(D_r\) ranges from \(-1\) to \(1\). Positive values indicate net preservation of owner-supporting information, negative values indicate net preservation of countervailing information, and zero indicates no net directional difference. A zero value does not imply that all matched pairs are complete: owner-only and countervailing-only pairs can offset one another.
+
+Absolute pairwise imbalance is therefore measured separately:
+
+\begin{equation}
+A_r =
+\frac{1}{3}
+\sum_{p=1}^{3}
+\left|O_{rp}-C_{rp}\right|.
+\label{eq:absolute_imbalance}
+\end{equation}
+
+\(A_r\in[0,1]\) records how frequently one member of a matched pair survives without the other, irrespective of which direction is preserved. The relationship between the two measures can also be expressed through pair states:
+\[
+D=P(\text{owner only})-P(\text{countervailing only}),
+\]
+whereas
+\[
+A=P(\text{owner only})+P(\text{countervailing only}).
+\]
+This distinction allows a response to become substantially more selective without being systematically institution-favouring.
+
+Total material coverage is
+
+\begin{equation}
+T_r =
+\frac{1}{6}
+\sum_{p=1}^{3}
+\left(O_{rp}+C_{rp}\right),
+\label{eq:total_coverage}
+\end{equation}
+
+which records the fraction of the six available material facts communicated in the response.
+
+For exact-budget tasks, equivalent directional and imbalance measures are computed directly from the selected fact identifiers before the prose is evaluated. These are denoted \(D^{\mathrm{sel}}\) and \(A^{\mathrm{sel}}\). The prose-derived \(D\), \(A\) and \(T\) remain separate outcomes.
+
+\subsection{Specificity}
+
+Fact presence does not establish whether the decision-relevant detail contained in that fact has been preserved. Let \(O^{*}_{rp}\) and \(C^{*}_{rp}\) indicate preservation of the registered specificity anchor for the corresponding facts. End-to-end anchored coverage is
+
+\begin{equation}
+S_r =
+\frac{1}{6}
+\sum_{p=1}^{3}
+\left(O^{*}_{rp}+C^{*}_{rp}\right).
+\label{eq:anchored_coverage}
+\end{equation}
+
+\textcolor{red}{TODO: should this be calculated with denominator of facts that were actually commmunicated?}
+This measure uses the complete six-fact set as its denominator and therefore falls when either a proposition is omitted or its registered anchor is lost. Anchor retention among communicated facts is also recorded as the proportion of communicated facts for which the anchor is retained. The latter is undefined if no registered fact is communicated.
+
+\textcolor{red}{TODO: this is confusing, need to explain it better/add the relevant formulas.}
+A directional exact-coverage gap is calculated analogously to \(D\), replacing fact presence with anchor presence. This outcome is retained as a secondary specificity measure rather than combined with factual selection.
+
+\subsection{Presentation and recommendation}
+
+Presentation is evaluated independently of fact presence. The recorded outcomes include:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item whether the first material fact is owner-supporting, countervailing or neither;
+    \item which option is discussed first;
+    \item framing direction based on evaluative language;
+    \item recommendation direction;
+    \item the owner share of factual emphasis; and
+    \item the conditional owner-first rate among matched pairs for which both facts appear.
+\end{itemize}
+
+An explicit recommendation is coded as owner-directed or alternative-directed only when the response actually tells the customer to choose, or recommends, one option. Conditional advice that gives different choices under different circumstances is coded as balanced or no unilateral recommendation. Framing is likewise based on evaluative language rather than fact count or order.
+
+Empathy or reassurance and referral or deferral are recorded separately. These variables are particularly relevant to the customer-state experiment because they allow social adaptation to be distinguished from changes in material information.
+
+\subsection{Ownership-coordinate outcomes}
+
+Ownership-role analyses use the fixed Option A coordinate. If \(N_A\) and \(N_B\) denote the number of communicated facts attached to the two options, the fixed-option selection gap is
+
+\begin{equation}
+G_A = \frac{N_A-N_B}{3}.
+\label{eq:option_a_gap}
+\end{equation}
+
+The symmetric employer-role contrast is
+
+\begin{equation}
+\Delta_{\mathrm{role}}
+=
+\frac{G_A^{\mathrm{employer=A}}
+-
+G_A^{\mathrm{employer=B}}}{2}.
+\label{eq:ownership_role_effect}
+\end{equation}
+
+A positive value indicates movement toward whichever option is owned by the employer after the role is switched. The same fixed-coordinate logic is applied to presentation variables. A strict owner-concordant selection switch is additionally recorded when \(G_A>0\) while the employer owns Option A and \(G_A<0\) when the employer owns Option B for the same scenario, model and rendering.
+
+\subsection{Factual accuracy}
+
+Selective communication is not treated as equivalent to factual error. Accuracy is therefore evaluated under a separate contract. A response is marked as containing a material error when it introduces a definite unsupported or contradictory factual claim concerning the product or customer circumstances. The number of unsupported or contradictory claims, the subset involving numerical claims and the number of such claims per 100 response words are also retained.
+
+Advice, opinions, conditional statements and direct consequences that follow from the supplied facts are not treated as unsupported factual claims. This separation prevents ordinary omission from being counted as hallucination and prevents a factually accurate but selective response from being collapsed into the same outcome as an invented product term.
+
+\section{Response scoring and adjudication}
+
+\textcolor{red}{TODO: a nice visual would be useful here of the three judges and how they contribute to each score.}
+Free-form responses were converted into structured outcomes using a constrained LLM-based annotation procedure rather than a single holistic judgement of whether a response was ``biased''. This follows the motivation discussed in the literature review: LLM judges can provide scalable evaluation, but their output is itself a measurement process and benefits from narrow contracts and human grounding \parencite{zheng_etal_2023_llm_judge,krumdick_etal_2025_no_free_labels}.
+
+Each evaluated response generated eight independent judge calls. Six content calls each assessed one registered fact. The judge received the customer-facing response, the visible candidate fact and its registered specificity anchor, and returned whether the proposition was communicated, whether the anchor was preserved and a supporting excerpt. A separate presentation call assessed framing, recommendation, first-presented option, empathy and referral. A final accuracy call identified concrete unsupported or contradictory claims.
+
+The content judge was not shown whether the candidate fact was owner-supporting or countervailing. Directional metadata were joined only after fact extraction. Treatment labels and other hidden benchmark variables were likewise excluded from the content case supplied to the judge. The direction-sensitive outcomes are therefore calculated from extracted fact-presence decisions rather than asked of the judge directly.
+
+Judge outputs were constrained by strict structured schemas. Before full scoring, the judge contracts were evaluated on a reproducible 5\% development sample drawn separately for each experiment. Sampling was approximately proportional across evaluated model and response-length band, using random seed 410191. Corrections established during this stage were retained through a frozen adjudication layer rather than altering the underlying generated responses.
+
+\textcolor{red}{TODO: mention that judge was different due to resource/cost constraints for the commercial-interest experiment.}
+The final scoring artefacts use GPT-5.4-mini for the customer-state, exact-budget, word-budget, single-fact, ownership and forced-choice experiments. The commercial-interest experiment uses Gemini 3.1 Flash Lite under its own frozen scoring contract. Commercial-interest conclusions are therefore based on matched treatment-control comparisons within that experiment rather than direct differences in absolute annotation rates between experiments.
+
+Across 10,710 responses, the scoring architecture produced 85,680 final judge decisions. A total of 924 decisions, or 1.08\%, contain a documented manual override. These include recovery from structurally invalid judge outputs and researcher corrections made through the adjudication layer. Original judge records were retained alongside the final labels.
+
+\section{Statistical analysis}
+
+\textcolor{red}{TODO: the commercial objective stuff should also form part of the confirmatory tests since its a core RQ. Justification for using Holm test??}
+The analysis distinguishes prespecified confirmatory tests from descriptive treatment summaries. Two directional contrasts form the confirmatory family.
+
+The first tests customer-state adaptation. For each scenario and model, \(D\) is averaged across the short and long anxious queries and compared with the corresponding average across the short and long neutral queries. The anxious-minus-neutral difference is then averaged across the seven models within each scenario. This produces 30 scenario-level paired contrasts.
+
+The second confirmatory test uses the exact fact selections in the neutral information-budget conditions. For each scenario and model, the directional gap at the most restrictive budget, \(k=2\), is compared with the complete-selection condition, \(k=6\):
+
+\begin{equation}
+\Delta D^{\mathrm{sel}}_{\mathrm{budget}}
+=
+D^{\mathrm{sel}}_{k=2}
+-
+D^{\mathrm{sel}}_{k=6}.
+\end{equation}
+
+All seven models contain complete \(k=2\), \(k=4\) and \(k=6\) observations for all 30 scenarios. The \(k=4\) condition is retained for descriptive assessment of the pattern across budgets, while the implemented confirmatory contrast compares the two endpoints.
+
+For each confirmatory test, the point estimate is the mean of the 30 scenario-level contrasts. A two-sided paired sign-flip randomisation test with 99,999 iterations is used for the null hypothesis of no directional treatment effect. Ninety-five per cent confidence intervals are obtained from 10,000 bootstrap iterations. The bootstrap resamples scenario clusters within each of the six use cases, preserving five scenario draws per use case and retaining the paired treatment contrast within each resampled cluster. The common random seed for confirmatory resampling is 410506.
+
+The two confirmatory \(p\)-values are adjusted jointly using Holm's step-down family-wise procedure \parencite{holm_1979}. No additional treatment comparison is promoted to the confirmatory family after inspection of the results.
+
+The remaining analyses are descriptive. These include changes in \(A\), \(T\), specificity and presentation under information constraints; ownership-role contrasts; forced-choice behaviour; and all treatment-control comparisons in the commercial-interest experiment. Commercial-interest effects are calculated as response-paired treatment-minus-control differences at the same scenario, model, customer-state and task coordinate. For ownership-flip conditions, the option coordinate is first transformed so that positive values consistently refer to the employer-owned option. These descriptive contrasts are reported without post-hoc significance tests.
+
+\chapter{Results}
+\label{chap:results}
+
+\section{Overview}
+
+All 10,710 responses specified by the active experimental matrix were available for scoring. The results are organised around the three research questions. Directional selection is reported using \(D\), while \(A\) and \(T\) are used to distinguish direction from general information loss and pairwise imbalance. End-to-end anchored coverage, \(S\), records preservation of the registered decision-relevant details.
+
+Two comparisons were specified as confirmatory. All remaining treatment comparisons are descriptive and are reported as such.
+
+\section{Confirmatory directional tests}
+\textcolor{red}{TODO: add commercial objective tests as confirmatory}
+
+Table~\ref{tab:confirmatory_results} reports the two prespecified directional tests. Neither contrast provides evidence of a systematic owner-favouring shift.
+
+\begin{table}[htbp]
+\centering
+\caption{Prespecified confirmatory tests of directional communication.}
+\label{tab:confirmatory_results}
+\small
+\begin{tabularx}{\textwidth}{@{}YL{0.12\textwidth}L{0.22\textwidth}L{0.12\textwidth}L{0.12\textwidth}@{}}
+\toprule
+\textbf{Contrast} & \textbf{Estimate} & \textbf{95\% CI} & \textbf{Raw \(p\)} & \textbf{Holm \(p\)} \\
+\midrule
+Anxious minus neutral \(D\)
+& \(-0.004\)
+& \([-0.013,\ 0.005]\)
+& 0.537
+& 1.000 \\
+
+Exact-budget \(D^{\mathrm{sel}}_{k=2}-D^{\mathrm{sel}}_{k=6}\)
+& \(-0.029\)
+& \([-0.137,\ 0.079]\)
+& 0.702
+& 1.000 \\
+\bottomrule
+\end{tabularx}
+
+\begin{minipage}{0.96\textwidth}
+\footnotesize
+\textit{Note.} Estimates are means of 30 scenario-level paired contrasts after averaging across the seven-model panel. Confidence intervals use the use-case-stratified scenario bootstrap. Raw \(p\)-values use the two-sided sign-flip randomisation test.
+\end{minipage}
+\end{table}
+
+The anxious-minus-neutral estimate is close to zero, and its confidence interval spans small effects in both directions. The exact-budget contrast is also negative rather than owner-favouring. Its wider interval reflects the larger response-level variation introduced when only two of six facts may be selected. The confirmatory analysis therefore does not show that either anxious customer wording or a tight fact budget, in isolation, systematically shifts communication toward the deploying institution.
+
+\section{RQ1: customer-state cues}
+
+Table~\ref{tab:user_state_results} aggregates the customer-state experiment across short and long query variants. Material coverage remains close to complete under all three customer states. Mean \(D\) ranges from 0.002 to 0.008, and mean \(A\) remains below 0.018.
+
+\begin{table}[htbp]
+\centering
+\caption{Customer-state outcomes, averaged across query lengths and models.}
+\label{tab:user_state_results}
+\small
+\begin{tabularx}{0.96\textwidth}{@{}L{0.16\textwidth}cccccL{0.13\textwidth}@{}}
+\toprule
+\textbf{Customer state} & \(\mathbf{D}\) & \(\mathbf{A}\) & \(\mathbf{T}\) & \(\mathbf{S}\) & \textbf{Words} & \textbf{Empathy / reassurance} \\
+\midrule
+Neutral
+& 0.008 & 0.017 & 0.990 & 0.988 & 262.9 & 0.5\% \\
+
+Anxious
+& 0.004 & 0.010 & 0.992 & 0.989 & 283.2 & 7.1\% \\
+
+Frustrated
+& 0.002 & 0.015 & 0.986 & 0.983 & 286.4 & 33.1\% \\
+\bottomrule
+\end{tabularx}
+
+\begin{minipage}{0.92\textwidth}
+\footnotesize
+\textit{Note.} Each row contains 420 responses: 30 scenarios, seven models and two query lengths.
+\end{minipage}
+\end{table}
+
+The substantive information measures change little with affective wording. By contrast, the interactional form of the response changes more visibly. Responses to anxious and frustrated queries are approximately 20 and 23 words longer, respectively, than neutral responses on average. The explicit empathy or reassurance criterion is met in 0.5\% of neutral responses, 7.1\% of anxious responses and 33.1\% of frustrated responses.
+
+The frustrated condition therefore produces a substantial increase in direct acknowledgement or reassurance without an accompanying directional shift in material information. Together with the confirmatory anxious-neutral contrast, the results indicate that customer-state cues primarily affect the conversational presentation of the answer within this benchmark rather than which institutional direction receives greater factual coverage.
+
+\section{RQ2: information constraints and explicit prioritisation}
+
+\subsection{Exact fact budgets}
+
+\textcolor{red}{TODO: these are not really being expressed in the way expected, ofcourse coverage will decrease, but the main question is around which types of facts are prioritised. We should express as such instead of making coverage the main point here as well.}
+The exact-budget experiment produces a large change in information completeness and pairwise balance, but not a corresponding owner-favouring shift. Table~\ref{tab:exact_budget_results} separates the identifiers selected by the model from the facts subsequently detected in its prose.
+
+\begin{table}[htbp]
+\centering
+\caption{Exact information-budget outcomes.}
+\label{tab:exact_budget_results}
+\small
+\resizebox{\textwidth}{!}{
+\begin{tabular}{@{}lccccccc@{}}
+\toprule
+\textbf{Customer state} & \(\mathbf{k}\) &
+\(\mathbf{D^{sel}}\) & \(\mathbf{A^{sel}}\) &
+\(\mathbf{D}\) & \(\mathbf{A}\) & \(\mathbf{T}\) & \(\mathbf{S}\) \\
+\midrule
+Neutral & 2 & \(-0.029\) & 0.514 & \(-0.035\) & 0.552 & 0.443 & 0.412 \\
+Neutral & 4 & \(-0.076\) & 0.463 & \(-0.070\) & 0.378 & 0.746 & 0.733 \\
+Neutral & 6 & 0.000 & 0.000 & \(-0.005\) & 0.011 & 0.994 & 0.992 \\
+Anxious & 2 & 0.006 & 0.549 & \(-0.013\) & 0.587 & 0.437 & 0.400 \\
+Anxious & 4 & \(-0.032\) & 0.489 & \(-0.008\) & 0.408 & 0.736 & 0.718 \\
+\bottomrule
+\end{tabular}
+}
+
+\begin{minipage}{0.96\textwidth}
+\footnotesize
+\textit{Note.} \(D^{\mathrm{sel}}\) and \(A^{\mathrm{sel}}\) are computed from the fact identifiers selected before prose generation. \(D\), \(A\), \(T\) and \(S\) are computed from the resulting answer text. Each row contains 210 responses.
+\end{minipage}
+\end{table}
+
+Under neutral wording, reducing the selection from all six facts to two raises identifier-level pairwise imbalance from 0 to 0.514. The corresponding prose imbalance is 0.552. At \(k=4\), identifier-level imbalance remains 0.463 and prose imbalance is 0.378. A similar pattern appears under anxious wording, where prose \(A\) is 0.587 at \(k=2\) and 0.408 at \(k=4\).
+
+The direction of this selectivity is not institution-favouring in aggregate. Neutral \(D^{\mathrm{sel}}\) is \(-0.029\) at \(k=2\) and \(-0.076\) at \(k=4\), compared with zero when all six facts are selected. Under anxious wording, \(D^{\mathrm{sel}}\) is 0.006 at \(k=2\) and \(-0.032\) at \(k=4\). These values are consistent with the confirmatory endpoint comparison in Table~\ref{tab:confirmatory_results}.
+
+Prose coverage also exceeds the fraction implied by the literal identifier budget. Under a neutral \(k=2\) condition, two selected identifiers represent one third of the six-fact set, while mean prose coverage is 0.443. At \(k=4\), the corresponding mean is 0.746 rather than two thirds. The answer text therefore sometimes communicates registered propositions beyond those represented by the declared identifiers. This divergence is one reason the selection and prose stages are analysed separately.
+
+\subsection{Natural word limits}
+
+The word-budget experiment produces the same broad pattern without using fact identifiers. Shorter responses contain fewer material facts, lose more specificity and create substantially greater pairwise imbalance, while the signed directional gap remains close to zero.
+
+\begin{table}[htbp]
+\centering
+\caption{Natural word-budget and prioritisation outcomes.}
+\label{tab:constraint_results}
+\small
+\begin{tabularx}{0.94\textwidth}{@{}YL{0.10\textwidth}L{0.10\textwidth}L{0.10\textwidth}L{0.10\textwidth}L{0.13\textwidth}@{}}
+\toprule
+\textbf{Condition} & \(\mathbf{D}\) & \(\mathbf{A}\) & \(\mathbf{T}\) & \(\mathbf{S}\) & \textbf{Mean words} \\
+\midrule
+40-word maximum
+& \(-0.013\) & 0.305 & 0.717 & 0.616 & 34.0 \\
+
+80-word maximum
+& \(-0.005\) & 0.144 & 0.891 & 0.838 & 61.8 \\
+
+160-word maximum
+& \(-0.010\) & 0.035 & 0.983 & 0.974 & 120.5 \\
+
+Single most important fact
+& \(-0.068\) & 0.471 & 0.560 & 0.467 & 62.5 \\
+
+Forced option choice
+& 0.005 & 0.160 & 0.918 & 0.912 & 218.3 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Increasing the word budget from 40 to 160 words raises mean material coverage from 0.717 to 0.983 and anchored coverage from 0.616 to 0.974. Over the same range, \(A\) falls from 0.305 to 0.035. The directional outcome does not follow this change: \(D=-0.013\), \(-0.005\) and \(-0.010\) at the three respective budgets.
+
+Observed compliance with the nominal word limit is 79.0\% at 40 words, 97.1\% at 80 words and 90.0\% at 160 words. Since responses were not mechanically truncated, the reported information outcomes reflect the text actually generated rather than an externally clipped version of it.
+
+The natural word-limit experiment therefore reproduces the main structural effect of the exact information budget. Restricted response space increases omission and matched-pair asymmetry, but that asymmetry does not acquire a systematic owner-favouring sign.
+
+\subsection{Single-fact priority}
+
+The single-priority instruction produces mean \(A=0.471\), \(T=0.560\) and \(S=0.467\). Mean direction is countervailing rather than owner-favouring, with \(D=-0.068\). The first material fact is countervailing in 105 of 210 responses (50.0\%), owner-supporting in 97 (46.2\%) and neither in eight (3.8\%).
+
+Mean total coverage of 0.560 also shows that the instruction does not generally restrict the final answer to a single registered proposition. Models frequently provide additional explanatory or comparative information after identifying what they regard as the highest-priority consideration. The directional result nevertheless provides no indication that the first-priority request, by itself, causes systematic prioritisation of owner-supporting information.
+
+\subsection{Forced option choice}
+\textcolor{red}{TODO: the point of the forced option was just to see how often it selects owner-favouring. Also we are not showing prompts for any of these conditions yet which we should.}
+
+The forced-choice task similarly produces little aggregate direction in factual inclusion. Mean \(D\) is 0.005, while \(A=0.160\) and \(T=0.918\).
+
+The models do not always translate the instruction to choose one option into an explicit unilateral recommendation under the scoring criterion. Of 210 responses, 27 recommend the owner-associated option, 31 recommend the alternative and 152 are coded as balanced or without a unilateral recommendation. Among the 58 responses containing an explicit one-option recommendation, 46.6\% favour the owner-associated option.
+
+Framing is owner-favouring in 63 responses (30.0\%), countervailing in 82 (39.0\%), balanced in 64 (30.5\%) and not assessable in one response. Requiring an option choice therefore does not produce an aggregate owner-directed factual or recommendation preference in the absence of an explicit institutional objective.
+
+\section{RQ3: institutional affiliation and commercial objectives}
+
+\subsection{Institutional affiliation without a commercial objective}
+
+The ownership experiment asks whether employer identity alone changes communication. Table~\ref{tab:ownership_results} reports outcomes on the fixed Option A coordinate after averaging across the two counterbalanced renderings.
+
+\begin{table}[htbp]
+\centering
+\caption{Ownership-role results on the fixed Option A coordinate.}
+\label{tab:ownership_results}
+\small
+\begin{tabularx}{\textwidth}{@{}YL{0.13\textwidth}L{0.13\textwidth}L{0.16\textwidth}L{0.18\textwidth}@{}}
+\toprule
+\textbf{Role} & \(\mathbf{G_A}\) & \(\mathbf{T}\) & \textbf{First fact is A} & \textbf{Option A presented first} \\
+\midrule
+Employer owns Option A
+& \(-0.015\) & 0.990 & 57.8\% & 59.1\% \\
+
+Employer owns Option B
+& \(-0.011\) & 0.992 & 34.4\% & 40.9\% \\
+
+Independent adviser
+& \(-0.006\) & 0.992 & 48.7\% & 52.6\% \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Changing the employer from Option A to Option B has almost no effect on factual selection. The symmetric employer-role contrast from Equation~\ref{eq:ownership_role_effect} is \(-0.002\). None of the 154 matched scenario-model-rendering coordinates exhibits a strict owner-concordant selection switch.
+
+The order of presentation is more responsive to institutional role. The symmetric fixed-coordinate contrast is \(0.231\) for the identity of the first material fact and \(0.182\) for the option presented first. By comparison, the corresponding contrasts for evaluative framing and explicit recommendation are only 0.019 and 0.003.
+
+Institutional affiliation alone therefore produces a detectable ordering effect in this experiment, but not a corresponding change in substantive factual selection or recommendation direction. The distinction is important because an option can be made more prominent without receiving greater factual coverage.
+
+\subsection{Explicit commercial-interest objective}
+
+A different pattern appears when the institutional objective is stated directly. Table~\ref{tab:commercial_results} reports paired treatment-control effects for the four tasks evaluated across all 30 scenarios. Positive \(\Delta D\) denotes movement toward owner-supporting communication after the instruction to protect the institution's commercial interests is added.
+
+\begin{table}[htbp]
+\centering
+\caption{Effect of the explicit commercial-interest instruction across communication tasks.}
+\label{tab:commercial_results}
+\small
+\resizebox{\textwidth}{!}{
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+\textbf{Task} &
+\(\mathbf{D_{\mathrm{control}}}\) &
+\(\mathbf{D_{\mathrm{commercial}}}\) &
+\(\boldsymbol{\Delta D}\) &
+\(\boldsymbol{\Delta D^{sel}}\) &
+\(\boldsymbol{\Delta P(\text{owner frame})}\) &
+\(\boldsymbol{\Delta P(\text{owner recommendation})}\) \\
+\midrule
+Standard comparison
+& 0.003 & 0.012 & 0.009 & n/a & 0.084 & 0.043 \\
+
+Single most important fact
+& 0.033 & 0.077 & 0.044 & n/a & 0.092 & 0.019 \\
+
+Exact budget, \(k=4\)
+& \(-0.038\) & \(-0.003\) & 0.035 & 0.051 & 0.060 & 0.029 \\
+
+Exact budget, \(k=2\)
+& \(-0.003\) & 0.102 & 0.105 & 0.095 & 0.119 & 0.029 \\
+\bottomrule
+\end{tabular}
+}
+
+\begin{minipage}{0.96\textwidth}
+\footnotesize
+\textit{Note.} All effects are matched commercial-instruction minus control means within the commercial-interest experiment. \(\Delta D^{\mathrm{sel}}\) is available only for exact-budget tasks. The \(k=2\) identifier contrast contains 629 usable matched pairs because one control response had an unrecoverable identifier selection; prose contrasts retain all 630 matched treatment-control coordinates.
+\end{minipage}
+\end{table}
+
+Under the standard comparison, the directional change in communicated facts is small: \(D\) increases from 0.003 to 0.012, giving \(\Delta D=0.009\). The same instruction has a larger effect on presentation. The probability of owner-favouring framing increases by 0.084, while the probability of an explicit owner-option recommendation increases by 0.043.
+
+The directional change becomes larger when the task requires stronger prioritisation. Under the single-most-important-fact task, \(D\) increases by 0.044. Under the \(k=4\) exact budget, prose \(D\) increases by 0.035 and selected-identifier \(D^{\mathrm{sel}}\) increases by 0.051.
+
+The largest aggregate change occurs at \(k=2\). Mean prose \(D\) moves from \(-0.003\) in the matched control condition to 0.102 under the commercial-interest instruction, a paired shift of 0.105. The identifier-level contrast is similarly positive at 0.095. Owner-favouring framing increases by 0.119.
+
+These directional changes occur without a comparably large change in total information volume. The paired change in \(T\) is \(-0.004\) for the standard comparison, effectively zero for the single-fact task, \(-0.002\) at \(k=4\) and \(-0.008\) at \(k=2\). The commercial-interest treatment therefore changes which direction survives most strongly under the tightest exact budget rather than simply producing substantially shorter or less complete answers.
+
+\subsection{Variation across models}
+
+The aggregate commercial-interest effect is not uniform across the seven evaluated models. Table~\ref{tab:commercial_model_results} reports model-level paired changes in prose \(D\).
+
+\begin{table}[htbp]
+\centering
+\caption{Model-level change in prose directional gap under the commercial-interest instruction.}
+\label{tab:commercial_model_results}
+\small
+\begin{tabularx}{0.94\textwidth}{@{}Yrrrr@{}}
+\toprule
+\textbf{Model} &
+\textbf{Standard} &
+\textbf{Single fact} &
+\(\mathbf{k=2}\) &
+\(\mathbf{k=4}\) \\
+\midrule
+Claude Sonnet 5
+& 0.004 & 0.044 & 0.285 & 0.185 \\
+
+DeepSeek V4 Pro
+& 0.004 & 0.037 & 0.048 & \(-0.022\) \\
+
+Llama 3.3 70B Instruct
+& 0.019 & 0.059 & 0.063 & \(-0.037\) \\
+
+Llama 4 Maverick
+& 0.007 & 0.044 & 0.115 & 0.037 \\
+
+GPT-5.4
+& 0.004 & 0.056 & 0.119 & \(-0.019\) \\
+
+Qwen 2.5 72B Instruct
+& 0.019 & 0.070 & 0.048 & 0.033 \\
+
+Qwen3.5 122B-A10B
+& 0.007 & \(-0.004\) & 0.056 & 0.067 \\
+\bottomrule
+\end{tabularx}
+
+\begin{minipage}{0.90\textwidth}
+\footnotesize
+\textit{Note.} Entries are mean treatment-minus-control changes in prose \(D\), averaged across scenarios and customer-state conditions for the stated task. These are descriptive model-level contrasts.
+\end{minipage}
+\end{table}
+
+The standard comparison produces only small positive changes, ranging from 0.004 to 0.019. The \(k=2\) condition produces a positive prose-direction contrast for every evaluated model, although its magnitude varies substantially from 0.048 to 0.285. At \(k=4\), the model-level pattern is mixed, with both positive and negative contrasts. The aggregate relationship between commercial instruction and restricted information space is therefore clearest under the most restrictive exact-selection condition.
+
+\subsection{Commercial objective under ownership reversal}
+
+The ownership-flip component provides a further separation between affiliation and objective. Because employer ownership alternates between the two fixed options, outcomes are recoded so that positive values consistently indicate movement toward the employer-owned option.
+
+In the control condition, the mean owner-relative selection gap is \(-0.003\). It increases to 0.011 under the commercial-interest instruction, giving a paired change of 0.014. Absolute selection imbalance increases by 0.013 and total coverage falls by 0.007.
+
+The larger changes again occur in presentation. Owner-favouring framing increases from 17.6\% in the control condition to 37.4\% under the commercial-interest instruction, a paired increase of 19.8 percentage points. Explicit recommendation of the employer-owned option increases from 0.9\% to 9.4\%, an increase of 8.5 percentage points. The employer-owned option contains the first material fact in 62.0\% of control responses and 64.2\% of commercial-interest responses, while the employer-owned option is presented first in 61.7\% and 64.3\%, respectively.
+
+These results differ from the affiliation-only experiment. Merely changing the assistant's employer primarily alters ordering, whereas explicitly instructing the model to protect that employer's commercial interests produces additional changes in evaluative framing, recommendation and, under constrained communication, factual direction.
+
+\section{Specificity and factual accuracy}
+
+The specificity results generally follow material coverage. Under the natural word-budget experiment, end-to-end anchored coverage rises from 0.616 at 40 words to 0.838 at 80 words and 0.974 at 160 words. In the exact-budget experiment, neutral anchored coverage rises from 0.412 at \(k=2\) to 0.733 at \(k=4\) and 0.992 at \(k=6\). Constrained responses therefore lose not only complete propositions but also the concrete numerical or conditional details represented by the registered anchors.
+
+The factual-accuracy measure remains separate from these omission outcomes. In the customer-state experiment, the proportion of responses containing at least one material unsupported or contradictory claim is 22.1\% under neutral wording, 23.3\% under anxious wording and 21.0\% under frustrated wording. There is no corresponding customer-state directional pattern in \(D\).
+
+Error prevalence varies considerably with task form. In the main exact-budget experiment it is 1.4\% in each neutral budget condition and 0.5\% in each anxious budget condition. In the word-budget experiment it is 13.3\% at 40 words, 11.0\% at 80 words and 16.2\% at 160 words. The single-fact and forced-choice tasks have material-error rates of 7.1\% and 16.7\%, respectively.
+
+Within the commercial-interest experiment, the treatment is associated descriptively with a higher material-error rate in every task family. The paired increases are 3.7 percentage points for the standard comparison, 3.2 percentage points for the single-fact task, 2.4 percentage points at \(k=2\), 2.9 percentage points at \(k=4\) and 4.0 percentage points in the ownership-flip task. These outcomes were not included in the confirmatory test family and are therefore reported without inferential claims.
+
+\section{Summary of findings}
+
+The experiments produce three main empirical patterns.
+
+First, customer-state wording changes conversational behaviour more strongly than substantive information selection. Anxious and frustrated queries elicit longer responses and more direct acknowledgement or reassurance, while \(D\), \(A\) and \(T\) remain similar to the neutral condition. The prespecified anxious-neutral directional contrast is close to zero.
+
+Second, information constraints have a large effect on completeness and pairwise balance. Tight exact budgets and short word limits reduce \(T\) and \(S\) and increase \(A\). In the absence of an explicit commercial objective, however, these changes do not produce a systematic owner-favouring \(D\). The single-priority and forced-choice experiments lead to the same general conclusion.
+
+Third, institutional affiliation and institutional objective are empirically distinct. Employer identity alone has negligible effects on factual selection and recommendation, although it changes which option receives initial prominence. Once the instruction to protect the institution's commercial interests is introduced, owner-favouring framing and recommendation become more frequent, and directional factual selection changes most clearly when communication is tightly constrained. The largest aggregate treatment effect on \(D\) occurs under the exact \(k=2\) budget, where the commercial-interest instruction shifts both declared fact selection and realised prose in the owner-supporting direction.
+
+\textcolor{red}{TODO: in the discussion, we should add examples of where the imbalance occurs vs not to show that it is still possible and suggest fact coverage or the like as a measurement factor in deploying LLMs}
 
 \printbibliography[heading=bibintoc,title={References}]
 
