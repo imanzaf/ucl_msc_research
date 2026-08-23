@@ -3,9 +3,9 @@
 Analysis consumes only frozen run units, frozen scorer outputs, and direction metadata joined after extraction. The implementation is in
 `srcv2/analysis/`.
 
-## Confirmatory family
+## Primary tests and multiplicity families
 
-The seven confirmatory directional tests are:
+The seven primary directional tests are:
 
 1. commercial-interest instruction versus its matched no-instruction control for prose D in the standard comparison;
 2. the same paired prose-D contrast in the single-most-important-fact task;
@@ -23,8 +23,9 @@ contrast is recoded so that positive values consistently refer to the employer-o
 uv run risk-comm-v2 analysis confirmatory
 ```
 
-The command constructs scenario-level paired contrasts, applies a seven-test Holm correction, and reports use-case-stratified scenario-cluster
-bootstrap intervals. The bootstrap seed and iteration count are stored in the result artifact.
+The command constructs scenario-level paired contrasts, applies Holm correction across the five RQ1 commercial-objective tests, and treats the RQ2
+customer-state and RQ3 information-budget tests as separate singleton families. It also reports use-case-stratified scenario-cluster bootstrap
+intervals. The random seed, iteration count, family identifier, and family size are stored in the result artifact.
 
 ## Secondary and diagnostic outcomes
 
@@ -49,7 +50,7 @@ The implementation is in `srcv2/analysis/option_first.py`. The output files are
 `data/outputs/experiments/option_first_v1/scoring/forced_choice_label_summary_v1.json`.
 
 Prepare complete paired observation rows from the commercial-interest experiment's final response scores, then calculate treatment-minus-control
-contrasts while holding scenario, model, affect, task, budget, employer role, and rendering fixed. Five directional summaries feed the confirmatory
+contrasts while holding scenario, model, affect, task, budget, employer role, and rendering fixed. Five directional summaries form the RQ1 Holm
 family; other commercial-interest outcomes remain descriptive. The command defaults keep both derived artifacts in the experiment's `scoring/`
 directory:
 

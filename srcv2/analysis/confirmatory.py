@@ -1,4 +1,4 @@
-"""Scenario-level paired confirmatory contrasts and Holm correction."""
+"""Scenario-level paired tests with research-question-specific multiplicity control."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pydantic import Field
 
 from srcv2.analysis.commercial_interest import CommercialInterestContrast
 from srcv2.common import ImmutableModel
-from srcv2.models.enums import Affect, AnalysisInterpretation, CommercialInterestTask, ExactFactBudget, OwnershipRole
+from srcv2.models.enums import Affect, AnalysisInterpretation, CommercialInterestTask, ExactFactBudget, MultiplicityFamily, OwnershipRole
 from srcv2.models.experiments import InformationBudgetCell, UserStateCell
 from srcv2.models.scoring import ResponseOutcomesRecord
 
@@ -22,6 +22,13 @@ COMMERCIAL_TEST_NAMES = (
     "commercial_exact_k2_D",
     "commercial_ownership_flip_D",
 )
+
+TEST_NAMES_BY_FAMILY = {
+    MultiplicityFamily.RQ1: COMMERCIAL_TEST_NAMES,
+    MultiplicityFamily.RQ2: ("anxious_vs_neutral_D",),
+    MultiplicityFamily.RQ3: ("ordered_k6_k4_k2_selection_D",),
+}
+TEST_FAMILY_BY_NAME = {test_name: family for family, test_names in TEST_NAMES_BY_FAMILY.items() for test_name in test_names}
 
 
 class UserStateScore(ImmutableModel):
@@ -65,13 +72,15 @@ class BootstrapInterval(ImmutableModel):
 
 
 class ConfirmatoryTest(ImmutableModel):
-    """Report one confirmatory contrast before and after Holm correction."""
+    """Report one primary contrast with its within-research-question p-value."""
 
     interpretation: AnalysisInterpretation = AnalysisInterpretation.CONFIRMATORY
     test_name: str
     estimate: float
     raw_p_value: float = Field(ge=0, le=1)
-    holm_p_value: float = Field(ge=0, le=1)
+    within_family_p_value: float = Field(ge=0, le=1)
+    multiplicity_family: MultiplicityFamily
+    multiplicity_family_size: int = Field(ge=1)
     interval: BootstrapInterval
     scenario_count: int
     analysis_model_slugs: List[str] = Field(min_length=1)
@@ -256,8 +265,22 @@ def holm_adjust(p_values: Dict[str, float]) -> Dict[str, float]:
     running = 0.0
     total = len(ordered)
     for index, (name, value) in enumerate(ordered):
-        running = max(running, min(1.0, (total - index) * value))
+        running = max(running, min(1.0, round((total - index) * value, 12)))
         adjusted[name] = running
+    return adjusted
+
+
+def adjust_within_research_questions(p_values: Dict[str, float]) -> Dict[str, float]:
+    """Apply Holm separately to RQ1 and the singleton RQ2 and RQ3 families."""
+    expected_names = set(TEST_FAMILY_BY_NAME)
+    if set(p_values) != expected_names:
+        missing = sorted(expected_names - set(p_values))
+        unexpected = sorted(set(p_values) - expected_names)
+        raise ValueError(f"primary p-values do not match the declared research-question families; missing={missing}, unexpected={unexpected}")
+    adjusted: Dict[str, float] = {}
+    for test_names in TEST_NAMES_BY_FAMILY.values():
+        family_p_values = {test_name: p_values[test_name] for test_name in test_names}
+        adjusted.update(holm_adjust(family_p_values))
     return adjusted
 
 
@@ -268,16 +291,16 @@ def run_confirmatory_tests(
     bootstrap_iterations: int = 10000,
     random_seed: int = 410506,
 ) -> List[ConfirmatoryTest]:
-    """Run five commercial and two complementary directional confirmatory tests."""
+    """Run five RQ1 and singleton RQ2 and RQ3 primary directional tests."""
     from srcv2.analysis.resampling import stratified_cluster_bootstrap
 
     contrasts = commercial_directional_contrasts(commercial_contrasts)
     contrasts["anxious_vs_neutral_D"] = anxious_neutral_contrasts(user_state_scores)
     contrasts["ordered_k6_k4_k2_selection_D"] = ordered_budget_contrasts(budget_scores)
-    if len(contrasts) != 7:
-        raise ValueError("the confirmatory family must contain five commercial and two complementary tests")
+    if set(contrasts) != set(TEST_FAMILY_BY_NAME):
+        raise ValueError("the primary tests must contain five RQ1 and one test for each of RQ2 and RQ3")
     raw = {name: sign_flip_p_value([item.value for item in values], random_seed=random_seed) for name, values in contrasts.items()}
-    adjusted = holm_adjust(raw)
+    adjusted = adjust_within_research_questions(raw)
     analysis_models = {
         **{
             name: sorted({contrast.model_slug for contrast in commercial_contrasts if _commercial_test_name(contrast) == name})
@@ -291,7 +314,9 @@ def run_confirmatory_tests(
             test_name=name,
             estimate=mean(item.value for item in values),
             raw_p_value=raw[name],
-            holm_p_value=adjusted[name],
+            within_family_p_value=adjusted[name],
+            multiplicity_family=TEST_FAMILY_BY_NAME[name],
+            multiplicity_family_size=len(TEST_NAMES_BY_FAMILY[TEST_FAMILY_BY_NAME[name]]),
             interval=stratified_cluster_bootstrap(values, iterations=bootstrap_iterations, random_seed=random_seed),
             scenario_count=len(values),
             analysis_model_slugs=analysis_models[name],

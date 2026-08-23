@@ -56,7 +56,7 @@ COMMAND_GROUPS = {
         "calculate-outcomes": Command("srcv2.cli.commands.scoring", "Write one experiment's final response scores and scoring manifest."),
     },
     "analysis": {
-        "confirmatory": Command("srcv2.cli.commands.analysis", "Run the seven Holm-corrected directional confirmatory contrasts."),
+        "confirmatory": Command("srcv2.cli.commands.analysis", "Run seven directional tests with multiplicity control within research questions."),
         "describe": Command("srcv2.cli.commands.analysis", "Summarize use-case or access groups descriptively."),
         "commercial-interest-observations": Command(
             "srcv2.cli.commands.analysis", "Prepare complete matched observations from commercial-interest response outcomes."

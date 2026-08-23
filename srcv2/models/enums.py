@@ -67,6 +67,14 @@ class AnalysisInterpretation(str, Enum):
     CONFIRMATORY = "confirmatory"
 
 
+class MultiplicityFamily(str, Enum):
+    """Identify the research-question family used for p-value adjustment."""
+
+    RQ1 = "rq1_institutional_objective"
+    RQ2 = "rq2_customer_state"
+    RQ3 = "rq3_information_budget"
+
+
 class ExecutionStatus(str, Enum):
     """Declare whether an experiment assignment belongs to the paid run."""
 

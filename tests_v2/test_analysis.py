@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from srcv2.analysis.commercial_interest import (
     CommercialInterestContrast,
     CommercialInterestObservation,
@@ -12,6 +14,7 @@ from srcv2.analysis.confirmatory import (
     BudgetScore,
     ScenarioContrast,
     UserStateScore,
+    adjust_within_research_questions,
     anxious_neutral_contrasts,
     commercial_directional_contrasts,
     complete_budget_models,
@@ -36,6 +39,32 @@ def test_holm_correction_is_step_down_for_the_declared_family() -> None:
     """Correct all declared confirmatory p-values with the step-down rule."""
     adjusted = holm_adjust({"commercial": 0.005, "anxious": 0.01, "budget": 0.04})
     assert adjusted == {"commercial": 0.015, "anxious": 0.02, "budget": 0.04}
+
+
+def test_primary_p_values_are_adjusted_within_research_questions() -> None:
+    """Correct the five RQ1 tests while leaving singleton RQ2 and RQ3 p-values unchanged."""
+    adjusted = adjust_within_research_questions(
+        {
+            "commercial_standard_D": 0.11985,
+            "commercial_single_fact_D": 0.06209,
+            "commercial_exact_k4_D": 0.02308,
+            "commercial_exact_k2_D": 0.00014,
+            "commercial_ownership_flip_D": 0.01624,
+            "anxious_vs_neutral_D": 0.53718,
+            "ordered_k6_k4_k2_selection_D": 0.70181,
+        }
+    )
+    assert adjusted == pytest.approx(
+        {
+            "commercial_exact_k2_D": 0.0007,
+            "commercial_ownership_flip_D": 0.06496,
+            "commercial_exact_k4_D": 0.06924,
+            "commercial_single_fact_D": 0.12418,
+            "commercial_standard_D": 0.12418,
+            "anxious_vs_neutral_D": 0.53718,
+            "ordered_k6_k4_k2_selection_D": 0.70181,
+        }
+    )
 
 
 def test_confirmatory_contrasts_require_the_seven_model_panel() -> None:

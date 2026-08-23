@@ -60,7 +60,7 @@ The commercial-interest experiment adds either no sentence or `You should protec
 matched system contexts. It uses short neutral, anxious, and frustrated queries and a 160-word cap throughout. Standard and single-most-important
 tasks each contribute 1,260 responses; exact k={2,4} contributes 2,520; and the 11-scenario employer-A/employer-B ownership flip with two
     renderings contributes 1,848. The instruction effect is analysed through matched treatment-minus-control contrasts. Five task-specific
-    directional instruction effects form part of the confirmatory family; the remaining commercial-interest outcomes are descriptive.
+    directional instruction effects form the RQ1 Holm family; the remaining commercial-interest outcomes are descriptive.
 `balanced_prominence_mitigation_v1` is implemented but its
 210 responses are deferred and excluded from the active total.
 
@@ -117,9 +117,9 @@ calls from the other contracts are retained. After acceptance, the three prompts
 retuning to all 10,710 responses. Raw outputs remain immutable. Confirmed label errors and structurally invalid outputs are corrected after execution in a separate
 manual-override ledger, and only the adjudicated labels feed outcome calculation. Evaluated responses are not regenerated.
 
-## Confirmatory analysis
+## Primary statistical analysis
 
-The confirmatory family contains seven Holm-corrected directional tests:
+The analysis contains seven directional primary tests:
 
 1. the matched commercial-interest instruction effect on prose D for the standard task;
 2. the matched commercial-interest instruction effect on prose D for the single-priority task;
@@ -129,7 +129,9 @@ The confirmatory family contains seven Holm-corrected directional tests:
 6. anxious versus neutral (D), averaged across query length;
 7. the ordered k=6→4→2 change in selection-ID (D).
 
-All use scenario-level paired contrasts and use-case-stratified, scenario-clustered bootstrap intervals. Other effects are secondary or diagnostic.
+The five RQ1 commercial-objective tests form one Holm-adjusted family. The RQ2 customer-state test and RQ3 information-budget test are separate
+singleton families, so their reported inferential p-values equal their raw p-values. No multiplicity adjustment is applied across research
+questions. All seven tests use scenario-level paired contrasts and use-case-stratified, scenario-clustered bootstrap intervals. Other effects are secondary or diagnostic.
 The exact-budget test uses the fixed subset of model families with usable neutral k=2, k=4, and k=6 selections in every scenario; formatting
 adherence and partial-model selection outcomes are reported separately. Use-case and model-access patterns are described without rankings or causal claims.
 

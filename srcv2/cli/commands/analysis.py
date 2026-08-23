@@ -13,7 +13,7 @@ from srcv2.analysis.commercial_interest import (
     paired_instruction_contrasts,
     summarize_commercial_interest_contrasts,
 )
-from srcv2.analysis.confirmatory import budget_scores_from_outcomes, run_confirmatory_tests, user_state_scores_from_outcomes
+from srcv2.analysis.confirmatory import TEST_NAMES_BY_FAMILY, budget_scores_from_outcomes, run_confirmatory_tests, user_state_scores_from_outcomes
 from srcv2.analysis.descriptive import GroupObservation, summarize_groups
 from srcv2.analysis.option_first import label_forced_choice_scores, summarize_forced_choices
 from srcv2.models.enums import ExperimentKind
@@ -23,7 +23,7 @@ from srcv2.storage import read_json, read_jsonl, write_json, write_jsonl
 
 
 def _confirmatory(arguments: List[str]) -> None:
-    """Run the seven directional tests from frozen score and contrast files."""
+    """Run the seven directional tests using research-question-specific families."""
     parser = argparse.ArgumentParser(prog="risk-comm-v2 analysis confirmatory")
     parser.add_argument(
         "--user-state-response-scores",
@@ -55,8 +55,9 @@ def _confirmatory(arguments: List[str]) -> None:
         args.bootstrap_iterations,
         args.seed,
     )
-    write_json(args.output, {"schema_version": "4.0.0", "holm_family_size": len(tests), "tests": tests})
-    print(f"Wrote {len(tests)} Holm-corrected confirmatory tests to {args.output}")
+    family_sizes = {family.value: len(test_names) for family, test_names in TEST_NAMES_BY_FAMILY.items()}
+    write_json(args.output, {"schema_version": "4.0.1", "holm_family_sizes": family_sizes, "tests": tests})
+    print(f"Wrote {len(tests)} primary tests across Holm families {family_sizes} to {args.output}")
 
 
 def _describe(arguments: List[str]) -> None:

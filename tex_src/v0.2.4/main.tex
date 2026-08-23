@@ -12,6 +12,7 @@
 \usepackage[most]{tcolorbox}
 \usepackage{csquotes}
 \usepackage{graphicx}
+\usepackage{float}
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{hyperref}
@@ -57,7 +58,7 @@
 UCL Institute of Finance \& Technology\\
 \rev{MSc Banking and Digital Finance}\\[1em]
 2026\\[0.5em]
-Word count: \rev{9,786}}
+Word count: \rev{9,799}}
 
 \begin{document}
 
@@ -235,19 +236,45 @@ The six domains were chosen to vary the form of material trade-off while preserv
 \section[Matched scenario-instance construction]{\rev{Matched scenario-instance construction}}
 
 \begin{revisionblock}
-Each scenario instance contains two mutually exclusive options and six material facts arranged in three pairs. One fact in each pair concerns each option, and both share the same customer valence: favourable or adverse. Each option has three facts. Across the scenario instance, exactly three facts are \emph{institution-supporting}, meaning their communication strengthens the relative informational case for the option associated with greater institutional benefit; three are \emph{countervailing}. Customer valence and institutional direction are therefore independent labels. A favourable fact can support either direction depending on the option it describes.
-
-Across the corpus, this produces 180 facts and 90 matched pairs. Customer valence is globally balanced at 90 favourable and 90 adverse facts, while every scenario instance contains three facts in each institutional direction. The balance prevents a positive directional gap from arising merely because more institution-supporting material was available. It does not force a particular response to be balanced; the model remains free to communicate any subset.
-
-Figure~\ref{fig:scenario_anatomy} shows what the evaluated model receives and what remains hidden. Models see the fictional role, named options, six propositions, customer query and task instruction. They do not see pair membership, customer-valence labels, institutional direction or the institutionally beneficial option. Fact identifiers appear only in exact-selection tasks. Hidden direction is joined after proposition extraction, preventing it from influencing the response or content judge.
+Each scenario instance contains two mutually exclusive options and six material facts arranged in three pairs. One fact in each pair concerns each option, and both share the same customer valence: favourable or adverse. Each option has three facts. Across the scenario instance, exactly three facts are \emph{institution-supporting}, meaning their communication strengthens the relative informational case for the option associated with greater institutional benefit; three are \emph{countervailing}. Customer valence and institutional direction are therefore independent labels. A favourable fact can support either direction depending on the option it describes. Figure~\ref{fig:scenario_anatomy} visualises this structure.
 \end{revisionblock}
 
-\begin{figure}[htbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{assets/scenario_anatomy_diagram.pdf}
-\caption{\rev{Scenario-instance anatomy and separation of visible facts from hidden evaluation labels.}}
+\includegraphics[width=\textwidth]{assets/scenario_composition_diagram.pdf}
+\caption{\rev{Composition of a scenario instance.}}
 \label{fig:scenario_anatomy}
 \end{figure}
+
+\begin{revisionblock}
+Across the corpus, this produces 180 facts and 90 matched pairs. Customer valence is globally balanced at 90 favourable and 90 adverse facts, while every scenario instance contains three facts in each institutional direction. The balance prevents a positive directional gap from arising merely because more institution-supporting material was available. It does not force a particular response to be balanced; the model remains free to communicate any subset.
+
+The evaluated model received the fictional role, named options, six propositions, customer query and task instruction, but not the research metadata later used for scoring. Table~\ref{tab:visible_hidden_metadata} separates the visible and hidden fields. Fact identifiers were additionally visible only in exact-selection tasks.
+\end{revisionblock}
+
+\begin{table}[htbp]
+\centering
+\caption{\rev{Information shown to the evaluated model and retained as hidden benchmark metadata.}}
+\label{tab:visible_hidden_metadata}
+\small
+\begin{tabularx}{\textwidth}{@{}L{0.19\textwidth}YY@{}}
+\toprule
+\rev{\textbf{Category}} & \rev{\textbf{Shown to the evaluated model}} & \rev{\textbf{Hidden from the evaluated model}} \\
+\midrule
+\rev{Institutional context}
+& \rev{A natural support role and the name of a fictional employing institution where required by the condition}
+& \rev{The institutional-benefit mechanism and institution-associated option coordinate} \\
+\addlinespace[0.35em]
+\rev{Task and customer request}
+& \rev{A plain-language task description, one authority-limit statement, the scenario-specific customer message and the applicable task instruction}
+& \rev{Research-facing condition labels and analytical coordinates} \\
+\addlinespace[0.35em]
+\rev{Options and facts}
+& \rev{Two named financial options and all six product-information statements; fact identifiers only in exact-selection tasks}
+& \rev{Institution-supporting and countervailing labels, customer-valence labels, pair identifiers, materiality rationales and mutual-exclusivity metadata} \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 \begin{revisionblock}
 Matched pairs distinguish low coverage from one-sided selection. Communicating both facts produces presence balance; communicating neither lowers coverage without creating a within-pair direction; communicating one creates imbalance whose direction depends on the surviving fact. Pairing does not assert equal monetary utility. Customer-specific circumstances, which the benchmark intentionally omits, would be required to declare one option universally preferable.
@@ -262,11 +289,21 @@ Anchors are not limited to numbers. A categorical term can be decision-relevant,
 \section[Generation, curation and variants]{\rev{Generation, curation and variants}}
 
 \begin{revisionblock}
-\textcolor{red}{TODO: shouldn't the second paragraph come first. And maybe a quick figure showing the seed -> model -> review -> final scenario. Where did the scenario example go.}
-GPT-5.4 generated one structured seed for each scenario instance under a frozen configuration. The researcher reviewed all 180 facts for financial plausibility, arithmetic, materiality, pair comparability, valence, institutional direction and compliance with the one-anchor rule. Fifteen scenario instances required at least one correction. Corrections were stored in a hash-bound curation layer while original requests and responses remained unchanged; only the curated corpus generated evaluated prompts. The procedure established plausibility and label consistency, not equal economic value between matched facts.
+Researcher-authored briefs defined six financial domains with five scenario instances each. Each brief fixed the decision type, two-option structure, institutional-benefit mechanism and required fact structure before generation. GPT-5.4 then generated the fact, pair, option and anchor fields in one schema-constrained run under the frozen configuration.
 
-Researcher-authored briefs fixed the domain, decision type, two-option structure and institutional-benefit mechanism before generation. The model returned fact, pair, option and anchor fields under a strict schema. Arithmetic was checked programmatically where derivable from supplied values, with language and financial coherence reviewed manually. This provenance makes the benchmark LLM-generated and researcher-curated rather than either wholly manual or unreviewed synthetic data.
+The researcher reviewed all 180 generated facts for financial plausibility, arithmetic, materiality, pair comparability, customer valence, institutional direction and compliance with the one-anchor rule. Arithmetic was also checked programmatically where derivable from the supplied values. Fifteen of the 30 scenario instances required at least one correction. Corrections were stored in a hash-bound curation layer that preserved the original requests and responses, and only reviewed and accepted versions were published to the evaluation corpus. The resulting benchmark is therefore LLM-generated and researcher-curated rather than either wholly manual or unreviewed synthetic data. The procedure established plausibility and label consistency, not equal economic value between matched facts. Figure~\ref{fig:scenario_generation_pipeline} summarises this workflow.
+\end{revisionblock}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{assets/scenario_generation_pipeline.pdf}
+\caption{\rev{Scenario generation, review and publication pipeline.}}
+\label{fig:scenario_generation_pipeline}
+\end{figure}
+
+\textcolor{red}{TODO: Where did the scenario example go?}
+
+\begin{revisionblock}
 Each accepted scenario instance has neutral, anxious and frustrated customer-state cue conditions in short and long forms. Variants preserve the substantive request and introduce no preferred option, new fact, risk tolerance or decision authority. Eleven cross-provider scenario instances additionally support alternative employer assignments and two jointly counterbalanced name/order renderings while retaining Option A as the fixed analytical coordinate. The smaller subset is used only for ownership analyses. Appendix~\ref{app:materials} provides the complete structure, queries and prompt for one scenario instance; the repository contains the full curated benchmark.
 
 Two fixed fact-order permutations are balanced across the corpus so the entire benchmark does not present one systematic sequence. Query variants were authored individually rather than produced by attaching a fixed emotional prefix, preserving natural wording while holding the substantive request stable. Experiments that do not manipulate customer-state cues use the neutral short query. Treatment pairs otherwise retain identical visible facts and ordering.
@@ -626,6 +663,8 @@ Within the commercial experiment, treatment-associated error increases were pres
 \section[Commercial objectives under restricted selection]{\rev{Commercial objectives under restricted selection}}
 
 \begin{revisionblock}
+\textcolor{red}{TODO: include discussion of the ownership-flip result (raw p)}
+\textcolor{red}{TODO: add example of the seed in appendix.}
 The principal result concerns a change in information allocation rather than simply answer length. Under exact \(k=2\), the commercial objective increased prose direction by 0.105 and declared-selection direction by 0.095 while total coverage changed by only -0.008. The same two-fact task produced a positive prose contrast for all seven models, although with heterogeneous magnitude. Treatment and control responses therefore communicated similar amounts of registered material but differed in which institutional direction occupied the available space.
 
 Agreement between declared identifiers and scored prose strengthens this interpretation. Both are observable model outputs rather than direct traces of latent reasoning: selected IDs may function as a plan, declaration or rationalisation, and prose sometimes communicated facts beyond the declared set. Their convergence nevertheless makes it less likely that the result reflects evaluative wording applied to an unchanged factual selection.
@@ -637,6 +676,7 @@ Taken together, the task pattern is consistent with information scarcity amplify
 Presentation effects were evident under less restrictive conditions. In the standard commercial task, direction changed only slightly while institution-supporting framing rose by 8.4 percentage points and recommendation by 4.3 points. Under ownership flip, framing and recommendation changes were likewise larger than the factual-selection change. Ordering and evaluative language can change without removing facts, whereas exact directional selection requires a sharper allocation trade-off. This interpretation complements commercial-persuasion research by identifying a possible informational pathway while stopping short of claiming a change in customer choice or welfare \parencite{werner_etal_2024_consumer_steering,wu_etal_2026_ads,salvi_etal_2026_commercial_persuasion}.
 
 The descriptive increase in material-error prevalence under every commercial task family is suggestive but secondary. Commercial language may create more assertive claims, or longer and more evaluative answers may simply create more opportunities for an error indicator to fire. Without normalising for claim count or estimating a dedicated contrast, the result should motivate a separate accuracy analysis rather than broaden the central factual-selection claim.
+\textcolor{red}{TODO: add the per-model matrix from the appendix here and discuss briefly, weird that Claude has higher D}
 \end{revisionblock}
 
 \section[Affiliation, customer cues and non-directional loss]{\rev{Affiliation, customer cues and non-directional loss}}

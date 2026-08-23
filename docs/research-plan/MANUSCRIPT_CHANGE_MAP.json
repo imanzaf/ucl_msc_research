@@ -55,7 +55,7 @@
       "Describe provider preflight, controls, retry policy and paid-execution approval",
       "Define separate D, A, T, specificity, presentation, safety and secondary outcomes",
       "Describe the three minimal Gemini 3.1 Flash Lite judge contracts",
-      "Specify the seven confirmatory Holm-corrected directional tests"
+      "Specify five Holm-adjusted RQ1 directional tests and separate singleton tests for RQ2 and RQ3"
     ],
     "Judge development and adjudication": [
       "Describe the 191-response development sample, full pilot reruns after contract changes, contract freeze and auditable manual corrections"
