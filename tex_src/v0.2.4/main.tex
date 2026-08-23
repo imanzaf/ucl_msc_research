@@ -58,20 +58,20 @@
 UCL Institute of Finance \& Technology\\
 \rev{MSc Banking and Digital Finance}\\[1em]
 2026\\[0.5em]
-Word count: \rev{9,799}}
+Word count: \rev{9,703}}
 
 \begin{document}
 
 %TC:ignore
 \pagenumbering{roman}
 \hypersetup{pageanchor=false}
-\begin{titlepage}
-\thispagestyle{empty}
-\centering
-\vspace*{0.28\textheight}
-{\Large\bfseries\rev{OFFICIAL IFTE0008 MOODLE COVER PAGE TO BE INSERTED}\par}
-\vspace{1.5cm}
-\end{titlepage}
+% \begin{titlepage}
+% \thispagestyle{empty}
+% \centering
+% \vspace*{0.28\textheight}
+% {\Large\bfseries\rev{OFFICIAL IFTE0008 MOODLE COVER PAGE TO BE INSERTED}\par}
+% \vspace{1.5cm}
+% \end{titlepage}
 
 \maketitle
 
@@ -79,7 +79,11 @@ Word count: \rev{9,799}}
 \chapter*{\rev{Abstract}}
 \addcontentsline{toc}{chapter}{Abstract}
 \begin{revisionblock}
-Add abstract.
+A financial assistant can be factually correct yet still shape a customer's decision through what it selects, omits or foregrounds. This dissertation uses controlled comparisons across seven language models to examine truthful but selective communication under information constraints, customer-state cues and institutional objectives.
+
+Restricted response space changed communication without automatically favouring the institution: tighter budgets reduced coverage and separated matched facts, while customer-state cues mainly affected length and reassurance and affiliation mainly affected ordering. A distinct pattern appeared under an explicit commercial-interest objective. When models could select only two facts, communication shifted towards institution-supporting information. This was the only RQ1 directional result below the Holm-adjusted threshold.
+
+The findings identify two separate risks. Concision can produce incomplete, one-sided communication without institutional direction; under a commercial objective, severe restriction may also affect which facts receive the limited space. Although this does not establish a formal objective-by-budget interaction, it shows why accuracy alone is insufficient: an answer can contain no false claims while omitting material countervailing information.
 \end{revisionblock}
 
 \chapter*{\rev{Acknowledgements}}
@@ -320,27 +324,31 @@ The resulting corpus supports causal comparisons between prompt conditions withi
 The experiments isolate communication changes while holding the underlying financial decision fixed. Matched conditions differ only in the customer-state cue, information constraint, institutional role or commercial instruction required by the experiment. Seven models produced 10,710 responses across the matrix in Table~\ref{tab:method_experiments}. Each scenario-instance--model--condition coordinate was generated once; the five instances in each domain are distinct stimuli, not stochastic replications of one prompt.
 \end{revisionblock}
 
-\textcolor{red}{TODO: the old table was nicer/clearer.}
 \begin{table}[htbp]
 \centering
 \caption{\rev{Experimental matrix.}}
 \label{tab:method_experiments}
 \small
-\begin{tabularx}{\textwidth}{@{}L{0.25\textwidth}Yrr@{}}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.08}
+\begin{tabularx}{\textwidth}{@{}L{0.14\textwidth}YYL{0.13\textwidth}r@{}}
 \toprule
-\rev{\textbf{Experiment}} & \rev{\textbf{Manipulation}} & \rev{\textbf{Scenario instances}} & \rev{\textbf{Responses}} \\
+\rev{\textbf{Experiment}} & \rev{\textbf{Main experimental condition}} & \rev{\textbf{Crossed with}} & \rev{\textbf{Scenario instances}} & \rev{\textbf{Responses}} \\
 \midrule
-\rev{Customer-state cues} & \rev{Three cues by two query lengths} & \rev{30} & \rev{1,260} \\
-\rev{Exact information budget} & \rev{Neutral }\revmath{k=2,4,6}\rev{; anxious }\revmath{k=2,4} & \rev{30} & \rev{1,050} \\
-\rev{Natural word budget} & \rev{40-, 80- and 160-word limits} & \rev{30} & \rev{630} \\
-\rev{Single-priority fact} & \rev{One most-important-fact request} & \rev{30} & \rev{210} \\
-\rev{Institutional affiliation} & \rev{Two employers and an independent role; two renderings} & \rev{11} & \rev{462} \\
-\rev{Forced option choice} & \rev{Choose and explain one option} & \rev{30} & \rev{210} \\
-\rev{Commercial objective} & \rev{Matched control/objective across four task families and ownership flip} & \rev{30 (11 ownership)} & \rev{6,888} \\
+\rev{Customer-state cues} & \rev{Neutral, anxious or frustrated customer wording} & \rev{Query length: short or long} & \rev{30} & \rev{1,260} \\
+\rev{Exact information budget} & \rev{Select exactly }\revmath{k=2}\rev{, }\revmath{k=4}\rev{ or }\revmath{k=6}\rev{ facts} & \rev{Customer-state cue, partially crossed: neutral at }\revmath{k=2,4,6}\rev{; anxious at }\revmath{k=2,4} & \rev{30} & \rev{1,050} \\
+\rev{Natural word budget} & \rev{Maximum response length of 40, 80 or 160 words} & \rev{---} & \rev{30} & \rev{630} \\
+\rev{Single-priority fact} & \rev{State and briefly explain the single most important fact} & \rev{---} & \rev{30} & \rev{210} \\
+\rev{Institutional affiliation} & \rev{Employer owns Option A, employer owns Option B, or independent role} & \rev{Two counterbalanced name/order renderings} & \rev{11} & \rev{462} \\
+\rev{Forced option choice} & \rev{Choose one option and explain the choice} & \rev{---} & \rev{30} & \rev{210} \\
+\rev{Commercial objective} & \rev{Control versus an instruction to protect the institution's commercial interests} & \rev{All scenarios: customer-state cue and task form. Ownership component: employer ownership and rendering} & \rev{30; 11 for ownership component} & \rev{6,888} \\
 \midrule
-\rev{\textbf{Total}} & & & \rev{\textbf{10,710}} \\
+\rev{\textbf{Total}} & & & & \rev{\textbf{10,710}} \\
 \bottomrule
 \end{tabularx}
+\vspace{0.35em}
+
+\parbox{\textwidth}{\footnotesize\rev{\textit{Note:} All experiments used the same seven-model panel. Experiments shown with a dash in the crossed-factor column used the neutral short customer query. The commercial-objective experiment covered the standard, single-priority, exact }\revmath{k=2}\rev{, exact }\revmath{k=4}\rev{ and ownership-flip task forms.}}
 \end{table}
 
 \begin{revisionblock}
@@ -453,11 +461,48 @@ Commercial scoring required 55,104 calls and the first six experiments 30,576, g
 \begin{revisionblock}
 The estimand is the mean within-coordinate treatment contrast over the 30 fixed benchmark scenario instances, averaged equally across the seven-model panel and relevant matched customer-state cue conditions. Scenario instances are the inferential units. The ownership-flip analysis uses its 11 eligible scenario instances. Models are treated as a fixed purposive panel, not sampled clusters. Equal weighting prevents domains with longer model outputs or more task coordinates from contributing more to the estimand; it does not reweight the purposive scenario-instance corpus towards deployment prevalence.
 
-Seven comparisons are designated the primary statistical tests: commercial instruction minus control for the standard, single-priority, exact \(k=4\), exact \(k=2\) and ownership-flip tasks; anxious minus neutral \(D\); and neutral exact-budget \(D^{\mathrm{sel}}_{k=2}-D^{\mathrm{sel}}_{k=6}\). Commercial responses are paired on scenario instance, model, cue, task, budget and ownership rendering where applicable. Treatment differences are averaged within scenario instance before inference.
+Seven comparisons are designated the primary statistical tests: commercial instruction minus control for the standard, single-priority, exact \(k=4\), exact \(k=2\) and ownership-flip tasks; anxious minus neutral \(D\); and neutral exact-budget \(D^{\mathrm{sel}}_{k=2}-D^{\mathrm{sel}}_{k=6}\). Table~\ref{tab:primary_pairing} specifies the matched conditions and coordinates for each test.
+\end{revisionblock}
 
-For the first four commercial tasks, the response-paired treatment-minus-control difference in prose \(D\) is averaged across the seven models and three cue conditions within each scenario instance. The ownership test first transforms the fixed-option selection gap so positive values always indicate movement towards the employer-associated option, then averages across models, cues and renderings for each eligible scenario instance. These operations give 30 scenario-instance contrasts for general tasks and 11 for ownership.
+\subsection[Paired contrast construction]{\rev{Paired contrast construction}}
 
-For customer-state cues, \(D\) is averaged across short and long anxious queries and compared with the corresponding neutral average for each scenario-instance--model coordinate before averaging models. For the information-budget test, neutral \(D^{\mathrm{sel}}\) at \(k=2\) is compared with \(k=6\) over the same complete seven-model panel in every scenario instance. The intermediate \(k=4\) condition describes the trajectory but is not a second endpoint test.
+\begin{table}[htbp]
+\centering
+\caption{\rev{Pair definitions for the seven primary statistical tests.}}
+\label{tab:primary_pairing}
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.08}
+\begin{tabularx}{\textwidth}{@{}L{0.21\textwidth}L{0.25\textwidth}L{0.13\textwidth}Y@{}}
+\toprule
+\rev{\textbf{Primary test}} & \rev{\textbf{Paired difference}} & \rev{\textbf{Outcome}} & \rev{\textbf{Coordinates held identical}} \\
+\midrule
+\rev{Commercial standard} & \rev{Commercial instruction minus control} & \rev{Prose }\revmath{D} & \rev{Scenario instance, model, cue} \\
+\rev{Commercial single-priority} & \rev{Commercial instruction minus control} & \rev{Prose }\revmath{D} & \rev{Scenario instance, model, cue} \\
+\rev{Commercial exact }\revmath{k=4} & \rev{Commercial instruction minus control} & \rev{Prose }\revmath{D} & \rev{Scenario instance, model, cue; }\revmath{k=4} \\
+\rev{Commercial exact }\revmath{k=2} & \rev{Commercial instruction minus control} & \rev{Prose }\revmath{D} & \rev{Scenario instance, model, cue; }\revmath{k=2} \\
+\rev{Commercial ownership flip} & \rev{Commercial instruction minus control} & \rev{Prose }\revmath{D^{AB}} & \rev{Scenario instance, model, cue, employer assignment, rendering} \\
+\rev{RQ2 customer-state cue} & \rev{Anxious minus neutral} & \rev{Prose }\revmath{D} & \rev{Scenario instance, model, query length} \\
+\rev{RQ3 exact budget} & \rev{Neutral }\revmath{k=2}\rev{ minus neutral }\revmath{k=6} & \revmath{D^{\mathrm{sel}}} & \rev{Scenario instance, model} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{revisionblock}
+Let \(Y^{(1)}_{si}\) and \(Y^{(0)}_{si}\) be the two outcome scores in matched coordinate \(i\) of scenario instance \(s\). Pair differences are averaged within scenario instance and then equally across scenario instances:
+\end{revisionblock}
+
+\begin{equation}
+\delta_{si}=Y^{(1)}_{si}-Y^{(0)}_{si},
+\qquad
+\bar{\delta}_{s}=\frac{1}{n_s}\sum_{i=1}^{n_s}\delta_{si},
+\qquad
+\widehat{\Delta}=\frac{1}{S}\sum_{s=1}^{S}\bar{\delta}_{s}.
+\label{eq:paired_contrast}
+\end{equation}
+
+\begin{revisionblock}
+The task-specific expansions of Equation~\ref{eq:paired_contrast}, including the ownership sign alignment and the exact numbers of pairs, are provided in Appendix~\ref{app:paired_contrast_expansions}.
 
 Each test uses a two-sided paired sign-flip randomisation p-value with 99,999 iterations. Pointwise 95\% confidence intervals use 10,000 use-case-stratified scenario-instance-cluster bootstrap iterations. Both use seed 410506. The five RQ1 p-values are adjusted together using Holm's step-down procedure \parencite{holm_1979}. RQ2 and RQ3 each contain one primary test and retain their raw p-values; no adjustment is applied across research questions. The intervals are neither multiplicity-adjusted nor derived from the sign-flip tests, so interval inclusion of zero and p-value significance need not coincide.
 
