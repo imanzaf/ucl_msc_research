@@ -58,7 +58,7 @@
 UCL Institute of Finance \& Technology\\
 \rev{MSc Banking and Digital Finance}\\[1em]
 2026\\[0.5em]
-Word count: \rev{9,703}}
+Word count: \rev{9,847}}
 
 \begin{document}
 
@@ -292,9 +292,9 @@ Anchors are not limited to numbers. A categorical term can be decision-relevant,
 \section[Generation, curation and variants]{\rev{Generation, curation and variants}}
 
 \begin{revisionblock}
-Researcher-authored briefs defined six financial domains with five scenario instances each. Each brief fixed the decision type, two-option structure, institutional-benefit mechanism and required fact structure before generation. GPT-5.4 then generated the fact, pair, option and anchor fields in one schema-constrained run under the frozen configuration.
+Researcher-authored briefs defined six financial domains with five scenario instances each. Each brief fixed the decision type, two-option structure, institutional-benefit mechanism and required fact structure before generation. GPT-5.4 then rendered each supplied brief as concise customer-facing fact text and returned it with the fixed fact, pair, option and anchor fields in one schema-constrained run under the frozen configuration.
 
-The researcher reviewed all 180 generated facts for financial plausibility, arithmetic, materiality, pair comparability, customer valence, institutional direction and compliance with the one-anchor rule. Arithmetic was also checked programmatically where derivable from the supplied values. Fifteen of the 30 scenario instances required at least one correction. Corrections were stored in a hash-bound curation layer that preserved the original requests and responses, and only reviewed and accepted versions were published to the evaluation corpus. The resulting benchmark is therefore LLM-generated and researcher-curated rather than either wholly manual or unreviewed synthetic data. The procedure established plausibility and label consistency, not equal economic value between matched facts. Figure~\ref{fig:scenario_generation_pipeline} summarises this workflow.
+The researcher reviewed all 180 generated facts for financial plausibility, arithmetic, materiality, pair comparability, customer valence, institutional direction and compliance with the one-anchor rule. Arithmetic was also checked programmatically where derivable from the supplied values. Fifteen of the 30 scenario instances required at least one correction. Corrections were stored in a hash-bound curation layer that preserved the original requests and responses, and only reviewed and accepted versions were published to the evaluation corpus. The resulting benchmark is therefore LLM-generated and researcher-curated rather than either wholly manual or unreviewed synthetic data. The procedure established plausibility and label consistency, not equal economic value between matched facts. Figure~\ref{fig:scenario_generation_pipeline} summarises this workflow, and Figure~\ref{fig:scenario_cf101_example} shows the annotated structure of one accepted mortgage scenario instance.
 \end{revisionblock}
 
 \begin{figure}[H]
@@ -304,14 +304,19 @@ The researcher reviewed all 180 generated facts for financial plausibility, arit
 \label{fig:scenario_generation_pipeline}
 \end{figure}
 
-\textcolor{red}{TODO: Move scenario example from appendix? Add an example of a seed in the appendix.}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.93\textwidth]{assets/appendix_scenario_cf101_r1.pdf}
+\caption{\rev{Mortgage scenario instance }\revcode{CF101\_R1}\rev{ with three matched fact pairs.}}
+\label{fig:scenario_cf101_example}
+\end{figure}
 
 \begin{revisionblock}
 Each accepted scenario instance has neutral, anxious and frustrated customer-state cue conditions in short and long forms. Variants preserve the substantive request and introduce no preferred option, new fact, risk tolerance or decision authority. Eleven cross-provider scenario instances additionally support alternative employer assignments and two jointly counterbalanced name/order renderings while retaining Option A as the fixed analytical coordinate. The smaller subset is used only for ownership analyses. Appendix~\ref{app:materials} provides the complete structure, queries and prompt for one scenario instance; the repository contains the full curated benchmark.
 
 Two fixed fact-order permutations are balanced across the corpus so the entire benchmark does not present one systematic sequence. Query variants were authored individually rather than produced by attaching a fixed emotional prefix, preserving natural wording while holding the substantive request stable. Experiments that do not manipulate customer-state cues use the neutral short query. Treatment pairs otherwise retain identical visible facts and ordering.
 
-The resulting corpus supports causal comparisons between prompt conditions within a fixed information environment and descriptive comparisons across scenario instances. It does not estimate how often comparable decisions, incentives or omissions occur in production.
+The corpus supports causal comparisons between prompt conditions in a fixed information environment and descriptive comparisons across scenario instances. It does not estimate their prevalence in production.
 \end{revisionblock}
 
 \chapter[Methodology and Analysis]{\rev{Methodology and Analysis}}
@@ -703,15 +708,22 @@ Within the commercial experiment, treatment-associated error increases were pres
 
 \chapter[Discussion]{\rev{Discussion}}
 \label{chap:discussion}
-\textcolor{red}{TODO: add some examples of imbalanced communication in experiments with no significant directional effect. Explain this is likely due to the small corpus and that since this exists it justifies scoring balanced communication before deploying models.}
 \section[Commercial objectives under restricted selection]{\rev{Commercial objectives under restricted selection}}
 
 \begin{revisionblock}
 \textcolor{red}{TODO: include discussion of the ownership-flip result (raw p)}
-\textcolor{red}{TODO: add example of the seed in appendix.}
 The principal result concerns a change in information allocation rather than simply answer length. Under exact \(k=2\), the commercial objective increased prose direction by 0.105 and declared-selection direction by 0.095 while total coverage changed by only -0.008. The same two-fact task produced a positive prose contrast for all seven models, although with heterogeneous magnitude. Treatment and control responses therefore communicated similar amounts of registered material but differed in which institutional direction occupied the available space.
 
 Agreement between declared identifiers and scored prose strengthens this interpretation. Both are observable model outputs rather than direct traces of latent reasoning: selected IDs may function as a plan, declaration or rationalisation, and prose sometimes communicated facts beyond the declared set. Their convergence nevertheless makes it less likely that the result reflects evaluative wording applied to an unchanged factual selection.
+
+One matched response pair makes the allocation change concrete (Figure~\ref{fig:discussion_commercial_example}). For a \pounds4,000 purchase, the control foregrounded the institution-associated plan's \pounds40 setup fee and 7.9\% APR alongside the alternative card's 0\% promotional period. With only the commercial-interest sentence added, the same model instead foregrounded activation without a new application and 18 fixed instalments. Both responses had the same coverage and absolute imbalance, while direction changed from \(-2/3\) to \(+2/3\). This pair illustrates the response-level mechanism; its large change is not the average treatment effect.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{assets/discussion_commercial_pair.pdf}
+\caption{\rev{Matched response excerpts at exact }\revmath{k=2}\rev{ showing a change in foregrounded evidence under the commercial objective.}}
+\label{fig:discussion_commercial_example}
+\end{figure}
 
 The effect should be interpreted against the task's discrete scale. Two selected facts can occupy only a limited number of pair configurations, and a single switch can materially change response-level direction. The mean shift of 0.105 is equivalent to 0.315 net facts and should not be interpreted as a change to the complete communicated set in every response. Scenario and model heterogeneity further indicate that the aggregate estimate should be considered alongside component-level variation.
 
@@ -735,6 +747,15 @@ Customer-state cues affected another layer. Anxious and frustrated wording produ
 Near-ceiling coverage in the customer-state experiment makes stability easier to obtain than it would be in a constrained deployment. The result is nevertheless useful because it rejects a simple account in which affective wording automatically causes directionally different fact selection under standard response space. The more relevant next question is whether socially adaptive language displaces qualifications when reassurance and material disclosure must compete for the same short budget.
 
 Exact and natural constraints produced a substantial non-directional pattern. Tighter budgets removed facts, separated matched pairs and, under 40 words, weakened concrete terms, while mean direction remained near zero. The distinction between \(D\), \(A\), \(T\) and \(R\) is therefore substantive. A single bias score would obscure the difference between low coverage, offsetting one-sided pairs, systematically directional selection and loss of specificity. This construct separation is the benchmark's main contribution beyond the individual treatment result and aligns with granular information-distortion approaches \parencite{giannouris_etal_2026_janus,cai_etal_2026_decor}.
+
+Near-zero mean direction did not make every constrained response balanced. Figure~\ref{fig:discussion_word_budget_example} follows one matched response as its limit contracts from 160 to 40 words. At 160 words, the model communicated all six facts, including the institution's markup and irrevocability and the alternative route's fee advantage, producing \(D=0\), \(A=0\) and \(T=1\). At 40 words, the same model and scenario communicated three institution-supporting propositions and no countervailing proposition, so the factual selection became institution-favouring, with \(D=1\), \(A=1\) and \(T=1/2\). This example does not overturn the aggregate result. It shows why opposing response-level imbalances can be hidden by a near-zero mean and why balance should be checked at deployment-relevant response limits.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{assets/discussion_word_budget_pair.pdf}
+\caption{\rev{Matched natural-word responses showing a balanced 160-word response becoming institution-favouring when compressed to 40 words.}}
+\label{fig:discussion_word_budget_example}
+\end{figure}
 
 The modest favourable-fact majority in constrained identifier selections offers a possible explanation for non-directional omission. Models may prioritise immediate customer benefit or positive salience rather than institutional interest when no commercial objective is present. Because this pattern is descriptive and matched facts are not utility-equivalent, it should be treated as a hypothesis for future mechanism tests rather than a general positivity bias.
 \end{revisionblock}
