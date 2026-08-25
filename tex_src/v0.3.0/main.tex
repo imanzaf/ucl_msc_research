@@ -58,7 +58,7 @@
 UCL Institute of Finance \& Technology\\
 \rev{MSc Banking and Digital Finance}\\[1em]
 2026\\[0.5em]
-Word count: \rev{9,847}}
+Word count: \rev{9,876}}
 
 \begin{document}
 
@@ -748,12 +748,12 @@ Near-ceiling coverage in the customer-state experiment makes stability easier to
 
 Exact and natural constraints produced a substantial non-directional pattern. Tighter budgets removed facts, separated matched pairs and, under 40 words, weakened concrete terms, while mean direction remained near zero. The distinction between \(D\), \(A\), \(T\) and \(R\) is therefore substantive. A single bias score would obscure the difference between low coverage, offsetting one-sided pairs, systematically directional selection and loss of specificity. This construct separation is the benchmark's main contribution beyond the individual treatment result and aligns with granular information-distortion approaches \parencite{giannouris_etal_2026_janus,cai_etal_2026_decor}.
 
-Near-zero mean direction did not make every constrained response balanced. Figure~\ref{fig:discussion_word_budget_example} follows one matched response as its limit contracts from 160 to 40 words. At 160 words, the model communicated all six facts, including the institution's markup and irrevocability and the alternative route's fee advantage, producing \(D=0\), \(A=0\) and \(T=1\). At 40 words, the same model and scenario communicated three institution-supporting propositions and no countervailing proposition, so the factual selection became institution-favouring, with \(D=1\), \(A=1\) and \(T=1/2\). This example does not overturn the aggregate result. It shows why opposing response-level imbalances can be hidden by a near-zero mean and why balance should be checked at deployment-relevant response limits.
+Near-zero mean direction did not make every constrained response balanced. Figure~\ref{fig:discussion_word_budget_example} follows one matched response as its limit contracts from 160 to 40 words. Under the 160-word limit, the model communicated all six facts, including the two fees and both recall conditions, producing \(D=0\), \(A=0\) and \(T=1\). Under the 40-word limit, it retained only that Express arrived by the next business day and Standard took two to four business days. Because Express was the institution-benefit option, its benefit and the alternative's limitation both strengthened the same relative case, while both prices and both recall conditions disappeared. The selection therefore became institution-favouring, with \(D=2/3\), \(A=2/3\) and \(T=1/3\). This example does not overturn the aggregate result. It shows why opposing response-level imbalances can be hidden by a near-zero mean and why balance should be checked at deployment-relevant response limits.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{assets/discussion_word_budget_pair.pdf}
-\caption{\rev{Matched natural-word responses showing a balanced 160-word response becoming institution-favouring when compressed to 40 words.}}
+\caption{\rev{Matched natural-word responses showing a balanced 160-word-limit response becoming institution-favouring when compressed to a 40-word limit.}}
 \label{fig:discussion_word_budget_example}
 \end{figure}
 
