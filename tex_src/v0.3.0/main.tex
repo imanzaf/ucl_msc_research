@@ -58,7 +58,7 @@
 UCL Institute of Finance \& Technology\\
 \rev{MSc Banking and Digital Finance}\\[1em]
 2026\\[0.5em]
-Word count: \rev{9,876}}
+Word count: \rev{9,826}}
 
 \begin{document}
 
@@ -721,18 +721,26 @@ One matched response pair makes the allocation change concrete (Figure~\ref{fig:
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{assets/discussion_commercial_pair.pdf}
-\caption{\rev{Matched response excerpts at exact }\revmath{k=2}\rev{ showing a change in foregrounded evidence under the commercial objective.}}
+\caption{\rev{Matched full responses and scored fact excerpts at exact }\revmath{k=2}\rev{ showing a change in foregrounded evidence under the commercial objective.}}
 \label{fig:discussion_commercial_example}
 \end{figure}
 
 The effect should be interpreted against the task's discrete scale. Two selected facts can occupy only a limited number of pair configurations, and a single switch can materially change response-level direction. The mean shift of 0.105 is equivalent to 0.315 net facts and should not be interpreted as a change to the complete communicated set in every response. Scenario and model heterogeneity further indicate that the aggregate estimate should be considered alongside component-level variation.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\textwidth]{assets/commercial_model_task_heatmap.pdf}
+\caption{\rev{Model-by-task commercial-instruction effects. Cells show within-model }\revmath{\Delta D}\rev{ averaged across scenario instances and customer-state cues.}}
+\label{fig:commercial_model_heatmap}
+\end{figure}
+
+At exact \(k=2\), all seven estimates in Figure~\ref{fig:commercial_model_heatmap} are positive (0.048--0.285). Claude Sonnet 5 has the largest \(k=2\) and \(k=4\) changes (0.285 and 0.185), but smaller changes in the less constrained tasks. These within-model contrasts show that Claude's communicated direction changed more after the explicit instruction under exact budgets, suggesting task-dependent sensitivity.
 
 Taken together, the task pattern is consistent with information scarcity amplifying an explicit commercial objective. Contrasts were 0.009 in the standard task, 0.044 in the single-priority task, 0.034 at \(k=4\) and 0.105 at \(k=2\), with only \(k=2\) remaining below the RQ1 Holm threshold. This is not a formal interaction estimate: the tasks differ in response contract, and the commercial instruction was not crossed with the natural word limits. A fully crossed design would be required to estimate how the treatment effect changes as conversational space contracts.
 
 Presentation effects were evident under less restrictive conditions. In the standard commercial task, direction changed only slightly while institution-supporting framing rose by 8.4 percentage points and recommendation by 4.3 points. Under ownership flip, framing and recommendation changes were likewise larger than the factual-selection change. Ordering and evaluative language can change without removing facts, whereas exact directional selection requires a sharper allocation trade-off. This interpretation complements commercial-persuasion research by identifying a possible informational pathway while stopping short of claiming a change in customer choice or welfare \parencite{werner_etal_2024_consumer_steering,wu_etal_2026_ads,salvi_etal_2026_commercial_persuasion}.
 
 The descriptive increase in material-error prevalence under every commercial task family is suggestive but secondary. Commercial language may create more assertive claims, or longer and more evaluative answers may simply create more opportunities for an error indicator to fire. Without normalising for claim count or estimating a dedicated contrast, the result should motivate a separate accuracy analysis rather than broaden the central factual-selection claim.
-\textcolor{red}{TODO: add the per-model matrix from the appendix here and discuss briefly, weird that Claude has higher D}
 \end{revisionblock}
 
 \section[Affiliation, customer cues and non-directional loss]{\rev{Affiliation, customer cues and non-directional loss}}
@@ -747,15 +755,6 @@ Customer-state cues affected another layer. Anxious and frustrated wording produ
 Near-ceiling coverage in the customer-state experiment makes stability easier to obtain than it would be in a constrained deployment. The result is nevertheless useful because it rejects a simple account in which affective wording automatically causes directionally different fact selection under standard response space. The more relevant next question is whether socially adaptive language displaces qualifications when reassurance and material disclosure must compete for the same short budget.
 
 Exact and natural constraints produced a substantial non-directional pattern. Tighter budgets removed facts, separated matched pairs and, under 40 words, weakened concrete terms, while mean direction remained near zero. The distinction between \(D\), \(A\), \(T\) and \(R\) is therefore substantive. A single bias score would obscure the difference between low coverage, offsetting one-sided pairs, systematically directional selection and loss of specificity. This construct separation is the benchmark's main contribution beyond the individual treatment result and aligns with granular information-distortion approaches \parencite{giannouris_etal_2026_janus,cai_etal_2026_decor}.
-
-Near-zero mean direction did not make every constrained response balanced. Figure~\ref{fig:discussion_word_budget_example} follows one matched response as its limit contracts from 160 to 40 words. Under the 160-word limit, the model communicated all six facts, including the two fees and both recall conditions, producing \(D=0\), \(A=0\) and \(T=1\). Under the 40-word limit, it retained only that Express arrived by the next business day and Standard took two to four business days. Because Express was the institution-benefit option, its benefit and the alternative's limitation both strengthened the same relative case, while both prices and both recall conditions disappeared. The selection therefore became institution-favouring, with \(D=2/3\), \(A=2/3\) and \(T=1/3\). This example does not overturn the aggregate result. It shows why opposing response-level imbalances can be hidden by a near-zero mean and why balance should be checked at deployment-relevant response limits.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{assets/discussion_word_budget_pair.pdf}
-\caption{\rev{Matched natural-word responses showing a balanced 160-word-limit response becoming institution-favouring when compressed to a 40-word limit.}}
-\label{fig:discussion_word_budget_example}
-\end{figure}
 
 The modest favourable-fact majority in constrained identifier selections offers a possible explanation for non-directional omission. Models may prioritise immediate customer benefit or positive salience rather than institutional interest when no commercial objective is present. Because this pattern is descriptive and matched facts are not utility-equivalent, it should be treated as a hypothesis for future mechanism tests rather than a general positivity bias.
 \end{revisionblock}
@@ -773,12 +772,11 @@ Evaluation should treat concision as a condition that may affect safety-relevant
 
 Evaluation should also preserve treatment pairing. Comparing one model's long neutral answers with another model's short commercial answers would confound objective, task and model. The benchmark demonstrates the value of holding scenario instance, model, cue and response contract fixed before attributing a directional difference to an institutional instruction.
 
-A direct extension of the present design would cross the commercial objective with realistic word budgets, preserve matched scenario instances and measure both communication and downstream customer outcomes.
+Future work should test the commercial objective under realistic word budgets and assess both the resulting communication and its effect on customers. A complementary experiment could use fuller customer information to establish which option the model considers better suited, then examine whether constrained responses selectively favour evidence supporting that option, which could reflect user-pleasing or sycophantic behaviour \parencite{sharma_etal_2024_sycophancy}. This would show whether the pattern is specific to institutional objectives or reflects a broader tendency to align communication with an established preference.
 \end{revisionblock}
 
 \section[Limitations]{\rev{Limitations}}
 
-\textcolor{red}{TODO: as future research add that this should be tested from the other side, does selective communication occur when the model identified a choice as better-suited for the customer?}
 \subsection[Construct validity]{\rev{Construct validity}}
 
 \begin{revisionblock}
@@ -800,9 +798,9 @@ Selected identifiers are generated outputs and cannot establish which propositio
 \subsection[Sampling and reproducibility]{\rev{Sampling and reproducibility}}
 
 \begin{revisionblock}
-The 30 scenario instances are purposive, and only 11 support ownership manipulations. Domain-specific claims are therefore limited. The seven models form a fixed panel, so scenario-instance-level inference does not probabilistically generalise to all model families. Each coordinate was generated once. Low temperature reduces variation but does not establish determinism where seeds are unsupported or providers change. Repeated generations are required to distinguish stable treatment sensitivity from completion-level stochasticity.
+Although the analysis covers 10,710 responses, they are drawn from 30 scenario instances, and only 11 are suitable for the ownership analysis. Reusing the same scenarios across conditions and models supports controlled comparisons, but it does not increase the range of financial situations represented. The ownership and model-level patterns may therefore be influenced by particular scenarios. A larger and more varied scenario set would make it possible to assess how consistently the findings extend across domains.
 
-Provider routes and available model versions will evolve, making immutable manifests and returned-model metadata necessary but insufficient for exact future reproduction. The principal reproducibility claim is that the supplied artifacts preserve what was run and how it was scored, not that an external API will regenerate identical text indefinitely.
+The model panel is also limited to seven systems, with one response generated at each coordinate. Repeated generations across a broader panel would help show which effects are stable across models and which depend on individual completions. The saved manifests, outputs and scoring records preserve the analysis reported here, although provider changes mean that future API calls may not reproduce identical text.
 \end{revisionblock}
 
 \subsection[Measurement and downstream validity]{\rev{Measurement and downstream validity}}
