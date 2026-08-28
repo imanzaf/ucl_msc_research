@@ -65,7 +65,7 @@ uv run risk-comm analysis commercial-interest
 The versioned manuscript generator reads the frozen response scores and analysis summaries directly. For the current draft, run:
 
 ```bash
-uv run python tex_src/v0.4.0/generate_manuscript_assets.py
+uv run python tex_src/v0.4.1/generate_manuscript_assets.py
 ```
 
 Generated figures, tables, and the descriptive-analysis summary remain versioned with the manuscript source so the draft is bound to the exact

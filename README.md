@@ -17,7 +17,7 @@ scripts/                Focused audit and repository-hook utilities
 docs/experiments/       Targeted workflow guides
 data/inputs/            Versioned scenario and benchmark inputs
 data/outputs/           Frozen experiment, scoring, and analysis artifacts
-tex_src/v0.4.0/         Latest dissertation source and generated PDF
+tex_src/v0.4.1/         Latest dissertation source and generated PDF
 ```
 
 ## Main commands
