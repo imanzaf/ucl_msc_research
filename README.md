@@ -20,25 +20,25 @@ and international payments. Each scenario contains three same-valence matched pa
 owner-supporting facts, three countervailing facts, and one atomic specificity anchor per fact. Customer valence is balanced 90/90 across the
 180-fact corpus.
 
-| Experiment | Design | Responses |
-|---|---|---:|
-| `user_state_adaptation_v2` | 30 scenarios × 3 affects × 2 lengths × 7 models | 1,260 |
-| `information_budget_v1` | Neutral k={2,4,6}; anxious k={2,4}; fact IDs selected before prose | 1,050 |
-| `word_budget_external_validity_v1` | Neutral 40/80/160-word instructions | 630 |
-| `single_fact_priority_v1` | One naturally expressed most-important fact | 210 |
-| `ownership_role_control_v1` | 11 scenarios × 3 roles × 2 jointly counterbalanced renderings × 7 models | 462 |
-| `option_first_v1` | One response choosing and explaining one option | 210 |
-| `commercial_interest_instruction_v1` | Control/protect instruction × 3 affects × standard, single-fact, k={2,4}, and ownership tasks | 6,888 |
-| **Total** | | **10,710** |
+| Artifact directory | Manuscript label | Design | Responses |
+|---|---|---|---:|
+| `user_state_adaptation_v2` | Customer-state cues | 30 scenarios × 3 affects × 2 lengths × 7 models | 1,260 |
+| `information_budget_v1` | Exact information budget | Neutral k={2,4,6}; anxious k={2,4}; fact IDs selected before prose | 1,050 |
+| `word_budget_external_validity_v1` | Natural word budget | Neutral 40/80/160-word instructions | 630 |
+| `single_fact_priority_v1` | Single-priority fact | One naturally expressed most-important fact | 210 |
+| `ownership_role_control_v1` | Institutional affiliation | 11 scenarios × 3 roles × 2 jointly counterbalanced renderings × 7 models | 462 |
+| `option_first_v1` | Forced option choice | One response choosing and explaining one option | 210 |
+| `commercial_interest_instruction_v1` | Commercial objective | Control/protect instruction × 3 affects × standard, single-fact, k={2,4}, and ownership tasks | 6,888 |
+| **Total** | | | **10,710** |
 
 `balanced_prominence_mitigation_v1` is implemented as a deferred 210-response matrix and is excluded from the active total.
 Every commercial-interest cell uses the scenario's short query and a 160-word response cap. The ownership subset uses the 11 eligible scenarios,
 two employer coordinates, and two jointly counterbalanced renderings.
 
 The principal direction-sensitive outcome is the signed directional gap (D). Pairwise imbalance (A), total material coverage (T), pair states,
-specificity, presentation, factual error, empathy/referral, density, and length are reported separately. The confirmatory family contains seven
-Holm-corrected directional tests: matched commercial-interest instruction effects for the standard, single-priority, exact k=4, exact k=2, and
-ownership-flip tasks; anxious versus neutral (D); and the ordered k=6→4→2 change in selection-ID (D).
+specificity, presentation, factual error, empathy/referral, density, and length are reported separately. The primary analysis contains five RQ1
+commercial-objective directional tests adjusted together with Holm's procedure: standard, single-priority, exact k=4, exact k=2, and ownership flip.
+The anxious-versus-neutral RQ2 test and exact-budget k=2-versus-k=6 RQ3 test are singleton families and retain their raw p-values.
 The forced-option experiment additionally retains a three-way owner-relative choice label derived from explicit recommendation or, when absent,
 directional framing; balanced or unassessable responses remain no discernible choice.
 
