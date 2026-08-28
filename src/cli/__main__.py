@@ -1,6 +1,6 @@
-"""Run the unified project CLI through ``python -m src.cli``."""
+"""Run the project CLI as a Python module."""
 
-from src.cli.main import main
+from src.cli import main
 
 if __name__ == "__main__":
     main()

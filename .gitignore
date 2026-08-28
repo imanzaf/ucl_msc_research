@@ -234,9 +234,3 @@ data/outputs/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-
-# Streamlit
-.streamlit/secrets.toml
-# Local R dependency libraries restored from analysis/r/renv.lock.
-analysis/r/library/
-analysis/r/renv/library/

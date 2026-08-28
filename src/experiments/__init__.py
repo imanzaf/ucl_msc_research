@@ -1,6 +1,5 @@
-"""Run planning, execution, scoring, and asset generation."""
+"""Experiment matrix, planning, execution, and paper-asset workflows."""
 
-from src.experiments.scenario_runner import build_run_plan, execute_run_plan
-from src.experiments.scoring_pipeline import score_conversation
+from src.experiments.matrix import ACTIVE_RESPONSE_COUNTS, TOTAL_ACTIVE_RESPONSES, build_matrix
 
-__all__ = ["build_run_plan", "execute_run_plan", "score_conversation"]
+__all__ = ["ACTIVE_RESPONSE_COUNTS", "TOTAL_ACTIVE_RESPONSES", "build_matrix"]

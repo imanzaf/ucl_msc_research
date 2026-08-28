@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "ExperimentKind": {
+      "description": "Identify one experiment included in the dissertation.",
+      "enum": [
+        "user_state_adaptation_v2",
+        "information_budget_v1",
+        "word_budget_external_validity_v1",
+        "single_fact_priority_v1",
+        "ownership_role_control_v1",
+        "option_first_v1",
+        "commercial_interest_instruction_v1"
+      ],
+      "title": "ExperimentKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Bind one experiment's final scores to its raw responses and judge artifacts.",
+  "properties": {
+    "experiment": {
+      "$ref": "#/$defs/ExperimentKind"
+    },
+    "final_judgment_count": {
+      "minimum": 1,
+      "title": "Final Judgment Count",
+      "type": "integer"
+    },
+    "final_judgments_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Final Judgments Sha256",
+      "type": "string"
+    },
+    "frozen_contract_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Frozen Contract Sha256",
+      "type": "string"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "judge_call_count": {
+      "minimum": 1,
+      "title": "Judge Call Count",
+      "type": "integer"
+    },
+    "judge_model_slug": {
+      "minLength": 3,
+      "title": "Judge Model Slug",
+      "type": "string"
+    },
+    "judge_plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Judge Plan Sha256",
+      "type": "string"
+    },
+    "manual_override_count": {
+      "minimum": 0,
+      "title": "Manual Override Count",
+      "type": "integer"
+    },
+    "raw_judge_results_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Raw Judge Results Sha256",
+      "type": "string"
+    },
+    "response_score_count": {
+      "minimum": 1,
+      "title": "Response Score Count",
+      "type": "integer"
+    },
+    "response_scores_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Response Scores Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "4.0.0",
+      "pattern": "^4\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "selection_count": {
+      "minimum": 0,
+      "title": "Selection Count",
+      "type": "integer"
+    },
+    "source_response_count": {
+      "minimum": 1,
+      "title": "Source Response Count",
+      "type": "integer"
+    },
+    "source_responses_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Responses Sha256",
+      "type": "string"
+    },
+    "state": {
+      "const": "final",
+      "default": "final",
+      "title": "State",
+      "type": "string"
+    }
+  },
+  "required": [
+    "experiment",
+    "judge_model_slug",
+    "frozen_contract_sha256",
+    "source_response_count",
+    "judge_call_count",
+    "manual_override_count",
+    "final_judgment_count",
+    "selection_count",
+    "response_score_count",
+    "source_responses_sha256",
+    "judge_plan_sha256",
+    "raw_judge_results_sha256",
+    "final_judgments_sha256",
+    "response_scores_sha256",
+    "generated_at"
+  ],
+  "title": "ExperimentScoringManifest",
+  "type": "object"
+}

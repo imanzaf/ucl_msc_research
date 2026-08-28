@@ -1,27 +1,39 @@
 # Experiment Execution
 
-All active experiment operations use `uv run risk-comm-v2 experiment ...`. The execution code is in `srcv2/experiments/`, provider transport is in
-`srcv2/llm/openrouter.py`, and model declarations are in `srcv2/settings/models.json`.
+All active experiment operations use `uv run risk-comm experiment ...`. The execution code is in `src/experiments/`, provider transport is in
+`src/llm/openrouter.py`, and model declarations are in `src/settings/models.json`.
+
+The retained experiment set is the one analysed in the dissertation:
+
+| Artifact directory | Manuscript label | Responses |
+|---|---|---:|
+| `user_state_adaptation_v2` | Customer-state cues | 1,260 |
+| `information_budget_v1` | Exact information budgets | 1,050 |
+| `word_budget_external_validity_v1` | Natural word budgets | 630 |
+| `single_fact_priority_v1` | Single priority | 210 |
+| `ownership_role_control_v1` | Institutional affiliation | 462 |
+| `option_first_v1` | Forced option choice | 210 |
+| `commercial_interest_instruction_v1` | Commercial objective | 6,888 |
+| **Total** | | **10,710** |
 
 ## 1. Build offline plans
 
 ```bash
-uv run risk-comm-v2 experiment build-plan --include-deferred
+uv run risk-comm experiment build-plan
 ```
 
-The active plans must contain 1,260; 1,050; 630; 210; 462; 210; and 6,888 units, totalling 10,710. The 6,888-unit
+The plans contain 1,260; 1,050; 630; 210; 462; 210; and 6,888 units, totalling 10,710. The 6,888-unit
 `commercial_interest_instruction_v1` plan contains matched control and commercial-interest instructions across short neutral, anxious, and
-frustrated queries, with a 160-word cap in every cell. It includes standard, single-fact, exact k={2,4}, and ownership-flip tasks. The optional flag
-also writes 210 units for
-`balanced_prominence_mitigation_v1` with `execution_status=deferred`. Each experiment owns `config.json`, `run_plan.jsonl`, `results/`, `cache/`,
-`logs/`, `assets/`, and `checkpoints/` beneath `data/outputs/experiments/<experiment-name>/`.
+frustrated queries, with a 160-word cap in every cell. It includes standard, single-fact, exact k={2,4}, and ownership-flip tasks. Each experiment
+owns `config.json`, `run_plan.jsonl`, `results/`, `cache/`, `logs/`, `assets/`, and `checkpoints/` beneath
+`data/outputs/experiments/<experiment-name>/`.
 
 ## 2. Approve and run operational preflight
 
 Prepare a current-pricing estimate, then record explicit bounded approval for one compatibility call per evaluated model and scoring judge:
 
 ```bash
-uv run risk-comm-v2 experiment approve-preflight \
+uv run risk-comm experiment approve-preflight \
   --estimated-max-cost 1.00 \
   --approved-max-cost 1.00 \
   --approved-by "RESEARCHER_ID" \
@@ -33,7 +45,7 @@ uv run risk-comm-v2 experiment approve-preflight \
 Run the eight probes only after checking the amount and routes:
 
 ```bash
-uv run risk-comm-v2 experiment preflight \
+uv run risk-comm experiment preflight \
   --approval data/outputs/experiments/preflight_approval.json \
   --output data/outputs/experiments/preflight_results.jsonl
 ```
@@ -45,7 +57,7 @@ control sets fail preflight rather than being silently reduced.
 ## 3. Freeze the protocol
 
 ```bash
-uv run risk-comm-v2 experiment freeze-protocol \
+uv run risk-comm experiment freeze-protocol \
   --preflight-results data/outputs/experiments/preflight_results.jsonl
 ```
 
@@ -58,7 +70,7 @@ policy, controls, and exact active counts. The command verifies both `manual_rev
 Create `model_costs.json` from current pricing, with one maximum USD amount per evaluated model. Then run:
 
 ```bash
-uv run risk-comm-v2 experiment estimate-cost \
+uv run risk-comm experiment estimate-cost \
   --protocol-manifest data/outputs/experiments/final_protocol_manifest.json \
   --model-costs data/outputs/experiments/model_costs.json \
   --input-tokens INPUT_TOKEN_ESTIMATE \
@@ -68,7 +80,7 @@ uv run risk-comm-v2 experiment estimate-cost \
 After inspecting `data/outputs/experiments/cost_estimate.json`, create the exact-manifest approval:
 
 ```bash
-uv run risk-comm-v2 experiment approve-execution \
+uv run risk-comm experiment approve-execution \
   --protocol-manifest data/outputs/experiments/final_protocol_manifest.json \
   --cost-estimate data/outputs/experiments/cost_estimate.json \
   --approved-max-cost APPROVED_USD \
@@ -85,7 +97,7 @@ No setup, planning, validation, test, schema, or asset command grants paid-call 
 Materialise each experiment plan from accepted scenarios, controlled queries, the treatment cell, and the frozen provider metadata:
 
 ```bash
-uv run risk-comm-v2 experiment build-bundles \
+uv run risk-comm experiment build-bundles \
   --run-plan data/outputs/experiments/EXPERIMENT_NAME/run_plan.jsonl \
   --scenarios data/inputs/scenarios/v4.0.1/accepted_scenarios.jsonl \
   --protocol-manifest data/outputs/experiments/final_protocol_manifest.json \
@@ -96,7 +108,7 @@ Bundle construction fails if a scenario is not researcher accepted or if its sce
 The bounded unit entry point is:
 
 ```bash
-uv run risk-comm-v2 experiment execute-unit \
+uv run risk-comm experiment execute-unit \
   --bundle PATH_TO_EXECUTION_BUNDLE.json \
   --protocol-manifest data/outputs/experiments/final_protocol_manifest.json \
   --approval data/outputs/experiments/cost_approval.json \
@@ -105,12 +117,12 @@ uv run risk-comm-v2 experiment execute-unit \
 ```
 
 Every task is single-turn. The first semantic provider answer is immutable. Malformed exact-budget JSON is recorded as non-adherence, not retried.
-Only transport/provider failures with no semantic answer may be retried. Deferred assignments fail closed.
+Only transport/provider failures with no semantic answer may be retried.
 Every response records the actual routed provider, returned model version, native input/output token counts, and billed cost. Batch execution uses the
 same immutable unit logic and writes resumable caches plus model-, experiment-, and protocol-level usage summaries:
 
 ```bash
-uv run risk-comm-v2 experiment execute-batch \
+uv run risk-comm experiment execute-batch \
   --bundles data/outputs/experiments/EXPERIMENT_NAME/execution_bundles.jsonl \
   --protocol-manifest data/outputs/experiments/final_protocol_manifest.json \
   --cost-estimate data/outputs/experiments/cost_estimate.json \
@@ -123,12 +135,3 @@ completed ID from `data/outputs/experiments/commercial_interest_instruction_v1/c
 response is written to that cache immediately, so an interrupted run resumes from its last completed response. Do not re-freeze the manifest or
 change treatment coordinates during a run; those changes intentionally require new bundles and approval. The approval ceiling is cumulative, so a
 commercial-interest approval must cover already billed protocol cost plus the estimated ceiling for unfinished commercial-interest calls.
-
-## 6. Generate stable assets
-
-```bash
-uv run risk-comm-v2 experiment generate-assets
-```
-
-Before results exist, stable tables state that results are unavailable. Once result rows exist, the same filenames are regenerated by
-`srcv2/experiments/assets.py`; no timestamps appear in paper asset names.

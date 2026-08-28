@@ -59,26 +59,26 @@ silently changing raw judge outputs.
 Every scoring command requires `--experiment`. Its default inputs and outputs resolve beneath that experiment's `scoring/` directory. For example:
 
 ```bash
-uv run risk-comm-v2 scoring show-prompts \
+uv run risk-comm scoring show-prompts \
   --experiment commercial_interest_instruction_v1
 
-uv run risk-comm-v2 scoring build-plan \
+uv run risk-comm scoring build-plan \
   --experiment commercial_interest_instruction_v1 \
   --stage full
 ```
 
-The source contracts are in `srcv2/scoring/judges.py`. Their response models are `ContentJudgeOutput`, `PresentationJudgeOutput`, and
-`AccuracyJudgeOutput` in `srcv2/models/scoring.py`.
+The source contracts are in `src/scoring/judges.py`. Their response models are `ContentJudgeOutput`, `PresentationJudgeOutput`, and
+`AccuracyJudgeOutput` in `src/models/scoring.py`.
 
 ## Exact-budget selections
 
 Run selection recovery only for an experiment containing exact-budget responses:
 
 ```bash
-uv run risk-comm-v2 scoring recover-selections \
+uv run risk-comm scoring recover-selections \
   --experiment information_budget_v1
 
-uv run risk-comm-v2 scoring recover-selections \
+uv run risk-comm scoring recover-selections \
   --experiment commercial_interest_instruction_v1
 ```
 
@@ -92,20 +92,20 @@ The final judge prompts were reviewed on the frozen five-percent development sam
 same experiment's scoring directory:
 
 ```bash
-uv run risk-comm-v2 scoring sample-pilot \
+uv run risk-comm scoring sample-pilot \
   --experiment <EXPERIMENT_NAME>
 
-uv run risk-comm-v2 scoring build-plan \
+uv run risk-comm scoring build-plan \
   --experiment <EXPERIMENT_NAME> \
   --stage pilot
 
-uv run risk-comm-v2 scoring estimate-cost \
+uv run risk-comm scoring estimate-cost \
   --experiment <EXPERIMENT_NAME> \
   --stage pilot \
   --input-price-per-million <CURRENT_INPUT_PRICE_USD> \
   --output-price-per-million <CURRENT_OUTPUT_PRICE_USD>
 
-uv run risk-comm-v2 scoring approve-execution \
+uv run risk-comm scoring approve-execution \
   --experiment <EXPERIMENT_NAME> \
   --stage pilot \
   --approved-max-cost <APPROVED_USD_CEILING> \
@@ -113,21 +113,21 @@ uv run risk-comm-v2 scoring approve-execution \
   --note "Approved scoring pilot" \
   --confirm-paid-execution
 
-uv run risk-comm-v2 scoring execute-pilot \
+uv run risk-comm scoring execute-pilot \
   --experiment <EXPERIMENT_NAME>
 ```
 
 After reviewing every pilot call, apply any pilot correction ledger and freeze the contract:
 
 ```bash
-uv run risk-comm-v2 scoring apply-overrides \
+uv run risk-comm scoring apply-overrides \
   --experiment <EXPERIMENT_NAME> \
   --plan data/outputs/experiments/<EXPERIMENT_NAME>/scoring/pilot_plan.jsonl \
   --raw-results data/outputs/experiments/<EXPERIMENT_NAME>/scoring/pilot_raw_judge_results.jsonl \
   --overrides data/outputs/experiments/<EXPERIMENT_NAME>/scoring/pilot_manual_overrides.jsonl \
   --output data/outputs/experiments/<EXPERIMENT_NAME>/scoring/pilot_final_judgments.jsonl
 
-uv run risk-comm-v2 scoring freeze-contract \
+uv run risk-comm scoring freeze-contract \
   --experiment <EXPERIMENT_NAME> \
   --confirm-pilot-reviewed
 ```
@@ -137,23 +137,23 @@ uv run risk-comm-v2 scoring freeze-contract \
 Build, cost, approve, and execute each experiment independently:
 
 ```bash
-uv run risk-comm-v2 scoring build-plan \
+uv run risk-comm scoring build-plan \
   --experiment <EXPERIMENT_NAME> \
   --stage full
 
-uv run risk-comm-v2 scoring estimate-cost \
+uv run risk-comm scoring estimate-cost \
   --experiment <EXPERIMENT_NAME> \
   --input-price-per-million <CURRENT_INPUT_PRICE_USD> \
   --output-price-per-million <CURRENT_OUTPUT_PRICE_USD>
 
-uv run risk-comm-v2 scoring approve-execution \
+uv run risk-comm scoring approve-execution \
   --experiment <EXPERIMENT_NAME> \
   --approved-max-cost <APPROVED_USD_CEILING> \
   --approved-by <RESEARCHER_ID> \
   --note "Approved full scoring run" \
   --confirm-paid-execution
 
-uv run risk-comm-v2 scoring execute-full \
+uv run risk-comm scoring execute-full \
   --experiment <EXPERIMENT_NAME>
 ```
 
@@ -162,13 +162,22 @@ counts are written to that experiment's `scoring/summary.json`.
 
 ## Corrections and final scores
 
-Raw results are never edited. Record confirmed replacements as `JudgeOverride` rows in the experiment's `manual_overrides.jsonl`, then run:
+Raw results are never edited. If a scoring run produced separate reusable and replacement result files, first merge them against the immutable plan:
 
 ```bash
-uv run risk-comm-v2 scoring apply-overrides \
+uv run risk-comm scoring merge-results \
+  --experiment <EXPERIMENT_NAME> \
+  --source <REUSABLE_RESULTS.jsonl> \
+  --source <REPLACEMENT_RESULTS.jsonl>
+```
+
+Record confirmed replacements as `JudgeOverride` rows in the experiment's `manual_overrides.jsonl`, then run:
+
+```bash
+uv run risk-comm scoring apply-overrides \
   --experiment <EXPERIMENT_NAME>
 
-uv run risk-comm-v2 scoring calculate-outcomes \
+uv run risk-comm scoring calculate-outcomes \
   --experiment <EXPERIMENT_NAME>
 ```
 
@@ -179,6 +188,6 @@ total coverage T, pair states, specificity, presentation, factual-error exposure
 For the commercial-interest experiment, its matched observations and contrasts remain in the same scoring directory:
 
 ```bash
-uv run risk-comm-v2 analysis commercial-interest-observations
-uv run risk-comm-v2 analysis commercial-interest
+uv run risk-comm analysis commercial-interest-observations
+uv run risk-comm analysis commercial-interest
 ```

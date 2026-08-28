@@ -1,1 +1,1 @@
-"""Contain implementation modules for project CLI commands."""
+"""Implementation modules for project CLI commands."""

@@ -1,6 +1,5 @@
-"""Scoring validation, separate metrics, and reliability gates."""
+"""Final direction-blind judging, adjudication, and scoring workflows."""
 
-from src.scoring.metrics import compute_conversation_metrics
-from src.scoring.validation import validate_scoring_results
+from src.scoring.outcomes import score_selection
 
-__all__ = ["compute_conversation_metrics", "validate_scoring_results"]
+__all__ = ["score_selection"]

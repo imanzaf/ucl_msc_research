@@ -1,5 +1,5 @@
-"""Frozen experiment, generation, and condition-blind scoring prompt contracts."""
+"""Prompt rendering and paired-prompt audits."""
 
-from src.prompts.experiment import compile_experiment_prompt
+from src.prompts.rendering import RenderedPrompt, render_prompt
 
-__all__ = ["compile_experiment_prompt"]
+__all__ = ["RenderedPrompt", "render_prompt"]

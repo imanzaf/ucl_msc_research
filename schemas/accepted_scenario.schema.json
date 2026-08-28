@@ -1,70 +1,45 @@
 {
   "$defs": {
-    "ComparisonScope": {
-      "description": "Identify whether both options belong to the provider or one is external.",
+    "CustomerValence": {
+      "description": "Classify whether a fact is favourable or adverse for the customer.",
       "enum": [
-        "intra_provider",
-        "provider_vs_external"
+        "customer_favourable",
+        "customer_adverse"
       ],
-      "title": "ComparisonScope",
+      "title": "CustomerValence",
       "type": "string"
-    },
-    "CustomerMessages": {
-      "additionalProperties": false,
-      "description": "Store natural condition-specific questions and one shared non-leading follow-up.",
-      "properties": {
-        "concerned_user_query": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Concerned User Query",
-          "type": "string"
-        },
-        "follow_up_query": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Follow Up Query",
-          "type": "string"
-        },
-        "neutral_user_query": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Neutral User Query",
-          "type": "string"
-        }
-      },
-      "required": [
-        "neutral_user_query",
-        "concerned_user_query",
-        "follow_up_query"
-      ],
-      "title": "CustomerMessages",
-      "type": "object"
     },
     "DeploymentContext": {
       "additionalProperties": false,
-      "description": "Store only the broad real-world guidance passed to the evaluated assistant.",
+      "description": "Describe the seed-owned role, task, and authority shown to evaluated models.",
       "properties": {
         "authority_limits": {
-          "minLength": 1,
-          "pattern": "\\S",
+          "items": {
+            "type": "string"
+          },
           "title": "Authority Limits",
+          "type": "array"
+        },
+        "entity_name": {
+          "title": "Entity Name",
           "type": "string"
         },
         "entity_type": {
-          "$ref": "#/$defs/FinanceEntityType"
+          "title": "Entity Type",
+          "type": "string"
         },
         "role": {
-          "$ref": "#/$defs/FinanceAgentRole"
+          "title": "Role",
+          "type": "string"
         },
         "task": {
-          "minLength": 1,
-          "pattern": "\\S",
           "title": "Task",
           "type": "string"
         }
       },
       "required": [
         "role",
+        "entity_name",
         "entity_type",
         "task",
         "authority_limits"
@@ -72,289 +47,271 @@
       "title": "DeploymentContext",
       "type": "object"
     },
-    "FinanceAgentRole": {
-      "description": "Identify the broad operational role assigned to the evaluated assistant.",
+    "FactDirection": {
+      "description": "Classify whether a fact supports the owner or is countervailing.",
       "enum": [
-        "current account support assistant",
-        "savings support assistant",
-        "mortgage support assistant",
-        "credit-card support assistant",
-        "borrowing support assistant",
-        "payment-difficulty support assistant",
-        "investment support assistant",
-        "pension support assistant",
-        "claims support assistant",
-        "payments support assistant"
+        "owner_supporting",
+        "countervailing"
       ],
-      "title": "FinanceAgentRole",
+      "title": "FactDirection",
       "type": "string"
     },
-    "FinanceEntityType": {
-      "description": "Identify the generic finance-domain entity deploying the evaluated assistant.",
+    "OwnershipEligibility": {
+      "description": "Record whether employer ownership can vary without changing the options.",
       "enum": [
-        "retail bank",
-        "bank",
-        "mortgage lender",
-        "credit-card provider",
-        "personal lender",
-        "loan servicer",
-        "investment platform",
-        "pension provider",
-        "insurance provider",
-        "payment provider"
+        "eligible",
+        "ineligible"
       ],
-      "title": "FinanceEntityType",
+      "title": "OwnershipEligibility",
       "type": "string"
     },
-    "ScenarioFactInformation": {
-      "additionalProperties": false,
-      "description": "Store one customer-facing directional fact and its quantitative phrases.",
-      "properties": {
-        "fact_text": {
-          "maxLength": 400,
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Fact Text",
-          "type": "string"
-        },
-        "specificity_markers": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 3,
-          "title": "Specificity Markers",
-          "type": "array"
-        }
-      },
-      "required": [
-        "fact_text",
-        "specificity_markers"
+    "ReviewState": {
+      "description": "Track the single researcher accept-or-revise scenario review.",
+      "enum": [
+        "pending",
+        "accepted",
+        "revise"
       ],
-      "title": "ScenarioFactInformation",
-      "type": "object"
+      "title": "ReviewState",
+      "type": "string"
     },
-    "ScenarioHiddenDesign": {
+    "ScenarioFact": {
       "additionalProperties": false,
-      "description": "Store one decision's research-only ownership mapping and display order.",
+      "description": "Store one visible fact and its hidden matched-pair metadata.",
       "properties": {
-        "comparison_scope": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ComparisonScope"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "decision_type": {
+        "anchor": {
           "minLength": 1,
-          "pattern": "\\S",
-          "title": "Decision Type",
+          "title": "Anchor",
           "type": "string"
         },
-        "external_option_id": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/SeedOptionId"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+        "customer_valence": {
+          "$ref": "#/$defs/CustomerValence"
         },
-        "options": {
-          "items": {
-            "$ref": "#/$defs/ScenarioOptionDefinition"
-          },
-          "maxItems": 2,
-          "minItems": 2,
-          "title": "Options",
-          "type": "array"
+        "direction": {
+          "$ref": "#/$defs/FactDirection"
         },
-        "owner_benefit_mechanism": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Owner Benefit Mechanism",
+        "fact_id": {
+          "pattern": "^[A-Z0-9_]+_F[1-6]$",
+          "title": "Fact Id",
           "type": "string"
         },
-        "owner_supporting_option": {
-          "$ref": "#/$defs/SeedOptionId"
+        "institutional_benefit": {
+          "minLength": 2,
+          "title": "Institutional Benefit",
+          "type": "string"
         },
-        "presentation_order": {
-          "items": {
-            "$ref": "#/$defs/SeedOptionId"
-          },
-          "maxItems": 2,
-          "minItems": 2,
-          "title": "Presentation Order",
-          "type": "array"
-        }
-      },
-      "required": [
-        "decision_type",
-        "options",
-        "owner_supporting_option",
-        "owner_benefit_mechanism",
-        "presentation_order"
-      ],
-      "title": "ScenarioHiddenDesign",
-      "type": "object"
-    },
-    "ScenarioOptionDefinition": {
-      "additionalProperties": false,
-      "description": "Name one neutral decision option supplied to the fact generator.",
-      "properties": {
+        "materiality": {
+          "minLength": 2,
+          "title": "Materiality",
+          "type": "string"
+        },
         "option_id": {
-          "$ref": "#/$defs/SeedOptionId"
+          "pattern": "^OPTION_[AB]$",
+          "title": "Option Id",
+          "type": "string"
         },
-        "option_name": {
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Option Name",
+        "pair_id": {
+          "pattern": "^[A-Z0-9_]+_P[1-3]$",
+          "title": "Pair Id",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 2,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 3,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fact_id",
+        "pair_id",
+        "option_id",
+        "text",
+        "anchor",
+        "direction",
+        "customer_valence",
+        "institutional_benefit",
+        "materiality",
+        "rationale"
+      ],
+      "title": "ScenarioFact",
+      "type": "object"
+    },
+    "ScenarioOption": {
+      "additionalProperties": false,
+      "description": "Store a named fictional option visible to evaluated models.",
+      "properties": {
+        "institution_name": {
+          "minLength": 2,
+          "title": "Institution Name",
+          "type": "string"
+        },
+        "option_id": {
+          "pattern": "^OPTION_[AB]$",
+          "title": "Option Id",
+          "type": "string"
+        },
+        "product_name": {
+          "minLength": 2,
+          "title": "Product Name",
           "type": "string"
         }
       },
       "required": [
         "option_id",
-        "option_name"
+        "institution_name",
+        "product_name"
       ],
-      "title": "ScenarioOptionDefinition",
+      "title": "ScenarioOption",
       "type": "object"
     },
-    "ScenarioOptionInformation": {
+    "ScenarioReview": {
       "additionalProperties": false,
-      "description": "Store the visible description and directional facts for one option.",
+      "description": "Record the one researcher accept-or-revise disposition.",
       "properties": {
-        "adverse_fact": {
-          "$ref": "#/$defs/ScenarioFactInformation"
+        "rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rationale"
         },
-        "description": {
-          "maxLength": 400,
-          "minLength": 1,
-          "pattern": "\\S",
-          "title": "Description",
-          "type": "string"
+        "researcher_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Researcher Id"
         },
-        "favourable_fact": {
-          "$ref": "#/$defs/ScenarioFactInformation"
+        "reviewed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewed At"
         },
-        "option_id": {
-          "$ref": "#/$defs/SeedOptionId"
+        "state": {
+          "$ref": "#/$defs/ReviewState",
+          "default": "pending"
         }
       },
-      "required": [
-        "option_id",
-        "description",
-        "favourable_fact",
-        "adverse_fact"
-      ],
-      "title": "ScenarioOptionInformation",
+      "title": "ScenarioReview",
       "type": "object"
-    },
-    "ScenarioStage": {
-      "description": "Identify calibration versus held-out evaluation scenarios.",
-      "enum": [
-        "calibration",
-        "evaluation"
-      ],
-      "title": "ScenarioStage",
-      "type": "string"
-    },
-    "SeedOptionId": {
-      "description": "Identify one neutrally labelled option in a generation seed.",
-      "enum": [
-        "OPTION_A",
-        "OPTION_B"
-      ],
-      "title": "SeedOptionId",
-      "type": "string"
     }
   },
   "additionalProperties": false,
-  "description": "Represent the only scenario artifact accepted by evaluation loaders.",
+  "description": "Represent one final accepted scenario with exactly three fact pairs.",
   "properties": {
-    "acceptance_record_sha256": {
-      "title": "Acceptance Record Sha256",
+    "decision_context": {
+      "minLength": 2,
+      "title": "Decision Context",
       "type": "string"
-    },
-    "accepted_at": {
-      "format": "date-time",
-      "title": "Accepted At",
-      "type": "string"
-    },
-    "accepted_by": {
-      "minLength": 1,
-      "title": "Accepted By",
-      "type": "string"
-    },
-    "artifact_sha256": {
-      "title": "Artifact Sha256",
-      "type": "string"
-    },
-    "artifact_version": {
-      "pattern": "^v[1-9][0-9]*$",
-      "title": "Artifact Version",
-      "type": "string"
-    },
-    "customer_messages": {
-      "$ref": "#/$defs/CustomerMessages"
     },
     "deployment_context": {
       "$ref": "#/$defs/DeploymentContext"
     },
-    "hidden_design": {
-      "$ref": "#/$defs/ScenarioHiddenDesign"
+    "domain": {
+      "minLength": 2,
+      "title": "Domain",
+      "type": "string"
+    },
+    "facts": {
+      "items": {
+        "$ref": "#/$defs/ScenarioFact"
+      },
+      "maxItems": 6,
+      "minItems": 6,
+      "title": "Facts",
+      "type": "array"
+    },
+    "generated_output_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Generated Output Sha256",
+      "type": "string"
+    },
+    "generation_request_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Generation Request Sha256",
+      "type": "string"
     },
     "options": {
       "items": {
-        "$ref": "#/$defs/ScenarioOptionInformation"
+        "$ref": "#/$defs/ScenarioOption"
       },
       "maxItems": 2,
       "minItems": 2,
       "title": "Options",
       "type": "array"
     },
-    "review_history_sha256": {
-      "title": "Review History Sha256",
+    "owner_supporting_option": {
+      "pattern": "^OPTION_[AB]$",
+      "title": "Owner Supporting Option",
       "type": "string"
     },
+    "ownership_eligibility": {
+      "$ref": "#/$defs/OwnershipEligibility"
+    },
+    "presentation_order": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Presentation Order",
+      "type": "array"
+    },
+    "query_stem": {
+      "minLength": 2,
+      "title": "Query Stem",
+      "type": "string"
+    },
+    "review": {
+      "$ref": "#/$defs/ScenarioReview"
+    },
     "scenario_id": {
-      "pattern": "^CF\\d{3}_(C1|R[12])$",
+      "pattern": "^[A-Z]{2,3}[0-9]{3}_R[1-5]$",
       "title": "Scenario Id",
       "type": "string"
     },
     "schema_version": {
-      "const": "9.0.0",
+      "default": "10.0.0",
+      "pattern": "^10\\.0\\.0$",
       "title": "Schema Version",
-      "type": "string"
-    },
-    "study_stage": {
-      "$ref": "#/$defs/ScenarioStage"
-    },
-    "use_case_id": {
-      "pattern": "^CF\\d{3}$",
-      "title": "Use Case Id",
       "type": "string"
     }
   },
   "required": [
-    "schema_version",
-    "artifact_version",
     "scenario_id",
-    "use_case_id",
-    "study_stage",
+    "generation_request_sha256",
+    "generated_output_sha256",
+    "domain",
     "deployment_context",
-    "customer_messages",
-    "hidden_design",
+    "decision_context",
+    "query_stem",
     "options",
-    "review_history_sha256",
-    "acceptance_record_sha256",
-    "accepted_at",
-    "accepted_by",
-    "artifact_sha256"
+    "facts",
+    "owner_supporting_option",
+    "ownership_eligibility",
+    "presentation_order"
   ],
   "title": "AcceptedScenario",
   "type": "object"

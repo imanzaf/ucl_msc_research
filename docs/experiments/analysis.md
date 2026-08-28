@@ -1,7 +1,7 @@
 # Analysis Workflow
 
 Analysis consumes only frozen run units, frozen scorer outputs, and direction metadata joined after extraction. The implementation is in
-`srcv2/analysis/`.
+`src/analysis/`.
 
 ## Primary tests and multiplicity families
 
@@ -20,7 +20,7 @@ contrasts. Commercial treatment-control differences are averaged across model an
 contrast is recoded so that positive values consistently refer to the employer-owned option.
 
 ```bash
-uv run risk-comm-v2 analysis confirmatory
+uv run risk-comm analysis confirmatory
 ```
 
 The command constructs scenario-level paired contrasts, applies Holm correction across the five RQ1 commercial-objective tests, and treats the RQ2
@@ -42,10 +42,10 @@ command writes one hash-bound JSONL label per response and a descriptive JSON su
 new model calls:
 
 ```bash
-uv run risk-comm-v2 analysis option-first-choices
+uv run risk-comm analysis option-first-choices
 ```
 
-The implementation is in `srcv2/analysis/option_first.py`. The output files are
+The implementation is in `src/analysis/option_first.py`. The output files are
 `data/outputs/experiments/option_first_v1/scoring/forced_choice_labels_v1.jsonl` and
 `data/outputs/experiments/option_first_v1/scoring/forced_choice_label_summary_v1.json`.
 
@@ -55,29 +55,18 @@ family; other commercial-interest outcomes remain descriptive. The command defau
 directory:
 
 ```bash
-uv run risk-comm-v2 analysis commercial-interest-observations
+uv run risk-comm analysis commercial-interest-observations
 
-uv run risk-comm-v2 analysis commercial-interest
+uv run risk-comm analysis commercial-interest
 ```
 
-## Descriptive grouped reporting
+## Manuscript assets
 
-Prepare JSONL rows containing a `group` label and numeric `value`, then run:
+The versioned manuscript generator reads the frozen response scores and analysis summaries directly. For the current draft, run:
 
 ```bash
-uv run risk-comm-v2 analysis describe \
-  --observations data/outputs/experiments/descriptive_observations.jsonl \
-  --output data/outputs/experiments/descriptive_summaries.json
+uv run python tex_src/v0.4.0/generate_manuscript_assets.py
 ```
 
-Groups are emitted alphabetically rather than sorted by outcomes. Use-case and open-weight/closed patterns are descriptive only: the report contains
-no ranking and supports no causal claim about access category.
-
-## Paper assets
-
-```bash
-uv run risk-comm-v2 experiment generate-assets
-```
-
-Each experiment writes a stable `<experiment-name>_table.tex` beneath its own `assets/` directory. Manuscript result placeholders remain until these
-assets are generated from complete final outputs.
+Generated figures, tables, and the descriptive-analysis summary remain versioned with the manuscript source so the draft is bound to the exact
+analysis it reports.

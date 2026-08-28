@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launch the project CLI without depending on editable-install path hooks."""
+"""Launch the project CLI from a source checkout or installation."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def add_project_root() -> None:
-    """Add the source checkout when this launcher runs from its project virtualenv."""
+    """Add the source checkout to the import path when needed."""
     launcher_path = Path(__file__).resolve()
     candidates = [Path.cwd(), *launcher_path.parents[1:3]]
     project_root = next((candidate for candidate in candidates if (candidate / "src" / "cli").is_dir()), None)

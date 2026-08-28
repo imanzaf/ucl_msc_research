@@ -11,13 +11,13 @@ from typing import Dict, List, Literal, Optional, Sequence, Set, Tuple
 
 from pydantic import Field
 
-from srcv2.common import ImmutableModel
-from srcv2.experiments.accounting import load_run_caches
-from srcv2.models.enums import JudgeContract
-from srcv2.models.scoring import AccuracyJudgeOutput, AdjudicatedJudgment, ContentJudgeOutput, JudgeTask, PresentationJudgeOutput
-from srcv2.paths import experiment_paths, scoring_paths
-from srcv2.scoring.judges import response_text_for_scoring
-from srcv2.storage import read_jsonl, write_json, write_jsonl
+from src.common import ImmutableModel
+from src.experiments.accounting import load_run_caches
+from src.models.enums import JudgeContract
+from src.models.scoring import AccuracyJudgeOutput, AdjudicatedJudgment, ContentJudgeOutput, JudgeTask, PresentationJudgeOutput
+from src.paths import experiment_paths, scoring_paths
+from src.scoring.judges import response_text_for_scoring
+from src.storage import read_jsonl, write_json, write_jsonl
 
 SCHEMA_VERSION = "4.0.0"
 ACTIVE_EXPERIMENTS = (

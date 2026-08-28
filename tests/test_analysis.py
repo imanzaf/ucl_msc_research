@@ -1,218 +1,213 @@
-"""Tests for primary selective and interval-only secondary analyses."""
+"""Confirmatory contrasts, Holm correction, bootstrap, and paired-analysis tests."""
 
 from __future__ import annotations
 
-from decimal import Decimal
-from pathlib import Path
-
-import pandas as pd
 import pytest
 
-from src.analysis.bootstrap import stratified_scenario_bootstrap
-from src.analysis.estimands import estimate_confirmatory_contrasts, estimate_outcome_contrasts, scenario_level_contrasts
-from src.analysis.power import VarianceComponents, _selective_contrasts, expected_secondary_interval_half_widths, simulate_holm_corrected_power
-from src.analysis.sensitivities import estimate_sensitivities_with_messages
-from src.data_models.scoring import ConstructValidationDiagnostics, EvaluationCheckpoint, FailedConstructAction, ScoringConstruct
-from src.experiments.assets import generate_paper_assets
-from src.scoring.disposition import build_validation_disposition_manifest
-from src.scoring.reliability import build_scoring_validation_report
-from tests.factories import NOW, ZERO_HASH
+from src.analysis.commercial_interest import (
+    CommercialInterestContrast,
+    CommercialInterestObservation,
+    paired_instruction_contrasts,
+    summarize_commercial_interest_contrasts,
+)
+from src.analysis.confirmatory import (
+    BudgetScore,
+    ScenarioContrast,
+    UserStateScore,
+    adjust_within_research_questions,
+    anxious_neutral_contrasts,
+    commercial_directional_contrasts,
+    complete_budget_models,
+    holm_adjust,
+    ordered_budget_contrasts,
+)
+from src.analysis.resampling import stratified_cluster_bootstrap
+from src.models.enums import Affect, CommercialInterestInstruction, CommercialInterestTask, ExactFactBudget, OwnershipRole
 
 
-def _analysis_frame() -> pd.DataFrame:
-    """Return a complete balanced 20-scenario repeated-design frame."""
-    records = []
-    for use_case in range(1, 11):
-        for replication in range(1, 3):
-            scenario_id = f"CF{use_case:03d}_R{replication}"
-            for model_id in ["m1", "m2", "m3"]:
-                for budget in ["baseline", "concise"]:
-                    for concern in ["neutral", "concerned"]:
-                        concise = float(budget == "concise")
-                        concerned = float(concern == "concerned")
-                        records.append(
-                            {
-                                "run_unit_id": f"{scenario_id}:{model_id}:{budget}:{concern}",
-                                "scenario_id": scenario_id,
-                                "use_case_id": f"CF{use_case:03d}",
-                                "model_id": model_id,
-                                "word_budget": budget,
-                                "expressed_concern": concern,
-                                "selective_communication_score": 0.2 + 0.1 * concise + 0.05 * concerned,
-                                "presentation_style_score": 0.1 + 0.03 * concise - 0.02 * concerned,
-                                "factual_inaccuracy_score": concise,
-                                "coverage_asymmetry": 0.2,
-                                "specificity_asymmetry": 0.2,
-                                "owner_favouring_framing_rate": 0.1,
-                                "ordering_asymmetry": 0.1,
-                                "emphasis_asymmetry": 0.1,
-                                "false_claim_present": bool(concise),
-                            }
-                        )
-    return pd.DataFrame.from_records(records)
+def _contrasts() -> list[ScenarioContrast]:
+    """Build six use-case strata with five scenario clusters each."""
+    return [
+        ScenarioContrast(scenario_id=f"UC{use_case}_R{scenario}", use_case_id=f"UC{use_case}", value=(scenario - 3) / 10)
+        for use_case in range(1, 7)
+        for scenario in range(1, 6)
+    ]
 
 
-def test_confirmatory_contrasts_use_only_initial_selective_score() -> None:
-    """H1 and H2 recover paired effects on the primary outcome."""
-    estimates = estimate_confirmatory_contrasts(_analysis_frame())
-    assert estimates["H1"] == pytest.approx(0.1)
-    assert estimates["H2"] == pytest.approx(0.05)
-    presentation = estimate_outcome_contrasts(
-        _analysis_frame(),
-        "presentation_style_score",
-    )
-    assert presentation["H1"] == pytest.approx(0.03)
-    assert presentation["H2"] == pytest.approx(-0.02)
+def test_holm_correction_is_step_down_for_the_declared_family() -> None:
+    """Correct all declared confirmatory p-values with the step-down rule."""
+    adjusted = holm_adjust({"commercial": 0.005, "anxious": 0.01, "budget": 0.04})
+    assert adjusted == {"commercial": 0.015, "anxious": 0.02, "budget": 0.04}
 
 
-def test_bootstrap_supports_secondary_outcomes_without_p_values() -> None:
-    """The same paired bootstrap can estimate either secondary score."""
-    points, intervals, draws = stratified_scenario_bootstrap(
-        _analysis_frame(),
-        outcome="presentation_style_score",
-        draws=25,
-        seed=7,
-    )
-    assert points["H1"] == pytest.approx(0.03)
-    assert set(intervals) == {"H1", "H2"}
-    assert draws.shape == (25, 2)
-
-
-def test_scenario_contrasts_cover_twenty_clusters() -> None:
-    """Each analysis outcome yields one H1/H2 vector per scenario."""
-    result = scenario_level_contrasts(
-        _analysis_frame(),
-        "factual_inaccuracy_score",
-    )
-    assert len(result) == 20
-    assert result["use_case_id"].nunique() == 10
-    assert result["H1"].tolist() == pytest.approx([1.0] * 20)
-
-
-def test_sensitivities_exclude_old_domain_composites_and_spontaneous_change() -> None:
-    """Only model/use-case and score/checkpoint estimates remain."""
-    frame = _analysis_frame()
-    estimates, messages = estimate_sensitivities_with_messages(
-        frame,
+def test_primary_p_values_are_adjusted_within_research_questions() -> None:
+    """Correct the five RQ1 tests while leaving singleton RQ2 and RQ3 p-values unchanged."""
+    adjusted = adjust_within_research_questions(
         {
-            EvaluationCheckpoint.FOLLOW_UP: frame,
-            EvaluationCheckpoint.CUMULATIVE: frame,
-        },
-    )
-    assert not messages
-    assert any(name.startswith("secondary_initial=presentation_style_score") for name in estimates)
-    assert any(name.startswith("secondary_checkpoint=follow_up:selective_communication_score") for name in estimates)
-    assert not any("equal_domain" in name for name in estimates)
-    assert not any("leave_domain" in name for name in estimates)
-    assert not any("spontaneous" in name for name in estimates)
-
-
-def test_power_simulates_two_equal_weight_selective_components() -> None:
-    """Power uses coverage and specificity under the two-test Holm family."""
-    components = VarianceComponents(
-        pair_standard_deviation=0.05,
-        fact_standard_deviation=0.05,
-        scenario_standard_deviation=0.05,
-        model_standard_deviation=0.02,
-        scoring_error_standard_deviation=0.05,
-    )
-    contrasts = _selective_contrasts(
-        {"H1": 0.08, "H2": 0.05},
-        components,
-        simulations=10,
-        seed=7,
-    )
-    assert contrasts["H1"].shape == (10, 20)
-    power = simulate_holm_corrected_power(
-        {"H1": 0.08, "H2": 0.05},
-        components,
-        simulations=50,
-        seed=7,
-    )
-    assert set(power) == {"H1", "H2"}
-    assert all(0 <= value <= 1 for value in power.values())
-    precision = expected_secondary_interval_half_widths(
-        {
-            "initial:presentation_style_score:H1": 0.2,
-            "initial:presentation_style_score:H2": 0.1,
-            "initial:factual_inaccuracy_score:H1": 0.3,
-            "initial:factual_inaccuracy_score:H2": 0.25,
+            "commercial_standard_D": 0.11985,
+            "commercial_single_fact_D": 0.06209,
+            "commercial_exact_k4_D": 0.02308,
+            "commercial_exact_k2_D": 0.00014,
+            "commercial_ownership_flip_D": 0.01624,
+            "anxious_vs_neutral_D": 0.53718,
+            "ordered_k6_k4_k2_selection_D": 0.70181,
         }
     )
-    assert precision["initial:presentation_style_score:H1"] == pytest.approx(1.96 * 0.2 / (20**0.5))
-
-
-def test_failed_construct_dispositions_are_separate_by_score_family() -> None:
-    """Removal reweights selective scoring while presentation withholding stays secondary."""
-    failed = {
-        ScoringConstruct.COVERAGE,
-        ScoringConstruct.FRAMING,
-        ScoringConstruct.ACCURACY,
-    }
-    diagnostics = {
-        construct: ConstructValidationDiagnostics(
-            prevalence=Decimal("0.5"),
-            agreement=Decimal("0.9"),
-            confusion_matrix={"absent": {"absent": 1}},
-            precision=Decimal("0.9"),
-            recall=Decimal("0.9"),
-            f1=Decimal("0.9"),
-            maximum_absolute_error=(
-                Decimal("0.01")
-                if construct
-                in {
-                    ScoringConstruct.ORDERING,
-                    ScoringConstruct.EMPHASIS,
-                }
-                else None
-            ),
-            invalid_output_count=0,
-            sample_size=10,
-            uncertainty_interval=[Decimal("0.8"), Decimal("1")],
-            gate_passed=construct not in failed,
-        )
-        for construct in ScoringConstruct
-    }
-    report = build_scoring_validation_report(
-        diagnostics,
-        sample_size=10,
-        construct_gate_manifest_sha256=ZERO_HASH,
-        validation_sample_manifest_sha256=ZERO_HASH,
-        generated_at=NOW,
-    )
-    disposition = build_validation_disposition_manifest(
-        report,
+    assert adjusted == pytest.approx(
         {
-            ScoringConstruct.COVERAGE: FailedConstructAction.REMOVE_AND_RENORMALISE,
-            ScoringConstruct.FRAMING: FailedConstructAction.WITHHOLD_OUTCOME,
-            ScoringConstruct.ACCURACY: FailedConstructAction.FULL_MANUAL_SCORING,
-        },
-        blinded_diagnostics_sha256=report.report_sha256,
-        researcher_id="researcher",
-        rationale="Apply the prespecified outcome-specific contingencies.",
-        decided_at=NOW,
+            "commercial_exact_k2_D": 0.0007,
+            "commercial_ownership_flip_D": 0.06496,
+            "commercial_exact_k4_D": 0.06924,
+            "commercial_single_fact_D": 0.12418,
+            "commercial_standard_D": 0.12418,
+            "anxious_vs_neutral_D": 0.53718,
+            "ordered_k6_k4_k2_selection_D": 0.70181,
+        }
     )
-    assert disposition.selective_weights == {
-        ScoringConstruct.COVERAGE: Decimal("0"),
-        ScoringConstruct.SPECIFICITY: Decimal("1"),
+
+
+def test_confirmatory_contrasts_require_the_seven_model_panel() -> None:
+    """Aggregate both confirmatory outcomes across all thirty scenarios and seven models."""
+    user_state_scores = [
+        UserStateScore(
+            scenario_id=f"UC{use_case}_R{scenario}",
+            use_case_id=f"UC{use_case}",
+            model_slug=f"model-{model}",
+            affect=affect,
+            query_length=length,
+            signed_directional_gap=0.2 if affect == Affect.ANXIOUS else 0.1,
+        )
+        for use_case in range(1, 7)
+        for scenario in range(1, 6)
+        for model in range(1, 8)
+        for affect in (Affect.NEUTRAL, Affect.ANXIOUS)
+        for length in ("short", "long")
+    ]
+    budget_scores = [
+        BudgetScore(
+            scenario_id=f"UC{use_case}_R{scenario}",
+            use_case_id=f"UC{use_case}",
+            model_slug=f"model-{model}",
+            exact_fact_budget=budget,
+            signed_directional_gap=float(budget) / 10,
+        )
+        for use_case in range(1, 7)
+        for scenario in range(1, 6)
+        for model in range(1, 8)
+        for budget in (ExactFactBudget.FACTS_2, ExactFactBudget.FACTS_4, ExactFactBudget.FACTS_6)
+    ]
+    assert len(anxious_neutral_contrasts(user_state_scores)) == 30
+    assert len(ordered_budget_contrasts(budget_scores)) == 30
+    assert len(complete_budget_models(budget_scores)) == 7
+
+    incomplete = [
+        score
+        for score in budget_scores
+        if not (score.model_slug == "model-7" and score.scenario_id == "UC1_R1" and score.exact_fact_budget == ExactFactBudget.FACTS_2)
+    ]
+    assert complete_budget_models(incomplete) == [f"model-{model}" for model in range(1, 7)]
+    assert len(ordered_budget_contrasts(incomplete)) == 30
+
+
+def test_stratified_scenario_bootstrap_is_reproducible() -> None:
+    """Resample five scenario clusters within each of six use cases reproducibly."""
+    first = stratified_cluster_bootstrap(_contrasts(), iterations=500, random_seed=7)
+    second = stratified_cluster_bootstrap(_contrasts(), iterations=500, random_seed=7)
+    assert first == second
+
+
+def test_commercial_confirmatory_contrasts_cover_each_task() -> None:
+    """Aggregate four general tasks and one owner-recoded ownership task by scenario."""
+    general: list[CommercialInterestContrast] = []
+    task_values = (
+        (CommercialInterestTask.STANDARD, None, 0.01),
+        (CommercialInterestTask.SINGLE_FACT, None, 0.02),
+        (CommercialInterestTask.EXACT_BUDGET, ExactFactBudget.FACTS_4, 0.03),
+        (CommercialInterestTask.EXACT_BUDGET, ExactFactBudget.FACTS_2, 0.04),
+    )
+    for use_case in range(1, 7):
+        for scenario in range(1, 6):
+            for model in range(1, 8):
+                for affect in Affect:
+                    for task, budget, value in task_values:
+                        general.append(
+                            CommercialInterestContrast(
+                                scenario_id=f"UC{use_case}_R{scenario}",
+                                use_case_id=f"UC{use_case}",
+                                model_slug=f"model-{model}",
+                                affect=affect,
+                                task=task,
+                                outcome_name="prose_signed_directional_gap",
+                                exact_fact_budget=budget,
+                                treatment_minus_control=value,
+                            )
+                        )
+
+    ownership: list[CommercialInterestContrast] = []
+    ownership_scenarios = [(f"UC{index % 5 + 1}_R{index}", f"UC{index % 5 + 1}") for index in range(1, 12)]
+    for scenario_id, use_case_id in ownership_scenarios:
+        for model in range(1, 8):
+            for affect in Affect:
+                for role, fixed_option_value in (
+                    (OwnershipRole.EMPLOYER_OWNS_A, 0.05),
+                    (OwnershipRole.EMPLOYER_OWNS_B, -0.05),
+                ):
+                    for rendering in (1, 2):
+                        ownership.append(
+                            CommercialInterestContrast(
+                                scenario_id=scenario_id,
+                                use_case_id=use_case_id,
+                                model_slug=f"model-{model}",
+                                affect=affect,
+                                task=CommercialInterestTask.OWNERSHIP_FLIP,
+                                outcome_name="prose_option_coordinate_signed_directional_gap",
+                                ownership_role=role,
+                                rendering=rendering,
+                                treatment_minus_control=fixed_option_value,
+                            )
+                        )
+
+    contrasts = commercial_directional_contrasts([*general, *ownership])
+    assert {name: len(values) for name, values in contrasts.items()} == {
+        "commercial_standard_D": 30,
+        "commercial_single_fact_D": 30,
+        "commercial_exact_k4_D": 30,
+        "commercial_exact_k2_D": 30,
+        "commercial_ownership_flip_D": 11,
     }
-    assert disposition.presentation_result_withheld is True
-    assert disposition.factual_inaccuracy_result_withheld is False
-    assert disposition.confirmatory_inference_withheld is False
+    assert {name: values[0].value for name, values in contrasts.items()} == {
+        "commercial_standard_D": 0.01,
+        "commercial_single_fact_D": 0.02,
+        "commercial_exact_k4_D": 0.03,
+        "commercial_exact_k2_D": 0.04,
+        "commercial_ownership_flip_D": 0.05,
+    }
 
 
-def test_paper_assets_separate_confirmatory_and_secondary_panels(
-    tmp_path: Path,
-) -> None:
-    """Only the confirmatory table receives Holm-adjusted p-values."""
-    confirmatory, secondary, figure = generate_paper_assets(
-        tmp_path,
-        {"H1": 0.1, "H2": 0.05},
-        {"H1": (0.02, 0.18), "H2": (0.0, 0.1)},
-        {"H1": 0.02, "H2": 0.04},
-        {"initial:presentation_style_score:H1": 0.03},
-        {"initial:presentation_style_score:H1": (-0.01, 0.07)},
-    )
-    assert "Holm-adjusted" in confirmatory.read_text(encoding="utf-8")
-    assert "Holm" not in secondary.read_text(encoding="utf-8")
-    assert figure.exists()
+def test_commercial_interest_contrast_pairs_only_the_instruction() -> None:
+    """Calculate treatment-minus-control while holding every other coordinate fixed."""
+    observations = [
+        CommercialInterestObservation(
+            scenario_id="CF101_R1",
+            use_case_id="CF101",
+            model_slug="test/model",
+            affect=Affect.ANXIOUS,
+            instruction=instruction,
+            task=CommercialInterestTask.EXACT_BUDGET,
+            exact_fact_budget=ExactFactBudget.FACTS_2,
+            outcome_name="signed_directional_gap",
+            value=value,
+        )
+        for instruction, value in (
+            (CommercialInterestInstruction.CONTROL, -0.1),
+            (CommercialInterestInstruction.PROTECT_COMMERCIAL_INTERESTS, 0.2),
+        )
+    ]
+    contrasts = paired_instruction_contrasts(observations)
+    assert len(contrasts) == 1
+    assert contrasts[0].treatment_minus_control == 0.30000000000000004
+    assert contrasts[0].interpretation == "descriptive_secondary"
+    summaries = summarize_commercial_interest_contrasts(contrasts)
+    assert summaries[0].contrast_count == 1
+    assert summaries[0].scenario_count == 1
+    assert summaries[0].mean_treatment_minus_control == contrasts[0].treatment_minus_control

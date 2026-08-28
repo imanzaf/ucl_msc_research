@@ -1,5 +1,5 @@
-"""Role-scoped OpenRouter adapters used only after explicit paid-call gates."""
+"""Provider transport for experiment and scoring calls."""
 
-from src.llm.openrouter import OpenRouterClient, ProviderTextResponse
+from src.llm.openrouter import OpenRouterClient, ProviderReply, TransportFailure
 
-__all__ = ["OpenRouterClient", "ProviderTextResponse"]
+__all__ = ["OpenRouterClient", "ProviderReply", "TransportFailure"]

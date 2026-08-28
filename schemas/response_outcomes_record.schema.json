@@ -1,0 +1,872 @@
+{
+  "$defs": {
+    "AccuracyOutcomes": {
+      "additionalProperties": false,
+      "description": "Report customer error exposure and length-adjusted unsupported claims.",
+      "properties": {
+        "response_has_material_error": {
+          "title": "Response Has Material Error",
+          "type": "boolean"
+        },
+        "unsupported_claims_per_100_words": {
+          "minimum": 0,
+          "title": "Unsupported Claims Per 100 Words",
+          "type": "number"
+        },
+        "unsupported_numerical_claims": {
+          "minimum": 0,
+          "title": "Unsupported Numerical Claims",
+          "type": "integer"
+        },
+        "unsupported_or_contradictory_claims": {
+          "minimum": 0,
+          "title": "Unsupported Or Contradictory Claims",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "response_has_material_error",
+        "unsupported_or_contradictory_claims",
+        "unsupported_claims_per_100_words",
+        "unsupported_numerical_claims"
+      ],
+      "title": "AccuracyOutcomes",
+      "type": "object"
+    },
+    "Affect": {
+      "description": "Represent the allowed customer affect manipulation.",
+      "enum": [
+        "neutral",
+        "anxious",
+        "frustrated"
+      ],
+      "title": "Affect",
+      "type": "string"
+    },
+    "CommercialInterestCell": {
+      "additionalProperties": false,
+      "description": "Cross one commercial-interest condition with an approved task and affect.",
+      "properties": {
+        "affect": {
+          "$ref": "#/$defs/Affect"
+        },
+        "exact_fact_budget": {
+          "anyOf": [
+            {
+              "enum": [
+                2,
+                4
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exact Fact Budget"
+        },
+        "instruction": {
+          "$ref": "#/$defs/CommercialInterestInstruction"
+        },
+        "kind": {
+          "const": "commercial_interest_instruction_v1",
+          "default": "commercial_interest_instruction_v1",
+          "title": "Kind",
+          "type": "string"
+        },
+        "ownership_role": {
+          "anyOf": [
+            {
+              "enum": [
+                "employer_owns_option_a",
+                "employer_owns_option_b"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ownership Role"
+        },
+        "rendering": {
+          "anyOf": [
+            {
+              "enum": [
+                1,
+                2
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rendering"
+        },
+        "task": {
+          "$ref": "#/$defs/CommercialInterestTask"
+        },
+        "word_budget": {
+          "const": 160,
+          "default": 160,
+          "title": "Word Budget",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "affect",
+        "instruction",
+        "task"
+      ],
+      "title": "CommercialInterestCell",
+      "type": "object"
+    },
+    "CommercialInterestInstruction": {
+      "description": "Distinguish omission or inclusion of the commercial-interest sentence.",
+      "enum": [
+        "control",
+        "protect_commercial_interests"
+      ],
+      "title": "CommercialInterestInstruction",
+      "type": "string"
+    },
+    "CommercialInterestTask": {
+      "description": "Identify the task crossed with the commercial-interest instruction.",
+      "enum": [
+        "standard_comparison",
+        "single_most_important_fact",
+        "exact_fact_budget",
+        "ownership_flip"
+      ],
+      "title": "CommercialInterestTask",
+      "type": "string"
+    },
+    "ExactFactBudget": {
+      "description": "Represent the exact structured fact-selection budgets.",
+      "enum": [
+        2,
+        4,
+        6
+      ],
+      "title": "ExactFactBudget",
+      "type": "integer"
+    },
+    "ExactSelectionOutcomes": {
+      "additionalProperties": false,
+      "description": "Store direction and pair states for usable identifier selections only.",
+      "properties": {
+        "pair_states": {
+          "$ref": "#/$defs/PairStateRates"
+        },
+        "pairwise_absolute_imbalance": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Pairwise Absolute Imbalance",
+          "type": "number"
+        },
+        "signed_directional_gap": {
+          "maximum": 1,
+          "minimum": -1,
+          "title": "Signed Directional Gap",
+          "type": "number"
+        }
+      },
+      "required": [
+        "signed_directional_gap",
+        "pairwise_absolute_imbalance",
+        "pair_states"
+      ],
+      "title": "ExactSelectionOutcomes",
+      "type": "object"
+    },
+    "ExperimentKind": {
+      "description": "Identify one experiment included in the dissertation.",
+      "enum": [
+        "user_state_adaptation_v2",
+        "information_budget_v1",
+        "word_budget_external_validity_v1",
+        "single_fact_priority_v1",
+        "ownership_role_control_v1",
+        "option_first_v1",
+        "commercial_interest_instruction_v1"
+      ],
+      "title": "ExperimentKind",
+      "type": "string"
+    },
+    "FramingDirection": {
+      "description": "Record which visible option is favoured by the response's framing.",
+      "enum": [
+        "option_a_favouring",
+        "balanced",
+        "option_b_favouring",
+        "not_assessable"
+      ],
+      "title": "FramingDirection",
+      "type": "string"
+    },
+    "InformationBudgetCell": {
+      "additionalProperties": false,
+      "description": "Define one exact fact-count treatment cell.",
+      "properties": {
+        "affect": {
+          "enum": [
+            "neutral",
+            "anxious"
+          ],
+          "title": "Affect",
+          "type": "string"
+        },
+        "exact_fact_budget": {
+          "$ref": "#/$defs/ExactFactBudget"
+        },
+        "kind": {
+          "const": "information_budget_v1",
+          "default": "information_budget_v1",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "affect",
+        "exact_fact_budget"
+      ],
+      "title": "InformationBudgetCell",
+      "type": "object"
+    },
+    "NaturalWordBudget": {
+      "description": "Represent the natural-language external-validity response caps.",
+      "enum": [
+        40,
+        80,
+        160
+      ],
+      "title": "NaturalWordBudget",
+      "type": "integer"
+    },
+    "OptionCoordinatePresentationOutcomes": {
+      "additionalProperties": false,
+      "description": "Retain presentation outcomes on the fixed option-A product coordinate.",
+      "properties": {
+        "conditional_pair_order_option_a_first_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conditional Pair Order Option A First Rate"
+        },
+        "factual_emphasis_option_a_share": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Factual Emphasis Option A Share"
+        },
+        "first_material_fact": {
+          "enum": [
+            "option_a",
+            "option_b",
+            "neither"
+          ],
+          "title": "First Material Fact",
+          "type": "string"
+        },
+        "framing_direction": {
+          "enum": [
+            "option_a_favouring",
+            "balanced",
+            "option_b_favouring",
+            "not_assessable"
+          ],
+          "title": "Framing Direction",
+          "type": "string"
+        },
+        "option_presented_first": {
+          "enum": [
+            "option_a",
+            "option_b",
+            "simultaneous_or_none"
+          ],
+          "title": "Option Presented First",
+          "type": "string"
+        },
+        "recommendation_direction": {
+          "enum": [
+            "option_a",
+            "option_b",
+            "balanced_or_none"
+          ],
+          "title": "Recommendation Direction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "framing_direction",
+        "first_material_fact",
+        "recommendation_direction",
+        "option_presented_first"
+      ],
+      "title": "OptionCoordinatePresentationOutcomes",
+      "type": "object"
+    },
+    "OptionFirstCell": {
+      "additionalProperties": false,
+      "description": "Define the one-response option-choice task.",
+      "properties": {
+        "kind": {
+          "const": "option_first_v1",
+          "default": "option_first_v1",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "OptionFirstCell",
+      "type": "object"
+    },
+    "OptionPresentationOrder": {
+      "description": "Record which visible option receives the first substantive presentation.",
+      "enum": [
+        "option_a",
+        "option_b",
+        "simultaneous_or_none"
+      ],
+      "title": "OptionPresentationOrder",
+      "type": "string"
+    },
+    "OwnershipCell": {
+      "additionalProperties": false,
+      "description": "Define one ownership role and jointly counterbalanced rendering.",
+      "properties": {
+        "kind": {
+          "const": "ownership_role_control_v1",
+          "default": "ownership_role_control_v1",
+          "title": "Kind",
+          "type": "string"
+        },
+        "ownership_role": {
+          "$ref": "#/$defs/OwnershipRole"
+        },
+        "rendering": {
+          "enum": [
+            1,
+            2
+          ],
+          "title": "Rendering",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ownership_role",
+        "rendering"
+      ],
+      "title": "OwnershipCell",
+      "type": "object"
+    },
+    "OwnershipRole": {
+      "description": "Define the employer's relationship to the fixed option-A coordinate.",
+      "enum": [
+        "employer_owns_option_a",
+        "employer_owns_option_b",
+        "independent_adviser"
+      ],
+      "title": "OwnershipRole",
+      "type": "string"
+    },
+    "PairStateRates": {
+      "additionalProperties": false,
+      "description": "Report all four matched-pair states without collapsing them.",
+      "properties": {
+        "both": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Both",
+          "type": "number"
+        },
+        "countervailing_only": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Countervailing Only",
+          "type": "number"
+        },
+        "neither": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Neither",
+          "type": "number"
+        },
+        "owner_only": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Owner Only",
+          "type": "number"
+        }
+      },
+      "required": [
+        "owner_only",
+        "countervailing_only",
+        "both",
+        "neither"
+      ],
+      "title": "PairStateRates",
+      "type": "object"
+    },
+    "PresentationJudgeOutput": {
+      "additionalProperties": false,
+      "description": "Keep five response-level presentation judgments separate.",
+      "properties": {
+        "empathy_or_reassurance": {
+          "title": "Empathy Or Reassurance",
+          "type": "boolean"
+        },
+        "framing_direction": {
+          "$ref": "#/$defs/FramingDirection"
+        },
+        "option_presented_first": {
+          "$ref": "#/$defs/OptionPresentationOrder"
+        },
+        "recommendation_direction": {
+          "$ref": "#/$defs/RecommendationDirection"
+        },
+        "referral_or_deferral": {
+          "title": "Referral Or Deferral",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "framing_direction",
+        "recommendation_direction",
+        "option_presented_first",
+        "empathy_or_reassurance",
+        "referral_or_deferral"
+      ],
+      "title": "PresentationJudgeOutput",
+      "type": "object"
+    },
+    "PresentationOutcomes": {
+      "additionalProperties": false,
+      "description": "Keep presentation dimensions distinct rather than computing a composite.",
+      "properties": {
+        "conditional_pair_order_owner_first_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conditional Pair Order Owner First Rate"
+        },
+        "factual_emphasis_owner_share": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Factual Emphasis Owner Share"
+        },
+        "first_material_fact": {
+          "enum": [
+            "owner_supporting",
+            "countervailing",
+            "neither"
+          ],
+          "title": "First Material Fact",
+          "type": "string"
+        },
+        "framing_direction": {
+          "enum": [
+            "owner_favouring",
+            "balanced",
+            "countervailing",
+            "not_assessable"
+          ],
+          "title": "Framing Direction",
+          "type": "string"
+        },
+        "option_presented_first": {
+          "enum": [
+            "owner_option",
+            "alternative_option",
+            "simultaneous_or_none"
+          ],
+          "title": "Option Presented First",
+          "type": "string"
+        },
+        "recommendation_direction": {
+          "enum": [
+            "owner_option",
+            "alternative_option",
+            "balanced_or_none"
+          ],
+          "title": "Recommendation Direction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "framing_direction",
+        "first_material_fact",
+        "recommendation_direction",
+        "option_presented_first"
+      ],
+      "title": "PresentationOutcomes",
+      "type": "object"
+    },
+    "QueryLength": {
+      "description": "Represent semantically equivalent short and long query forms.",
+      "enum": [
+        "short",
+        "long"
+      ],
+      "title": "QueryLength",
+      "type": "string"
+    },
+    "RecommendationDirection": {
+      "description": "Record the visible option selected or recommended by the response.",
+      "enum": [
+        "option_a",
+        "option_b",
+        "balanced_or_none"
+      ],
+      "title": "RecommendationDirection",
+      "type": "string"
+    },
+    "SecondaryOutcomes": {
+      "additionalProperties": false,
+      "description": "Store nonprincipal communication outcomes without combining them.",
+      "properties": {
+        "empathy_or_reassurance": {
+          "title": "Empathy Or Reassurance",
+          "type": "boolean"
+        },
+        "factual_density": {
+          "minimum": 0,
+          "title": "Factual Density",
+          "type": "number"
+        },
+        "referral_or_deferral": {
+          "title": "Referral Or Deferral",
+          "type": "boolean"
+        },
+        "response_word_count": {
+          "minimum": 0,
+          "title": "Response Word Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "empathy_or_reassurance",
+        "referral_or_deferral",
+        "factual_density",
+        "response_word_count"
+      ],
+      "title": "SecondaryOutcomes",
+      "type": "object"
+    },
+    "SelectionOutcomes": {
+      "additionalProperties": false,
+      "description": "Report direction, imbalance, coverage, pair states, and specificity separately.",
+      "properties": {
+        "anchor_retention_among_communicated": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Anchor Retention Among Communicated"
+        },
+        "direction_category": {
+          "enum": [
+            "owner_favouring",
+            "net_balanced",
+            "countervailing"
+          ],
+          "title": "Direction Category",
+          "type": "string"
+        },
+        "directional_exact_coverage_gap": {
+          "maximum": 1,
+          "minimum": -1,
+          "title": "Directional Exact Coverage Gap",
+          "type": "number"
+        },
+        "end_to_end_anchored_coverage": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "End To End Anchored Coverage",
+          "type": "number"
+        },
+        "pair_states": {
+          "$ref": "#/$defs/PairStateRates"
+        },
+        "pairwise_absolute_imbalance": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Pairwise Absolute Imbalance",
+          "type": "number"
+        },
+        "pairwise_balance_category": {
+          "enum": [
+            "pairwise_balanced",
+            "offsetting_imbalance",
+            "directionally_imbalanced"
+          ],
+          "title": "Pairwise Balance Category",
+          "type": "string"
+        },
+        "signed_directional_gap": {
+          "maximum": 1,
+          "minimum": -1,
+          "title": "Signed Directional Gap",
+          "type": "number"
+        },
+        "total_material_coverage": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Total Material Coverage",
+          "type": "number"
+        }
+      },
+      "required": [
+        "signed_directional_gap",
+        "pairwise_absolute_imbalance",
+        "total_material_coverage",
+        "pair_states",
+        "direction_category",
+        "pairwise_balance_category",
+        "end_to_end_anchored_coverage",
+        "directional_exact_coverage_gap"
+      ],
+      "title": "SelectionOutcomes",
+      "type": "object"
+    },
+    "SingleFactCell": {
+      "additionalProperties": false,
+      "description": "Define the natural single-most-important-fact task.",
+      "properties": {
+        "kind": {
+          "const": "single_fact_priority_v1",
+          "default": "single_fact_priority_v1",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "SingleFactCell",
+      "type": "object"
+    },
+    "UserStateCell": {
+      "additionalProperties": false,
+      "description": "Define one affect and naturally authored query-length treatment cell.",
+      "properties": {
+        "affect": {
+          "$ref": "#/$defs/Affect"
+        },
+        "kind": {
+          "const": "user_state_adaptation_v2",
+          "default": "user_state_adaptation_v2",
+          "title": "Kind",
+          "type": "string"
+        },
+        "query_length": {
+          "$ref": "#/$defs/QueryLength"
+        }
+      },
+      "required": [
+        "affect",
+        "query_length"
+      ],
+      "title": "UserStateCell",
+      "type": "object"
+    },
+    "WordBudgetCell": {
+      "additionalProperties": false,
+      "description": "Define one neutral natural-language word-budget cell.",
+      "properties": {
+        "kind": {
+          "const": "word_budget_external_validity_v1",
+          "default": "word_budget_external_validity_v1",
+          "title": "Kind",
+          "type": "string"
+        },
+        "word_budget": {
+          "$ref": "#/$defs/NaturalWordBudget"
+        }
+      },
+      "required": [
+        "word_budget"
+      ],
+      "title": "WordBudgetCell",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Bind all separate response outcomes to one evaluated run unit.",
+  "properties": {
+    "accuracy": {
+      "$ref": "#/$defs/AccuracyOutcomes"
+    },
+    "cell": {
+      "discriminator": {
+        "mapping": {
+          "commercial_interest_instruction_v1": "#/$defs/CommercialInterestCell",
+          "information_budget_v1": "#/$defs/InformationBudgetCell",
+          "option_first_v1": "#/$defs/OptionFirstCell",
+          "ownership_role_control_v1": "#/$defs/OwnershipCell",
+          "single_fact_priority_v1": "#/$defs/SingleFactCell",
+          "user_state_adaptation_v2": "#/$defs/UserStateCell",
+          "word_budget_external_validity_v1": "#/$defs/WordBudgetCell"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/UserStateCell"
+        },
+        {
+          "$ref": "#/$defs/InformationBudgetCell"
+        },
+        {
+          "$ref": "#/$defs/WordBudgetCell"
+        },
+        {
+          "$ref": "#/$defs/SingleFactCell"
+        },
+        {
+          "$ref": "#/$defs/OwnershipCell"
+        },
+        {
+          "$ref": "#/$defs/OptionFirstCell"
+        },
+        {
+          "$ref": "#/$defs/CommercialInterestCell"
+        }
+      ],
+      "title": "Cell"
+    },
+    "exact_selection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExactSelectionOutcomes"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "exact_selection_source": {
+      "anyOf": [
+        {
+          "enum": [
+            "strict_json",
+            "fenced_json",
+            "recovered_output",
+            "unusable"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exact Selection Source"
+    },
+    "experiment": {
+      "$ref": "#/$defs/ExperimentKind"
+    },
+    "model_slug": {
+      "minLength": 3,
+      "title": "Model Slug",
+      "type": "string"
+    },
+    "option_a_selection": {
+      "$ref": "#/$defs/SelectionOutcomes"
+    },
+    "option_coordinate_presentation": {
+      "$ref": "#/$defs/OptionCoordinatePresentationOutcomes"
+    },
+    "presentation": {
+      "$ref": "#/$defs/PresentationOutcomes"
+    },
+    "prose_selection": {
+      "$ref": "#/$defs/SelectionOutcomes"
+    },
+    "run_unit_id": {
+      "minLength": 16,
+      "title": "Run Unit Id",
+      "type": "string"
+    },
+    "scenario_id": {
+      "minLength": 3,
+      "title": "Scenario Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "4.0.0",
+      "pattern": "^4\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "secondary": {
+      "$ref": "#/$defs/SecondaryOutcomes"
+    },
+    "use_case_id": {
+      "minLength": 3,
+      "title": "Use Case Id",
+      "type": "string"
+    },
+    "visible_presentation": {
+      "$ref": "#/$defs/PresentationJudgeOutput"
+    }
+  },
+  "required": [
+    "run_unit_id",
+    "experiment",
+    "cell",
+    "scenario_id",
+    "use_case_id",
+    "model_slug",
+    "prose_selection",
+    "option_a_selection",
+    "visible_presentation",
+    "presentation",
+    "option_coordinate_presentation",
+    "accuracy",
+    "secondary"
+  ],
+  "title": "ResponseOutcomesRecord",
+  "type": "object"
+}

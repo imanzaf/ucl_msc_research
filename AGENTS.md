@@ -1,6 +1,6 @@
 # UCL MSc Research Project
 
-Dissertation + experiments on AI deception detection in financial agents.
+Dissertation and reproducible experiments on selective and directional communication by financial-assistant language models.
 
 ## Commands
 
@@ -9,17 +9,22 @@ uv run python <script>          # always use uv run, never python directly
 uv add <package>                # add deps — never pip install
 uv run pytest                   # run tests
 uv run pre-commit run --all-files  # run black + isort + flake8
+uv run risk-comm --help         # inspect the unified workflow CLI
 ```
 
 ## Project structure
 
 ```
-.codex/skills/          # project skills (citation-validator, tex-reviewer, academic-author)
-src/settings/            # pydantic-settings classes, one file per concern
-src/cli/                 # unified risk-comm CLI and workflow commands
-scripts/                 # non-project repository tooling (hooks, maintenance helpers)
-src/                     # source code for research and experiments
-.env.static              # base config (committed, contains placeholders)
+src/                    # experiment, scoring, and analysis implementation
+src/settings/           # pydantic-settings classes and the model catalog
+src/cli/                # unified risk-comm CLI and workflow commands
+tests/                  # tests for the retained implementation
+schemas/                # exported JSON Schemas for public models
+scripts/                # launcher, focused audit, and repository-hook utilities
+docs/experiments/       # current workflow guides
+tex_src/v0.4.0/         # latest dissertation source and manuscript assets
+data/                   # frozen inputs and outputs; do not mutate without explicit scope
+.env.static             # base config (committed, contains placeholders)
 ```
 
 ## Environment and config
@@ -48,17 +53,6 @@ src/                     # source code for research and experiments
 
 **Types** — always type-hint function signatures; use `List[str]`, `Dict[str, int]` etc. from `typing`
 
-## Academic skills (`.codex/skills/`)
-
-| Skill | When to use | Script |
-|-------|-------------|--------|
-| `academic-author` | Write new sections or update existing with new context | `write_section.py` |
-| `tex-reviewer` | Critique and improve existing `.tex` content | `review_tex.py` |
-| `citation-validator` | Validate `.bib` entries against CrossRef + semantic check | `validate_citations.py` |
-| `research-auditor` | Verify paper claims against repo code and results (**explicit request + confirmation required**) | `audit_research.py` |
-
-All three use the Anthropic or OpenAI API — keys must be set in `.env`.
-
 ## Decision logging
 
 Decision logging is only for durable, dissertation-level choices. Log a decision only when it changes the research direction, paper framing, research questions, core dataset/benchmark/model-family choice, evaluation strategy, annotation rubric, scoring metric, or experimental protocol.
@@ -76,7 +70,7 @@ The `Stop` hook automatically scans your response for these lines and persists q
 
 ## Experiment logging
 
-**Naming** — all experiments follow `<descriptive_name>_v<N>` (lowercase snake_case, explicit version suffix). Increment `N` rather than overwriting. Examples: `deception_probe_v1`, `baseline_eval_v3`, `cross_agent_detection_v2`.
+**Naming** — all experiments follow `<descriptive_name>_v<N>` (lowercase snake_case, explicit version suffix). Increment `N` rather than overwriting.
 
 **Directory layout** — every experiment lives entirely under its own subdirectory:
 
@@ -87,23 +81,20 @@ data/outputs/experiments/
     results/             # raw outputs: JSONL records, CSVs
     cache/               # output caches (if relevant)
     logs/                # run logs, stderr captures
-    assets/              # paper-ready outputs (see below)
-    checkpoints/         # model weights
+    assets/              # experiment-owned stable assets
+    checkpoints/         # execution summaries and workflow checkpoints
 ```
 
 Experiment output directories live under `data/outputs/experiments/`; keep this tree git-ignored.
 
-**Paper asset generator** — every eval script must have an accompanying `generate_assets.py` (or `generate_paper_assets()` function) that:
-- Reads from `data/outputs/experiments/<name>_v<N>/results/`
-- Writes to `data/outputs/experiments/<name>_v<N>/assets/`
-- Produces at minimum a LaTeX table (`<name>_table.tex`, ready to `\input{}`) or a PDF figure (`<name>_figure.pdf`), whichever is more appropriate
-- Asset filenames are stable (no timestamps) so the dissertation can reference them by fixed path
+**Paper assets** — the versioned generator under `tex_src/v0.4.0/` reads frozen experiment and scoring outputs and writes stable manuscript figures,
+tables, and summaries alongside the current dissertation source. Do not generate placeholders in experiment directories.
 
 **Saving conventions**
 - Raw results: `data/outputs/experiments/<name>_v<N>/results/<YYYYMMDDTHHMMSS>_results.jsonl`
 - Run log: `data/outputs/experiments/<name>_v<N>/logs/<YYYYMMDDTHHMMSS>_run.log`
 - Config snapshot: `data/outputs/experiments/<name>_v<N>/config.json` (written before the run starts)
-- Paper assets: `data/outputs/experiments/<name>_v<N>/assets/<name>_table.tex`, `<name>_figure.pdf`
+- Manuscript assets: `tex_src/v0.4.0/assets/<stable_filename>`
 
 ## Documentation
 

@@ -1,22 +1,22 @@
 # Scenario Workflow
 
-All active scenario operations use `srcv2/scenarios/` through `risk-comm-v2`. The immutable source is
+All active scenario operations use `src/scenarios/` through `risk-comm`. The immutable source is
 `data/inputs/scenarios/v4.0.0.zip`; corrected seed inputs and their provenance record are in `data/inputs/scenarios/v4.0.1/`.
 
 ## 1. Verify and import the supplied package
 
 ```bash
-uv run risk-comm-v2 scenarios import-package \
+uv run risk-comm scenarios import-package \
   --source /Users/iman/Downloads/scenario_generation_v4.0.0_package.zip
 ```
 
-The importer in `srcv2/scenarios/import_package.py` verifies the expected SHA-256, preserves the archive, balances option presentation order, and
+The importer in `src/scenarios/import_package.py` verifies the expected SHA-256, preserves the archive, balances option presentation order, and
 replaces bundled required-specificity declarations with one atomic anchor. It refuses a checksum mismatch or a conflicting preserved archive.
 
 ## 2. Audit the corrected corpus
 
 ```bash
-uv run risk-comm-v2 scenarios validate
+uv run risk-comm scenarios validate
 ```
 
 The report at `data/inputs/scenarios/v4.0.1/corpus_audit.json` must show: six domains; 30 scenarios; 180 briefs; 90 pairs; 90 owner-supporting and 90
@@ -25,7 +25,7 @@ countervailing briefs; 90 favourable and 90 adverse briefs; 15 scenarios in each
 ## 3. Build controlled inputs
 
 ```bash
-uv run risk-comm-v2 scenarios build-generation-requests
+uv run risk-comm scenarios build-generation-requests
 ```
 
 This command writes 30 one-shot generation requests.
@@ -35,34 +35,34 @@ This command writes 30 one-shot generation requests.
 Generation uses GPT-5.4 through the OpenAI endpoint on OpenRouter, with fallback disabled. Price the exact hash-bound request batch first:
 
 ```bash
-uv run risk-comm-v2 scenarios estimate-generation-cost
+uv run risk-comm scenarios estimate-generation-cost
 ```
 
 After the researcher approves a bounded amount, record that approval and run the resumable workflow:
 
 ```bash
-uv run risk-comm-v2 scenarios approve-generation \
+uv run risk-comm scenarios approve-generation \
   --approved-max-cost 1.25 \
   --approved-by "Researcher" \
   --note "Approved GPT-5.4 fact generation through the pinned OpenAI endpoint." \
   --confirm-paid-generation
-uv run risk-comm-v2 scenarios run-generation
+uv run risk-comm scenarios run-generation
 ```
 
-The runner in `srcv2/scenarios/execution.py` uses strict JSON-schema output, reasoning effort `none`, temperature 0, seed 7, and a 2,048-token
+The runner in `src/scenarios/execution.py` uses strict JSON-schema output, reasoning effort `none`, temperature 0, seed 7, and a 2,048-token
 per-request ceiling. Each record in `data/inputs/scenarios/v4.0.1/generation_requests.jsonl` may produce one semantic generation only. A malformed
 semantic response is retained for review and is not replaced. Provider retries are allowed only when no semantic response was received. Config,
 approval, preflight, raw records, caches, and logs are stored under
 `data/outputs/scenario_generation/v4.0.1/scenario_fact_generation_v1/`; valid visible outputs are written to
 `data/inputs/scenarios/v4.0.1/generated_outputs.jsonl`.
 
-The returned facts must validate against accepted-scenario schema `10.0.0` in `schemas_v2/accepted_scenario.schema.json`. Arithmetic is checked in
+The returned facts must validate against accepted-scenario schema `10.0.0` in `schemas/accepted_scenario.schema.json`. Arithmetic is checked in
 code wherever the stated terms determine an exact value.
 
 After all 30 semantic outputs have been retained, join them to the frozen hidden metadata for manual audit:
 
 ```bash
-uv run risk-comm-v2 scenarios assemble-generated \
+uv run risk-comm scenarios assemble-generated \
   --generated-outputs data/inputs/scenarios/v4.0.1/generated_outputs.jsonl
 ```
 
@@ -72,12 +72,12 @@ The manual audit is recorded in `data/inputs/scenarios/v4.0.1/manual_review_audi
 to the exact seed set, generated-output set, request batch, audit, and individual replacements before applying them:
 
 ```bash
-uv run risk-comm-v2 scenarios approve-curation \
+uv run risk-comm scenarios approve-curation \
   --approved-by "Researcher" \
   --note "Approved the corrections documented in manual_review_audit.json." \
   --confirm-researcher-curation
-uv run risk-comm-v2 scenarios apply-curation
-uv run risk-comm-v2 scenarios validate \
+uv run risk-comm scenarios apply-curation
+uv run risk-comm scenarios validate \
   --seed-set data/inputs/scenarios/v4.0.1/curated_scenario_generation_seeds.json \
   --report data/inputs/scenarios/v4.0.1/curated_corpus_audit.json
 ```
@@ -90,21 +90,21 @@ final structural audit.
 
 ## 5. Researcher disposition and publication
 
-Each curated scenario receives exactly one accept-or-revise record defined in `srcv2/scenarios/review.py`. A revise disposition contains explicit
+Each curated scenario receives exactly one accept-or-revise record defined in `src/scenarios/review.py`. A revise disposition contains explicit
 instructions; an accepted disposition contains none. Publication fails unless every scenario has exactly one accepted review. There is no separate
 scenario pilot.
 
 Review status is read-only:
 
 ```bash
-uv run risk-comm-v2 review scenario-status \
+uv run risk-comm review scenario-status \
   --reviews data/inputs/scenarios/v4.0.1/reviews.jsonl
 ```
 
 Publish only after all 30 dispositions are accepted:
 
 ```bash
-uv run risk-comm-v2 review publish-scenarios \
+uv run risk-comm review publish-scenarios \
   --scenarios data/inputs/scenarios/v4.0.1/pending_scenarios.jsonl \
   --reviews data/inputs/scenarios/v4.0.1/reviews.jsonl \
   --output data/inputs/scenarios/v4.0.1/accepted_scenarios.jsonl
@@ -120,11 +120,11 @@ in short and long forms. The queries do not assume that the customer knows there
 the exact authored query content, then republish:
 
 ```bash
-uv run risk-comm-v2 scenarios approve-query-protocol \
+uv run risk-comm scenarios approve-query-protocol \
   --approved-by "Researcher" \
   --note "Approved the natural affect-by-length query families." \
   --confirm-query-protocol
-uv run risk-comm-v2 scenarios apply-query-protocol
+uv run risk-comm scenarios apply-query-protocol
 ```
 
 The approval is stored at `data/inputs/scenarios/v4.0.1/manual_revisions/query_protocol_approval.json`. Application writes 180 variants to
@@ -137,11 +137,11 @@ The six natural deployment contexts are declared in `prompt_contexts.json`. Each
 plain-language task, and one short authority-limit sentence. Apply them to a final active seed and the accepted scenarios:
 
 ```bash
-uv run risk-comm-v2 scenarios approve-prompt-protocol \
+uv run risk-comm scenarios approve-prompt-protocol \
   --approved-by "Researcher" \
   --note "Approved the seed-owned evaluated-prompt contexts." \
   --confirm-prompt-protocol
-uv run risk-comm-v2 scenarios apply-prompt-protocol
+uv run risk-comm scenarios apply-prompt-protocol
 ```
 
 The resulting `final_scenario_generation_seeds.json` is the active planning seed. The preserved source generation seed, request hashes, generated
