@@ -1,0 +1,146 @@
+{
+  "schema_version": "1.0.0",
+  "budget_prevalence": {
+    "exact_selection_neutral": {
+      "2": {
+        "n": 210,
+        "complete_percent": 0.0,
+        "pairwise_balanced_percent": 22.857142857142858,
+        "net_neutral_percent": 45.23809523809524,
+        "incomplete_percent": 100.0,
+        "broken_pair_percent": 77.14285714285714,
+        "nonzero_direction_percent": 54.76190476190476,
+        "neutral_with_broken_pair_percent": 22.38095238095238,
+        "mean_coverage": 0.3333333333333333,
+        "mean_imbalance": 0.5142857142857142,
+        "mean_direction": -0.028571428571428564
+      },
+      "4": {
+        "n": 210,
+        "complete_percent": 0.0,
+        "pairwise_balanced_percent": 30.476190476190474,
+        "net_neutral_percent": 65.71428571428571,
+        "incomplete_percent": 100.0,
+        "broken_pair_percent": 69.52380952380952,
+        "nonzero_direction_percent": 34.285714285714285,
+        "neutral_with_broken_pair_percent": 35.23809523809524,
+        "mean_coverage": 0.6666666666666666,
+        "mean_imbalance": 0.46349206349206346,
+        "mean_direction": -0.0761904761904762
+      },
+      "6": {
+        "n": 210,
+        "complete_percent": 100.0,
+        "pairwise_balanced_percent": 100.0,
+        "net_neutral_percent": 100.0,
+        "incomplete_percent": 0.0,
+        "broken_pair_percent": 0.0,
+        "nonzero_direction_percent": 0.0,
+        "neutral_with_broken_pair_percent": 0.0,
+        "mean_coverage": 1.0,
+        "mean_imbalance": 0.0,
+        "mean_direction": 0.0
+      }
+    },
+    "natural_prose": {
+      "40": {
+        "n": 210,
+        "complete_percent": 27.61904761904762,
+        "pairwise_balanced_percent": 37.61904761904762,
+        "net_neutral_percent": 46.19047619047619,
+        "incomplete_percent": 72.38095238095238,
+        "broken_pair_percent": 62.38095238095238,
+        "nonzero_direction_percent": 53.80952380952381,
+        "neutral_with_broken_pair_percent": 8.571428571428571,
+        "mean_coverage": 0.7174603174603176,
+        "mean_imbalance": 0.3047619047619048,
+        "mean_direction": -0.012698412698412702
+      },
+      "80": {
+        "n": 210,
+        "complete_percent": 63.333333333333336,
+        "pairwise_balanced_percent": 67.14285714285714,
+        "net_neutral_percent": 70.95238095238095,
+        "incomplete_percent": 36.666666666666664,
+        "broken_pair_percent": 32.857142857142854,
+        "nonzero_direction_percent": 29.047619047619047,
+        "neutral_with_broken_pair_percent": 3.8095238095238093,
+        "mean_coverage": 0.8912698412698413,
+        "mean_imbalance": 0.14444444444444443,
+        "mean_direction": -0.004761904761904764
+      },
+      "160": {
+        "n": 210,
+        "complete_percent": 90.47619047619048,
+        "pairwise_balanced_percent": 90.47619047619048,
+        "net_neutral_percent": 90.47619047619048,
+        "incomplete_percent": 9.523809523809524,
+        "broken_pair_percent": 9.523809523809524,
+        "nonzero_direction_percent": 9.523809523809524,
+        "neutral_with_broken_pair_percent": 0.0,
+        "mean_coverage": 0.9825396825396826,
+        "mean_imbalance": 0.03492063492063492,
+        "mean_direction": -0.009523809523809525
+      }
+    }
+  },
+  "commercial_k2_levels": {
+    "control": {
+      "n": 630,
+      "mean_coverage": 0.47089947089947093,
+      "mean_imbalance": 0.5947089947089947,
+      "mean_direction": -0.0031746031746031776,
+      "institution_supporting_first_fact_percent": 50.79365079365079,
+      "institution_supporting_framing_percent": 23.80952380952381,
+      "mean_words": 69.57301587301588,
+      "positive_direction_percent": 37.301587301587304,
+      "negative_direction_percent": 37.93650793650794,
+      "neutral_direction_percent": 24.761904761904763
+    },
+    "commercial_objective": {
+      "n": 630,
+      "mean_coverage": 0.462962962962963,
+      "mean_imbalance": 0.6052910052910053,
+      "mean_direction": 0.10158730158730157,
+      "institution_supporting_first_fact_percent": 59.36507936507937,
+      "institution_supporting_framing_percent": 35.714285714285715,
+      "mean_words": 71.15396825396826,
+      "positive_direction_percent": 46.34920634920635,
+      "negative_direction_percent": 30.317460317460316,
+      "neutral_direction_percent": 23.333333333333332
+    }
+  },
+  "commercial_k2_transitions": {
+    "n": 630,
+    "toward_institution_count": 197,
+    "unchanged_count": 330,
+    "away_from_institution_count": 103,
+    "toward_institution_percent": 31.26984126984127,
+    "unchanged_percent": 52.38095238095238,
+    "away_from_institution_percent": 16.349206349206348
+  },
+  "selection_prose_agreement": {
+    "n": 629,
+    "selection_toward_institution_percent": 18.75993640699523,
+    "selection_unchanged_percent": 74.88076311605724,
+    "selection_away_from_institution_percent": 6.359300476947536,
+    "pearson_r": 0.8218857562937782,
+    "spearman_rho": 0.7226947368899089
+  },
+  "scenario_domain_heterogeneity": {
+    "scenario_count": 30,
+    "positive_scenario_count": 22,
+    "zero_scenario_count": 1,
+    "negative_scenario_count": 7,
+    "positive_domain_count": 6,
+    "domain_count": 6,
+    "domain_mean_direction_changes": {
+      "Credit and repayment": 0.0984126984126984,
+      "Insurance settlements": 0.04444444444444444,
+      "International payments": 0.16507936507936508,
+      "Investment platforms": 0.14285714285714285,
+      "Mortgages": 0.06984126984126984,
+      "Savings": 0.10793650793650793
+    }
+  }
+}
