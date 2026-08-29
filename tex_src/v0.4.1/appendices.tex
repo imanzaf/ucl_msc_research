@@ -3,8 +3,31 @@
 \label{app:materials}
 
 \begin{revisionblock}
-This appendix provides one complete generation-seed example, two further annotated scenario instances, the exact task wording needed to interpret Chapter~\ref{chap:methodology}, and scored outputs from all seven experimental components. The examples are illustrative rather than a reproduction of the full corpus or an estimate of how frequently each response pattern occurred.
+This appendix provides the sample sizes for the full experiment matrix, one complete generation-seed example, two further annotated scenario instances, the exact task wording needed to interpret Chapter~\ref{chap:methodology}, and scored outputs from all seven experimental components. The examples are illustrative rather than a reproduction of the full corpus or an estimate of how frequently each response pattern occurred.
 \end{revisionblock}
+
+\section{Experiment matrix and sample sizes}
+\begin{table}[htbp]
+\centering
+\caption{\rev{Sample sizes for the seven implemented experiment directories.}}
+\label{app:experiment-sample-sizes}
+\small
+\begin{tabularx}{0.94\textwidth}{@{}Yrr@{}}
+\toprule
+\rev{\textbf{Experiment}} & \rev{\textbf{Scenario instances}} & \rev{\textbf{Responses}} \\
+\midrule
+\rev{Customer-state cues} & \rev{30} & \rev{1,260} \\
+\rev{Exact information budget} & \rev{30} & \rev{1,050} \\
+\rev{Natural word budget} & \rev{30} & \rev{630} \\
+\rev{Single-priority fact} & \rev{30} & \rev{210} \\
+\rev{Institutional affiliation} & \rev{11} & \rev{462} \\
+\rev{Forced option choice} & \rev{30} & \rev{210} \\
+\rev{Commercial objective} & \rev{30; 11 for ownership} & \rev{6,888} \\
+\midrule
+\rev{\textbf{Total}} & & \rev{\textbf{10,710}} \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 \input{appendix_seed_and_scenarios_generated.tex}
 
@@ -250,7 +273,7 @@ The tables and figures in this appendix provide the inferential detail and secon
 
 \begin{table}[htbp]
 \centering
-\caption{\rev{Raw p-values and RQ1 Holm-adjusted p-values for the seven primary statistical tests.}}
+\caption{\rev{\textcolor{red}{TODO: should we also report which exclude 0 as another test of significance}Raw p-values and RQ1 Holm-adjusted p-values for the seven primary statistical tests.}}
 \label{tab:appendix_raw_pvalues}
 \small
 \begin{tabularx}{\textwidth}{@{}YL{0.22\textwidth}rr@{}}
