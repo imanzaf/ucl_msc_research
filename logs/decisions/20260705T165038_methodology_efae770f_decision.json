@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-07-05T16:50:38",
-  "decision_type": "methodology",
-  "author": "codex",
-  "content": "Show the financial agent natural source-labelled reference texts rather than atomic fact lines, because the benchmark should approximate production-like financial evidence while keeping scoring metadata hidden.",
-  "source": "user_prompt",
-  "content_hash": "efae770f09595d6307e8560f96bf9d7037d1c16a5c29f4ccf9a3846b4eeb8017"
-}

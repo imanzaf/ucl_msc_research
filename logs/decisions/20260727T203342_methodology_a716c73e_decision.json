@@ -1,8 +1,0 @@
-{
-  "timestamp": "2026-07-27T20:33:42",
-  "decision_type": "methodology",
-  "author": "codex",
-  "content": "Seed v1.0.0 uses separately authored, non-leading neutral and concerned queries for every scenario; the concerned condition consistently says \u201creally worried,\u201d and both conditions share a generic follow-up without implying a preferred option or customer background.",
-  "source": "transcript",
-  "content_hash": "a716c73e39d77dfef11f28714870e3ea516d7cd09b631e2a1b07c28485e54735"
-}

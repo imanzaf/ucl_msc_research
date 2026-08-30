@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-06-16T19:51:00",
-  "decision_type": "research",
-  "author": "codex",
-  "content": "Track benchmark provenance per scenario because the plan sources/adapts scenarios from existing finance and deception benchmarks and needs auditability.",
-  "source": "transcript",
-  "content_hash": "109b5c9696fc8cdd337c84832dc0a7e38bab6f20ac2460166d4792091f660395"
-}

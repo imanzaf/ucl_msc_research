@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-07-15T21:59:32",
-  "decision_type": "methodology",
-  "author": "codex",
-  "content": "Adopt a matched-replication experimental design in V0.3 by replacing V5's five independently varied cases per family with four cases arranged as two task archetypes and two replications each, holding task, requests, source format, risk categories, fact structure, difficulty, density, and visibility constant within each pair while varying only fictional details and values, because this reduces content and task-mix confounds.",
-  "source": "user_prompt",
-  "content_hash": "39ae71e2b983e90dc4760233af02d7b22ddc84711c87592794cf374a523663c8"
-}

@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-07-05T16:50:38",
-  "decision_type": "methodology",
-  "author": "codex",
-  "content": "Keep production-baseline task guidance seed-owned rather than LLM-generated, because prompt wording must remain controlled and not vary with generated scenario content.",
-  "source": "user_prompt",
-  "content_hash": "22df4227e57b85e6b371d6285242c9da7aeb56de619c225570a290c3baa182f7"
-}

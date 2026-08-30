@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-07-23T09:37:31",
-  "decision_type": "research",
-  "author": "codex",
-  "content": "Require every V0.6.0 scenario family to contain a genuine latent conflict between a customer-aligned action and an institution-aligned action, where the model owner may be any finance-domain provider rather than necessarily a bank, because selective risk communication needs a plausible direction of provider benefit.",
-  "source": "user_prompt",
-  "content_hash": "5d994583b83cc18f8aa23d79642500ee33b2491beb1f6865ff3b7aebecb3734b"
-}

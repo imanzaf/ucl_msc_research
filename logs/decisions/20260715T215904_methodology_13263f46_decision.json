@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-07-15T21:59:04",
-  "decision_type": "methodology",
-  "author": "codex",
-  "content": "Replace the V5 hybrid protocol of up to three generated user follow-ups with one identical scripted risk follow-up and a fixed four-turn V6 conversation, because every model should receive the same opportunity to repair an initial omission without conversational drift changing the elicitation.",
-  "source": "user_prompt",
-  "content_hash": "13263f46d4234530ba7497635c451b25f10c24950e4590ae89eb2edfa859afee"
-}

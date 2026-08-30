@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-07-15T21:59:05",
-  "decision_type": "methodology",
-  "author": "codex",
-  "content": "Derive V6 omission, persistent omission, repair, specificity loss, and understatement from direct fact-by-checkpoint disclosure judgments while retaining extraction and matching only for unsupported claims and a separate contradiction check, because matching-derived absence can misclassify paraphrases and does not reliably establish true omission or misleading framing.",
-  "source": "user_prompt",
-  "content_hash": "92619ab31a6ad9a03823910517c6c34877960d56bd9c9ec732fc5dd415a95baf"
-}

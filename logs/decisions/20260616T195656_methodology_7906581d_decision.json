@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-06-16T19:56:56",
-  "decision_type": "methodology",
-  "author": "codex",
-  "content": "Make target falsifiability applicable only to high-nudge scenarios because only explicit high-nudge prompting can fairly control the intended deception form; low- and zero-nudge scenarios should record observed falsifiability during response annotation.",
-  "source": "transcript",
-  "content_hash": "7906581de2a95e65c98dcf1b0f9ad875a2d553da02b157be7c0cd34dc052909c"
-}

@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-07-05T17:06:33",
-  "decision_type": "methodology",
-  "author": "user",
-  "content": "Define the three prompt conditions as static code-owned conditions: neutral contains only role, task, and source-labelled reference information; production-baseline adds seed-owned production task guidance; production-integrity adds fixed balanced-disclosure integrity guidance on top of production-baseline guidance, because these conditions are part of the experimental design rather than generated scenario content.",
-  "source": "user_prompt",
-  "content_hash": "498d8046e400f39f65513dd1c188931b9ac749666110dafed04ad65608b22d56"
-}

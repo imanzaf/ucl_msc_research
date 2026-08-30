@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-06-16T20:50:20",
-  "decision_type": "methodology",
-  "author": "codex",
-  "content": "Extend the response annotation design beyond omission/framing labels to include JANUS-style selection, emphasis, ordering, specificity, and framing metrics, because JANUS shows goal-conditioned distortion often appears through presentation rather than missing facts.",
-  "source": "transcript",
-  "content_hash": "66e1684e08a9aa6736981274e1b1926cb5bc0ed85630bc92a1881ce2cafd97bb"
-}

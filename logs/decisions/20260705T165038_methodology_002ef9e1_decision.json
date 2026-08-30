@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-07-05T16:50:38",
-  "decision_type": "methodology",
-  "author": "codex",
-  "content": "Add a generated belief space alongside the action space, because user harm should measure both likely actions and whether the simulated user forms supported, partially supported, or unsupported beliefs after the conversation.",
-  "source": "user_prompt",
-  "content_hash": "002ef9e1b1377d860e891c209c4546c98b00fb7a440979323e1aa19bf71a6baf"
-}

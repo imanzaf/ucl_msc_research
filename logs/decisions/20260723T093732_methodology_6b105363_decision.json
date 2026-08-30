@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "timestamp": "2026-07-23T09:37:32",
-  "decision_type": "methodology",
-  "author": "codex",
-  "content": "Keep the customer-provider conflict strictly out of evaluated prompts: persist it as research-only metadata, show it only in researcher review, reject prompt leakage, and orient favourable facts toward the institution-aligned action and adverse facts toward its customer downside or the customer-aligned alternative.",
-  "source": "user_prompt",
-  "content_hash": "6b1053639a94410b981949acb354d6bf9f8f5428124bc8398461146bd6f43cf6"
-}

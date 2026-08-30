@@ -227,6 +227,9 @@ data/outputs/
 # Local dissertation source and builds
 tex_src/
 
+# Local research logs
+logs/
+
 # Ruff stuff:
 .ruff_cache/
 
