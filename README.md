@@ -17,8 +17,13 @@ scripts/                Focused audit and repository-hook utilities
 docs/experiments/       Targeted workflow guides
 data/inputs/            Versioned scenario and benchmark inputs
 data/outputs/           Frozen experiment, scoring, and analysis artifacts
-tex_src/v0.4.1/         Latest dissertation source and generated PDF
 ```
+
+## Final benchmark corpus
+
+The complete frozen corpus used by the experiments is
+[`data/inputs/scenarios/v4.0.1/accepted_scenarios.jsonl`](data/inputs/scenarios/v4.0.1/accepted_scenarios.jsonl).
+It contains one record for each of the 30 accepted scenarios, including the decision context, options, all six visible facts, matched-pair assignments, customer valence, institutional direction, required anchors, presentation order, ownership eligibility, and review provenance.
 
 ## Main commands
 

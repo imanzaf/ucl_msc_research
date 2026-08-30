@@ -224,6 +224,9 @@ tempCodeRunnerFile.py
 # Generated experiment outputs
 data/outputs/
 
+# Local dissertation source and builds
+tex_src/
+
 # Ruff stuff:
 .ruff_cache/
 
