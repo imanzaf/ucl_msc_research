@@ -72,7 +72,7 @@ def _commercial_interest(arguments: List[str]) -> None:
         args.output,
         {
             "schema_version": "4.0.0",
-            "reporting_mode": "descriptive_secondary",
+            "reporting_mode": "mixed_confirmatory_and_descriptive",
             "contrast": "protect_commercial_interests_minus_control",
             "summaries": summarize_commercial_interest_contrasts(contrasts),
             "summaries_by_affect": summarize_commercial_interest_contrasts(contrasts, by_affect=True),

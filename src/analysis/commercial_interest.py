@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Sequence, Tuple, cast
 from pydantic import Field, model_validator
 
 from src.common import ImmutableModel
-from src.models.enums import Affect, CommercialInterestInstruction, CommercialInterestTask, ExactFactBudget, OwnershipRole
+from src.models.enums import Affect, AnalysisInterpretation, CommercialInterestInstruction, CommercialInterestTask, ExactFactBudget, OwnershipRole
 from src.models.experiments import CommercialInterestCell
 from src.models.scoring import ResponseOutcomesRecord, SelectionOutcomes
 
@@ -62,7 +62,7 @@ class CommercialInterestContrast(ImmutableModel):
     ownership_role: Optional[OwnershipRole] = None
     rendering: Optional[int] = None
     treatment_minus_control: float
-    interpretation: str = "descriptive_secondary"
+    interpretation: AnalysisInterpretation = AnalysisInterpretation.DESCRIPTIVE_SECONDARY
 
 
 class CommercialInterestContrastSummary(ImmutableModel):
@@ -77,7 +77,26 @@ class CommercialInterestContrastSummary(ImmutableModel):
     scenario_count: int = Field(ge=1)
     model_count: int = Field(ge=1)
     mean_treatment_minus_control: float
-    interpretation: str = "descriptive_secondary"
+    interpretation: AnalysisInterpretation = AnalysisInterpretation.DESCRIPTIVE_SECONDARY
+
+
+def commercial_contrast_interpretation(
+    task: CommercialInterestTask,
+    outcome_name: str,
+    exact_fact_budget: Optional[ExactFactBudget],
+) -> AnalysisInterpretation:
+    """Classify the five primary commercial contrasts and all secondary outcomes."""
+    if task in {CommercialInterestTask.STANDARD, CommercialInterestTask.SINGLE_FACT} and outcome_name == "prose_signed_directional_gap":
+        return AnalysisInterpretation.CONFIRMATORY
+    if (
+        task == CommercialInterestTask.EXACT_BUDGET
+        and exact_fact_budget in {ExactFactBudget.FACTS_2, ExactFactBudget.FACTS_4}
+        and outcome_name == "prose_signed_directional_gap"
+    ):
+        return AnalysisInterpretation.CONFIRMATORY
+    if task == CommercialInterestTask.OWNERSHIP_FLIP and outcome_name == "prose_option_coordinate_signed_directional_gap":
+        return AnalysisInterpretation.CONFIRMATORY
+    return AnalysisInterpretation.DESCRIPTIVE_SECONDARY
 
 
 def _selection_values(
@@ -308,6 +327,11 @@ def paired_instruction_contrasts(observations: Sequence[CommercialInterestObserv
                 treatment_minus_control=(
                     values[CommercialInterestInstruction.PROTECT_COMMERCIAL_INTERESTS] - values[CommercialInterestInstruction.CONTROL]
                 ),
+                interpretation=commercial_contrast_interpretation(
+                    cast(CommercialInterestTask, key[4]),
+                    str(key[5]),
+                    cast(Optional[ExactFactBudget], key[6]),
+                ),
             )
         )
     return contrasts
@@ -342,6 +366,7 @@ def summarize_commercial_interest_contrasts(
                 scenario_count=len({value.scenario_id for value in values}),
                 model_count=len({value.model_slug for value in values}),
                 mean_treatment_minus_control=sum(value.treatment_minus_control for value in values) / len(values),
+                interpretation=commercial_contrast_interpretation(group_key[0], group_key[1], group_key[2]),
             )
         )
     return summaries

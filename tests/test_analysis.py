@@ -7,6 +7,7 @@ import pytest
 from src.analysis.commercial_interest import (
     CommercialInterestContrast,
     CommercialInterestObservation,
+    commercial_contrast_interpretation,
     paired_instruction_contrasts,
     summarize_commercial_interest_contrasts,
 )
@@ -22,7 +23,7 @@ from src.analysis.confirmatory import (
     ordered_budget_contrasts,
 )
 from src.analysis.resampling import stratified_cluster_bootstrap
-from src.models.enums import Affect, CommercialInterestInstruction, CommercialInterestTask, ExactFactBudget, OwnershipRole
+from src.models.enums import Affect, AnalysisInterpretation, CommercialInterestInstruction, CommercialInterestTask, ExactFactBudget, OwnershipRole
 
 
 def _contrasts() -> list[ScenarioContrast]:
@@ -140,6 +141,7 @@ def test_commercial_confirmatory_contrasts_cover_each_task() -> None:
                                 outcome_name="prose_signed_directional_gap",
                                 exact_fact_budget=budget,
                                 treatment_minus_control=value,
+                                interpretation=AnalysisInterpretation.CONFIRMATORY,
                             )
                         )
 
@@ -164,6 +166,7 @@ def test_commercial_confirmatory_contrasts_cover_each_task() -> None:
                                 ownership_role=role,
                                 rendering=rendering,
                                 treatment_minus_control=fixed_option_value,
+                                interpretation=AnalysisInterpretation.CONFIRMATORY,
                             )
                         )
 
@@ -211,3 +214,39 @@ def test_commercial_interest_contrast_pairs_only_the_instruction() -> None:
     assert summaries[0].contrast_count == 1
     assert summaries[0].scenario_count == 1
     assert summaries[0].mean_treatment_minus_control == contrasts[0].treatment_minus_control
+
+
+@pytest.mark.parametrize(
+    ("task", "outcome_name", "budget", "expected"),
+    [
+        (CommercialInterestTask.STANDARD, "prose_signed_directional_gap", None, AnalysisInterpretation.CONFIRMATORY),
+        (CommercialInterestTask.SINGLE_FACT, "prose_signed_directional_gap", None, AnalysisInterpretation.CONFIRMATORY),
+        (
+            CommercialInterestTask.EXACT_BUDGET,
+            "prose_signed_directional_gap",
+            ExactFactBudget.FACTS_4,
+            AnalysisInterpretation.CONFIRMATORY,
+        ),
+        (
+            CommercialInterestTask.EXACT_BUDGET,
+            "prose_signed_directional_gap",
+            ExactFactBudget.FACTS_2,
+            AnalysisInterpretation.CONFIRMATORY,
+        ),
+        (
+            CommercialInterestTask.OWNERSHIP_FLIP,
+            "prose_option_coordinate_signed_directional_gap",
+            None,
+            AnalysisInterpretation.CONFIRMATORY,
+        ),
+        (CommercialInterestTask.STANDARD, "framing_owner_favouring", None, AnalysisInterpretation.DESCRIPTIVE_SECONDARY),
+    ],
+)
+def test_commercial_contrast_metadata_matches_analysis_status(
+    task: CommercialInterestTask,
+    outcome_name: str,
+    budget: ExactFactBudget | None,
+    expected: AnalysisInterpretation,
+) -> None:
+    """Label only the five primary commercial contrast definitions as confirmatory."""
+    assert commercial_contrast_interpretation(task, outcome_name, budget) == expected

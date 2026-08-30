@@ -187,18 +187,22 @@ def ordered_budget_contrasts(scores: Sequence[BudgetScore]) -> List[ScenarioCont
 
 def _commercial_test_name(contrast: CommercialInterestContrast) -> str | None:
     """Map one commercial prose-direction contrast to its confirmatory task name."""
+    test_name: str | None = None
     if contrast.task == CommercialInterestTask.STANDARD and contrast.outcome_name == "prose_signed_directional_gap":
-        return "commercial_standard_D"
-    if contrast.task == CommercialInterestTask.SINGLE_FACT and contrast.outcome_name == "prose_signed_directional_gap":
-        return "commercial_single_fact_D"
-    if contrast.task == CommercialInterestTask.EXACT_BUDGET and contrast.outcome_name == "prose_signed_directional_gap":
+        test_name = "commercial_standard_D"
+    elif contrast.task == CommercialInterestTask.SINGLE_FACT and contrast.outcome_name == "prose_signed_directional_gap":
+        test_name = "commercial_single_fact_D"
+    elif contrast.task == CommercialInterestTask.EXACT_BUDGET and contrast.outcome_name == "prose_signed_directional_gap":
         if contrast.exact_fact_budget == ExactFactBudget.FACTS_4:
-            return "commercial_exact_k4_D"
-        if contrast.exact_fact_budget == ExactFactBudget.FACTS_2:
-            return "commercial_exact_k2_D"
-    if contrast.task == CommercialInterestTask.OWNERSHIP_FLIP and contrast.outcome_name == "prose_option_coordinate_signed_directional_gap":
-        return "commercial_ownership_flip_D"
-    return None
+            test_name = "commercial_exact_k4_D"
+        elif contrast.exact_fact_budget == ExactFactBudget.FACTS_2:
+            test_name = "commercial_exact_k2_D"
+    elif contrast.task == CommercialInterestTask.OWNERSHIP_FLIP and contrast.outcome_name == "prose_option_coordinate_signed_directional_gap":
+        test_name = "commercial_ownership_flip_D"
+    expected_interpretation = AnalysisInterpretation.CONFIRMATORY if test_name is not None else AnalysisInterpretation.DESCRIPTIVE_SECONDARY
+    if contrast.interpretation != expected_interpretation:
+        raise ValueError(f"commercial contrast metadata does not match its analysis status: {contrast.task.value}/{contrast.outcome_name}")
+    return test_name
 
 
 def _owner_relative_commercial_value(contrast: CommercialInterestContrast) -> float:

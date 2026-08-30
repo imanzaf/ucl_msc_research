@@ -64,6 +64,7 @@ class AnalysisInterpretation(str, Enum):
     """Label the inferential status of an analysis output."""
 
     CONFIRMATORY = "confirmatory"
+    DESCRIPTIVE_SECONDARY = "descriptive_secondary"
 
 
 class MultiplicityFamily(str, Enum):
