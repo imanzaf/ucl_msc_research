@@ -383,7 +383,7 @@ Each accepted scenario instance has neutral, anxious and frustrated customer-sta
 
 Eleven cross-provider scenario instances additionally support an institutional-affiliation manipulation. In these instances, the assistant is assigned either an independent role or employment by one of the two fictional providers. The underlying analytical coordinates remain fixed throughout: \emph{Option A} and \emph{Option B} denote the same product-and-fact bundles used for coding, irrespective of which provider name appears first or employs the assistant. Two renderings vary provider naming and presentation order across those fixed coordinates. Consequently, Option A is neither necessarily the first-listed option nor necessarily the employer-associated option.
 
-These 11 scenario instances are used only for the affiliation and employer-relative analyses; all other experimental components use the complete 30-scenario corpus. Appendix~\ref{app:materials} documents one full scenario, its authored query variants and an instantiated prompt, while the repository contains the complete curated benchmark.
+These 11 scenario instances are used only for the affiliation and employer-relative analyses; all other experimental components use the complete 30-scenario corpus. Appendices~\ref{app:generation_seed_example}, \ref{app:customer_query_variants} and~\ref{app:complete_instantiated_prompt} document one full scenario, its authored query variants and an instantiated prompt, while the repository contains the complete curated benchmark.
 
 Each scenario instance was assigned one of two fixed fact orders, and that order was held constant across all models and matched treatment conditions for the scenario. The first order presented facts as \(F1,F2,F3,F4,F5,F6\); the second swapped the two members within each matched pair, yielding \(F2,F1,F4,F3,F6,F5\). Fifteen scenario instances used each order. This assignment balances the two sequences across the corpus while preserving exact within-scenario treatment pairing; fact order is not analysed as a within-scenario experimental factor.
 
@@ -444,7 +444,7 @@ forced choice.
 \begin{revisionblock}
 The scarcity component uses three related contracts. Exact-budget tasks require \code{selected\_fact\_ids} before \code{answer\_text}, making declared selection distinct from prose realisation. Neutral prompts use \(k=2,4,6\), while anxious prompts use \(k=2,4\), with the neutral \(k=6\) cell supplying the complete balanced endpoint. Natural budgets request no more than 40, 80 or 160 words but do not truncate or regenerate non-compliant responses. The single-priority task asks for one most important consideration without restricting the eventual explanation to one registered proposition.
 
-The contextual-adaptation component crosses neutral, anxious and frustrated wording with short and long query forms across all 30 scenario instances. Query length prevents the anxious--neutral contrast from depending on one phrasing length. \textcolor{red}{TODO: how does ownership flip compare to affiliation then in the table? And which experiment was this?}The affiliation experiment separately assigns the assistant to either fictional provider or an independent role, without a commercial objective. Its 11 eligible scenario instances cross three roles with two jointly counterbalanced name/order renderings while retaining Option A as the fixed analytical coordinate.
+The contextual-adaptation component crosses neutral, anxious and frustrated wording with short and long query forms across all 30 scenario instances. Query length prevents the anxious--neutral contrast from depending on one phrasing length. The affiliation experiment separately assigns the assistant to either fictional provider or an independent role, without a commercial objective. Its 11 eligible scenario instances cross three roles: independent, employed by the provider associated with Option A, and employed by the provider associated with Option B. Each role is evaluated under two renderings that swap provider names and display order. Option A is simply the stable analytical label for the same product-and-fact bundle across both renderings; it is not necessarily the first-listed or employer-associated option. This affiliation-only component is separate from the ownership-flip task in the commercial-objective experiment. The latter reuses the two employed roles but compares the presence and absence of the commercial-interest instruction.
 
 % The affiliation experiment uses the 11 eligible cross-provider scenario instances and varies only the assistant's institutional role: independent, employed by the provider attached to Option A, or employed by the provider attached to Option B. Each role is crossed with two name-and-order renderings, while the underlying Option A and Option B fact bundles remain fixed. This component tests whether employer association alone changes factual allocation or prominence.
 % A separate employer-relative component appears within the commercial-objective experiment. It excludes the independent role and compares otherwise matched control and commercial-interest prompts when the employer is attached to either Option A or Option B. Outcomes are sign-aligned so that positive values always indicate movement towards the employer-associated option. This employer-assignment contrast therefore tests whether the explicit objective follows the employer when the employer's option changes; it is not a second estimate of the affiliation-only effect.
@@ -453,7 +453,7 @@ The decision-output diagnostic instructs the model to choose one option and just
 
 The commercial treatment adds one system sentence: ``You should protect the commercial interests of [institution name].'' Its matched control omits that sentence while retaining the same role, facts, short customer-state cue query, 160-word maximum and task. Standard comparison, single priority and exact \(k=2\) and \(k=4\) cover all scenario instances. The ownership component uses the 11 eligible instances and recodes outcomes so positive values refer consistently to the employer-associated option. Treatment--control pairing is preserved across models, three customer-state cues and each task. The task-specific contrasts are analysed separately rather than pooled across response contracts, because a standard comparison, a single-priority response and an exact-selection task impose substantively different communication requirements.
 
-All prompts also carry one scenario-instance-specific authority limit, such as not making an affordability or eligibility decision. The limits prevent a forced-choice or commercial instruction from silently expanding the assistant's role. They are held fixed within paired treatment coordinates. Full prompt templates are reproduced in Appendix~\ref{app:materials}, including the exact identifier-first contract and the commercial sentence.
+All prompts also carry one scenario-instance-specific authority limit, such as not making an affordability or eligibility decision. The limits prevent a forced-choice or commercial instruction from silently expanding the assistant's role. They are held fixed within paired treatment coordinates. Full prompt templates are reproduced in Appendix~\ref{app:task_specific_wording}, including the exact identifier-first contract and the commercial sentence.
 
 Task adherence remains an outcome rather than an inclusion criterion. Word-limit violations, fenced JSON and other format deviations are retained as generated. Where an exact identifier set can be recovered under the documented deterministic rule, selection outcomes use that set even though format adherence remains false. No semantic guess is made from prose when identifiers are unavailable.
 
@@ -542,7 +542,7 @@ so $A=2/3$. Their directions cancel, however, so $D=0$. A zero directional
 gap can therefore arise either from genuinely balanced communication or from
 offsetting one-sidedness. This is why $D$ must be interpreted alongside
 coverage $T$ and pairwise imbalance $A$. A realised response illustrating
-this distinction is provided in Appendix~A.6.3.
+this distinction is provided in Appendix~\ref{app:response_example_natural_budget}.
 \end{revisionblock}
 
 \begin{table}[htbp]
@@ -587,7 +587,7 @@ for responses containing at least one fact. Conditional anchor retention, \(R\),
 
 Presentation outcomes are scored independently of content presence. The first-option and first-fact measures capture prominence; framing identifies the option favoured by evaluative language; and recommendation requires an explicit instruction to choose an option. Reassurance and referral capture interactional adaptation. Accuracy records only definite unsupported or contradictory material claims and excludes omission, advice, uncertainty and arithmetic that follows from the supplied facts.
 
-For employer-relative analyses, \textcolor{red}{TODO: this is still not explained well. use the earlier explanation and summarise here.}\emph{Option A} is the fixed benchmark coordinate attached to the same underlying product-and-fact bundle across renderings. The employer-assignment contrasts subsequently recode the sign so that positive values consistently indicate movement towards whichever option is associated with the assistant's employer.
+For employer-relative analyses, outcomes are first calculated using the persistent Option A and Option B product coordinates, irrespective of the provider names and display order used in a rendering. Contrasts from conditions in which the employer is associated with Option B are then multiplied by \(-1\). After this alignment, positive values consistently indicate movement towards the employer-associated option.
 \end{revisionblock}
 
 \section[Scoring and adjudication]{\rev{Scoring and adjudication}}
@@ -610,7 +610,7 @@ GPT-5.4-mini scored the first six experiments, whereas Gemini 3.1 Flash Lite sco
 
 The judge contracts were developed on a reproducible 5\% sample, stratified approximately by evaluated model and response length, and were frozen before full-corpus scoring. Following scoring, deterministic validation scripts surfaced structurally invalid returns, parsing failures, evidence-span inconsistencies and other predefined review candidates, while the researcher conducted targeted substantive spot checks. Corrections were applied only through a separate auditable override ledger that preserved the original judge output.
 
-Across 85,680 final scoring decisions, 929 decisions (1.08\%) carry a documented override. This percentage is an intervention rate rather than an estimate of judge accuracy because the reviewed cases were neither an independently sampled validation set nor exhaustively double-labelled. Contract-specific override counts and reasons are reported in Appendix~\ref{app:scoring_instruments}.
+Across 85,680 final scoring decisions, 929 decisions (1.08\%) carry a documented override. This percentage is an intervention rate rather than an estimate of judge accuracy because the reviewed cases were neither an independently sampled validation set nor exhaustively double-labelled. Contract-specific override counts and reasons are reported in Appendix~\ref{app:scoring_adjudication}.
 
 Calibration covered literal proposition boundaries, anchor interpretation and the validity of supporting-evidence spans. It also covered recommendation thresholds and the narrow error rubric. Deterministic recovery was kept distinct from semantic scoring: a response wrapped in one complete Markdown JSON fence could yield valid selected identifiers while remaining format-nonadherent. One commercial selection remained unusable because the recovered set had the wrong cardinality, while its prose outcomes were retained.
 
@@ -810,7 +810,7 @@ or more discrete facts.
 \begin{revisionblock}
 Figure~\ref{fig:primary_effects_forest} plots the seven estimates and pointwise intervals. Exact $k=2$ lies furthest in the institution-supporting direction and is
 highlighted as the only RQ1 contrast that remained below the
-Holm-adjusted significance threshold. The single-priority, \(k=4\) and ownership intervals exclude zero, although the single-priority raw p-value is 0.062. This difference is possible because the bootstrap intervals and sign-flip tests use different procedures. Neither singleton test showed evidence of an average institution-supporting shift. The RQ3 contrast compares \(k=2\) with \(k=6\), where \(D^{\mathrm{sel}}\) is mechanically zero. Appendix~\ref{app:supplementary_results} reports the complete p-values.
+Holm-adjusted significance threshold. The single-priority, \(k=4\) and ownership intervals exclude zero, although the single-priority raw p-value is 0.062. This difference is possible because the bootstrap intervals and sign-flip tests use different procedures. Neither singleton test showed evidence of an average institution-supporting shift. The RQ3 contrast compares \(k=2\) with \(k=6\), where \(D^{\mathrm{sel}}\) is mechanically zero. Appendix~\ref{app:supplementary_primary_tests} reports the complete p-values.
 \end{revisionblock}
 
 \section[Information constraints create omission and one-sidedness]{\rev{Information constraints create omission and one-sidedness, not average institutional direction}}
@@ -979,7 +979,6 @@ The example in Figure~\ref{fig:results_commercial_example} makes the reallocatio
 \end{figure}
 
 \section[Model heterogeneity and diagnostic checks]{\rev{Model heterogeneity and diagnostic checks}}
-\textcolor{red}{TODO: add specific appendix C references.}
 \begin{revisionblock}
 The exact $k=2$ commercial-objective effect was positive for all seven
 evaluated models, but its magnitude varied substantially (Figure~\ref{fig:commercial_model_heatmap}). Claude Sonnet 5
@@ -999,7 +998,7 @@ model- and scenario-level results are descriptive: the panel is fixed, each
 prompt coordinate was generated once, and five instances per domain are
 insufficient for domain-level generalisation. They nevertheless show that the
 aggregate $k=2$ effect is not driven solely by one model or one financial
-domain. Appendix~\ref{app:supplementary_results} retains the scenario plot.
+domain. Appendix~\ref{app:supplementary_scenario_heterogeneity} retains the scenario plot.
 \end{revisionblock}
 
 \begin{figure}[htbp]
@@ -1010,9 +1009,9 @@ domain. Appendix~\ref{app:supplementary_results} retains the scenario plot.
 \end{figure}
 
 \begin{revisionblock}
-The single-priority and forced-choice components discriminate further response layers. Single priority produced \(A=0.471\), \(T=0.560\) and mean \(D=-0.068\), with the first material fact countervailing in 105 responses and institution-supporting in 97. Forced-choice explanations retained \(T=0.918\) and near-zero direction, yet different models could recommend different options even when all six facts were present with \(D=0\) and \(A=0\). Balanced factual disclosure therefore did not imply a unique recommendation. Full counts and examples appear in Appendix~\ref{app:supplementary_results}.
+The single-priority and forced-choice components discriminate further response layers. Single priority produced \(A=0.471\), \(T=0.560\) and mean \(D=-0.068\), with the first material fact countervailing in 105 responses and institution-supporting in 97. Forced-choice explanations retained \(T=0.918\) and near-zero direction, yet different models could recommend different options even when all six facts were present with \(D=0\) and \(A=0\). Balanced factual disclosure therefore did not imply a unique recommendation. Full counts and examples appear in Appendices~\ref{app:supplementary_forced_choice_accuracy}, \ref{app:response_example_single_priority} and~\ref{app:response_example_forced_choice}.
 
-Declared identifiers and prose were related but non-identical. Models sometimes communicated propositions beyond their declared set, so identifiers are observable selection products rather than traces of hidden reasoning. Appendix~\ref{app:supplementary_results} reports the exploratory agreement between treatment-induced changes in declared-selection and prose direction for the 629 usable pairs.
+Declared identifiers and prose were related but non-identical. Models sometimes communicated propositions beyond their declared set, so identifiers are observable selection products rather than traces of hidden reasoning. Appendix~\ref{app:supplementary_selection_prose} reports the exploratory agreement between treatment-induced changes in declared-selection and prose direction for the 629 usable pairs.
 
 Specificity and factual accuracy remained diagnostically distinct from
 selection. Anchor retention improved as additional response space became
@@ -1020,7 +1019,7 @@ available, while response-level factual-error prevalence varied across task
 forms. Because error opportunity depends on response length and assertiveness,
 and because the commercial experiment used a different frozen judge setting,
 these rates are treated as descriptive diagnostics rather than as a
-cross-task accuracy ranking. Full results are reported in Appendix~\ref{app:supplementary_results}.
+cross-task accuracy ranking. Full results are reported in Appendix~\ref{app:supplementary_forced_choice_accuracy}.
 \end{revisionblock}
 
 \chapter[Discussion]{\rev{Discussion}}
